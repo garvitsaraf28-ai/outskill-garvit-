@@ -636,48 +636,54 @@ function Header({ serif, section, goHome, inCall }) {
 // AND on the first interaction.
 function makeAmbience() {
   let ctx, master, dest, timer = null, idx = 0;
-  const PEAK = 0.7;
-  // Soft music-box melody in C-major pentatonic (always consonant, never harsh).
-  const MELODY = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 880.00, 783.99, 659.25, 523.25, 587.33, 659.25];
+  const PEAK = 1.0;
+  // "Ee Sala Cup Namde" RCB anthem melody — synthesized in-browser (D major).
+  // Phrase: Ee-sa-la  cup  nam-de  (repeat with a lift on the second pass)
+  const MELODY = [
+    587.33, 659.25, 739.99, 659.25,   // Ee  sa  la  (descend)
+    587.33, 523.25,                    // cup  nam
+    587.33, 659.25,                    // de  (resolve)
+    739.99, 830.61, 739.99, 659.25,   // lifted repeat
+    587.33, 523.25, 587.33, 493.88,   // closing phrase
+  ];
   const build = () => {
     if (ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     ctx = new AC();
     master = ctx.createGain(); master.gain.value = 0.0001; master.connect(ctx.destination);
-    // warm tone + a gentle echo for space (dreamy, calming)
-    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400; lp.Q.value = 0.3;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 5000; lp.Q.value = 0.5;
     lp.connect(master);
-    const delay = ctx.createDelay(); delay.delayTime.value = 0.36;
-    const fb = ctx.createGain(); fb.gain.value = 0.30;
-    const wet = ctx.createGain(); wet.gain.value = 0.35;
+    const delay = ctx.createDelay(); delay.delayTime.value = 0.28;
+    const fb = ctx.createGain(); fb.gain.value = 0.25;
+    const wet = ctx.createGain(); wet.gain.value = 0.4;
     lp.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(master);
     dest = lp;
-    // very soft, steady low cushion (single notes, no detune -> no beating)
-    const pad = ctx.createGain(); pad.gain.value = 0.022; pad.connect(master);
-    [130.81, 196.0].forEach((f) => { const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f; o.connect(pad); o.start(); });
+    // warm bass cushion
+    const pad = ctx.createGain(); pad.gain.value = 0.06; pad.connect(master);
+    [146.83, 195.99].forEach((f) => { const o = ctx.createOscillator(); o.type = "sine"; o.frequency.value = f; o.connect(pad); o.start(); });
   };
   const pluck = (freq) => {
     if (!ctx || !dest) return;
     const t = ctx.currentTime;
-    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = freq;       // soft mallet tone
-    const ov = ctx.createOscillator(); ov.type = "sine"; ov.frequency.value = freq * 2;     // gentle bell overtone
+    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.value = freq;
+    const ov = ctx.createOscillator(); ov.type = "sine"; ov.frequency.value = freq * 2;
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.5, t + 0.012);   // soft attack
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.4);  // long natural decay
-    const og = ctx.createGain(); og.gain.value = 0.16;
+    g.gain.exponentialRampToValueAtTime(0.9, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+    const og = ctx.createGain(); og.gain.value = 0.3;
     o.connect(g); ov.connect(og); og.connect(g); g.connect(dest);
-    o.start(t); ov.start(t); o.stop(t + 2.5); ov.stop(t + 2.5);
+    o.start(t); ov.start(t); o.stop(t + 2.0); ov.stop(t + 2.0);
   };
   const seq = () => {
     if (timer) return;
     pluck(MELODY[idx++ % MELODY.length]);
-    timer = setInterval(() => { if (ctx && ctx.state === "running") pluck(MELODY[idx++ % MELODY.length]); }, 1250);
+    timer = setInterval(() => { if (ctx && ctx.state === "running") pluck(MELODY[idx++ % MELODY.length]); }, 480);
   };
   const ramp = (to, secs) => { if (!ctx || !master) return; const t = ctx.currentTime; master.gain.cancelScheduledValues(t); master.gain.setValueAtTime(Math.max(0.0001, master.gain.value), t); master.gain.exponentialRampToValueAtTime(Math.max(0.0001, to), t + secs); };
   return {
-    start: (muted) => { try { build(); if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); ramp(muted ? 0.0001 : PEAK, 1.0); if (!muted) seq(); } catch {} },
+    start: (muted) => { try { build(); if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {}); ramp(muted ? 0.0001 : PEAK, 0.6); if (!muted) seq(); } catch {} },
     isRunning: () => !!(ctx && ctx.state === "running"),
     setMuted: (m) => { ramp(m ? 0.0001 : PEAK, 0.4); if (!m) seq(); },
     stop: () => { try { if (timer) clearInterval(timer); timer = null; ramp(0.0001, 0.6); setTimeout(() => { try { ctx && ctx.close(); } catch {} }, 700); } catch {} },

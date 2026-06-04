@@ -102,7 +102,7 @@ async function callOpenRouter({ system, messages, json }) {
         headers: {
           authorization: `Bearer ${API_KEY}`,
           "content-type": "application/json",
-          "x-title": "Hopkins Agent",
+          "x-title": "Saraf.AI",
         },
         // effort:"low" keeps reasoning models from burning time/tokens on long
         // hidden reasoning; non-reasoning models ignore it. The scorecard call
@@ -278,7 +278,7 @@ app.use(express.static(dist));
 app.get("*", (_req, res) => res.sendFile(path.join(dist, "index.html")));
 
 app.listen(PORT, () => {
-  console.log(`Hopkins Agent backend → http://localhost:${PORT}`);
+  console.log(`Saraf.AI backend → http://localhost:${PORT}`);
   console.log(`  Conversation chain: ${CONVO_MODELS.join(" → ")}`);
   console.log(`  Grading chain:      ${MODELS.join(" → ")}`);
   if (!API_KEY) console.log("  ⚠  No OPENROUTER_API_KEY set — calls will fail until you add one to .env");

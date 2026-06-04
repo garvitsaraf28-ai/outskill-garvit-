@@ -353,7 +353,7 @@ export default function App() {
 
   /* load history */
   useEffect(() => {
-    try { const v = localStorage.getItem("hopkins_history_v1"); if (v) setHistory(JSON.parse(v)); } catch {}
+    try { const v = localStorage.getItem("sarafai_history_v1"); if (v) setHistory(JSON.parse(v)); } catch {}
   }, []);
 
   /* autoscroll */
@@ -518,7 +518,7 @@ export default function App() {
         setCard(parsed);
         const entry = { date: Date.now(), persona: activePersona.name, mode, overall: parsed.overall, correctRouting: parsed.correctRouting };
         const nh = [entry, ...history].slice(0, 20); setHistory(nh);
-        try { localStorage.setItem("hopkins_history_v1", JSON.stringify(nh)); } catch {}
+        try { localStorage.setItem("sarafai_history_v1", JSON.stringify(nh)); } catch {}
       }
       // Save the full call (transcript + scorecard) to disk for later review.
       try {

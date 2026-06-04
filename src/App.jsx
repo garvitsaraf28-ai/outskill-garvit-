@@ -624,8 +624,11 @@ function Header({ serif, section, goHome, inCall }) {
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Home</span>
         </button>
       )}
-      <div style={{ marginLeft:"auto", fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
-        <Sparkles size={13} color={LIME_DIM}/> AI-powered
+      <div style={{ marginLeft:"auto", display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3 }}>
+        <div style={{ fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
+          <Sparkles size={13} color={LIME_DIM}/> AI-powered
+        </div>
+        <div style={{ fontSize:10, color:MUTE, letterSpacing:1.5, textTransform:"uppercase" }}>By SARAF</div>
       </div>
     </div>
   );
@@ -757,14 +760,27 @@ function Cover({ serif, onEnter }) {
 /* ------------------------------------------------------------------ */
 function Home({ serif, go, history, goBack }) {
   const iframeRef = useRef(null);
+  const [musicOn, setMusicOn] = useState(true);
+
   useEffect(() => {
     const t = setTimeout(() => {
       try {
         iframeRef.current?.contentWindow?.postMessage('{"event":"command","func":"stopVideo","args":""}', '*');
       } catch {}
+      setMusicOn(false);
     }, 3500);
     return () => clearTimeout(t);
   }, []);
+
+  const toggleMusic = () => {
+    const next = !musicOn;
+    setMusicOn(next);
+    try {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event:"command", func: next ? "playVideo" : "pauseVideo", args:"" }), "*"
+      );
+    } catch {}
+  };
 
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
   const tiles = [
@@ -782,9 +798,14 @@ function Home({ serif, go, history, goBack }) {
         style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
         title="rcb-home"
       />
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
         <button onClick={goBack} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5 }}>
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back to start</span>
+        </button>
+        <button onClick={toggleMusic} title={musicOn ? "Mute music" : "Play music"}
+          style={{ display:"inline-flex", alignItems:"center", gap:6, background: musicOn?"rgba(194,238,69,0.07)":"rgba(255,255,255,0.05)", border:`1px solid ${musicOn?"rgba(194,238,69,0.38)":BORDER}`, borderRadius:30, padding:"7px 13px", color: musicOn?TXT:MUTE, fontSize:12.5 }}>
+          {musicOn ? <Volume2 size={13} color={LIME}/> : <VolumeX size={13}/>}
+          <span>{musicOn ? "Music on" : "Music off"}</span>
         </button>
       </div>
       <h1 style={{ ...serif, fontSize:40, fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>Welcome back. What's the move?</h1>

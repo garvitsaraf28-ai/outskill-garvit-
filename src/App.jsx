@@ -691,12 +691,24 @@ function makeAmbience() {
 }
 
 function Cover({ serif, onEnter }) {
+  const [musicOn, setMusicOn] = useState(true);
+  const iframeRef = useRef(null);
   useEffect(() => {
     const t = setTimeout(onEnter, 10000);
     const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
     window.addEventListener("keydown", onKey);
     return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); };
   }, []);
+
+  const toggleMusic = (e) => {
+    e.stopPropagation();
+    const win = iframeRef.current?.contentWindow;
+    const next = !musicOn;
+    setMusicOn(next);
+    try {
+      win?.postMessage(JSON.stringify({ event:"command", func: next ? "playVideo" : "pauseVideo", args:"" }), "*");
+    } catch {}
+  };
 
   return (
     <div onClick={onEnter} role="button" title="Enter"
@@ -724,12 +736,20 @@ function Cover({ serif, onEnter }) {
         <span style={{ ...serif, fontSize:18.5, fontWeight:600, letterSpacing:3, color:LIME }}>GARVIT SARAF</span>
       </div>
       {/* RCB anthem — hidden autoplay iframe */}
-      <iframe
-        src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&mute=0"
+      <iframe ref={iframeRef}
+        src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&mute=0&enablejsapi=1"
         allow="autoplay; encrypted-media"
         style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
         title="rcb-anthem"
       />
+      <button onClick={toggleMusic} title={musicOn ? "Turn music off" : "Turn music on"}
+        style={{ position:"absolute", bottom:24, left:28, display:"inline-flex", alignItems:"center", gap:8,
+          background: musicOn ? "rgba(194,238,69,0.07)" : "rgba(255,255,255,0.05)",
+          border:`1px solid ${musicOn ? "rgba(194,238,69,0.38)" : BORDER}`, borderRadius:30, padding:"8px 15px",
+          color: musicOn ? TXT : MUTE, fontSize:12.5 }}>
+        {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
+        <span>{musicOn ? "Music on" : "Music off"}</span>
+      </button>
     </div>
   );
 }

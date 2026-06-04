@@ -642,7 +642,7 @@ function Header({ serif, section, goHome, inCall }) {
           {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:6, height:6, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1px solid ${MUTE}` }} />))}
         </div>
         <div style={{ textAlign:"left" }}>
-          <div style={{ ...serif, fontSize:22, fontWeight:600, lineHeight:1, color:TXT }}>Outskill</div>
+          <div style={{ ...serif, fontSize:22, fontWeight:600, lineHeight:1, color:TXT }}>garvitsaraf.outskill</div>
           <div style={{ fontSize:11.5, letterSpacing:1.5, textTransform:"uppercase", color:MUTE, marginTop:3 }}>{SECTION_TITLE[section] || "Sales Command Center"}</div>
         </div>
       </button>
@@ -655,7 +655,7 @@ function Header({ serif, section, goHome, inCall }) {
         <div style={{ fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
           <Sparkles size={13} color={LIME_DIM}/> AI-powered
         </div>
-        <div style={{ fontSize:10, color:MUTE, letterSpacing:1.5, textTransform:"uppercase" }}>By SARAF</div>
+        <div style={{ fontSize:10, color:MUTE, letterSpacing:1.5, textTransform:"uppercase" }}>garvitsaraf.outskill</div>
       </div>
     </div>
   );
@@ -748,7 +748,7 @@ function Cover({ serif, onEnter }) {
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:26 }}>
           {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
         </div>
-        <div style={{ fontSize:13, letterSpacing:6, textTransform:"uppercase", color:LIME_DIM, marginBottom:22, fontWeight:600 }}>OutSkill · Sales Department</div>
+        <div style={{ fontSize:13, letterSpacing:6, textTransform:"uppercase", color:LIME_DIM, marginBottom:22, fontWeight:600 }}>garvitsaraf.outskill</div>
         <h1 style={{ ...serif, fontSize:"clamp(46px, 9vw, 92px)", fontWeight:600, lineHeight:1.02, margin:"0 0 22px", letterSpacing:-1.5 }}>
           Where conversations<br/><span style={{ color:LIME }}>become conversions.</span>
         </h1>
@@ -763,7 +763,7 @@ function Cover({ serif, onEnter }) {
       <div style={{ position:"absolute", bottom:24, right:28, display:"flex", alignItems:"center", gap:11, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"8px 16px", boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
         <span style={{ width:7, height:7, borderRadius:"50%", background:LIME, boxShadow:`0 0 10px ${LIME}` }}/>
         <span style={{ fontSize:10.5, letterSpacing:2, textTransform:"uppercase", color:MUTE }}>Built by</span>
-        <span style={{ ...serif, fontSize:18.5, fontWeight:600, letterSpacing:3, color:LIME }}>GARVIT SARAF</span>
+        <span style={{ ...serif, fontSize:15, fontWeight:600, letterSpacing:2, color:LIME }}>GARVIT SARAF</span>
       </div>
       {/* RCB anthem — hidden autoplay iframe */}
       <iframe ref={iframeRef}
@@ -867,7 +867,7 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:20 }}>
         {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
       </div>
-      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Department</div>
+      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>garvitsaraf.outskill</div>
       <h1 style={{ ...serif, fontSize:"clamp(32px,6vw,58px)", fontWeight:600, lineHeight:1.1, margin:"0 0 12px", letterSpacing:-1 }}>
         Which team are you on?
       </h1>
@@ -918,7 +918,7 @@ function SaleSuccess({ serif, goBack }) {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:20 }}>
         {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
       </div>
-      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Success</div>
+      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>garvitsaraf.outskill · Sales Success</div>
       <h1 style={{ ...serif, fontSize:"clamp(36px,6vw,64px)", fontWeight:600, lineHeight:1.1, margin:"0 0 16px", letterSpacing:-1 }}>
         Sales Success
       </h1>

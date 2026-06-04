@@ -284,7 +284,7 @@ export default function App() {
   const [history, setHistory] = useState([]);
 
   // voice
-  const [voiceWanted, setVoiceWanted] = useState(true);
+  const [voiceWanted, setVoiceWanted] = useState(false);
   const [voiceOn, _setVoiceOn] = useState(false);
   const [handsFree, _setHandsFree] = useState(true);
   const [listening, _setListening] = useState(false);
@@ -1302,22 +1302,28 @@ function CallView({ serif, mode, persona, messages, busy, input, setInput, send,
 
       {err && <div style={errStyle}>{err}</div>}
 
-      {voice.on
-        ? <VoiceDock voice={voice} mode={mode} persona={persona} input={input} setInput={setInput} send={send} busy={busy}/>
-        : (
-          <div>
-            <div style={{ display:"flex", gap:10, marginTop:14, alignItems:"flex-end" }}>
-              <textarea value={input} onChange={e=>setInput(e.target.value)} rows={1}
-                onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}
-                placeholder={mode==="learner" ? "Type what you'd say to the prospect…" : "Reply as the learner…"}
-                style={{ flex:1, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"13px 15px", color:TXT, fontSize:14.5, resize:"none", maxHeight:140, lineHeight:1.4 }}/>
-              <button onClick={send} disabled={busy || !input.trim()} style={{ ...sendBtn, opacity: busy||!input.trim()?0.45:1 }}><Send size={17}/></button>
-            </div>
-            {voice.sttSupported && (
-              <button onClick={voice.enable} style={{ ...linkBtn, marginTop:10 }}><Mic size={13}/><span style={{marginLeft:6}}>Switch to talking</span></button>
-            )}
-          </div>
-        )}
+      {/* Voice panel — only shown when voice is enabled */}
+      {voice.on && <VoiceDock voice={voice} mode={mode} persona={persona} input={input} setInput={setInput} send={send} busy={busy}/>}
+
+      {/* Text input — always visible so the call works even if voice fails */}
+      <div style={{ marginTop: voice.on ? 10 : 14 }}>
+        <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
+          <textarea value={input} onChange={e=>setInput(e.target.value)} rows={2}
+            onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } }}
+            placeholder={mode==="learner" ? "Type what you'd say… (Enter to send)" : "Reply as the learner… (Enter to send)"}
+            style={{ flex:1, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"13px 15px", color:TXT, fontSize:14.5, resize:"none", maxHeight:140, lineHeight:1.4 }}/>
+          <button onClick={send} disabled={busy || !input.trim()} style={{ ...sendBtn, opacity: busy||!input.trim()?0.45:1 }}><Send size={17}/></button>
+        </div>
+        <div style={{ display:"flex", gap:14, marginTop:8, alignItems:"center" }}>
+          {!voice.on && voice.sttSupported && !voice.blocked && (
+            <button onClick={voice.enable} style={{ ...linkBtn }}><Mic size={13}/><span style={{marginLeft:6}}>Enable voice</span></button>
+          )}
+          {voice.on && (
+            <button onClick={voice.disable} style={{ ...linkBtn }}><MicOff size={13}/><span style={{marginLeft:6}}>Disable voice</span></button>
+          )}
+          {voice.blocked && <span style={{ fontSize:12, color:"#e8b24b" }}>Mic blocked — using text mode</span>}
+        </div>
+      </div>
     </div>
   );
 }

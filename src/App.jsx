@@ -247,7 +247,7 @@ function pickVoice(voices, lang) {
 
 /* ================================================================== */
 export default function App() {
-  const [section, setSection] = useState("cover"); // cover | home | practice | realcall | reports | followups
+  const [section, setSection] = useState("cover"); // cover | dept | home | salesuccess | practice | realcall | reports | followups
 
   const [screen, setScreen] = useState("setup");
   const [mode, setMode] = useState("learner");
@@ -563,16 +563,26 @@ export default function App() {
       `}</style>
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
-        {section !== "cover" && (
+        {section !== "cover" && section !== "dept" && (
           <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("home"); }} inCall={screen === "call"} />
         )}
 
         {section === "cover" && (
-          <Cover serif={serif} onEnter={() => setSection("home")} />
+          <Cover serif={serif} onEnter={() => setSection("dept")} />
+        )}
+
+        {section === "dept" && (
+          <DeptSelect serif={serif} goBack={() => setSection("cover")}
+            onInsideSales={() => setSection("home")}
+            onSaleSuccess={() => setSection("salesuccess")} />
         )}
 
         {section === "home" && (
-          <Home serif={serif} go={setSection} history={history} goBack={() => setSection("cover")} />
+          <Home serif={serif} go={setSection} history={history} goBack={() => setSection("dept")} />
+        )}
+
+        {section === "salesuccess" && (
+          <SaleSuccess serif={serif} goBack={() => setSection("dept")} />
         )}
 
         {section === "practice" && (<>
@@ -604,7 +614,7 @@ export default function App() {
 }
 
 /* ------------------------------------------------------------------ */
-const SECTION_TITLE = { home:"Sales Command Center", practice:"Practice Calls", realcall:"Real Call · Record & Report", reports:"Reports & Pipeline", followups:"Follow-ups" };
+const SECTION_TITLE = { home:"Inside Sales", salesuccess:"Sales Success", practice:"Practice Calls", realcall:"Real Call · Record & Report", reports:"Reports & Pipeline", followups:"Follow-ups" };
 function Header({ serif, section, goHome, inCall }) {
   const atHome = section === "home";
   return (
@@ -827,6 +837,80 @@ function Home({ serif, go, history, goBack }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ */
+function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
+  return (
+    <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"0 18px", position:"relative" }}>
+      {/* brand dot-mark */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:20 }}>
+        {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
+      </div>
+      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Department</div>
+      <h1 style={{ ...serif, fontSize:"clamp(32px,6vw,58px)", fontWeight:600, lineHeight:1.1, margin:"0 0 12px", letterSpacing:-1 }}>
+        Which team are you on?
+      </h1>
+      <p style={{ color:MUTE, fontSize:16, maxWidth:480, margin:"0 auto 40px", lineHeight:1.55 }}>
+        Select your sales track to get to your command center.
+      </p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, width:"100%", maxWidth:560 }}>
+        <button onClick={onInsideSales}
+          style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"28px 24px", transition:"all .16s ease", cursor:"pointer" }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.6)";e.currentTarget.style.background="rgba(194,238,69,0.07)";}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
+          <div style={{ width:48, height:48, borderRadius:14, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
+            <Phone size={22} color={LIME}/>
+          </div>
+          <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:8 }}>Inside Sales</div>
+          <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Mock call training, real call reporting, pipeline and follow-ups.</div>
+          <div style={{ marginTop:16, display:"inline-flex", alignItems:"center", gap:6, fontSize:12, color:LIME, fontWeight:600 }}>
+            Enter <ChevronRight size={14}/>
+          </div>
+        </button>
+
+        <button onClick={onSaleSuccess}
+          style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"28px 24px", transition:"all .16s ease", cursor:"pointer" }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.6)";e.currentTarget.style.background="rgba(194,238,69,0.07)";}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
+          <div style={{ width:48, height:48, borderRadius:14, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
+            <TrendingUp size={22} color={LIME}/>
+          </div>
+          <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:8 }}>Sales Success</div>
+          <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Coming soon — details being added.</div>
+          <div style={{ marginTop:16, display:"inline-flex", alignItems:"center", gap:6, fontSize:12, color:LIME, fontWeight:600 }}>
+            Enter <ChevronRight size={14}/>
+          </div>
+        </button>
+      </div>
+
+      <button onClick={goBack} style={{ ...secondaryBtn, marginTop:32, padding:"8px 16px", fontSize:12.5 }}>
+        <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back</span>
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+function SaleSuccess({ serif, goBack }) {
+  return (
+    <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"0 18px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:20 }}>
+        {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
+      </div>
+      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Success</div>
+      <h1 style={{ ...serif, fontSize:"clamp(36px,6vw,64px)", fontWeight:600, lineHeight:1.1, margin:"0 0 16px", letterSpacing:-1 }}>
+        Sales Success
+      </h1>
+      <p style={{ color:MUTE, fontSize:16, maxWidth:440, margin:"0 auto 32px", lineHeight:1.55 }}>
+        This section is being built. Check back soon.
+      </p>
+      <button onClick={goBack} style={{ ...secondaryBtn, padding:"9px 20px", fontSize:13 }}>
+        <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back</span>
+      </button>
     </div>
   );
 }

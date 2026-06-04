@@ -248,6 +248,29 @@ function pickVoice(voices, lang) {
 /* ================================================================== */
 export default function App() {
   const [section, setSection] = useState("cover"); // cover | home | practice | realcall | reports | followups
+
+  // Global music — persists across all pages
+  const [musicMuted, setMusicMuted] = useState(false);
+  const musicMutedRef = useRef(false);
+  const ambRef = useRef(null);
+  const ambStarted = useRef(false);
+
+  const startMusic = () => {
+    if (ambStarted.current) return;
+    ambStarted.current = true;
+    if (!ambRef.current) ambRef.current = makeAmbience();
+    try { ambRef.current.start(musicMutedRef.current); } catch {}
+  };
+  const toggleMusic = (e) => {
+    e && e.stopPropagation();
+    const m = !musicMutedRef.current; musicMutedRef.current = m; setMusicMuted(m);
+    if (!ambStarted.current) { startMusic(); return; }
+    ambRef.current && ambRef.current.setMuted(m);
+  };
+  useEffect(() => {
+    ambRef.current = makeAmbience();
+    return () => { try { ambRef.current && ambRef.current.stop(); } catch {} };
+  }, []);
   const [screen, setScreen] = useState("setup");
   const [mode, setMode] = useState("learner");
   const [persona, setPersona] = useState(PERSONAS[0]);
@@ -544,7 +567,7 @@ export default function App() {
   };
 
   return (
-    <div style={root}>
+    <div style={root} onClick={startMusic}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box}
@@ -563,11 +586,11 @@ export default function App() {
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
         {section !== "cover" && (
-          <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("home"); }} inCall={screen === "call"} />
+          <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("home"); }} inCall={screen === "call"} musicMuted={musicMuted} toggleMusic={toggleMusic} />
         )}
 
         {section === "cover" && (
-          <Cover serif={serif} onEnter={() => setSection("home")} />
+          <Cover serif={serif} onEnter={() => { startMusic(); setSection("home"); }} musicMuted={musicMuted} toggleMusic={toggleMusic} />
         )}
 
         {section === "home" && (
@@ -604,7 +627,7 @@ export default function App() {
 
 /* ------------------------------------------------------------------ */
 const SECTION_TITLE = { home:"Sales Command Center", practice:"Practice Calls", realcall:"Real Call · Record & Report", reports:"Reports & Pipeline", followups:"Follow-ups" };
-function Header({ serif, section, goHome, inCall }) {
+function Header({ serif, section, goHome, inCall, musicMuted, toggleMusic }) {
   const atHome = section === "home";
   return (
     <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:24 }}>
@@ -623,8 +646,15 @@ function Header({ serif, section, goHome, inCall }) {
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Home</span>
         </button>
       )}
-      <div style={{ marginLeft:"auto", fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
-        <Sparkles size={13} color={LIME_DIM}/> AI-powered
+      <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:10 }}>
+        <button onClick={toggleMusic} title={musicMuted ? "Play music" : "Mute music"}
+          style={{ display:"inline-flex", alignItems:"center", gap:6, background: musicMuted?"rgba(255,255,255,0.05)":"rgba(194,238,69,0.07)", border:`1px solid ${musicMuted?BORDER:"rgba(194,238,69,0.38)"}`, borderRadius:30, padding:"6px 13px", color: musicMuted?MUTE:TXT, fontSize:12 }}>
+          {musicMuted ? <VolumeX size={13}/> : <Volume2 size={13} color={LIME}/>}
+          <span>{musicMuted ? "Music off" : "Music on"}</span>
+        </button>
+        <div style={{ fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
+          <Sparkles size={13} color={LIME_DIM}/> AI-powered
+        </div>
       </div>
     </div>
   );
@@ -690,40 +720,16 @@ function makeAmbience() {
   };
 }
 
-function Cover({ serif, onEnter }) {
-  const [muted, setMuted] = useState(false);
-  const mutedRef = useRef(false);
-  const ambRef = useRef(null);
-  const started = useRef(false);
-
-  const startAudio = () => {
-    if (started.current) return;
-    started.current = true;
-    const amb = ambRef.current;
-    if (!amb) return;
-    try { amb.start(mutedRef.current); } catch {}
-  };
-
+function Cover({ serif, onEnter, musicMuted, toggleMusic }) {
   useEffect(() => {
-    const amb = makeAmbience(); ambRef.current = amb;
     const t = setTimeout(onEnter, 10000);
-    const onKey = (e) => {
-      startAudio();
-      if (e.key === "Enter" || e.key === " ") onEnter();
-    };
+    const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
     window.addEventListener("keydown", onKey);
-    return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); amb.stop(); };
+    return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); };
   }, []);
 
-  const handleClick = () => { startAudio(); onEnter(); };
-  const toggleMute = (e) => {
-    e.stopPropagation();
-    const m = !mutedRef.current; mutedRef.current = m; setMuted(m);
-    if (!started.current) { startAudio(); return; }
-    ambRef.current && ambRef.current.setMuted(m);
-  };
   return (
-    <div onClick={handleClick} role="button" title="Enter"
+    <div onClick={onEnter} role="button" title="Enter"
       style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", cursor:"pointer", position:"relative", padding:"0 18px" }}>
       <div className="osf">
         {/* brand dot-mark */}
@@ -745,15 +751,15 @@ function Cover({ serif, onEnter }) {
       <div style={{ position:"absolute", bottom:24, right:28, display:"flex", alignItems:"center", gap:11, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"8px 16px", boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
         <span style={{ width:7, height:7, borderRadius:"50%", background:LIME, boxShadow:`0 0 10px ${LIME}` }}/>
         <span style={{ fontSize:10.5, letterSpacing:2, textTransform:"uppercase", color:MUTE }}>Built by</span>
-        <span style={{ ...serif, fontSize:18.5, fontWeight:600, letterSpacing:3, color:LIME }}>SARAF</span>
+        <span style={{ ...serif, fontSize:18.5, fontWeight:600, letterSpacing:3, color:LIME }}>GARVIT SARAF</span>
       </div>
-      <button onClick={toggleMute} title={muted ? "Turn sound on" : "Mute"}
+      <button onClick={(e)=>{e.stopPropagation();toggleMusic(e);}} title={musicMuted ? "Turn sound on" : "Mute"}
         style={{ position:"absolute", bottom:24, left:28, display:"inline-flex", alignItems:"center", gap:8,
-          background: muted ? "rgba(255,255,255,0.05)" : "rgba(194,238,69,0.07)",
-          border:`1px solid ${muted ? BORDER : "rgba(194,238,69,0.38)"}`, borderRadius:30, padding:"8px 15px",
-          color: muted ? MUTE : TXT, fontSize:12.5 }}>
-        {muted ? <VolumeX size={15}/> : <Volume2 size={15} color={LIME}/>}
-        <span>{muted ? "Play music" : "Music on"}</span>
+          background: musicMuted ? "rgba(255,255,255,0.05)" : "rgba(194,238,69,0.07)",
+          border:`1px solid ${musicMuted ? BORDER : "rgba(194,238,69,0.38)"}`, borderRadius:30, padding:"8px 15px",
+          color: musicMuted ? MUTE : TXT, fontSize:12.5 }}>
+        {musicMuted ? <VolumeX size={15}/> : <Volume2 size={15} color={LIME}/>}
+        <span>{musicMuted ? "Play music" : "Music on"}</span>
       </button>
     </div>
   );

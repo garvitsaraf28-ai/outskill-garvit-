@@ -694,20 +694,36 @@ function Cover({ serif, onEnter }) {
   const [muted, setMuted] = useState(false);
   const mutedRef = useRef(false);
   const ambRef = useRef(null);
+  const started = useRef(false);
+
+  const startAudio = () => {
+    if (started.current) return;
+    started.current = true;
+    const amb = ambRef.current;
+    if (!amb) return;
+    try { amb.start(mutedRef.current); } catch {}
+  };
+
   useEffect(() => {
-    const t = setTimeout(onEnter, 10000);
     const amb = makeAmbience(); ambRef.current = amb;
-    amb.start(mutedRef.current);
-    const kick = () => { try { amb.start(mutedRef.current); } catch {} };
-    const evs = ["pointerdown", "pointerup", "keydown", "touchstart"];
-    evs.forEach((e) => window.addEventListener(e, kick, { once: true, passive: true }));
-    const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
+    const t = setTimeout(onEnter, 10000);
+    const onKey = (e) => {
+      startAudio();
+      if (e.key === "Enter" || e.key === " ") onEnter();
+    };
     window.addEventListener("keydown", onKey);
-    return () => { clearTimeout(t); evs.forEach((e) => window.removeEventListener(e, kick)); window.removeEventListener("keydown", onKey); amb.stop(); };
+    return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); amb.stop(); };
   }, []);
-  const toggleMute = (e) => { e.stopPropagation(); const m = !mutedRef.current; mutedRef.current = m; setMuted(m); ambRef.current && ambRef.current.setMuted(m); };
+
+  const handleClick = () => { startAudio(); onEnter(); };
+  const toggleMute = (e) => {
+    e.stopPropagation();
+    const m = !mutedRef.current; mutedRef.current = m; setMuted(m);
+    if (!started.current) { startAudio(); return; }
+    ambRef.current && ambRef.current.setMuted(m);
+  };
   return (
-    <div onClick={onEnter} role="button" title="Enter"
+    <div onClick={handleClick} role="button" title="Enter"
       style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", cursor:"pointer", position:"relative", padding:"0 18px" }}>
       <div className="osf">
         {/* brand dot-mark */}

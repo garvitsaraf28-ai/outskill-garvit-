@@ -249,28 +249,6 @@ function pickVoice(voices, lang) {
 export default function App() {
   const [section, setSection] = useState("cover"); // cover | home | practice | realcall | reports | followups
 
-  // Global music — persists across all pages
-  const [musicMuted, setMusicMuted] = useState(false);
-  const musicMutedRef = useRef(false);
-  const ambRef = useRef(null);
-  const ambStarted = useRef(false);
-
-  const startMusic = () => {
-    if (ambStarted.current) return;
-    ambStarted.current = true;
-    if (!ambRef.current) ambRef.current = makeAmbience();
-    try { ambRef.current.start(musicMutedRef.current); } catch {}
-  };
-  const toggleMusic = (e) => {
-    e && e.stopPropagation();
-    const m = !musicMutedRef.current; musicMutedRef.current = m; setMusicMuted(m);
-    if (!ambStarted.current) { startMusic(); return; }
-    ambRef.current && ambRef.current.setMuted(m);
-  };
-  useEffect(() => {
-    ambRef.current = makeAmbience();
-    return () => { try { ambRef.current && ambRef.current.stop(); } catch {} };
-  }, []);
   const [screen, setScreen] = useState("setup");
   const [mode, setMode] = useState("learner");
   const [persona, setPersona] = useState(PERSONAS[0]);
@@ -567,7 +545,7 @@ export default function App() {
   };
 
   return (
-    <div style={root} onClick={startMusic}>
+    <div style={root}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
         *{box-sizing:border-box}
@@ -586,15 +564,15 @@ export default function App() {
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
         {section !== "cover" && (
-          <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("home"); }} inCall={screen === "call"} musicMuted={musicMuted} toggleMusic={toggleMusic} />
+          <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("home"); }} inCall={screen === "call"} />
         )}
 
         {section === "cover" && (
-          <Cover serif={serif} onEnter={() => { startMusic(); setSection("home"); }} musicMuted={musicMuted} toggleMusic={toggleMusic} />
+          <Cover serif={serif} onEnter={() => setSection("home")} />
         )}
 
         {section === "home" && (
-          <Home serif={serif} go={setSection} history={history} />
+          <Home serif={serif} go={setSection} history={history} goBack={() => setSection("cover")} />
         )}
 
         {section === "practice" && (<>
@@ -627,7 +605,7 @@ export default function App() {
 
 /* ------------------------------------------------------------------ */
 const SECTION_TITLE = { home:"Sales Command Center", practice:"Practice Calls", realcall:"Real Call · Record & Report", reports:"Reports & Pipeline", followups:"Follow-ups" };
-function Header({ serif, section, goHome, inCall, musicMuted, toggleMusic }) {
+function Header({ serif, section, goHome, inCall }) {
   const atHome = section === "home";
   return (
     <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:24 }}>
@@ -646,15 +624,8 @@ function Header({ serif, section, goHome, inCall, musicMuted, toggleMusic }) {
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Home</span>
         </button>
       )}
-      <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:10 }}>
-        <button onClick={toggleMusic} title={musicMuted ? "Play music" : "Mute music"}
-          style={{ display:"inline-flex", alignItems:"center", gap:6, background: musicMuted?"rgba(255,255,255,0.05)":"rgba(194,238,69,0.07)", border:`1px solid ${musicMuted?BORDER:"rgba(194,238,69,0.38)"}`, borderRadius:30, padding:"6px 13px", color: musicMuted?MUTE:TXT, fontSize:12 }}>
-          {musicMuted ? <VolumeX size={13}/> : <Volume2 size={13} color={LIME}/>}
-          <span>{musicMuted ? "Music off" : "Music on"}</span>
-        </button>
-        <div style={{ fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
-          <Sparkles size={13} color={LIME_DIM}/> AI-powered
-        </div>
+      <div style={{ marginLeft:"auto", fontSize:11, color:MUTE, display:"flex", alignItems:"center", gap:6 }}>
+        <Sparkles size={13} color={LIME_DIM}/> AI-powered
       </div>
     </div>
   );
@@ -719,7 +690,7 @@ function makeAmbience() {
   };
 }
 
-function Cover({ serif, onEnter, musicMuted, toggleMusic }) {
+function Cover({ serif, onEnter }) {
   useEffect(() => {
     const t = setTimeout(onEnter, 10000);
     const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
@@ -752,20 +723,29 @@ function Cover({ serif, onEnter, musicMuted, toggleMusic }) {
         <span style={{ fontSize:10.5, letterSpacing:2, textTransform:"uppercase", color:MUTE }}>Built by</span>
         <span style={{ ...serif, fontSize:18.5, fontWeight:600, letterSpacing:3, color:LIME }}>GARVIT SARAF</span>
       </div>
-      <button onClick={(e)=>{e.stopPropagation();toggleMusic(e);}} title={musicMuted ? "Turn sound on" : "Mute"}
-        style={{ position:"absolute", bottom:24, left:28, display:"inline-flex", alignItems:"center", gap:8,
-          background: musicMuted ? "rgba(255,255,255,0.05)" : "rgba(194,238,69,0.07)",
-          border:`1px solid ${musicMuted ? BORDER : "rgba(194,238,69,0.38)"}`, borderRadius:30, padding:"8px 15px",
-          color: musicMuted ? MUTE : TXT, fontSize:12.5 }}>
-        {musicMuted ? <VolumeX size={15}/> : <Volume2 size={15} color={LIME}/>}
-        <span>{musicMuted ? "Play music" : "Music on"}</span>
-      </button>
+      {/* RCB anthem — hidden autoplay iframe */}
+      <iframe
+        src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&mute=0"
+        allow="autoplay; encrypted-media"
+        style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
+        title="rcb-anthem"
+      />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-function Home({ serif, go, history }) {
+function Home({ serif, go, history, goBack }) {
+  const iframeRef = useRef(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        iframeRef.current?.contentWindow?.postMessage('{"event":"command","func":"stopVideo","args":""}', '*');
+      } catch {}
+    }, 3500);
+    return () => clearTimeout(t);
+  }, []);
+
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
   const tiles = [
     { id:"practice", icon:<GraduationCap size={22}/>, title:"Practice Calls", desc:"Train new reps against realistic AI prospects, then get an instant coaching scorecard.", tag: avg!==null ? `${history.length} practiced · avg ${avg}` : "Mock call + coaching" },
@@ -775,6 +755,18 @@ function Home({ serif, go, history }) {
   ];
   return (
     <div className="osf">
+      {/* 3-second RCB celebration clip */}
+      <iframe ref={iframeRef}
+        src="https://www.youtube.com/embed/vt5rqLHB4yA?autoplay=1&controls=0&mute=0&enablejsapi=1"
+        allow="autoplay; encrypted-media"
+        style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
+        title="rcb-home"
+      />
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6 }}>
+        <button onClick={goBack} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5 }}>
+          <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back to start</span>
+        </button>
+      </div>
       <h1 style={{ ...serif, fontSize:40, fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>Welcome back. What's the move?</h1>
       <p style={{ color:MUTE, margin:"0 0 28px", fontSize:16.5, maxWidth:600, lineHeight:1.5 }}>
         Train new joiners on mock calls, then run, record and report on real learner calls — all in one place.

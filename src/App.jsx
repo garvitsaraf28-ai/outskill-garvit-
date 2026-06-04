@@ -29,7 +29,8 @@ AI GENERALIST ACCELERATOR (no-code, for business people across functions: market
 - Includes: 48-hour buildathon (you ship a real product, not just a certificate), AI Content Library (12 months access, updated monthly), Kairos Business Fellowship (stated worth $5000), Monetization Mastery 101, 54+ weekly live update sessions for 12 months, bonus tool stack worth ~$2,528, and a 1:1 onboarding call.
 - Tagline that disarms "I'm not technical": "If you can use Google Sheets, you can complete it."
 - NOT for deep ML researchers or AI engineers.
-- Price: Rs 94,999 | $1,199. Refund: full within 7 days, then defer to a later batch.
+- India price: Rs 94,999. International price: $1,199 (MSP $1,000) or $2,995 (MSP $2,200).
+- Refund: full within 7 days, then defer to a later batch.
 - Certificate: NSDC / Skill India certified ("AI for Founders & Business") -- INDIA ONLY.
 
 AI ENGINEERING ACCELERATOR (for tech professionals comfortable with Python; Python Basecamp pre-access on signup):
@@ -44,6 +45,19 @@ AI ENGINEERING ACCELERATOR (for tech professionals comfortable with Python; Pyth
 MARKET RULE:
 - India -> INR pricing, EMI may apply, NSDC/Skill India is a real selling point.
 - International -> USD pricing, do NOT claim the NSDC certificate; sell on portfolio, outcomes, mentors, community.
+
+PRICING & EMI RULES (critical — rep must know these exactly):
+
+INDIA — INR:
+- Full price: Rs 94,999. MSP (Minimum Selling Price): Rs 80,000. NEVER go below Rs 80,000.
+- EMI at Rs 95,000 or Rs 90,000: up to 12 months available.
+- EMI at Rs 85,000: max 3 or 6 months only. Do NOT offer 12 months at this price.
+- EMI at Rs 80,000 (MSP): NO EMI available. Full payment only.
+
+INTERNATIONAL — USD (two tiers):
+- Tier A: $2,995 (MSP $2,200). EMI available at any amount in this tier; learner pays 9% extra on the fees.
+- Tier B: $1,199 (MSP $1,000). EMI available; learner pays 9% extra on the fees. NEVER go below $1,000.
+- Rule: if a learner wants installments, inform them a 9% processing fee is added to the total.
 
 COMPLIANCE (hard rule): NEVER promise a guaranteed job or specific salary. Frame outcomes as ranges / what learners have done ("1.5x-3x is the range we see", "300+ professionals have come through", testimonials). Mentors are active builders shipping real products (ex-NVIDIA and Adobe ML engineers, applied scientists, AI engineers).
 `.trim();
@@ -145,19 +159,22 @@ Judge correctness against these facts:
 ${PROGRAM_FACTS}
 
 SCORE the rep on this weighted rubric (total 100):
-1. Opening & rapport (max 10)
-2. Discovery & qualification — MUST include establishing whether the learner codes, for routing (max 20)
-3. Correct program routing & fit (max 15)
-4. Value framing & differentiation (max 15)
-5. Objection handling (max 20)
-6. Trust & credibility (max 10)
-7. Close & next step (max 10)
+1. Opening & rapport — warm, personalised, references the workshop (max 10)
+2. Discovery & qualification — MUST establish coding ability for routing; also uncover goal, timeline, budget sensitivity (max 20)
+3. Correct program routing & fit — right track for this person, explained clearly (max 15)
+4. Value framing & differentiation — ties features to THIS person's goal; not a feature dump (max 15)
+5. Objection handling — empathy first, one specific fact, confirms it landed, uncovers real blocker (max 20)
+6. Pricing, EMI & trust — correct price for market, correct EMI rules (tenure vs price tier), 9% fee disclosed if relevant, no MSP breach, no fabricated discounts (max 10)
+7. Close & next step — trial close, concrete commitment or low-risk reason to decide (max 10)
 
 HARD AUTO-FLAGS (apply and list):
-- Guaranteed job/income claim -> cap overall at 40; add a flag.
-- Wrong program recommended -> force category 3 to 1; add a flag.
-- NSDC value claimed to an INTERNATIONAL learner -> category 6 at most 2; add a flag.
-- Any fabricated fact (a discount/stat/date not supported above) -> add a flag. (Saying they'll confirm the Engineering price is fine.)
+- Guaranteed job/income claim → cap overall at 40.
+- Wrong program recommended → force category 3 to 1.
+- NSDC value claimed to an INTERNATIONAL learner → category 6 at most 2.
+- EMI tenure offered that violates the rules (e.g. 12-month EMI at Rs 85k, or EMI at MSP) → flag + deduct from category 6.
+- 9% installment surcharge not mentioned when learner asked about EMI → flag.
+- Price quoted below MSP (Rs 80k India / $1,000 Tier-B / $2,200 Tier-A USD) → cap overall at 30.
+- Any fabricated fact not supported by program facts → flag. (Saying they'll confirm the Engineering price is fine.)
 
 Be SPECIFIC and evidence-based: every point references something actually said; every "say next time" gives exact words.
 
@@ -173,7 +190,7 @@ Return ONLY a JSON object (no markdown, no backticks, no commentary) with EXACTL
    {"name":"Program routing & fit","score":<int>,"max":15},
    {"name":"Value framing","score":<int>,"max":15},
    {"name":"Objection handling","score":<int>,"max":20},
-   {"name":"Trust & credibility","score":<int>,"max":10},
+   {"name":"Pricing, EMI & trust","score":<int>,"max":10},
    {"name":"Close & next step","score":<int>,"max":10}
  ],
  "strengths": [<string>, ...],
@@ -367,7 +384,7 @@ export default function App() {
   const speak = useCallback((text) => {
     const reArm = () => {
       if (handsFreeRef.current && callActiveRef.current && voiceOnRef.current && !blockedRef.current) {
-        setTimeout(() => listenRef.current(), 350);
+        setTimeout(() => listenRef.current(), 120);
       }
     };
     const synth = window.speechSynthesis;
@@ -459,7 +476,7 @@ export default function App() {
     setScreen("call"); callActiveRef.current = true;
     // In hands-free voice, arm the mic so the human can simply start talking.
     if (voiceOnRef.current && handsFreeRef.current && !blockedRef.current) {
-      setTimeout(() => listenRef.current(), 450);
+      setTimeout(() => listenRef.current(), 200);
     }
   };
 
@@ -1437,62 +1454,75 @@ function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, ag
   }
   if (!card) return null;
   const routedRight = card.correctRouting, isDemo = mode === "agent";
+  const score = card.overall;
+  const scoreColor = score >= 80 ? LIME : score >= 60 ? "#e8d24b" : "#e87a6b";
   return (
     <div className="osf">
-      <div style={{ display:"flex", gap:22, alignItems:"center", flexWrap:"wrap", marginBottom:22 }}>
-        <Ring value={card.overall}/>
-        <div style={{ minWidth:200, flex:1 }}>
-          <div style={{ fontSize:12, letterSpacing:1.4, textTransform:"uppercase", color:MUTE }}>{isDemo ? "Ideal-call breakdown" : "Your call scorecard"}</div>
-          <h2 style={{ ...serif, fontSize:27, fontWeight:600, margin:"4px 0 10px" }}>{scoreVerdict(card.overall)}</h2>
+      {/* ── Hero scorecard header ── */}
+      <div style={{ background:`linear-gradient(135deg, rgba(194,238,69,0.07) 0%, rgba(10,12,8,0) 60%)`, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 24px 20px", marginBottom:18, display:"flex", gap:24, alignItems:"center", flexWrap:"wrap" }}>
+        <Ring value={score}/>
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>{isDemo ? "Ideal-call breakdown" : "Your call scorecard"}</div>
+          <h2 style={{ ...serif, fontSize:30, fontWeight:600, margin:"0 0 12px", color:scoreColor }}>{scoreVerdict(score)}</h2>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            <Pill ok={routedRight}>{routedRight ? <CheckCircle2 size={14}/> : <XCircle size={14}/>}<span style={{marginLeft:6}}>Routed to {card.recommendedProgram}{routedRight?" ✓":" — wrong"}</span></Pill>
-            <Pill neutral><Clock size={13}/><span style={{marginLeft:6}}>{duration}</span></Pill>
+            <Pill ok={routedRight}>{routedRight ? <CheckCircle2 size={13}/> : <XCircle size={13}/>}<span style={{marginLeft:5}}>Routed → {card.recommendedProgram}{routedRight?" ✓":" ✗ wrong track"}</span></Pill>
+            <Pill neutral><Clock size={12}/><span style={{marginLeft:5}}>{duration}</span></Pill>
           </div>
+        </div>
+        {/* mini score bar across the top */}
+        <div style={{ width:"100%", height:5, borderRadius:4, background:"rgba(255,255,255,0.07)", overflow:"hidden", marginTop:4 }}>
+          <div style={{ height:"100%", width:`${score}%`, background:scoreColor, borderRadius:4, transition:"width .8s ease" }}/>
         </div>
       </div>
 
       {card.flags && card.flags.length > 0 && (
-        <div style={{ background:"rgba(232,122,107,0.08)", border:"1px solid rgba(232,122,107,0.4)", borderRadius:14, padding:"13px 16px", marginBottom:18 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, color:"#f0a594", fontWeight:600, fontSize:14, marginBottom:6 }}><AlertTriangle size={16}/> Compliance / critical flags</div>
-          {card.flags.map((f,i)=>(<div key={i} style={{ fontSize:13.5, color:"#f3cabf", marginTop:3 }}>• {f}</div>))}
+        <div style={{ background:"rgba(232,122,107,0.08)", border:"1px solid rgba(232,122,107,0.4)", borderRadius:14, padding:"14px 18px", marginBottom:18 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, color:"#f0a594", fontWeight:700, fontSize:13.5, marginBottom:8 }}><AlertTriangle size={16}/> Compliance / Critical Flags</div>
+          {card.flags.map((f,i)=>(<div key={i} style={{ fontSize:13, color:"#f3cabf", marginTop:5, paddingLeft:8, borderLeft:`2px solid rgba(232,122,107,0.5)` }}>• {f}</div>))}
         </div>
       )}
 
-      <Panel title="Category scores">
-        {card.categories.map((c,i)=>(
-          <div key={i} style={{ marginBottom:11 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:5 }}>
-              <span>{c.name}</span><span style={{ color:MUTE }}><b style={{ color: barColor(c.score/c.max) }}>{c.score}</b>/{c.max}</span>
+      <Panel title="Category breakdown">
+        {card.categories.map((c,i)=>{
+          const pct = c.score/c.max;
+          return (
+            <div key={i} style={{ marginBottom:13 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:5 }}>
+                <span style={{ fontWeight:500 }}>{c.name}</span>
+                <span style={{ color:MUTE, minWidth:48, textAlign:"right" }}><b style={{ color:barColor(pct), fontSize:15 }}>{c.score}</b><span style={{fontSize:11}}>/{c.max}</span></span>
+              </div>
+              <div style={{ height:8, borderRadius:6, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${pct*100}%`, background:barColor(pct), borderRadius:6, transition:"width .7s ease" }}/>
+              </div>
             </div>
-            <div style={{ height:7, borderRadius:6, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
-              <div style={{ height:"100%", width:`${(c.score/c.max)*100}%`, background:barColor(c.score/c.max), borderRadius:6, transition:"width .6s ease" }}/>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </Panel>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:14 }}>
-        <ListPanel title="What you did well" items={card.strengths} icon={<CheckCircle2 size={15} color={LIME_DIM}/>} color={LIME_DIM}/>
-        <ListPanel title="Where you lost points" items={card.lostPoints} icon={<Target size={15} color="#e8b24b"/>} color="#e8b24b"/>
-        <ListPanel title="Missed opportunities" items={card.missed} icon={<Sparkles size={15} color="#7bb8e8"/>} color="#7bb8e8"/>
-        <ListPanel title="Say this next time" items={card.sayNextTime} icon={<ChevronRight size={15} color={LIME}/>} color={LIME} quote/>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:14, marginTop:14 }}>
+        <ListPanel title="✓ What you did well" items={card.strengths} icon={<CheckCircle2 size={15} color={LIME_DIM}/>} color={LIME_DIM}/>
+        <ListPanel title="✗ Where you lost points" items={card.lostPoints} icon={<Target size={15} color="#e8b24b"/>} color="#e8b24b"/>
+        <ListPanel title="◎ Missed opportunities" items={card.missed} icon={<Sparkles size={15} color="#7bb8e8"/>} color="#7bb8e8"/>
+        <ListPanel title="💬 Say this next time" items={card.sayNextTime} icon={<ChevronRight size={15} color={LIME}/>} color={LIME} quote/>
       </div>
 
       {card.behavioral && (
         <Panel title="Behavioral read" style={{ marginTop:14 }}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:12, fontSize:13.5 }}>
-            <Meta k="Pace" v={card.behavioral.pace}/><Meta k="Tone" v={card.behavioral.tone}/>
-            <Meta k="Talk-time" v={card.behavioral.talkTime}/><Meta k="Rushed / pushy / robotic?" v={card.behavioral.redFlags}/>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:12, fontSize:13.5 }}>
+            <Meta k="Pace" v={card.behavioral.pace}/>
+            <Meta k="Tone" v={card.behavioral.tone}/>
+            <Meta k="Talk-time balance" v={card.behavioral.talkTime}/>
+            <Meta k="Red flags" v={card.behavioral.redFlags}/>
           </div>
         </Panel>
       )}
 
       {!isDemo && !useCustom && (
         <Panel title="Who you were really talking to" style={{ marginTop:14 }}>
-          <div style={{ fontSize:13.5, lineHeight:1.6 }}>
-            <div style={{ marginBottom:6 }}><Tag>{persona.mood} mood</Tag> <Tag>{persona.route} fit</Tag></div>
-            <div><span style={{color:MUTE}}>Stated objection: </span>{persona.stated}</div>
-            <div style={{ marginTop:4 }}><span style={{color:MUTE}}>Their true blocker: </span>{persona.blocker}</div>
+          <div style={{ fontSize:13.5, lineHeight:1.65 }}>
+            <div style={{ marginBottom:8 }}><Tag>{persona.mood} mood</Tag> <Tag>{persona.route} track</Tag></div>
+            <div><span style={{color:MUTE}}>Stated objection: </span><b style={{color:TXT}}>{persona.stated}</b></div>
+            <div style={{ marginTop:6 }}><span style={{color:MUTE}}>Their true blocker: </span><b style={{color:LIME_DIM}}>{persona.blocker}</b></div>
           </div>
         </Panel>
       )}

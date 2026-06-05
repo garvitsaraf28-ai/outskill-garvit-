@@ -790,7 +790,7 @@ function Cover({ serif, onEnter }) {
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:26 }}>
           {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
         </div>
-        <div style={{ fontSize:13, letterSpacing:6, textTransform:"uppercase", color:LIME_DIM, marginBottom:22, fontWeight:600 }}>GarvitSaraf.OutSkill</div>
+        <div style={{ fontSize:13, letterSpacing:6, textTransform:"uppercase", color:LIME_DIM, marginBottom:22, fontWeight:600 }}>OutSkill · Sales Department</div>
         <h1 style={{ ...serif, fontSize:"clamp(46px, 9vw, 92px)", fontWeight:600, lineHeight:1.02, margin:"0 0 22px", letterSpacing:-1.5 }}>
           Where conversations<br/><span style={{ color:LIME }}>become conversions.</span>
         </h1>

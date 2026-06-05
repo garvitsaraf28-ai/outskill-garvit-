@@ -1126,7 +1126,7 @@ function Home({ serif, go, history, goBack }) {
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back to start</span>
         </button>
       </div>
-      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,40px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>Welcome back. What's the move?</h1>
+      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,40px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>{(()=>{ try { const n=localStorage.getItem("sarafai_visitor_name"); return n ? `Welcome back, ${n}. What's the move?` : "Welcome back. What's the move?"; } catch { return "Welcome back. What's the move?"; } })()}</h1>
       <p style={{ color:MUTE, margin:"0 0 28px", fontSize:"clamp(14px,4vw,16.5px)", maxWidth:600, lineHeight:1.5 }}>
         Train new joiners on mock calls, then run, record and report on real learner calls — all in one place.
       </p>
@@ -1307,6 +1307,52 @@ function FeedbackWall({ serif, goBack, defaultName }) {
 
 /* ------------------------------------------------------------------ */
 function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
+  const [nameInput, setNameInput] = useState("");
+  const [step, setStep] = useState(() => {
+    try { return localStorage.getItem("sarafai_visitor_name") ? "dept" : "name"; } catch { return "name"; }
+  });
+  const [shake, setShake] = useState(false);
+  const visitorName = (() => { try { return localStorage.getItem("sarafai_visitor_name") || ""; } catch { return ""; } })();
+
+  const submit = () => {
+    const n = nameInput.trim();
+    if (!n) { setShake(true); setTimeout(() => setShake(false), 500); return; }
+    try { localStorage.setItem("sarafai_visitor_name", n); } catch {}
+    setStep("dept");
+  };
+
+  if (step === "name") return (
+    <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"40px 18px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:24 }}>
+        {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background:d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow:d?`0 0 14px ${LIME}55`:"none" }}/>))}
+      </div>
+      <div style={{ fontSize:"clamp(10px,3vw,12px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:20, fontWeight:600 }}>OutSkill · Sales Department</div>
+      <h1 style={{ ...serif, fontSize:"clamp(30px,7vw,62px)", fontWeight:600, lineHeight:1.08, margin:"0 0 14px", letterSpacing:-1 }}>
+        Hey, before we dive in —<br/><span style={{ color:LIME }}>what's your name?</span>
+      </h1>
+      <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16px)", maxWidth:420, margin:"0 auto 36px", lineHeight:1.6 }}>
+        Just your first name. We'll personalise your scorecards and track your progress on the team board.
+      </p>
+      <div style={{ width:"100%", maxWidth:360, animation: shake ? "shake .4s ease" : "none" }}>
+        <style>{`@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}`}</style>
+        <input
+          autoFocus
+          value={nameInput}
+          onChange={e => setNameInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="e.g. Rahul, Priya, Garvit…"
+          style={{ width:"100%", boxSizing:"border-box", background:"rgba(255,255,255,0.05)", border:`1.5px solid ${nameInput.trim() ? "rgba(194,238,69,0.6)" : BORDER}`, borderRadius:14, padding:"16px 20px", fontSize:18, color:TXT, fontFamily:"inherit", outline:"none", textAlign:"center", transition:"border-color .2s" }}
+        />
+        <button onClick={submit} style={{ ...primaryBtn, width:"100%", marginTop:14, justifyContent:"center", fontSize:16, padding:"14px 22px" }}>
+          <Sparkles size={17}/><span style={{ marginLeft:9 }}>Let's go</span>
+        </button>
+      </div>
+      <button onClick={goBack} style={{ ...secondaryBtn, marginTop:28, padding:"8px 16px", fontSize:12.5 }}>
+        <ArrowLeft size={14}/><span style={{ marginLeft:6 }}>Back</span>
+      </button>
+    </div>
+  );
+
   return (
     <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"40px 18px", position:"relative" }}>
       {/* brand dot-mark */}
@@ -1315,10 +1361,10 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
       </div>
       <div style={{ fontSize:"clamp(10px,3vw,12px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Department</div>
       <h1 style={{ ...serif, fontSize:"clamp(28px,6vw,58px)", fontWeight:600, lineHeight:1.1, margin:"0 0 12px", letterSpacing:-1 }}>
-        Which team are you on?
+        {visitorName ? <>Good to have you, <span style={{ color:LIME }}>{visitorName}.</span></> : "Which team are you on?"}
       </h1>
       <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16px)", maxWidth:480, margin:"0 auto 40px", lineHeight:1.55 }}>
-        Select your sales track to get started.
+        Pick your sales track and let's get to work.
       </p>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, width:"100%", maxWidth:560 }}>
         <button onClick={onInsideSales}

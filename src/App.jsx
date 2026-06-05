@@ -121,7 +121,8 @@ ${p.brief}
 - Talk like a real person on a phone call: short sentences, contractions, the occasional "hmm", "yeah but", sometimes ask them to repeat. You are NOT a Q&A machine — volunteer some things, hold others back.
 - Keep EACH reply very short — usually 1-2 spoken sentences. Never monologue. This is a back-and-forth conversation.
 - DRIVE sometimes, don't just answer. Ask the rep real questions about what actually matters to you — "what's actually in it?", "how much does it cost?", "how much time per week?", "is it live or recorded?", "what if it doesn't work for me?", "do you have payment options?". Make them earn it.
-- When the rep explains something (price, EMI, program content), react naturally — surprised, reassured, skeptical, curious — based on your character. Don't pre-empt; let them tell you.
+- When the rep explains something (price, EMI, program content), GRAB THE POINT: remember it for the rest of the call and react naturally — surprised, reassured, skeptical, curious — based on your character. Don't pre-empt; let them tell you. If they already told you the price, don't ask again — refer back to what they said ("you said it's 95k, right?").
+- Build on the conversation. Each turn, factor in everything the rep has already told you this call; get progressively more informed and either warmer or more guarded based on how well they're handling you.
 - Be authentically inconsistent like a real human: some turns curious, some distracted or skeptical, some a bit rushed. Don't be uniformly agreeable or uniformly difficult.
 - If the rep hasn't shown why this is relevant to YOU specifically, lean towards "I'm not sure this is for me" and let them work to change your mind. Don't get interested for no reason.
 - Raise your objection(s) naturally, mid-conversation, not all at once. Don't cave on the first decent rebuttal. Push back once or twice before you accept a good answer.
@@ -144,6 +145,7 @@ ${PROGRAM_FACTS}
 - Route correctly (Generalist for non-technical, Engineering for coders) and explain ONLY the parts relevant to this person.
 - Frame value against their stated goal; correct certificate story for their geography.
 - Handle objections with empathy + ONE specific fact; confirm it landed; uncover the real concern.
+- LISTEN and adapt: track everything the learner has told you (their role, budget, coding ability, concerns) and tailor each reply to THAT — never restart the pitch or repeat info they already have. Answer the question they actually asked, then move the call forward.
 - Trial close and secure a concrete next step. On a stall, isolate the real hesitation and create a low-risk reason to decide.
 - ZERO guaranteed-job or guaranteed-income claims.
 - Keep each turn to 1-3 spoken sentences, like real speech. Output ONLY your spoken words — no narration, labels or emoji.`;
@@ -734,8 +736,20 @@ export default function App() {
       }
       if (parsed) {
         setCard(parsed);
-        const entry = { date: Date.now(), persona: activePersona.name, mode, overall: parsed.overall, correctRouting: parsed.correctRouting };
-        const nh = [entry, ...history].slice(0, 20); setHistory(nh);
+        const entry = {
+          date: Date.now(),
+          persona: activePersona.name,
+          personaTag: activePersona.tag,
+          mode,
+          rep: repName || "",
+          difficulty,
+          duration: fmtTime(seconds),
+          overall: parsed.overall,
+          correctRouting: parsed.correctRouting,
+          // store per-category percentages so we can chart improvement by skill
+          categories: parsed.categories.map(c => ({ name: c.name, pct: Math.round((c.score / c.max) * 100) })),
+        };
+        const nh = [entry, ...history].slice(0, 50); setHistory(nh);
         try { localStorage.setItem("sarafai_history_v1", JSON.stringify(nh)); } catch {}
       }
       // Save the full call (transcript + scorecard) to disk for later review.
@@ -1527,22 +1541,112 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
       {history.length > 0 && (
         <div style={{ marginTop:24 }}>
           <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
-            <SectionLabel>Your recent reps</SectionLabel>
+            <SectionLabel>Your progress</SectionLabel>
             {streak >= 2 && <span style={{ fontSize:13, color:"#e8b24b", fontWeight:600, marginLeft:8 }}>🔥 {streak} day streak</span>}
           </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            {history.slice(0,5).map((h,i)=>(
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"9px 13px" }}>
-                <span style={{ fontWeight:700, color: scoreColor(h.overall), width:30 }}>{h.overall}</span>
-                <span style={{ color:TXT }}>{h.persona}</span>
-                <span style={{ color:MUTE, fontSize:11.5 }}>{h.mode==="learner"?"practice":"demo"}</span>
-                {h.correctRouting ? <CheckCircle2 size={14} color={LIME_DIM}/> : <XCircle size={14} color="#e87a6b"/>}
-                <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>{new Date(h.date).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
-              </div>
-            ))}
-          </div>
+          <ProgressPanel history={history} serif={serif}/>
         </div>
       )}
+    </div>
+  );
+}
+
+/* Improvement / progress tracker — turns saved practice data into a trend. */
+function ProgressPanel({ history, serif }) {
+  // chronological (oldest → newest) for trend math
+  const chron = [...history].reverse();
+  const scores = chron.map(h => h.overall);
+  const first = scores[0], latest = scores[scores.length - 1];
+  const best = Math.max(...scores);
+  const delta = latest - first;
+  const last5 = scores.slice(-5);
+  const prev5 = scores.slice(-10, -5);
+  const recentAvg = last5.length ? Math.round(last5.reduce((a,b)=>a+b,0)/last5.length) : 0;
+  const olderAvg = prev5.length ? Math.round(prev5.reduce((a,b)=>a+b,0)/prev5.length) : null;
+  const trend = olderAvg !== null ? recentAvg - olderAvg : delta;
+
+  // per-skill averages from stored category percentages
+  const skillTotals = {};
+  chron.forEach(h => (h.categories || []).forEach(c => {
+    if (!skillTotals[c.name]) skillTotals[c.name] = { sum:0, n:0 };
+    skillTotals[c.name].sum += c.pct; skillTotals[c.name].n += 1;
+  }));
+  const skills = Object.entries(skillTotals).map(([name,v]) => ({ name, pct: Math.round(v.sum/v.n) }));
+  const weakest = skills.length ? skills.reduce((a,b)=>a.pct<b.pct?a:b) : null;
+  const strongest = skills.length ? skills.reduce((a,b)=>a.pct>b.pct?a:b) : null;
+
+  // sparkline geometry
+  const W = 260, H = 56, n = scores.length;
+  const pts = scores.map((s,i) => {
+    const x = n === 1 ? W/2 : (i/(n-1))*W;
+    const y = H - (s/100)*H;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  const Stat = ({ label, value, color }) => (
+    <div style={{ flex:1, minWidth:88, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 13px" }}>
+      <div style={{ fontSize:10.5, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>{label}</div>
+      <div style={{ ...serif, fontSize:23, fontWeight:600, color: color || TXT }}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+      {/* headline stats */}
+      <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+        <Stat label="Calls done" value={history.length}/>
+        <Stat label="Latest" value={latest} color={scoreColor(latest)}/>
+        <Stat label="Best" value={best} color={scoreColor(best)}/>
+        <Stat label="Trend" value={`${trend >= 0 ? "+" : ""}${trend}`} color={trend >= 0 ? LIME_DIM : "#e87a6b"}/>
+      </div>
+
+      {/* trend line */}
+      {n >= 2 && (
+        <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"14px 16px" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+            <span style={{ fontSize:12.5, color:MUTE }}>Score over time</span>
+            <span style={{ fontSize:12.5, color: delta >= 0 ? LIME_DIM : "#e87a6b", fontWeight:600 }}>
+              {delta >= 0 ? "▲" : "▼"} {Math.abs(delta)} since first call
+            </span>
+          </div>
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display:"block", height:56 }}>
+            <polyline points={pts} fill="none" stroke={LIME} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
+            {scores.map((s,i)=>{ const x = n===1?W/2:(i/(n-1))*W, y = H-(s/100)*H; return <circle key={i} cx={x} cy={y} r="2.6" fill={scoreColor(s)}/>; })}
+          </svg>
+        </div>
+      )}
+
+      {/* focus area + strength */}
+      {weakest && (
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          <div style={{ flex:1, minWidth:200, background:"rgba(232,178,75,0.07)", border:"1px solid rgba(232,178,75,0.35)", borderRadius:12, padding:"11px 14px" }}>
+            <div style={{ fontSize:10.5, letterSpacing:1, textTransform:"uppercase", color:"#e8b24b", marginBottom:3 }}>🎯 Work on this</div>
+            <div style={{ fontSize:13.5, color:TXT, fontWeight:500 }}>{weakest.name}</div>
+            <div style={{ fontSize:11.5, color:MUTE, marginTop:2 }}>averaging {weakest.pct}% across your calls</div>
+          </div>
+          {strongest && strongest.name !== weakest.name && (
+            <div style={{ flex:1, minWidth:200, background:"rgba(159,194,58,0.07)", border:"1px solid rgba(159,194,58,0.35)", borderRadius:12, padding:"11px 14px" }}>
+              <div style={{ fontSize:10.5, letterSpacing:1, textTransform:"uppercase", color:LIME_DIM, marginBottom:3 }}>💪 Your strength</div>
+              <div style={{ fontSize:13.5, color:TXT, fontWeight:500 }}>{strongest.name}</div>
+              <div style={{ fontSize:11.5, color:MUTE, marginTop:2 }}>averaging {strongest.pct}% across your calls</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* recent calls list */}
+      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+        {history.slice(0,5).map((h,i)=>(
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"9px 13px" }}>
+            <span style={{ fontWeight:700, color: scoreColor(h.overall), width:30 }}>{h.overall}</span>
+            <span style={{ color:TXT }}>{h.persona}</span>
+            <span style={{ color:MUTE, fontSize:11.5 }}>{h.mode==="learner"?"practice":"demo"}</span>
+            {h.difficulty && <span style={{ color:MUTE, fontSize:10.5, textTransform:"uppercase", letterSpacing:.5 }}>{h.difficulty}</span>}
+            {h.correctRouting ? <CheckCircle2 size={14} color={LIME_DIM}/> : <XCircle size={14} color="#e87a6b"/>}
+            <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>{new Date(h.date).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

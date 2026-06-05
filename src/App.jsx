@@ -244,27 +244,30 @@ async function callClaude({ system, messages, json }) {
   return data.content.filter(b => b.type === "text").map(b => b.text).join("\n").trim();
 }
 function parseScorecard(raw) {
-  // Strip markdown code fences and any text before/after the JSON object
-  let t = raw
-    .replace(/```json/gi, "").replace(/```/g, "")
-    .replace(/<think>[\s\S]*?<\/think>/gi, "")
-    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
-    .trim();
-  // Extract just the JSON object
-  const s = t.indexOf("{"), e = t.lastIndexOf("}");
-  if (s >= 0 && e >= 0) t = t.slice(s, e + 1);
-  // Fix common LLM JSON quirks
-  t = t
-    .replace(/,\s*([}\]])/g, "$1")   // trailing commas
-    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":') // unquoted keys
-    .replace(/:\s*'([^']*)'/g, ': "$1"'); // single-quoted values
+  if (!raw) return null;
   try {
-    return JSON.parse(t);
-  } catch {
-    // Last resort — try to salvage a partial parse
-    const fixed = t.replace(/[\x00-\x1F\x7F]/g, " ");
-    return JSON.parse(fixed);
-  }
+    let t = String(raw)
+      .replace(/```json\s*/gi, "").replace(/```\s*/gi, "")
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+      .trim();
+    // Pull out the outermost JSON object
+    const s = t.indexOf("{"), e = t.lastIndexOf("}");
+    if (s >= 0 && e > s) t = t.slice(s, e + 1);
+    else return null;
+    // Try direct parse
+    try { return JSON.parse(t); } catch {}
+    // Repair common LLM quirks and try again
+    try {
+      const r = t
+        .replace(/,\s*([}\]])/g, "$1")                         // trailing commas
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":') // unquoted keys
+        .replace(/:\s*'([^']*)'/g, ': "$1"')                    // single-quoted values
+        .replace(/[\x00-\x1F\x7F]/g, " ");                     // control chars
+      return JSON.parse(r);
+    } catch {}
+    return null; // give up — never throw
+  } catch { return null; }
 }
 const fmtTime = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 
@@ -546,21 +549,25 @@ export default function App() {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         blockedRef.current = true; setVoiceBlocked(true); setListening(false); return;
       }
-      if (e.error === "network" && netRetries < 3 && voiceOnRef.current && callActiveRef.current) {
-        // Google STT dropped the network link — retry silently after a short pause
-        netRetries++;
+      if (e.error === "network") {
         setListening(false);
-        setTimeout(() => { try { rec.start(); } catch {} }, 400);
+        if (netRetries < 2 && voiceOnRef.current && callActiveRef.current) {
+          netRetries++;
+          setTimeout(() => { try { rec.start(); } catch {} }, 600);
+        } else {
+          // Give up on voice — silently fall back to text mode
+          setVoiceOn(false);
+          blockedRef.current = true; setVoiceBlocked(true);
+        }
         return;
       }
-      // no-speech, aborted, audio-capture — just reset quietly
+      // no-speech / aborted / audio-capture — reset quietly
       setListening(false);
     };
     rec.onend = () => {
       setListening(false);
       const t = finalRef.current.trim(); finalRef.current = ""; setInterim("");
       if (t) { netRetries = 0; sendText(t); }
-      // if nothing captured and hands-free, re-arm listening
       else if (handsFreeRef.current && callActiveRef.current && voiceOnRef.current && !blockedRef.current && !busyRef.current) {
         setTimeout(() => { try { rec.start(); } catch {} }, 200);
       }
@@ -1553,7 +1560,7 @@ function VoiceDock({ voice, mode, persona, input, setInput, send, busy }) {
       {blocked && (
         <>
           <div style={{ ...errStyle, background:"rgba(232,178,75,0.08)", borderColor:"rgba(232,178,75,0.4)", color:"#f0d29a", marginTop:14 }}>
-            Your mic is blocked in this embedded view, so {name} will <b>speak its replies aloud</b> but you'll need to type. To talk back, open this in a full browser tab (Chrome/Edge) and allow microphone access.
+            Voice unavailable on this connection — <b>just type your reply below</b>. The prospect will still speak their responses aloud. This happens when Chrome can't reach Google's speech servers; typing works fine and is just as good for practice.
           </div>
           <div style={{ display:"flex", gap:10, marginTop:12, alignItems:"flex-end" }}>
             <textarea value={input} onChange={e=>setInput(e.target.value)} rows={1}

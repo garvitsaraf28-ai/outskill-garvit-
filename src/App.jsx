@@ -826,7 +826,7 @@ export default function App() {
       {/* Page-specific music: Cover = RCB anthem, Home = hype track, others = silent */}
       {musicOn && musicStarted && section === "cover" && (
         <iframe key="music-cover"
-          src="https://www.youtube-nocookie.com/embed/ejmyPv0gf_0?autoplay=1&controls=0&playsinline=1&mute=0&rel=0"
+          src="https://www.youtube.com/embed/KVAca4MynKY?autoplay=1&loop=1&playlist=KVAca4MynKY&controls=0&playsinline=1&mute=0&start=22"
           allow="autoplay; encrypted-media"
           style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
           title="bg-music-cover"
@@ -834,7 +834,7 @@ export default function App() {
       )}
       {musicOn && musicStarted && section === "home" && (
         <iframe key="music-home"
-          src="https://www.youtube-nocookie.com/embed/3zbjjubp0kg?autoplay=1&controls=0&playsinline=1&mute=0&rel=0"
+          src="https://www.youtube.com/embed/iJVtxex6HIk?autoplay=1&loop=1&playlist=iJVtxex6HIk&controls=0&playsinline=1&mute=0&start=18"
           allow="autoplay; encrypted-media"
           style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
           title="bg-music-home"

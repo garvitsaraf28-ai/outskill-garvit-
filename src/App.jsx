@@ -946,21 +946,13 @@ If the rep said nothing factually useful or correct, return [].`,
         {section === "feedbackwall" && <FeedbackWall serif={serif} goBack={() => setSection("home")} defaultName={repName} />}
       </div>
 
-      {/* Page-specific music: Cover = RCB anthem, Home = hype track, others = silent */}
-      {musicOn && musicStarted && (section === "cover" || section === "dept") && (
-        <iframe key="music-cover-VuziUrQKNsA"
+      {/* Background music — plays everywhere except the mock call page */}
+      {musicOn && musicStarted && section !== "practice" && (
+        <iframe key="music-global-VuziUrQKNsA"
           src="https://www.youtube.com/embed/VuziUrQKNsA?autoplay=1&loop=1&playlist=VuziUrQKNsA&controls=0&playsinline=1&mute=0&start=0"
           allow="autoplay; encrypted-media"
           style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
-          title="bg-music-cover"
-        />
-      )}
-      {musicOn && musicStarted && section === "home" && (
-        <iframe key="music-home"
-          src="https://www.youtube.com/embed/9TUPVMWhpvk?autoplay=1&loop=1&playlist=9TUPVMWhpvk&controls=0&playsinline=1&mute=0&start=11"
-          allow="autoplay; encrypted-media"
-          style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
-          title="bg-music-home"
+          title="bg-music"
         />
       )}
       {/* Floating music toggle — home page only (cover has its own in-flow row) */}

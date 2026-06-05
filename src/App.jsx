@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Phone, PhoneOff, Send, ArrowLeft, RotateCcw, AlertTriangle,
   CheckCircle2, XCircle, Target, Sparkles, Clock, User, Shuffle, Pencil,
@@ -1807,9 +1808,9 @@ function TeamView({ calls, serif, me }) {
         </div>
       </div>
 
-      {/* Detail report modal */}
-      {detail && (
-        <div onClick={()=>setDetail(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"30px 14px", zIndex:60, overflowY:"auto" }}>
+      {/* Detail report modal — rendered via portal to escape parent stacking contexts */}
+      {detail && createPortal(
+        <div onClick={()=>setDetail(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"30px 14px", zIndex:9999, overflowY:"auto" }}>
           <div onClick={e=>e.stopPropagation()} className="osf oscroll" style={{ background:"#11140d", border:`1px solid ${BORDER}`, borderRadius:20, padding:"22px 22px 26px", width:"100%", maxWidth:760, marginTop:10 }}>
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
               <div>
@@ -1844,7 +1845,7 @@ function TeamView({ calls, serif, me }) {
               )}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

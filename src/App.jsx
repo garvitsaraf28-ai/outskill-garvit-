@@ -162,7 +162,7 @@ ${ctx}
 Judge correctness against these facts:
 ${PROGRAM_FACTS}
 
-SCORE the rep on this weighted rubric (total 100):
+SCORE the rep on this weighted rubric (total 100 points):
 1. Opening & rapport — warm, personalised, references the workshop (max 10)
 2. Discovery & qualification — MUST establish coding ability for routing; also uncover goal, timeline, budget sensitivity (max 20)
 3. Correct program routing & fit — right track for this person, explained clearly (max 15)
@@ -171,8 +171,18 @@ SCORE the rep on this weighted rubric (total 100):
 6. Pricing, EMI & trust — correct price for market, correct EMI rules (tenure vs price tier), 9% fee disclosed if relevant, no MSP breach, no fabricated discounts (max 10)
 7. Close & next step — trial close, concrete commitment or low-risk reason to decide (max 10)
 
-HARD AUTO-FLAGS (apply and list):
-- Guaranteed job/income claim → cap overall at 40.
+CALIBRATION (use the full 0–100 range — scores must reflect real skill differences):
+- 0–30: Barely engaged; no discovery, no structure, major compliance violations
+- 31–50: Weak; attempted basics but missed most rubric items or made serious errors
+- 51–65: Average; covered some rubric items adequately, a few gaps
+- 66–79: Good; most rubric items covered well, minor gaps
+- 80–89: Strong; covered all rubric items, only small polish needed
+- 90–100: Excellent; every rubric item well-executed with natural, confident delivery
+
+A rep who just pitches without discovery scores ≤ 45. A rep who discovers well but closes weakly scores 55–65. A rep who nails discovery, routing, objection handling, and close scores 75+.
+
+HARD AUTO-FLAGS (list in the "flags" array; the rule applies ONLY when clearly violated):
+- Explicit false guarantee (e.g. "100% job guarantee", "you WILL get a job", "guaranteed income") → cap overall at 40. (Normal career benefit statements like "this helps you get hired" are NOT flagged.)
 - Wrong program recommended → force category 3 to 1.
 - NSDC value claimed to an INTERNATIONAL learner → category 6 at most 2.
 - EMI tenure offered that violates the rules (e.g. 12-month EMI at Rs 85k, or EMI at MSP) → flag + deduct from category 6.
@@ -1755,10 +1765,11 @@ function TeamView({ calls, serif, me }) {
   const byRep = {};
   calls.forEach(c => {
     const k = c.rep || "Anonymous";
-    if (!byRep[k]) byRep[k] = { rep:k, scores:[], routed:0, best:null };
+    if (!byRep[k]) byRep[k] = { rep:k, scores:[], routed:0, best:null, worst:null };
     if (typeof c.overall === "number") {
       byRep[k].scores.push(c.overall);
       if (!byRep[k].best || c.overall > byRep[k].best.overall) byRep[k].best = c;
+      if (!byRep[k].worst || c.overall < byRep[k].worst.overall) byRep[k].worst = c;
     }
   });
   const board = Object.values(byRep).map(r => ({
@@ -1766,6 +1777,7 @@ function TeamView({ calls, serif, me }) {
     n: r.scores.length,
     avg: r.scores.length ? Math.round(r.scores.reduce((a,b)=>a+b,0)/r.scores.length) : 0,
     best: r.scores.length ? Math.max(...r.scores) : 0,
+    low: r.scores.length ? Math.min(...r.scores) : 0,
     bestCall: r.best,
   })).filter(r => r.n > 0).sort((a,b) => b.avg - a.avg);
 
@@ -1784,7 +1796,9 @@ function TeamView({ calls, serif, me }) {
                 <span style={{ width:22, color:MUTE, fontWeight:700, fontSize:12 }}>{i+1}</span>
                 <span style={{ color:TXT, fontWeight:600 }}>{r.rep}{isMe ? " (you)" : ""}</span>
                 <span style={{ color:MUTE, fontSize:11.5 }}>{r.n} call{r.n>1?"s":""}</span>
-                <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>best <b style={{color:scoreColor(r.best)}}>{r.best}</b></span>
+                <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>
+                  {r.n > 1 ? <><b style={{color:scoreColor(r.low)}}>{r.low}</b><span style={{opacity:.5}}>–</span><b style={{color:scoreColor(r.best)}}>{r.best}</b></> : <><span>best </span><b style={{color:scoreColor(r.best)}}>{r.best}</b></>}
+                </span>
                 <span style={{ fontWeight:700, color:scoreColor(r.avg), width:34, textAlign:"right" }}>{r.avg}</span>
                 <ChevronRight size={15} color={MUTE}/>
               </button>

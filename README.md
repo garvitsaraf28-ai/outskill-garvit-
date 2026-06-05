@@ -1,4 +1,4 @@
-# Hopkins Agent — Sales Mock-Call Trainer
+# Saraf.AI — Sales Mock-Call Trainer
 
 A local web app where a sales rep runs a voice mock-call against a realistic AI
 prospect and gets an instant, scored coaching breakdown. Adapted from the

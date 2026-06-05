@@ -752,23 +752,26 @@ export default function App() {
         const nh = [entry, ...history].slice(0, 50); setHistory(nh);
         try { localStorage.setItem("sarafai_history_v1", JSON.stringify(nh)); } catch {}
       }
-      // Save the full call (transcript + scorecard) to disk for later review.
-      try {
-        await fetch("/api/save-call", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ts: Date.now(), mode,
-            persona: activePersona.name, personaTag: activePersona.tag,
-            duration: fmtTime(seconds),
-            overall: parsed ? parsed.overall : null,
-            correctRouting: parsed ? parsed.correctRouting : null,
-            scorecard: parsed || null,
-            scorecardRaw: parsed ? null : raw,
-            transcript,
-            messages: visible,
-          }),
-        });
-      } catch {}
+      // Save the lightweight scorecard summary to the shared team store so it
+      // shows up in everyone's dashboard (tagged by rep name). No transcript is
+      // sent. Harmless no-op if no DB is configured.
+      if (parsed) {
+        try {
+          await fetch("/api/save-call", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ts: Date.now(), mode,
+              rep: repName || "Anonymous",
+              persona: activePersona.name, personaTag: activePersona.tag,
+              difficulty,
+              duration: fmtTime(seconds),
+              overall: parsed.overall,
+              correctRouting: parsed.correctRouting,
+              categories: parsed.categories.map(c => ({ name: c.name, pct: Math.round((c.score / c.max) * 100) })),
+            }),
+          });
+        } catch {}
+      }
     } catch {
       setErr("Couldn't generate the scorecard. Try ending the call again.");
     } finally { setGrading(false); }
@@ -1544,15 +1547,127 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
             <SectionLabel>Your progress</SectionLabel>
             {streak >= 2 && <span style={{ fontSize:13, color:"#e8b24b", fontWeight:600, marginLeft:8 }}>🔥 {streak} day streak</span>}
           </div>
-          <ProgressPanel history={history} serif={serif}/>
+          <ProgressPanel history={history} serif={serif} repName={repName}/>
         </div>
       )}
     </div>
   );
 }
 
-/* Improvement / progress tracker — turns saved practice data into a trend. */
-function ProgressPanel({ history, serif }) {
+/* Wrapper: lets each person see THEIR OWN progress, or toggle to the whole
+   team's. Personal data comes from this browser's localStorage (instant,
+   always available); the team view is pulled from the shared store. */
+function ProgressPanel({ history, serif, repName }) {
+  const [scope, setScope] = useState("mine"); // "mine" | "team"
+  const [team, setTeam] = useState(null);     // null=loading, []=none, [...]=calls
+  const [configured, setConfigured] = useState(true);
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/practice-calls")
+      .then(r => r.json())
+      .then(d => { if (!live) return; setConfigured(!!d.configured); setTeam(Array.isArray(d.calls) ? d.calls : []); })
+      .catch(() => { if (live) { setConfigured(false); setTeam([]); } });
+    return () => { live = false; };
+  }, [scope]);
+
+  const Toggle = () => (
+    <div style={{ display:"inline-flex", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:3, marginBottom:4 }}>
+      {[["mine","My practice"],["team","Everyone"]].map(([k,label])=>(
+        <button key={k} onClick={()=>setScope(k)} style={{
+          border:"none", borderRadius:8, padding:"6px 14px", fontSize:12.5, fontWeight:600,
+          background: scope===k ? LIME : "transparent", color: scope===k ? INK : MUTE, transition:"all .15s",
+        }}>{label}</button>
+      ))}
+    </div>
+  );
+
+  // Team view: leaderboard + everyone's recent calls
+  if (scope === "team") {
+    return (
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        {configured && <Toggle/>}
+        {!configured ? (
+          <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"16px 18px", fontSize:13, color:MUTE, lineHeight:1.6 }}>
+            The shared team dashboard isn’t connected yet. Once a database is linked in Vercel, everyone’s practice calls show up here — grouped by name. Your own progress still works on this device in the meantime.
+          </div>
+        ) : team === null ? (
+          <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>Loading the team’s practice…</div>
+        ) : team.length === 0 ? (
+          <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>No team practice calls logged yet. Be the first!</div>
+        ) : (
+          <TeamView calls={team} serif={serif} me={repName}/>
+        )}
+      </div>
+    );
+  }
+
+  // Personal view
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+      {configured && <Toggle/>}
+      <PersonalProgress history={history} serif={serif}/>
+    </div>
+  );
+}
+
+/* Team leaderboard + everyone's recent calls, grouped by rep name. */
+function TeamView({ calls, serif, me }) {
+  const byRep = {};
+  calls.forEach(c => {
+    const k = c.rep || "Anonymous";
+    if (!byRep[k]) byRep[k] = { rep:k, scores:[], routed:0 };
+    if (typeof c.overall === "number") byRep[k].scores.push(c.overall);
+    if (c.correctRouting) byRep[k].routed++;
+  });
+  const board = Object.values(byRep).map(r => ({
+    rep: r.rep,
+    n: r.scores.length,
+    avg: r.scores.length ? Math.round(r.scores.reduce((a,b)=>a+b,0)/r.scores.length) : 0,
+    best: r.scores.length ? Math.max(...r.scores) : 0,
+  })).filter(r => r.n > 0).sort((a,b) => b.avg - a.avg);
+
+  const meNorm = (me || "").trim().toLowerCase();
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+      <div>
+        <SectionLabel>Team leaderboard · by avg score</SectionLabel>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          {board.map((r,i)=>{
+            const isMe = r.rep.trim().toLowerCase() === meNorm && meNorm;
+            return (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background: isMe ? "rgba(194,238,69,0.10)" : PANEL, border:`1px solid ${isMe ? "rgba(194,238,69,0.45)" : BORDER}`, borderRadius:10, padding:"10px 13px" }}>
+                <span style={{ width:22, color:MUTE, fontWeight:700, fontSize:12 }}>{i+1}</span>
+                <span style={{ color:TXT, fontWeight:600 }}>{r.rep}{isMe ? " (you)" : ""}</span>
+                <span style={{ color:MUTE, fontSize:11.5 }}>{r.n} call{r.n>1?"s":""}</span>
+                <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>best <b style={{color:scoreColor(r.best)}}>{r.best}</b></span>
+                <span style={{ fontWeight:700, color:scoreColor(r.avg), width:34, textAlign:"right" }}>{r.avg}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <SectionLabel>Everyone’s recent calls</SectionLabel>
+        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+          {calls.slice(0,12).map((c,i)=>(
+            <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"9px 13px" }}>
+              <span style={{ fontWeight:700, color: scoreColor(c.overall), width:30 }}>{c.overall}</span>
+              <span style={{ color:TXT, fontWeight:600 }}>{c.rep || "Anonymous"}</span>
+              <span style={{ color:MUTE, fontSize:11.5 }}>vs {c.persona}</span>
+              {c.correctRouting ? <CheckCircle2 size={14} color={LIME_DIM}/> : <XCircle size={14} color="#e87a6b"/>}
+              <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>{new Date(c.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* One person's own improvement trend (from this browser's localStorage). */
+function PersonalProgress({ history, serif }) {
   // chronological (oldest → newest) for trend math
   const chron = [...history].reverse();
   const scores = chron.map(h => h.overall);

@@ -18,15 +18,16 @@ const MODELS = parseModels(
     ].join(",")
 );
 
-// Conversation chain: only plain instruct models (no reasoning models, which
-// tend to spend the whole token budget 'thinking' and return empty text).
+// Conversation chain — known-good free instruct models. The empty-reply fix
+// comes from dropping the reasoning param + a sane token budget (below),
+// not from the model list.
 const CONVO_MODELS = parseModels(
   process.env.OPENROUTER_CONVO_MODELS ||
     [
       "meta-llama/llama-3.3-70b-instruct:free",
       "qwen/qwen3-next-80b-a3b-instruct:free",
-      "google/gemma-3-27b-it:free",
-      "mistralai/mistral-small-3.2-24b-instruct:free",
+      "moonshotai/kimi-k2.6:free",
+      "nvidia/nemotron-nano-9b-v2:free",
     ].join(",")
 );
 

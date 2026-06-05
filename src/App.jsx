@@ -937,7 +937,7 @@ export default function App() {
 }
 
 /* ------------------------------------------------------------------ */
-const SECTION_TITLE = { home:"Inside Sales", salesuccess:"Sales Success", practice:"Practice Calls", realcall:"Real Call · Record & Report", reports:"Reports & Pipeline", followups:"Follow-ups" };
+const SECTION_TITLE = { home:"Inside Sales", salesuccess:"Sales Success", practice:"Mock Calls", realcall:"Real Call · Record & Report", reports:"Reports & Pipeline", followups:"Follow-ups" };
 function Header({ serif, section, goHome, inCall }) {
   const atHome = section === "home";
   return (
@@ -1079,7 +1079,7 @@ function Cover({ serif, onEnter, musicOn, musicStarted, setMusicOn, setMusicStar
 function Home({ serif, go, history, goBack }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
   const tiles = [
-    { id:"practice", icon:<GraduationCap size={22}/>, title:"Practice Calls", desc:"Train new reps against realistic AI prospects, then get an instant coaching scorecard.", tag: avg!==null ? `${history.length} practiced · avg ${avg}` : "Mock call + coaching" },
+    { id:"practice", icon:<GraduationCap size={22}/>, title:"Mock Calls", desc:"Train new reps against realistic AI prospects, then get an instant coaching scorecard.", tag: avg!==null ? `${history.length} practiced · avg ${avg}` : "Mock call + coaching" },
     { id:"realcall", icon:<Mic size={22}/>, title:"Real Call · Record & Report", desc:"Upload a recording of a real learner call. Get a transcript and a CRM-ready report with next steps.", tag:"Upload → transcribe → report", soon:true },
     { id:"reports", icon:<TrendingUp size={22}/>, title:"Reports & Pipeline", desc:"Every real call in one place — interest level, intent, and how many learners you contacted.", tag:"Sales head + management view", soon:true },
     { id:"followups", icon:<Clock size={22}/>, title:"Follow-ups", desc:"Who to call back and when, with what you already discussed and what's still open.", tag:"Never miss a callback", soon:true },
@@ -1601,9 +1601,9 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
 
   return (
     <div className="osf">
-      <h1 style={{ ...serif, fontSize:37, fontWeight:600, margin:"0 0 6px", letterSpacing:-0.5 }}>Run a practice call.</h1>
+      <h1 style={{ ...serif, fontSize:37, fontWeight:600, margin:"0 0 6px", letterSpacing:-0.5 }}>Run a mock call.</h1>
       <p style={{ color:MUTE, margin:"0 0 24px", fontSize:15, maxWidth:560 }}>
-        Talk to a realistic prospect out loud, then get an instant, evidence-based scorecard. Practice as many times as you want — no senior rep required.
+        Talk to a realistic prospect out loud, then get an instant, evidence-based scorecard. Run as many mock calls as you want — no senior rep required.
       </p>
 
       {/* Feature 1: Rep name input */}
@@ -1719,7 +1719,7 @@ function ProgressPanel({ history, serif, repName }) {
 
   const Toggle = () => (
     <div style={{ display:"inline-flex", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:3, marginBottom:4 }}>
-      {[["mine","My practice"],["team","Everyone"]].map(([k,label])=>(
+      {[["mine","My mock calls"],["team","Everyone"]].map(([k,label])=>(
         <button key={k} onClick={()=>setScope(k)} style={{
           border:"none", borderRadius:8, padding:"6px 14px", fontSize:12.5, fontWeight:600,
           background: scope===k ? LIME : "transparent", color: scope===k ? INK : MUTE, transition:"all .15s",
@@ -1735,12 +1735,12 @@ function ProgressPanel({ history, serif, repName }) {
         {configured && <Toggle/>}
         {!configured ? (
           <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"16px 18px", fontSize:13, color:MUTE, lineHeight:1.6 }}>
-            The shared team dashboard isn’t connected yet. Once a database is linked in Vercel, everyone’s practice calls show up here — grouped by name. Your own progress still works on this device in the meantime.
+            The shared team dashboard isn’t connected yet. Once a database is linked in Vercel, everyone’s mock calls show up here — grouped by name. Your own progress still works on this device in the meantime.
           </div>
         ) : team === null ? (
           <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>Loading the team’s practice…</div>
         ) : team.length === 0 ? (
-          <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>No team practice calls logged yet. Be the first!</div>
+          <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>No team mock calls logged yet. Be the first!</div>
         ) : (
           <TeamView calls={team} serif={serif} me={repName}/>
         )}

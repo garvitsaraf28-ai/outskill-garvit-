@@ -251,22 +251,28 @@ function parseScorecard(raw) {
       .replace(/<think>[\s\S]*?<\/think>/gi, "")
       .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
       .trim();
-    // Pull out the outermost JSON object
     const s = t.indexOf("{"), e = t.lastIndexOf("}");
     if (s >= 0 && e > s) t = t.slice(s, e + 1);
     else return null;
-    // Try direct parse
+    // Pass 1: direct parse
     try { return JSON.parse(t); } catch {}
-    // Repair common LLM quirks and try again
+    // Pass 2: fix common LLM quirks
     try {
       const r = t
-        .replace(/,\s*([}\]])/g, "$1")                         // trailing commas
-        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":') // unquoted keys
-        .replace(/:\s*'([^']*)'/g, ': "$1"')                    // single-quoted values
-        .replace(/[\x00-\x1F\x7F]/g, " ");                     // control chars
+        .replace(/,\s*([}\]])/g, "$1")
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
+        .replace(/:\s*'([^']*)'/g, ': "$1"')
+        .replace(/[\x00-\x1F\x7F]/g, " ");
       return JSON.parse(r);
     } catch {}
-    return null; // give up — never throw
+    // Pass 3: aggressive — strip everything after last valid } and retry
+    try {
+      const cleaned = t.replace(/[\x00-\x1F\x7F]/g, " ")
+        .replace(/,(\s*[}\]])/g, "$1")
+        .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');
+      return JSON.parse(cleaned);
+    } catch {}
+    return null;
   } catch { return null; }
 }
 const fmtTime = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
@@ -1773,17 +1779,55 @@ function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, ag
     </div>);
   }
   if (!card && cardRaw) {
-    // Strip any JSON/code and show plain readable text
-    const readable = cardRaw
-      .replace(/```json[\s\S]*?```/gi, "")
-      .replace(/```[\s\S]*?```/gi, "")
-      .replace(/[{}\[\]"]/g, "")
-      .replace(/,\s*\n/g, "\n")
-      .replace(/:\s*/g, ": ")
-      .trim();
+    // Last-ditch attempt: parse the raw string right here before giving up
+    const rescued = normalizeScorecard(parseScorecard(cardRaw));
+    if (rescued) {
+      // Re-render with the rescued card by injecting it directly
+      const fakeCard = rescued;
+      const routedRight = fakeCard.correctRouting, isDemo = mode === "agent";
+      const score = fakeCard.overall;
+      const scoreColor = score >= 80 ? LIME : score >= 60 ? "#e8d24b" : "#e87a6b";
+      return (
+        <div className="osf">
+          <div style={{ background:`linear-gradient(135deg,rgba(194,238,69,0.07) 0%,rgba(10,12,8,0) 60%)`, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 24px 20px", marginBottom:18, display:"flex", gap:24, alignItems:"center", flexWrap:"wrap" }}>
+            <Ring value={score}/>
+            <div style={{ flex:1, minWidth:200 }}>
+              <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>{repName ? `${repName}'s coaching` : "Your call scorecard"}</div>
+              <h2 style={{ ...serif, fontSize:30, fontWeight:600, margin:"0 0 12px", color:scoreColor }}>{scoreVerdict(score)}</h2>
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                <Pill ok={routedRight}>{routedRight ? <CheckCircle2 size={13}/> : <XCircle size={13}/>}<span style={{marginLeft:5}}>Routed → {fakeCard.recommendedProgram}{routedRight?" ✓":" ✗"}</span></Pill>
+                <Pill neutral><Clock size={12}/><span style={{marginLeft:5}}>{duration}</span></Pill>
+              </div>
+            </div>
+            <div style={{ width:"100%", height:5, borderRadius:4, background:"rgba(255,255,255,0.07)", overflow:"hidden", marginTop:4 }}>
+              <div style={{ height:"100%", width:`${score}%`, background:scoreColor, borderRadius:4, transition:"width .8s ease" }}/>
+            </div>
+          </div>
+          <Panel title="Category breakdown">
+            {fakeCard.categories.map((c,i)=>{ const pct=c.score/c.max; return (
+              <div key={i} style={{ marginBottom:13 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:5 }}><span style={{ fontWeight:500 }}>{c.name}</span><span style={{ color:MUTE }}><b style={{ color:barColor(pct), fontSize:15 }}>{c.score}</b><span style={{fontSize:11}}>/{c.max}</span></span></div>
+                <div style={{ height:8, borderRadius:6, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}><div style={{ height:"100%", width:`${pct*100}%`, background:barColor(pct), borderRadius:6, transition:"width .7s ease" }}/></div>
+              </div>
+            );})}
+          </Panel>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))", gap:14, marginTop:14 }}>
+            <ListPanel title="✓ What you did well" items={fakeCard.strengths} icon={<CheckCircle2 size={15} color={LIME_DIM}/>} color={LIME_DIM}/>
+            <ListPanel title="✗ Where you lost points" items={fakeCard.lostPoints} icon={<Target size={15} color="#e8b24b"/>} color="#e8b24b"/>
+            <ListPanel title="◎ Missed opportunities" items={fakeCard.missed} icon={<Sparkles size={15} color="#7bb8e8"/>} color="#7bb8e8"/>
+            <ListPanel title="💬 Say this next time" items={fakeCard.sayNextTime} icon={<ChevronRight size={15} color={LIME}/>} color={LIME} quote/>
+          </div>
+          <FeedbackFooter reset={reset} again={again}/>
+        </div>
+      );
+    }
+    // Truly unparseable — show a clean human-readable summary (no raw JSON)
+    const lines = cardRaw
+      .replace(/```[\s\S]*?```/gi, "").replace(/[{}\[\]]/g, "")
+      .split("\n").map(l => l.replace(/"/g,"").replace(/,\s*$/,"").trim()).filter(l => l && !l.match(/^\s*$/));
     return (<div className="osf">
       <h2 style={{...serif, fontSize:26, marginBottom:16}}>Your coaching feedback</h2>
-      <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:20, fontSize:14, color:TXT, lineHeight:1.8, whiteSpace:"pre-wrap" }}>{readable}</div>
+      <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:20, fontSize:14, color:TXT, lineHeight:2, whiteSpace:"pre-wrap" }}>{lines.join("\n")}</div>
       <FeedbackFooter reset={reset} again={again}/>
     </div>);
   }

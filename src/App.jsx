@@ -514,40 +514,43 @@ export default function App() {
 
     const clean = ttsSnippet(text);
 
-    // Chrome kills any utterance >~15s. Chunk at ≤160 chars on word boundaries.
+    // Split into ≤160-char word-boundary chunks
     const chunks = [];
-    let remaining = clean;
-    while (remaining.length > 0) {
-      if (remaining.length <= 160) { chunks.push(remaining); break; }
-      let cut = remaining.lastIndexOf(" ", 160);
+    let rem = clean;
+    while (rem.length > 0) {
+      if (rem.length <= 160) { chunks.push(rem); break; }
+      let cut = rem.lastIndexOf(" ", 160);
       if (cut <= 0) cut = 160;
-      chunks.push(remaining.slice(0, cut).trim());
-      remaining = remaining.slice(cut).trim();
+      chunks.push(rem.slice(0, cut).trim());
+      rem = rem.slice(cut).trim();
     }
+    if (!chunks.length) { reArm(); return; }
 
     const jitter = (Math.random() - 0.5) * 0.06;
     const spkRate = rateRef.current + jitter;
     const spkPitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
 
     setSpeaking(true);
-    let i = 0;
-    let alive;
 
-    const speakNext = () => {
-      clearInterval(alive);
-      if (i >= chunks.length) { setSpeaking(false); reArm(); return; }
-      // Resume before each chunk — Chrome suspends the engine silently
-      try { synth.resume(); } catch {}
-      const u = new SpeechSynthesisUtterance(chunks[i++]);
+    // Queue ALL chunks upfront — Chrome's internal queue handles sequencing
+    // reliably. Chaining via onend is unreliable because onend often doesn't
+    // fire in Chrome, leaving subsequent chunks unspoken.
+    chunks.forEach((chunk, idx) => {
+      const u = new SpeechSynthesisUtterance(chunk);
       if (voiceRef.current) u.voice = voiceRef.current;
       u.rate = spkRate; u.pitch = spkPitch; u.volume = 1;
-      u.onend = () => setTimeout(speakNext, 60);
-      u.onerror = () => { clearInterval(alive); setSpeaking(false); reArm(); };
-      try { synth.speak(u); } catch { clearInterval(alive); setSpeaking(false); reArm(); return; }
-      // Keepalive: nudge Chrome every 4s so it doesn't freeze mid-chunk
-      alive = setInterval(() => { try { synth.pause(); synth.resume(); } catch {} }, 4000);
-    };
-    speakNext();
+      if (idx === chunks.length - 1) {
+        u.onend = () => { clearInterval(alive); setSpeaking(false); reArm(); };
+        u.onerror = () => { clearInterval(alive); setSpeaking(false); reArm(); };
+      }
+      try { synth.speak(u); } catch {}
+    });
+
+    // Keepalive: nudge Chrome every 4s so queue doesn't freeze
+    const alive = setInterval(() => {
+      if (!synth.speaking) { clearInterval(alive); return; }
+      try { synth.pause(); synth.resume(); } catch {}
+    }, 4000);
   }, []);
   useEffect(() => { speakRef.current = speak; }, [speak]);
 

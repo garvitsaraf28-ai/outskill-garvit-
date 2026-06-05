@@ -244,12 +244,27 @@ async function callClaude({ system, messages, json }) {
   return data.content.filter(b => b.type === "text").map(b => b.text).join("\n").trim();
 }
 function parseScorecard(raw) {
-  let t = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+  // Strip markdown code fences and any text before/after the JSON object
+  let t = raw
+    .replace(/```json/gi, "").replace(/```/g, "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+    .trim();
+  // Extract just the JSON object
   const s = t.indexOf("{"), e = t.lastIndexOf("}");
   if (s >= 0 && e >= 0) t = t.slice(s, e + 1);
-  // Tolerate common LLM JSON quirks: trailing commas before } or ].
-  t = t.replace(/,\s*([}\]])/g, "$1");
-  return JSON.parse(t);
+  // Fix common LLM JSON quirks
+  t = t
+    .replace(/,\s*([}\]])/g, "$1")   // trailing commas
+    .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":') // unquoted keys
+    .replace(/:\s*'([^']*)'/g, ': "$1"'); // single-quoted values
+  try {
+    return JSON.parse(t);
+  } catch {
+    // Last resort — try to salvage a partial parse
+    const fixed = t.replace(/[\x00-\x1F\x7F]/g, " ");
+    return JSON.parse(fixed);
+  }
 }
 const fmtTime = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const cleanForTTS = t => t.replace(/[*_`#>~]/g, "").replace(/\s+/g, " ").trim();
@@ -1452,9 +1467,17 @@ function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, ag
     </div>);
   }
   if (!card && cardRaw) {
+    // Strip any JSON/code and show plain readable text
+    const readable = cardRaw
+      .replace(/```json[\s\S]*?```/gi, "")
+      .replace(/```[\s\S]*?```/gi, "")
+      .replace(/[{}\[\]"]/g, "")
+      .replace(/,\s*\n/g, "\n")
+      .replace(/:\s*/g, ": ")
+      .trim();
     return (<div className="osf">
-      <h2 style={{...serif, fontSize:26}}>Coaching</h2>
-      <pre style={{ whiteSpace:"pre-wrap", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:16, fontSize:13.5, color:TXT, fontFamily:"inherit" }}>{cardRaw}</pre>
+      <h2 style={{...serif, fontSize:26, marginBottom:16}}>Your coaching feedback</h2>
+      <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:20, fontSize:14, color:TXT, lineHeight:1.8, whiteSpace:"pre-wrap" }}>{readable}</div>
       <FeedbackFooter reset={reset} again={again}/>
     </div>);
   }

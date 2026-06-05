@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const API_KEY = process.env.OPENROUTER_API_KEY;
 // Generous so the long JSON scorecard isn't truncated on reasoning models
 // (truncated JSON = the coaching card can't be parsed and falls back to raw text).
-const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2600);
+const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 4000);
 // Conversation replies are 1-3 spoken sentences — a small cap makes them
 // generate (and start speaking) much faster.
 const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 320);

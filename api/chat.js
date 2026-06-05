@@ -1,6 +1,6 @@
 const API_KEY = process.env.OPENROUTER_API_KEY;
 const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2600);
-const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 320);
+const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 180); // shorter = faster real-time call feel
 
 function parseModels(v) {
   return v.split(",").map((s) => s.trim()).filter(Boolean);

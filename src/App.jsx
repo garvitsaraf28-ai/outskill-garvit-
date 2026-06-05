@@ -268,6 +268,13 @@ function parseScorecard(raw) {
 }
 const fmtTime = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const cleanForTTS = t => t.replace(/[*_`#>~]/g, "").replace(/\s+/g, " ").trim();
+// Speak only the first 2 sentences — keeps TTS snappy during a live call.
+// The full reply is always visible in the chat bubble.
+const ttsSnippet = text => {
+  const clean = cleanForTTS(text);
+  const sentences = clean.match(/[^.!?…]+[.!?…]+/g) || [];
+  return sentences.length ? sentences.slice(0, 2).join(" ").trim() : clean.slice(0, 220);
+};
 // Known male/female voice-name hints across Chrome / Edge / macOS / mobile.
 const FEMALE_HINTS = /(female|woman|samantha|aria|libby|jenny|sonia|neerja|swara|kalpana|heera|veena|tessa|fiona|karen|moira|zira|hazel|google uk english female|google us english.*female)/i;
 const MALE_HINTS   = /(\bmale\b|\bman\b|prabhat|ravi|hemant|guy|david|mark|rishi|alex|daniel|fred|oliver|george|google uk english male)/i;
@@ -340,7 +347,7 @@ export default function App() {
   const [voiceBlocked, setVoiceBlocked] = useState(false);
   const [voices, setVoices] = useState([]);
   const [voiceURI, setVoiceURI] = useState("");
-  const [rate, _setRate] = useState(1.15); // TTS speaking speed
+  const [rate, _setRate] = useState(1.45); // TTS speaking speed — fast enough for a live call
 
   const scrollRef = useRef(null);
 
@@ -439,7 +446,7 @@ export default function App() {
     const synth = window.speechSynthesis;
     if (!synth) { reArm(); return; }
     try { synth.cancel(); } catch {}
-    const u = new SpeechSynthesisUtterance(cleanForTTS(text));
+    const u = new SpeechSynthesisUtterance(ttsSnippet(text));
     if (voiceRef.current) u.voice = voiceRef.current;
     // Lively, engaging delivery — female slightly brighter, male a touch warmer.
     // A small random jitter on pitch/rate keeps it from sounding flat & robotic.
@@ -475,7 +482,8 @@ export default function App() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = true; rec.lang = "en-US";
+    rec.continuous = false; rec.interimResults = true; rec.lang = "en-IN";
+    rec.maxAlternatives = 1;
     rec.onstart = () => { finalRef.current = ""; setListening(true); };
     rec.onresult = (e) => {
       let it = "";
@@ -486,14 +494,29 @@ export default function App() {
       }
       setInterim(finalRef.current + it);
     };
+    let netRetries = 0;
     rec.onerror = (e) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        blockedRef.current = true; setVoiceBlocked(true); setListening(false); return;
+      }
+      if (e.error === "network" && netRetries < 3 && voiceOnRef.current && callActiveRef.current) {
+        // Google STT dropped the network link — retry silently after a short pause
+        netRetries++;
+        setListening(false);
+        setTimeout(() => { try { rec.start(); } catch {} }, 400);
+        return;
+      }
+      // no-speech, aborted, audio-capture — just reset quietly
       setListening(false);
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") { blockedRef.current = true; setVoiceBlocked(true); }
     };
     rec.onend = () => {
       setListening(false);
       const t = finalRef.current.trim(); finalRef.current = ""; setInterim("");
-      if (t) sendText(t);
+      if (t) { netRetries = 0; sendText(t); }
+      // if nothing captured and hands-free, re-arm listening
+      else if (handsFreeRef.current && callActiveRef.current && voiceOnRef.current && !blockedRef.current && !busyRef.current) {
+        setTimeout(() => { try { rec.start(); } catch {} }, 200);
+      }
     };
     recognitionRef.current = rec;
     return () => { try { rec.abort(); } catch {} };

@@ -108,11 +108,15 @@ const PERSONAS = [
 ];
 
 /* ------------------------------------------------------------------ */
-function learnerSystem(p) {
+function learnerSystem(p, learnedFacts) {
+  const factsBlock = learnedFacts && learnedFacts.length > 0
+    ? `\n=== WHAT YOU'VE LEARNED FROM PREVIOUS REPS (already in your head before this call) ===\nPrevious OutSkill reps have told you things — you've absorbed some of it. These are facts you genuinely already know, so you can ask sharper follow-up questions, challenge details that don't match, or demand better explanations when a rep is vague:\n${learnedFacts.map((f, i) => `${i+1}. ${f}`).join("\n")}\nUse this knowledge naturally. Don't recite it; let it inform your reactions. If a rep contradicts something above, push back ("wait, I thought the price was…"). If they're consistent, acknowledge it briefly ("right, someone mentioned that").\n`
+    : "";
   return `You are running a live, VOICE sales-training role-play for OutSkill. You PLAY A PROSPECTIVE LEARNER on a phone call. The person talking to you is a NEW OUTSKILL SALES REP practicing. Behave like a realistic, semi-interested prospect.
 
 === WHAT YOU KNOW (you attended a free workshop — that's all) ===
 You attended an OutSkill AI workshop recently. You have vague awareness that OutSkill runs a paid AI training program — something about a 14-day accelerator, live sessions, and maybe a certificate. That's roughly it. You do NOT know the exact price, EMI terms, program names, batch dates, specific tools covered, or anything beyond broad impressions from the event. If you're asked about those details, you don't know — that's the rep's job to explain.
+${factsBlock}
 
 === WHO YOU ARE FOR THIS ENTIRE CALL ===
 ${p.brief}
@@ -401,6 +405,12 @@ export default function App() {
 
   const [screen, setScreen] = useState("setup");
   const [mode, setMode] = useState("learner");
+
+  // Accumulated product knowledge extracted from past agent-mode calls.
+  // Stored in localStorage so the AI prospect gets progressively smarter.
+  const [learnedFacts, setLearnedFacts] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("sarafai_learned_facts_v1") || "[]"); } catch { return []; }
+  });
   const [persona, setPersona] = useState(PERSONAS[0]);
   const [custom, setCustom] = useState("");
   const [useCustom, setUseCustom] = useState(false);
@@ -478,7 +488,7 @@ export default function App() {
     : difficulty === "hard"
     ? "\nDIFFICULTY: Hard mode — be skeptical and terse, interrupt occasionally, ask multiple pointed objections, challenge pricing aggressively."
     : "";
-  const sysPrompt = (mode === "learner" ? learnerSystem(activePersona) : agentSystem()) + difficultyModifier;
+  const sysPrompt = (mode === "learner" ? learnerSystem(activePersona, learnedFacts) : agentSystem()) + difficultyModifier;
 
   /* sync refs */
   useEffect(() => { busyRef.current = busy; }, [busy]);
@@ -796,10 +806,42 @@ export default function App() {
               overall: parsed.overall,
               correctRouting: parsed.correctRouting,
               categories: parsed.categories.map(c => ({ name: c.name, pct: Math.round((c.score / c.max) * 100) })),
-              // full scorecard so anyone can open the detailed report from the team view
               card: parsed,
             }),
           });
+        } catch {}
+      }
+
+      // When the USER was the rep (learner mode = AI is prospect), extract what
+      // the rep correctly taught the prospect and save it so future AI prospects
+      // ask sharper, more informed questions — the AI gets smarter every call.
+      if (mode === "learner") {
+        try {
+          const extractRaw = await callClaude({
+            system: `You are a knowledge extractor for a sales-training app. Given a call transcript where a sales rep pitched OutSkill's AI program to a prospect, extract ONLY the product facts, pricing details, EMI terms, program features, or rebuttals that the REP stated CORRECTLY and clearly. These will be injected into future AI prospects so they ask better follow-up questions.
+
+Return ONLY a JSON array of short, factual strings (each under 20 words). No commentary, no markdown.
+Example: ["The Generalist track costs Rs 95,000 in India", "EMI is available for up to 6 months", "The program is 14 days of live sessions"]
+If the rep said nothing factually useful or correct, return [].`,
+            messages: [{ role: "user", content: `TRANSCRIPT:\n${transcript}` }],
+            json: true,
+          });
+          let newFacts = [];
+          try {
+            const t = extractRaw.trim();
+            const s = t.indexOf("["), e = t.lastIndexOf("]");
+            if (s >= 0 && e > s) newFacts = JSON.parse(t.slice(s, e + 1));
+          } catch {}
+          if (Array.isArray(newFacts) && newFacts.length > 0) {
+            setLearnedFacts(prev => {
+              // Deduplicate: skip facts already captured (case-insensitive fuzzy match)
+              const existing = new Set(prev.map(f => f.toLowerCase().slice(0, 40)));
+              const fresh = newFacts.filter(f => typeof f === "string" && f.trim() && !existing.has(f.toLowerCase().slice(0, 40)));
+              const updated = [...prev, ...fresh].slice(-30); // keep last 30 facts
+              try { localStorage.setItem("sarafai_learned_facts_v1", JSON.stringify(updated)); } catch {}
+              return updated;
+            });
+          }
         } catch {}
       }
     } catch {
@@ -878,7 +920,8 @@ export default function App() {
               startCall={startCall} history={history}
               voiceWanted={voiceWanted} setVoiceWanted={setVoiceWanted} sttSupported={sttSupported} ttsSupported={ttsSupported}
               repName={repName} setRepName={setRepName}
-              difficulty={difficulty} setDifficulty={setDifficulty}/>
+              difficulty={difficulty} setDifficulty={setDifficulty}
+              learnedFacts={learnedFacts} clearLearnedFacts={()=>{ setLearnedFacts([]); try { localStorage.removeItem("sarafai_learned_facts_v1"); } catch {} }}/>
           )}
           {screen === "call" && (
             <CallView serif={serif} mode={mode} persona={activePersona}
@@ -1579,7 +1622,7 @@ const Field = ({ label, children }) => (<label style={{ display:"block" }}><div 
 const inputStyle = { width:"100%", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 14px", color:TXT, fontSize:14.5 };
 
 /* ------------------------------------------------------------------ */
-function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, difficulty, setDifficulty }) {
+function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, difficulty, setDifficulty, learnedFacts, clearLearnedFacts }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
 
   // Feature 1: streak calculation
@@ -1676,7 +1719,19 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
         </>
       )}
 
-      <div style={{ marginTop:30, display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+      {/* AI learning indicator — shows how many facts the prospect already knows */}
+      {learnedFacts && learnedFacts.length > 0 && (
+        <div style={{ background:"rgba(194,238,69,0.06)", border:`1px solid rgba(194,238,69,0.25)`, borderRadius:12, padding:"12px 16px", marginTop:18, display:"flex", alignItems:"center", gap:12 }}>
+          <Sparkles size={16} color={LIME}/>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:TXT }}>AI prospect is getting smarter</div>
+            <div style={{ fontSize:12, color:MUTE, marginTop:2 }}>Has absorbed <b style={{color:LIME}}>{learnedFacts.length}</b> fact{learnedFacts.length>1?"s":""} from past mock calls — will ask sharper follow-up questions this time.</div>
+          </div>
+          <button onClick={clearLearnedFacts} style={{ border:`1px solid ${BORDER}`, background:"transparent", color:MUTE, borderRadius:8, padding:"5px 10px", fontSize:11.5 }}>Reset</button>
+        </div>
+      )}
+
+      <div style={{ marginTop:20, display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
         <button onClick={startCall} style={primaryBtn}>
           {voiceWanted ? <Mic size={17}/> : <Phone size={17}/>} <span style={{marginLeft:8}}>{voiceWanted ? "Start voice call" : "Start the call"}</span>
         </button>

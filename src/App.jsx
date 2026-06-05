@@ -641,7 +641,9 @@ export default function App() {
         )}
 
         {section === "cover" && (
-          <Cover serif={serif} onEnter={() => setSection("dept")} />
+          <Cover serif={serif} onEnter={() => setSection("dept")}
+            musicOn={musicOn} musicStarted={musicStarted}
+            setMusicOn={setMusicOn} setMusicStarted={setMusicStarted} />
         )}
 
         {section === "dept" && (
@@ -700,8 +702,8 @@ export default function App() {
           title="bg-music-home"
         />
       )}
-      {/* Floating music toggle — only on music pages. Bottom-left on laptop. */}
-      {(section === "cover" || section === "home") && (
+      {/* Floating music toggle — home page only (cover has its own in-flow row) */}
+      {section === "home" && (
         <button onClick={() => { if (!musicStarted) { setMusicStarted(true); setMusicOn(true); } else { setMusicOn(v => !v); } }}
           title={musicOn ? "Mute music" : "Play music"}
           style={{ position:"fixed", bottom:16, left:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
@@ -711,13 +713,6 @@ export default function App() {
           {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
           <span>{musicOn ? "Music on" : "Music off"}</span>
         </button>
-      )}
-      {/* Built-by credit — only on cover, bottom-right, same line as music button */}
-      {section === "cover" && (
-        <div className="os-credit">
-          <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
-          <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>
-        </div>
       )}
     </div>
   );
@@ -813,7 +808,7 @@ function makeAmbience() {
   };
 }
 
-function Cover({ serif, onEnter }) {
+function Cover({ serif, onEnter, musicOn, musicStarted, setMusicOn, setMusicStarted }) {
   useEffect(() => {
     const t = setTimeout(onEnter, 10000);
     const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
@@ -841,6 +836,22 @@ function Cover({ serif, onEnter }) {
           <span style={{ marginLeft:4 }}>tap anywhere to enter</span>
         </div>
 
+        {/* Music + credit row — centered, just below the tap line */}
+        <div onClick={(e)=>e.stopPropagation()} style={{ marginTop:26, display:"flex", flexWrap:"wrap", justifyContent:"center", alignItems:"center", gap:12 }}>
+          <button onClick={() => { if (!musicStarted) { setMusicStarted(true); setMusicOn(true); } else { setMusicOn(v => !v); } }}
+            title={musicOn ? "Mute music" : "Play music"}
+            style={{ display:"inline-flex", alignItems:"center", gap:7,
+              background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
+              border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
+              color: musicOn ? TXT : MUTE, fontSize:12.5 }}>
+            {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
+            <span>{musicOn ? "Music on" : "Music off"}</span>
+          </button>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:9, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"9px 16px" }}>
+            <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
+            <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>
+          </div>
+        </div>
       </div>
     </div>
   );

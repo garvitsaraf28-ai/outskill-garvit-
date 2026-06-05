@@ -1049,9 +1049,9 @@ function Home({ serif, go, history, goBack }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
   const tiles = [
     { id:"practice", icon:<GraduationCap size={22}/>, title:"Practice Calls", desc:"Train new reps against realistic AI prospects, then get an instant coaching scorecard.", tag: avg!==null ? `${history.length} practiced · avg ${avg}` : "Mock call + coaching" },
-    { id:"realcall", icon:<Mic size={22}/>, title:"Real Call · Record & Report", desc:"Upload a recording of a real learner call. Get a transcript and a CRM-ready report with next steps.", tag:"Upload → transcribe → report" },
-    { id:"reports", icon:<TrendingUp size={22}/>, title:"Reports & Pipeline", desc:"Every real call in one place — interest level, intent, and how many learners you contacted.", tag:"Sales head + management view" },
-    { id:"followups", icon:<Clock size={22}/>, title:"Follow-ups", desc:"Who to call back and when, with what you already discussed and what's still open.", tag:"Never miss a callback" },
+    { id:"realcall", icon:<Mic size={22}/>, title:"Real Call · Record & Report", desc:"Upload a recording of a real learner call. Get a transcript and a CRM-ready report with next steps.", tag:"Upload → transcribe → report", soon:true },
+    { id:"reports", icon:<TrendingUp size={22}/>, title:"Reports & Pipeline", desc:"Every real call in one place — interest level, intent, and how many learners you contacted.", tag:"Sales head + management view", soon:true },
+    { id:"followups", icon:<Clock size={22}/>, title:"Follow-ups", desc:"Who to call back and when, with what you already discussed and what's still open.", tag:"Never miss a callback", soon:true },
   ];
   return (
     <div className="osf">
@@ -1066,16 +1066,22 @@ function Home({ serif, go, history, goBack }) {
       </p>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:14 }}>
         {tiles.map(t=>(
-          <button key={t.id} onClick={()=>go(t.id)} style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:18, padding:"20px 20px 18px", transition:"all .16s ease" }}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.5)";e.currentTarget.style.background="rgba(194,238,69,0.06)";}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
+          <button key={t.id} onClick={()=> t.soon ? null : go(t.id)} disabled={t.soon}
+            style={{ position:"relative", textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:18, padding:"20px 20px 18px", transition:"all .16s ease", cursor: t.soon ? "not-allowed" : "pointer", opacity: t.soon ? 0.62 : 1 }}
+            onMouseEnter={e=>{ if(t.soon) return; e.currentTarget.style.borderColor="rgba(194,238,69,0.5)";e.currentTarget.style.background="rgba(194,238,69,0.06)";}}
+            onMouseLeave={e=>{ if(t.soon) return; e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
+            {t.soon && (
+              <span style={{ position:"absolute", top:14, right:14, display:"inline-flex", alignItems:"center", gap:5, fontSize:10, fontWeight:700, letterSpacing:.6, textTransform:"uppercase", color:"#e8b24b", background:"rgba(232,178,75,0.12)", border:"1px solid rgba(232,178,75,0.4)", borderRadius:30, padding:"4px 10px" }}>
+                <Clock size={11}/> In process
+              </span>
+            )}
             <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
               <div style={{ width:50, height:50, borderRadius:14, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", color:LIME, flexShrink:0 }}>{t.icon}</div>
-              <span style={{ ...serif, fontSize:20.5, fontWeight:600 }}>{t.title}</span>
-              <ChevronRight size={19} color={MUTE} style={{ marginLeft:"auto" }}/>
+              <span style={{ ...serif, fontSize:20.5, fontWeight:600, paddingRight: t.soon ? 86 : 0 }}>{t.title}</span>
+              {!t.soon && <ChevronRight size={19} color={MUTE} style={{ marginLeft:"auto" }}/>}
             </div>
             <div style={{ fontSize:14.5, color:MUTE, lineHeight:1.5, marginBottom:12, minHeight:42 }}>{t.desc}</div>
-            <div style={{ fontSize:11.5, letterSpacing:.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600 }}>{t.tag}</div>
+            <div style={{ fontSize:11.5, letterSpacing:.4, textTransform:"uppercase", color: t.soon ? MUTE : LIME_DIM, fontWeight:600 }}>{t.soon ? "Coming soon — still being built" : t.tag}</div>
           </button>
         ))}
       </div>

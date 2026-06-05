@@ -318,13 +318,7 @@ function normalizeScorecard(c) {
   };
 }
 const cleanForTTS = t => t.replace(/[*_`#>~]/g, "").replace(/\s+/g, " ").trim();
-// Speak only the first 2 sentences — keeps TTS snappy during a live call.
-// The full reply is always visible in the chat bubble.
-const ttsSnippet = text => {
-  const clean = cleanForTTS(text);
-  const sentences = clean.match(/[^.!?…]+[.!?…]+/g) || [];
-  return sentences.length ? sentences.slice(0, 2).join(" ").trim() : clean.slice(0, 220);
-};
+const ttsSnippet = text => cleanForTTS(text);
 // Known male/female voice-name hints across Chrome / Edge / macOS / mobile.
 const FEMALE_HINTS = /(female|woman|samantha|aria|libby|jenny|sonia|neerja|swara|kalpana|heera|veena|tessa|fiona|karen|moira|zira|hazel|google uk english female|google us english.*female)/i;
 const MALE_HINTS   = /(\bmale\b|\bman\b|prabhat|ravi|hemant|guy|david|mark|rishi|alex|daniel|fred|oliver|george|google uk english male)/i;

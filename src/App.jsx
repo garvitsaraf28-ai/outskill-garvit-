@@ -505,44 +505,47 @@ export default function App() {
   const speak = useCallback((text) => {
     const reArm = () => {
       if (handsFreeRef.current && callActiveRef.current && voiceOnRef.current && !blockedRef.current) {
-        setTimeout(() => listenRef.current(), 120);
+        setTimeout(() => listenRef.current(), 200);
       }
     };
     const synth = window.speechSynthesis;
     if (!synth) { reArm(); return; }
     try { synth.cancel(); } catch {}
 
-    // Split into sentences — Chrome cuts off single long utterances silently.
     const clean = ttsSnippet(text);
-    const parts = (clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean])
-      .map(s => s.trim()).filter(Boolean);
+
+    // Chrome kills any utterance >~15s. Chunk at ≤160 chars on word boundaries.
+    const chunks = [];
+    let remaining = clean;
+    while (remaining.length > 0) {
+      if (remaining.length <= 160) { chunks.push(remaining); break; }
+      let cut = remaining.lastIndexOf(" ", 160);
+      if (cut <= 0) cut = 160;
+      chunks.push(remaining.slice(0, cut).trim());
+      remaining = remaining.slice(cut).trim();
+    }
 
     const jitter = (Math.random() - 0.5) * 0.06;
     const spkRate = rateRef.current + jitter;
     const spkPitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
 
     setSpeaking(true);
-
-    // Chrome TTS keepalive — without this, Chrome's synthesis engine silently
-    // freezes after a few seconds even mid-sentence. pause()+resume() every
-    // 5s kicks it back to life without audible interruption.
-    const keepAlive = setInterval(() => {
-      if (!synth.speaking) { clearInterval(keepAlive); return; }
-      synth.pause(); synth.resume();
-    }, 5000);
-
     let i = 0;
+    let alive;
+
     const speakNext = () => {
-      if (i >= parts.length) {
-        clearInterval(keepAlive);
-        setSpeaking(false); reArm(); return;
-      }
-      const u = new SpeechSynthesisUtterance(parts[i++]);
+      clearInterval(alive);
+      if (i >= chunks.length) { setSpeaking(false); reArm(); return; }
+      // Resume before each chunk — Chrome suspends the engine silently
+      try { synth.resume(); } catch {}
+      const u = new SpeechSynthesisUtterance(chunks[i++]);
       if (voiceRef.current) u.voice = voiceRef.current;
       u.rate = spkRate; u.pitch = spkPitch; u.volume = 1;
-      u.onend = speakNext;
-      u.onerror = () => { clearInterval(keepAlive); setSpeaking(false); reArm(); };
-      try { synth.speak(u); } catch { clearInterval(keepAlive); setSpeaking(false); reArm(); }
+      u.onend = () => setTimeout(speakNext, 60);
+      u.onerror = () => { clearInterval(alive); setSpeaking(false); reArm(); };
+      try { synth.speak(u); } catch { clearInterval(alive); setSpeaking(false); reArm(); return; }
+      // Keepalive: nudge Chrome every 4s so it doesn't freeze mid-chunk
+      alive = setInterval(() => { try { synth.pause(); synth.resume(); } catch {} }, 4000);
     };
     speakNext();
   }, []);

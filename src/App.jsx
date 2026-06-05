@@ -890,7 +890,7 @@ export default function App() {
       </div>
 
       {/* Page-specific music: Cover = RCB anthem, Home = hype track, others = silent */}
-      {musicOn && musicStarted && section === "cover" && (
+      {musicOn && musicStarted && (section === "cover" || section === "dept") && (
         <iframe key="music-cover"
           src="https://www.youtube.com/embed/tcolRkxEdQI?autoplay=1&loop=1&playlist=tcolRkxEdQI&controls=0&playsinline=1&mute=0&start=21"
           allow="autoplay; encrypted-media"

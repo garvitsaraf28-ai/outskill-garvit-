@@ -2,6 +2,7 @@
 // Scorecard JSON  → OpenRouter free models (not time-critical)
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_BASE = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/$/, "");
 const OR_KEY = process.env.OPENROUTER_API_KEY;
 const CONVO_MODEL = "claude-sonnet-4-6";
 const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2600);
@@ -38,7 +39,7 @@ async function callClaude({ system, messages }) {
     system: system || undefined,
     messages: messages.map(({ role, content }) => ({ role, content })),
   };
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const r = await fetch(`${ANTHROPIC_BASE}/v1/messages`, {
     method: "POST",
     headers: {
       "x-api-key": ANTHROPIC_KEY,

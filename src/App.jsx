@@ -633,7 +633,7 @@ export default function App() {
         select{background:${PANEL};color:${TXT};border:1px solid ${BORDER};border-radius:9px;padding:6px 9px;font-size:12px}
         /* Cover credit: in-flow on phones (no overlap), pinned bottom-left on laptops */
         .os-credit{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px;margin-top:34px}
-        @media (min-width:820px){.os-credit{position:fixed;bottom:16px;left:16px;margin-top:0;z-index:60}}
+        @media (min-width:820px){.os-credit{position:fixed;bottom:16px;right:16px;margin-top:0;z-index:60}}
       `}</style>
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
@@ -701,11 +701,11 @@ export default function App() {
           title="bg-music-home"
         />
       )}
-      {/* Floating music toggle — only on music pages */}
+      {/* Floating music toggle — only on music pages. Bottom-left on laptop. */}
       {(section === "cover" || section === "home") && (
-        <button onClick={() => { setMusicStarted(true); setMusicOn(v => !v); }}
+        <button onClick={() => { if (!musicStarted) { setMusicStarted(true); setMusicOn(true); } else { setMusicOn(v => !v); } }}
           title={musicOn ? "Mute music" : "Play music"}
-          style={{ position:"fixed", bottom:16, right:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
+          style={{ position:"fixed", bottom:16, left:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
             background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
             border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
             color: musicOn ? TXT : MUTE, fontSize:12.5, boxShadow:"0 4px 18px rgba(0,0,0,0.35)" }}>

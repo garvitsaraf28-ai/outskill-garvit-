@@ -512,8 +512,7 @@ export default function App() {
     if (!synth) { reArm(); return; }
     try { synth.cancel(); } catch {}
 
-    // Chrome silently cuts off utterances >~15s. Fix: split into sentences
-    // and chain them so every sentence is spoken as its own utterance.
+    // Split into sentences — Chrome cuts off single long utterances silently.
     const clean = ttsSnippet(text);
     const parts = (clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean])
       .map(s => s.trim()).filter(Boolean);
@@ -523,15 +522,27 @@ export default function App() {
     const spkPitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
 
     setSpeaking(true);
+
+    // Chrome TTS keepalive — without this, Chrome's synthesis engine silently
+    // freezes after a few seconds even mid-sentence. pause()+resume() every
+    // 5s kicks it back to life without audible interruption.
+    const keepAlive = setInterval(() => {
+      if (!synth.speaking) { clearInterval(keepAlive); return; }
+      synth.pause(); synth.resume();
+    }, 5000);
+
     let i = 0;
     const speakNext = () => {
-      if (i >= parts.length) { setSpeaking(false); reArm(); return; }
+      if (i >= parts.length) {
+        clearInterval(keepAlive);
+        setSpeaking(false); reArm(); return;
+      }
       const u = new SpeechSynthesisUtterance(parts[i++]);
       if (voiceRef.current) u.voice = voiceRef.current;
       u.rate = spkRate; u.pitch = spkPitch; u.volume = 1;
       u.onend = speakNext;
-      u.onerror = () => { setSpeaking(false); reArm(); };
-      try { synth.speak(u); } catch { setSpeaking(false); reArm(); }
+      u.onerror = () => { clearInterval(keepAlive); setSpeaking(false); reArm(); };
+      try { synth.speak(u); } catch { clearInterval(keepAlive); setSpeaking(false); reArm(); }
     };
     speakNext();
   }, []);

@@ -267,6 +267,53 @@ function parseScorecard(raw) {
   }
 }
 const fmtTime = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
+
+// Guarantees the scorecard has every field the interactive card needs, with
+// safe defaults — so a slightly-malformed model response still renders a
+// proper report instead of dumping raw JSON.
+const DEFAULT_CATS = [
+  { name:"Opening & rapport", score:0, max:10 },
+  { name:"Discovery & qualification", score:0, max:20 },
+  { name:"Program routing & fit", score:0, max:15 },
+  { name:"Value framing", score:0, max:15 },
+  { name:"Objection handling", score:0, max:20 },
+  { name:"Pricing, EMI & trust", score:0, max:10 },
+  { name:"Close & next step", score:0, max:10 },
+];
+function normalizeScorecard(c) {
+  if (!c || typeof c !== "object") return null;
+  const arr = (v) => Array.isArray(v) ? v.filter(x => typeof x === "string" && x.trim()) : [];
+  const num = (v, lo, hi, d) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; };
+  let cats = Array.isArray(c.categories) && c.categories.length
+    ? c.categories.map((x, i) => ({
+        name: (x && x.name) || DEFAULT_CATS[i]?.name || `Category ${i+1}`,
+        score: num(x && x.score, 0, num(x && x.max, 1, 100, DEFAULT_CATS[i]?.max || 10), 0),
+        max: num(x && x.max, 1, 100, DEFAULT_CATS[i]?.max || 10),
+      }))
+    : DEFAULT_CATS;
+  let overall = num(c.overall, 0, 100, NaN);
+  if (!Number.isFinite(overall)) {
+    const tot = cats.reduce((a,x)=>a+x.score,0), max = cats.reduce((a,x)=>a+x.max,0);
+    overall = max ? Math.round((tot/max)*100) : 0;
+  }
+  return {
+    overall,
+    recommendedProgram: c.recommendedProgram || "Unclear",
+    correctRouting: !!c.correctRouting,
+    flags: arr(c.flags),
+    categories: cats,
+    strengths: arr(c.strengths),
+    lostPoints: arr(c.lostPoints),
+    missed: arr(c.missed),
+    sayNextTime: arr(c.sayNextTime),
+    behavioral: (c.behavioral && typeof c.behavioral === "object") ? {
+      pace: c.behavioral.pace || "—",
+      tone: c.behavioral.tone || "—",
+      talkTime: c.behavioral.talkTime || "—",
+      redFlags: c.behavioral.redFlags || "—",
+    } : null,
+  };
+}
 const cleanForTTS = t => t.replace(/[*_`#>~]/g, "").replace(/\s+/g, " ").trim();
 // Speak only the first 2 sentences — keeps TTS snappy during a live call.
 // The full reply is always visible in the chat bubble.
@@ -590,7 +637,8 @@ export default function App() {
     try {
       const raw = await callClaude({ system: evaluatorSystem(mode, useCustom ? null : activePersona, fmtTime(seconds)), messages: [{ role: "user", content: `TRANSCRIPT:\n${transcript}` }], json: true });
       let parsed = null;
-      try { parsed = parseScorecard(raw); } catch { setCardRaw(raw); }
+      try { parsed = normalizeScorecard(parseScorecard(raw)); } catch { parsed = null; }
+      if (!parsed) setCardRaw(raw);
       if (parsed) {
         setCard(parsed);
         const entry = { date: Date.now(), persona: activePersona.name, mode, overall: parsed.overall, correctRouting: parsed.correctRouting };

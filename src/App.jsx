@@ -4,7 +4,7 @@ import {
   Phone, PhoneOff, Send, ArrowLeft, RotateCcw, AlertTriangle,
   CheckCircle2, XCircle, Target, Sparkles, Clock, User, Shuffle, Pencil,
   TrendingUp, Headphones, GraduationCap, ChevronRight, Loader2,
-  Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star, MessageSquare
+  Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */

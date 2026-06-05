@@ -949,7 +949,7 @@ If the rep said nothing factually useful or correct, return [].`,
       {/* Page-specific music: Cover = RCB anthem, Home = hype track, others = silent */}
       {musicOn && musicStarted && (section === "cover" || section === "dept") && (
         <iframe key="music-cover"
-          src="https://www.youtube.com/embed/tcolRkxEdQI?autoplay=1&loop=1&playlist=tcolRkxEdQI&controls=0&playsinline=1&mute=0&start=21"
+          src="https://www.youtube.com/embed/VuziUrQKNsA?autoplay=1&loop=1&playlist=VuziUrQKNsA&controls=0&playsinline=1&mute=0&start=0"
           allow="autoplay; encrypted-media"
           style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
           title="bg-music-cover"

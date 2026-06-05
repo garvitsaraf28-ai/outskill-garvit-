@@ -763,8 +763,7 @@ function makeAmbience() {
 }
 
 function Cover({ serif, onEnter }) {
-  const [musicOn, setMusicOn] = useState(true);
-  const iframeRef = useRef(null);
+  const [musicOn, setMusicOn] = useState(false);
   useEffect(() => {
     const t = setTimeout(onEnter, 10000);
     const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
@@ -772,84 +771,64 @@ function Cover({ serif, onEnter }) {
     return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); };
   }, []);
 
-  const toggleMusic = (e) => {
-    e.stopPropagation();
-    const win = iframeRef.current?.contentWindow;
-    const next = !musicOn;
-    setMusicOn(next);
-    try {
-      win?.postMessage(JSON.stringify({ event:"command", func: next ? "playVideo" : "pauseVideo", args:"" }), "*");
-    } catch {}
-  };
+  // Mount/unmount the iframe on tap — this counts as a user gesture so it
+  // plays reliably on mobile too (hidden autoplay is blocked on phones).
+  const toggleMusic = (e) => { e.stopPropagation(); setMusicOn(v => !v); };
 
   return (
     <div onClick={onEnter} role="button" title="Enter"
-      style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", cursor:"pointer", position:"relative", padding:"0 18px" }}>
+      style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", cursor:"pointer", position:"relative", padding:"40px 18px 90px" }}>
       <div className="osf">
         {/* brand dot-mark */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:26 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:22 }}>
           {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
         </div>
-        <div style={{ fontSize:13, letterSpacing:6, textTransform:"uppercase", color:LIME_DIM, marginBottom:22, fontWeight:600 }}>OutSkill · Sales Department</div>
-        <h1 style={{ ...serif, fontSize:"clamp(46px, 9vw, 92px)", fontWeight:600, lineHeight:1.02, margin:"0 0 22px", letterSpacing:-1.5 }}>
+        <div style={{ fontSize:"clamp(10px,3vw,13px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:18, fontWeight:600 }}>OutSkill · Sales Department</div>
+        <h1 style={{ ...serif, fontSize:"clamp(34px, 9vw, 92px)", fontWeight:600, lineHeight:1.05, margin:"0 0 18px", letterSpacing:-1 }}>
           Where conversations<br/><span style={{ color:LIME }}>become conversions.</span>
         </h1>
-        <p style={{ color:MUTE, fontSize:18, maxWidth:580, margin:"0 auto", lineHeight:1.55 }}>
+        <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,18px)", maxWidth:580, margin:"0 auto", lineHeight:1.55 }}>
           The command center for OutSkill's sales team — train, call, report, and follow up. All in one place.
         </p>
-        <div style={{ marginTop:38, fontSize:13, color:MUTE, display:"inline-flex", alignItems:"center", gap:9 }}>
+        <div style={{ marginTop:30, fontSize:12.5, color:MUTE, display:"inline-flex", alignItems:"center", gap:9 }}>
           <span className="osd"/><span className="osd"/><span className="osd"/>
-          <span style={{ marginLeft:4 }}>entering shortly · click anywhere or press Enter</span>
+          <span style={{ marginLeft:4 }}>tap anywhere to enter</span>
+        </div>
+
+        {/* Music toggle + credit — in normal flow, wraps on mobile, never overlaps */}
+        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", alignItems:"center", gap:12, marginTop:34 }}>
+          <button onClick={toggleMusic} title={musicOn ? "Turn music off" : "Turn music on"}
+            style={{ display:"inline-flex", alignItems:"center", gap:8,
+              background: musicOn ? "rgba(194,238,69,0.07)" : "rgba(255,255,255,0.05)",
+              border:`1px solid ${musicOn ? "rgba(194,238,69,0.38)" : BORDER}`, borderRadius:30, padding:"9px 16px",
+              color: musicOn ? TXT : MUTE, fontSize:13 }}>
+            {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
+            <span>{musicOn ? "Music on" : "Play music"}</span>
+          </button>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:9, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"9px 16px" }}>
+            <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
+            <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>
+          </div>
         </div>
       </div>
-      <div style={{ position:"absolute", bottom:24, right:28, display:"flex", alignItems:"center", gap:11, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"8px 16px", boxShadow:"0 4px 20px rgba(0,0,0,0.25)" }}>
-        <span style={{ width:7, height:7, borderRadius:"50%", background:LIME, boxShadow:`0 0 10px ${LIME}` }}/>
-        <span style={{ fontSize:10.5, letterSpacing:2, textTransform:"uppercase", color:MUTE }}>Built by</span>
-        <span style={{ ...serif, fontSize:15, fontWeight:600, letterSpacing:2, color:LIME }}>GARVIT SARAF</span>
-      </div>
-      {/* RCB anthem — hidden autoplay iframe */}
-      <iframe ref={iframeRef}
-        src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&mute=0&enablejsapi=1"
-        allow="autoplay; encrypted-media"
-        style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
-        title="rcb-anthem"
-      />
-      <button onClick={toggleMusic} title={musicOn ? "Turn music off" : "Turn music on"}
-        style={{ position:"absolute", bottom:24, left:28, display:"inline-flex", alignItems:"center", gap:8,
-          background: musicOn ? "rgba(194,238,69,0.07)" : "rgba(255,255,255,0.05)",
-          border:`1px solid ${musicOn ? "rgba(194,238,69,0.38)" : BORDER}`, borderRadius:30, padding:"8px 15px",
-          color: musicOn ? TXT : MUTE, fontSize:12.5 }}>
-        {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
-        <span>{musicOn ? "Music on" : "Music off"}</span>
-      </button>
+
+      {/* RCB anthem — mounted only when music is on (user-gesture driven = mobile-safe) */}
+      {musicOn && (
+        <iframe
+          src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&playsinline=1"
+          allow="autoplay; encrypted-media"
+          style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
+          title="rcb-anthem"
+        />
+      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
 function Home({ serif, go, history, goBack }) {
-  const iframeRef = useRef(null);
-  const [musicOn, setMusicOn] = useState(true);
-
-  useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        iframeRef.current?.contentWindow?.postMessage('{"event":"command","func":"stopVideo","args":""}', '*');
-      } catch {}
-      setMusicOn(false);
-    }, 3500);
-    return () => clearTimeout(t);
-  }, []);
-
-  const toggleMusic = () => {
-    const next = !musicOn;
-    setMusicOn(next);
-    try {
-      iframeRef.current?.contentWindow?.postMessage(
-        JSON.stringify({ event:"command", func: next ? "playVideo" : "pauseVideo", args:"" }), "*"
-      );
-    } catch {}
-  };
+  const [musicOn, setMusicOn] = useState(false);
+  const toggleMusic = () => setMusicOn(v => !v);
 
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
   const tiles = [
@@ -860,28 +839,29 @@ function Home({ serif, go, history, goBack }) {
   ];
   return (
     <div className="osf">
-      {/* 3-second RCB celebration clip */}
-      <iframe ref={iframeRef}
-        src="https://www.youtube.com/embed/vt5rqLHB4yA?autoplay=1&controls=0&mute=0&enablejsapi=1"
-        allow="autoplay; encrypted-media"
-        style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
-        title="rcb-home"
-      />
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+      {musicOn && (
+        <iframe
+          src="https://www.youtube.com/embed/vt5rqLHB4yA?autoplay=1&controls=0&playsinline=1"
+          allow="autoplay; encrypted-media"
+          style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
+          title="rcb-home"
+        />
+      )}
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14, flexWrap:"wrap" }}>
         <button onClick={goBack} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5 }}>
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back to start</span>
         </button>
         <button onClick={toggleMusic} title={musicOn ? "Mute music" : "Play music"}
           style={{ display:"inline-flex", alignItems:"center", gap:6, background: musicOn?"rgba(194,238,69,0.07)":"rgba(255,255,255,0.05)", border:`1px solid ${musicOn?"rgba(194,238,69,0.38)":BORDER}`, borderRadius:30, padding:"7px 13px", color: musicOn?TXT:MUTE, fontSize:12.5 }}>
           {musicOn ? <Volume2 size={13} color={LIME}/> : <VolumeX size={13}/>}
-          <span>{musicOn ? "Music on" : "Music off"}</span>
+          <span>{musicOn ? "Music on" : "Play music"}</span>
         </button>
       </div>
-      <h1 style={{ ...serif, fontSize:40, fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>Welcome back. What's the move?</h1>
-      <p style={{ color:MUTE, margin:"0 0 28px", fontSize:16.5, maxWidth:600, lineHeight:1.5 }}>
+      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,40px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>Welcome back. What's the move?</h1>
+      <p style={{ color:MUTE, margin:"0 0 28px", fontSize:"clamp(14px,4vw,16.5px)", maxWidth:600, lineHeight:1.5 }}>
         Train new joiners on mock calls, then run, record and report on real learner calls — all in one place.
       </p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:14 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:14 }}>
         {tiles.map(t=>(
           <button key={t.id} onClick={()=>go(t.id)} style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:18, padding:"20px 20px 18px", transition:"all .16s ease" }}
             onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.5)";e.currentTarget.style.background="rgba(194,238,69,0.06)";}}
@@ -901,24 +881,41 @@ function Home({ serif, go, history, goBack }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* ------------------------------------------------------------------ */
+// Team access passwords. Change these to whatever your team should use.
+const PASSWORDS = { inside: "inside123", success: "success123" };
+
 function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
+  const [gate, setGate] = useState(null); // null | "inside" | "success"
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState("");
+
+  const open = (which) => { setGate(which); setPw(""); setError(""); };
+  const submit = () => {
+    if (pw === PASSWORDS[gate]) {
+      const fn = gate === "inside" ? onInsideSales : onSaleSuccess;
+      setGate(null); setPw(""); setError("");
+      fn();
+    } else {
+      setError("Incorrect password. Please try again.");
+    }
+  };
+
   return (
-    <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"0 18px", position:"relative" }}>
+    <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"40px 18px", position:"relative" }}>
       {/* brand dot-mark */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:20 }}>
         {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
       </div>
-      <div style={{ fontSize:12, letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Department</div>
-      <h1 style={{ ...serif, fontSize:"clamp(32px,6vw,58px)", fontWeight:600, lineHeight:1.1, margin:"0 0 12px", letterSpacing:-1 }}>
+      <div style={{ fontSize:"clamp(10px,3vw,12px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:14, fontWeight:600 }}>OutSkill · Sales Department</div>
+      <h1 style={{ ...serif, fontSize:"clamp(28px,6vw,58px)", fontWeight:600, lineHeight:1.1, margin:"0 0 12px", letterSpacing:-1 }}>
         Which team are you on?
       </h1>
-      <p style={{ color:MUTE, fontSize:16, maxWidth:480, margin:"0 auto 40px", lineHeight:1.55 }}>
-        Select your sales track to get to your command center.
+      <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16px)", maxWidth:480, margin:"0 auto 40px", lineHeight:1.55 }}>
+        Select your sales track. Team password required for access.
       </p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, width:"100%", maxWidth:560 }}>
-        <button onClick={onInsideSales}
-          style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"28px 24px", transition:"all .16s ease", cursor:"pointer" }}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, width:"100%", maxWidth:560 }}>
+        <button onClick={()=>open("inside")}
+          style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 22px", transition:"all .16s ease", cursor:"pointer" }}
           onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.6)";e.currentTarget.style.background="rgba(194,238,69,0.07)";}}
           onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
           <div style={{ width:48, height:48, borderRadius:14, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
@@ -927,12 +924,12 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
           <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:8 }}>Inside Sales</div>
           <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Mock call training, real call reporting, pipeline and follow-ups.</div>
           <div style={{ marginTop:16, display:"inline-flex", alignItems:"center", gap:6, fontSize:12, color:LIME, fontWeight:600 }}>
-            Enter <ChevronRight size={14}/>
+            🔒 Enter <ChevronRight size={14}/>
           </div>
         </button>
 
-        <button onClick={onSaleSuccess}
-          style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"28px 24px", transition:"all .16s ease", cursor:"pointer" }}
+        <button onClick={()=>open("success")}
+          style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 22px", transition:"all .16s ease", cursor:"pointer" }}
           onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.6)";e.currentTarget.style.background="rgba(194,238,69,0.07)";}}
           onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
           <div style={{ width:48, height:48, borderRadius:14, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:14 }}>
@@ -941,7 +938,7 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
           <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:8 }}>Sales Success</div>
           <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Coming soon — details being added.</div>
           <div style={{ marginTop:16, display:"inline-flex", alignItems:"center", gap:6, fontSize:12, color:LIME, fontWeight:600 }}>
-            Enter <ChevronRight size={14}/>
+            🔒 Enter <ChevronRight size={14}/>
           </div>
         </button>
       </div>
@@ -949,6 +946,29 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
       <button onClick={goBack} style={{ ...secondaryBtn, marginTop:32, padding:"8px 16px", fontSize:12.5 }}>
         <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back</span>
       </button>
+
+      {/* Password modal */}
+      {gate && (
+        <div onClick={()=>setGate(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:18, zIndex:50 }}>
+          <div onClick={e=>e.stopPropagation()} className="osf"
+            style={{ background:"#11140d", border:`1px solid ${BORDER}`, borderRadius:20, padding:"28px 24px", width:"100%", maxWidth:380, textAlign:"center" }}>
+            <div style={{ width:54, height:54, borderRadius:16, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:24 }}>🔒</div>
+            <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:6 }}>{gate === "inside" ? "Inside Sales" : "Sales Success"}</div>
+            <div style={{ fontSize:13.5, color:MUTE, marginBottom:18 }}>Enter the team password to continue.</div>
+            <input type="password" autoFocus value={pw}
+              onChange={e=>{ setPw(e.target.value); setError(""); }}
+              onKeyDown={e=>{ if(e.key==="Enter") submit(); }}
+              placeholder="Password"
+              style={{ width:"100%", background:PANEL, border:`1px solid ${error?"#e87a6b":BORDER}`, borderRadius:12, padding:"13px 15px", color:TXT, fontSize:15, textAlign:"center", marginBottom:error?8:16 }}/>
+            {error && <div style={{ fontSize:12.5, color:"#e87a6b", marginBottom:14 }}>{error}</div>}
+            <div style={{ display:"flex", gap:10 }}>
+              <button onClick={()=>setGate(null)} style={{ ...secondaryBtn, flex:1, justifyContent:"center" }}>Cancel</button>
+              <button onClick={submit} style={{ ...primaryBtn, flex:1, justifyContent:"center" }}>Unlock</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -681,25 +681,35 @@ export default function App() {
         {section === "followups" && <FollowUps serif={serif} go={setSection} />}
       </div>
 
-      {/* Global background music — RCB anthem, persists across all pages */}
-      {musicOn && musicStarted && (
-        <iframe
-          src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&playsinline=1"
+      {/* Page-specific music: Cover = RCB anthem, Home = hype track, others = silent */}
+      {musicOn && musicStarted && section === "cover" && (
+        <iframe key="music-cover"
+          src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&playsinline=1&mute=0"
           allow="autoplay; encrypted-media"
           style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
-          title="bg-music"
+          title="bg-music-cover"
         />
       )}
-      {/* Floating music toggle — always visible */}
-      <button onClick={() => { setMusicStarted(true); setMusicOn(v => !v); }}
-        title={musicOn ? "Mute music" : "Play music"}
-        style={{ position:"fixed", bottom:16, right:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
-          background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
-          border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
-          color: musicOn ? TXT : MUTE, fontSize:12.5, boxShadow:"0 4px 18px rgba(0,0,0,0.35)" }}>
-        {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
-        <span>{musicOn ? "Music on" : "Music off"}</span>
-      </button>
+      {musicOn && musicStarted && section === "home" && (
+        <iframe key="music-home"
+          src="https://www.youtube.com/embed/vt5rqLHB4yA?autoplay=1&loop=1&playlist=vt5rqLHB4yA&controls=0&playsinline=1&mute=0"
+          allow="autoplay; encrypted-media"
+          style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
+          title="bg-music-home"
+        />
+      )}
+      {/* Floating music toggle — only on music pages */}
+      {(section === "cover" || section === "home") && (
+        <button onClick={() => { setMusicStarted(true); setMusicOn(v => !v); }}
+          title={musicOn ? "Mute music" : "Play music"}
+          style={{ position:"fixed", bottom:16, right:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
+            background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
+            border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
+            color: musicOn ? TXT : MUTE, fontSize:12.5, boxShadow:"0 4px 18px rgba(0,0,0,0.35)" }}>
+          {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
+          <span>{musicOn ? "Music on" : "Music off"}</span>
+        </button>
+      )}
     </div>
   );
 }

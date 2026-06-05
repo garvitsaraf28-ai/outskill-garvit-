@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Saraf.AI × OutSkill — Pitch Deck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,wght@0,700;0,900;1,700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --lime: #c2ee45;
+    --lime-dim: #a8d930;
+    --bg: #080a06;
+    --bg2: #0f1209;
+    --bg3: #161a0e;
+    --glass: rgba(194,238,69,0.06);
+    --glass-border: rgba(194,238,69,0.18);
+    --white: #f0f4e8;
+    --muted: #7a8a65;
+    --danger: #ff4d6d;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--white);
+    overflow-x: hidden;
+  }
+
+  /* NAV DOTS */
+  .nav-dots {
+    position: fixed;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 99;
+  }
+  .nav-dots a {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    display: block;
+    transition: all .3s;
+  }
+  .nav-dots a.active, .nav-dots a:hover {
+    background: var(--lime);
+    transform: scale(1.6);
+  }
+
+  /* SLIDE BASE */
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 80px 10vw;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* NOISE TEXTURE OVERLAY */
+  .slide::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  /* GLOW BG BLOBS */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+  }
+
+  /* SLIDE NUMBERS */
+  .slide-num {
+    position: absolute;
+    top: 40px;
+    right: 10vw;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* LOGO WATERMARK */
+  .watermark {
+    position: absolute;
+    bottom: 32px;
+    right: 10vw;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .watermark span { color: var(--lime); }
+
+  /* TAG CHIP */
+  .tag {
+    display: inline-block;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--lime);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 28px;
+  }
+
+  /* HEADINGS */
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(3rem, 7vw, 6.5rem);
+    font-weight: 900;
+    line-height: 1.02;
+    color: var(--white);
+    margin-bottom: 20px;
+  }
+  h1 .accent { color: var(--lime); }
+  h1 .strike {
+    text-decoration: line-through;
+    text-decoration-color: var(--danger);
+    opacity: 0.7;
+  }
+
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 4.5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+
+  .subtext {
+    font-size: clamp(1rem, 1.8vw, 1.25rem);
+    color: var(--muted);
+    max-width: 600px;
+    line-height: 1.7;
+    margin-bottom: 48px;
+  }
+
+  /* BIG STAT */
+  .big-stat {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 900;
+    color: var(--lime);
+    line-height: 1.1;
+    margin-top: 40px;
+  }
+  .big-stat-label {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+
+  /* PROBLEM PILLS */
+  .problem-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .problem-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    max-width: 640px;
+    transition: border-color .3s;
+  }
+  .problem-item:hover { border-color: var(--lime); }
+  .problem-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .problem-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 4px;
+  }
+  .problem-desc {
+    font-size: 0.875rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* FEATURE GRID */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    width: 100%;
+    max-width: 860px;
+    margin-top: 8px;
+  }
+  .feature-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 28px;
+    transition: all .3s;
+  }
+  .feature-card:hover {
+    border-color: var(--lime);
+    background: rgba(194,238,69,0.09);
+    transform: translateY(-2px);
+  }
+  .feature-card .icon { font-size: 2rem; margin-bottom: 12px; display: block; }
+  .feature-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--lime);
+    margin-bottom: 8px;
+  }
+  .feature-card p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* FLOW */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 8px;
+  }
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    max-width: 480px;
+    margin-bottom: 4px;
+    transition: all .25s;
+  }
+  .flow-step:hover { border-color: var(--lime); background: rgba(194,238,69,0.09); }
+  .flow-icon { font-size: 1.3rem; flex-shrink: 0; }
+  .flow-label { font-size: 0.9rem; font-weight: 600; color: var(--white); }
+  .flow-sub { font-size: 0.75rem; color: var(--muted); }
+  .flow-arrow {
+    font-size: 0.85rem;
+    color: var(--lime);
+    padding-left: 32px;
+    margin-bottom: 4px;
+    opacity: 0.7;
+  }
+
+  /* PROOF POINTS */
+  .proof-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .proof-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .proof-item::before {
+    content: '✓';
+    color: var(--lime);
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  /* URL HERO */
+  .url-hero {
+    font-family: 'Space Grotesk', monospace;
+    font-size: clamp(1.2rem, 3vw, 2rem);
+    font-weight: 700;
+    color: var(--lime);
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px 28px;
+    margin-bottom: 32px;
+    letter-spacing: 1px;
+  }
+
+  /* SLIDE 1 SPECIFIC */
+  #s1 { background: var(--bg); }
+  #s1 .blob1 { width: 600px; height: 600px; background: rgba(194,238,69,0.07); top: -200px; right: -100px; }
+  #s1 .blob2 { width: 300px; height: 300px; background: rgba(255,77,109,0.05); bottom: 100px; left: -100px; }
+
+  /* SLIDE 2 SPECIFIC */
+  #s2 { background: var(--bg2); }
+  #s2 .blob1 { width: 500px; height: 500px; background: rgba(194,238,69,0.06); bottom: -150px; right: -50px; }
+
+  /* SLIDE 3 SPECIFIC */
+  #s3 { background: var(--bg3); }
+  #s3 .blob1 { width: 700px; height: 400px; background: rgba(194,238,69,0.05); top: 50%; left: 50%; transform: translate(-50%,-50%); border-radius: 40%; }
+
+  /* DIVIDER */
+  .divider {
+    width: 60px;
+    height: 3px;
+    background: var(--lime);
+    border-radius: 2px;
+    margin-bottom: 32px;
+  }
+
+  /* SLIDE 3 LAYOUT */
+  #s3 .inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
+    width: 100%;
+    align-items: start;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .slide { padding: 60px 6vw; }
+    .feature-grid { grid-template-columns: 1fr; }
+    #s3 .inner { grid-template-columns: 1fr; gap: 32px; }
+    .slide-num, .watermark { right: 6vw; }
+  }
+
+  /* PRINT / SCREENSHOT HELPER */
+  @media print {
+    .nav-dots { display: none; }
+    .slide { page-break-after: always; min-height: 100vh; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav-dots">
+  <a href="#s1" class="active" title="Problem"></a>
+  <a href="#s2" title="Solution"></a>
+  <a href="#s3" title="Demo"></a>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     SLIDE 1 — PROBLEM OBSERVED
+═══════════════════════════════════════════ -->
+<section class="slide" id="s1">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="slide-num">01 / 03</div>
+
+  <div class="tag">⚠ Problem Observed</div>
+  <h1>Your reps are<br/>practicing on<br/><span class="accent">real customers.</span></h1>
+  <div class="divider"></div>
+  <p class="subtext">No rehearsal. No feedback loop. No follow-up system.<br/>Every bad call is a deal — and a learner — gone forever.</p>
+
+  <div class="problem-list">
+    <div class="problem-item">
+      <div class="problem-icon">📞</div>
+      <div>
+        <div class="problem-title">Zero Practice Environment</div>
+        <div class="problem-desc">Reps jump into live calls with zero rehearsal — mistakes happen on paying customers, not in training.</div>
+      </div>
+    </div>
+    <div class="problem-item">
+      <div class="problem-icon">🧠</div>
+      <div>
+        <div class="problem-title">No Coaching Loop</div>
+        <div class="problem-desc">Managers can't review every call. Objection-handling gaps and wrong EMI quotes repeat silently, every day.</div>
+      </div>
+    </div>
+    <div class="problem-item">
+      <div class="problem-icon">📋</div>
+      <div>
+        <div class="problem-title">Follow-ups Fall Through</div>
+        <div class="problem-desc">No structured system for who to call back, when, and what was discussed — hot leads go cold.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="big-stat">₹95,000<span style="font-size:0.5em;color:var(--muted)"> avg. deal</span></div>
+  <div class="big-stat-label">lost per unqualified close · Inside Sales · OutSkill</div>
+
+  <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     SLIDE 2 — PROPOSED SOLUTION
+═══════════════════════════════════════════ -->
+<section class="slide" id="s2">
+  <div class="blob blob1"></div>
+  <div class="slide-num">02 / 03</div>
+
+  <div class="tag">💡 Proposed Solution</div>
+  <h1>We built the<br/>sales team's<br/><span class="accent">unfair advantage.</span></h1>
+  <div class="divider"></div>
+  <p class="subtext">One AI-powered command center — train, call, report, close.<br/>Everything your inside sales team needs, baked into one platform.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <span class="icon">🎯</span>
+      <h3>Mock Call Trainer</h3>
+      <p>Practice against 10 realistic AI personas — Indian names, real objections, real EMI questions. Voice or text. Any time.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">📊</span>
+      <h3>Instant Scorecard</h3>
+      <p>100-point coaching breakdown after every call — objection handling, pricing accuracy, EMI compliance, closing strength.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">📁</span>
+      <h3>Real Call Reports</h3>
+      <p>Upload any recording → auto-transcribe → CRM-ready report with sentiment, key moments, and next action.</p>
+    </div>
+    <div class="feature-card">
+      <span class="icon">🔔</span>
+      <h3>Follow-up Engine</h3>
+      <p>Never miss a callback. Auto-scheduled by interest level and follow-up date. Pipeline always moving.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;font-size:0.9rem;color:var(--muted);letter-spacing:1px;">
+    Train → Call → Report → Close &nbsp;·&nbsp; <span style="color:var(--lime);font-weight:700;">One platform. Zero excuses.</span>
+  </div>
+
+  <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     SLIDE 3 — PROJECT DEMO
+═══════════════════════════════════════════ -->
+<section class="slide" id="s3">
+  <div class="blob blob1"></div>
+  <div class="slide-num">03 / 03</div>
+
+  <div class="tag">🚀 Project Demo</div>
+  <h1>It's live.<br/>It works.<br/><span class="accent">Try it.</span></h1>
+
+  <div class="inner">
+    <div>
+      <div class="divider"></div>
+      <div class="url-hero">outskill-garvit.vercel.app</div>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-icon">🎬</div>
+          <div>
+            <div class="flow-label">Cover Page</div>
+            <div class="flow-sub">Saraf.AI — Sales Command Center</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="flow-icon">🔒</div>
+          <div>
+            <div class="flow-label">Choose Your Team</div>
+            <div class="flow-sub">Inside Sales · Sales Success (password-gated)</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="flow-icon">🏠</div>
+          <div>
+            <div class="flow-label">Command Center</div>
+            <div class="flow-sub">Pick persona → start mock call</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="flow-icon">📞</div>
+          <div>
+            <div class="flow-label">Live AI Mock Call</div>
+            <div class="flow-sub">Voice or text · 10 Indian personas</div>
+          </div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">
+          <div class="flow-icon">🏆</div>
+          <div>
+            <div class="flow-label">Scorecard + Coaching</div>
+            <div class="flow-sub">100-pt breakdown · EMI compliance check</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 style="font-size:clamp(1.4rem,2.5vw,2rem);margin-bottom:8px;">What makes it<br/><span style="color:var(--lime)">actually different</span></h2>
+      <div class="proof-list">
+        <div class="proof-item">10 Indian AI prospects — warm, skeptical, anxious, overconfident</div>
+        <div class="proof-item">EMI rules baked in — reps flagged for wrong EMI offers instantly</div>
+        <div class="proof-item">Full pricing logic — India + international, batch vs upfront</div>
+        <div class="proof-item">Gender-matched Indian-English voices via Web Speech API</div>
+        <div class="proof-item">Serverless on Vercel — zero infra, always-on, globally fast</div>
+        <div class="proof-item">AI powered by Llama 3.3 70B via OpenRouter (zero cost)</div>
+        <div class="proof-item">Built &amp; deployed end-to-end in one sprint by Garvit Saraf</div>
+      </div>
+
+      <div style="margin-top:36px;padding:20px 24px;background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;max-width:400px;">
+        <div style="font-size:0.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Stack</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <span style="background:rgba(194,238,69,0.1);border:1px solid var(--glass-border);color:var(--lime);font-size:0.75rem;padding:4px 10px;border-radius:100px;">React + Vite</span>
+          <span style="background:rgba(194,238,69,0.1);border:1px solid var(--glass-border);color:var(--lime);font-size:0.75rem;padding:4px 10px;border-radius:100px;">Vercel Serverless</span>
+          <span style="background:rgba(194,238,69,0.1);border:1px solid var(--glass-border);color:var(--lime);font-size:0.75rem;padding:4px 10px;border-radius:100px;">OpenRouter AI</span>
+          <span style="background:rgba(194,238,69,0.1);border:1px solid var(--glass-border);color:var(--lime);font-size:0.75rem;padding:4px 10px;border-radius:100px;">Web Speech API</span>
+          <span style="background:rgba(194,238,69,0.1);border:1px solid var(--glass-border);color:var(--lime);font-size:0.75rem;padding:4px 10px;border-radius:100px;">Llama 3.3 70B</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
+</section>
+
+<script>
+  // Highlight active nav dot on scroll
+  const slides = document.querySelectorAll('.slide');
+  const dots = document.querySelectorAll('.nav-dots a');
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.id;
+        dots.forEach(d => d.classList.remove('active'));
+        const active = document.querySelector(`.nav-dots a[href="#${id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.5 });
+
+  slides.forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

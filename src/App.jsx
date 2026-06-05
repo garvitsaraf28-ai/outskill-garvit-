@@ -387,6 +387,17 @@ export default function App() {
   const [grading, setGrading] = useState(false);
   const [history, setHistory] = useState([]);
 
+  // Feature 1: rep name
+  const [repName, setRepName] = useState("");
+  // Feature 2: difficulty
+  const [difficulty, setDifficulty] = useState("medium");
+  // Feature 3: call stage progress
+  const [callStage, setCallStage] = useState(0);
+  // Feature 4: live hints
+  const [hint, setHint] = useState("");
+  // Feature 5: mood meter
+  const [mood, setMood] = useState("neutral");
+
   // voice
   const [voiceWanted, setVoiceWanted] = useState(false);
   const [voiceOn, _setVoiceOn] = useState(false);
@@ -433,7 +444,12 @@ export default function App() {
         lead:"Custom scenario you defined.", stated:"—", blocker:"—",
         brief:`You are a prospective OutSkill learner: ${custom || "a generic interested prospect from the workshop"}. Behave realistically, raise natural objections, keep spoken replies to 1-2 sentences, stay in character, never reveal you are an AI.` }
     : persona;
-  const sysPrompt = mode === "learner" ? learnerSystem(activePersona) : agentSystem();
+  const difficultyModifier = difficulty === "easy"
+    ? "\nDIFFICULTY: Easy mode — be cooperative, warm, raise only one mild objection, don't probe too hard."
+    : difficulty === "hard"
+    ? "\nDIFFICULTY: Hard mode — be skeptical and terse, interrupt occasionally, ask multiple pointed objections, challenge pricing aggressively."
+    : "";
+  const sysPrompt = (mode === "learner" ? learnerSystem(activePersona) : agentSystem()) + difficultyModifier;
 
   /* sync refs */
   useEffect(() => { busyRef.current = busy; }, [busy]);
@@ -460,6 +476,11 @@ export default function App() {
   /* load history */
   useEffect(() => {
     try { const v = localStorage.getItem("sarafai_history_v1"); if (v) setHistory(JSON.parse(v)); } catch {}
+  }, []);
+
+  /* Feature 1: load repName from localStorage */
+  useEffect(() => {
+    try { const v = localStorage.getItem("sarafai_repname"); if (v) setRepName(v); } catch {}
   }, []);
 
   /* autoscroll */
@@ -522,6 +543,38 @@ export default function App() {
       const after = [...next, { role: "assistant", content: reply }];
       setMessages(after); apiMsgsRef.current = after;
       if (voiceOnRef.current) speakRef.current(reply);
+      // Feature 3: auto-advance call stage
+      const msgCount = after.length;
+      const newStage = msgCount <= 2 ? 0 : msgCount <= 5 ? 1 : msgCount <= 8 ? 2 : msgCount <= 11 ? 3 : msgCount <= 15 ? 4 : 5;
+      setCallStage(newStage);
+      // Feature 4: derive hint
+      const replyLow = reply.toLowerCase();
+      const lastUserMsg = (next[next.length - 1]?.content || "").toLowerCase();
+      let newHint = "";
+      if (newStage === 0) {
+        if (!replyLow.includes("name") && !replyLow.includes("how are")) newHint = "💡 Open with warmth — use their name and acknowledge they attended the workshop";
+      } else if (newStage === 1) {
+        if (!replyLow.includes("python") && !replyLow.includes("technical") && !replyLow.includes("background")) newHint = "💡 Ask about their background — coding or non-technical? This drives the whole call";
+      } else if (newStage === 2) {
+        newHint = "💡 Confirm the right program — Generalist (no-code) or Engineering (Python)?";
+      } else if (newStage === 3) {
+        newHint = "💡 Tie the program benefits to what they said they want — personalise the pitch";
+      } else if (newStage === 4) {
+        if (lastUserMsg.includes("expensive") || lastUserMsg.includes("price") || lastUserMsg.includes("cost") || lastUserMsg.includes("emi")) newHint = "💡 Acknowledge, then isolate — 'If budget wasn't a concern, would you join today?'";
+      } else if (newStage === 5) {
+        newHint = "💡 Trial close — 'What would need to happen for you to feel confident saying yes today?'";
+      }
+      setHint(newHint);
+      // Feature 5: detect mood
+      let newMood = "neutral";
+      if (replyLow.includes("interested") || replyLow.includes("tell me more") || replyLow.includes("sounds good") || replyLow.includes("that's helpful")) {
+        newMood = "interested";
+      } else if (replyLow.includes("yes") || replyLow.includes("let's do") || replyLow.includes("sounds great") || replyLow.includes("sign me up") || replyLow.includes("enroll")) {
+        newMood = "hot";
+      } else if (replyLow.includes("not interested") || replyLow.includes("no thanks") || replyLow.includes("too expensive") || replyLow.includes("can't afford") || replyLow.includes("busy")) {
+        newMood = "cold";
+      }
+      setMood(newMood);
     } catch {
       setErr("That turn didn't go through. Check your connection and try again.");
     } finally { setBusy(false); busyRef.current = false; }
@@ -602,6 +655,7 @@ export default function App() {
   // speak/type first, or tap "Let them open" to have the other side start.
   const startCall = async () => {
     setErr(""); setSeconds(0); setCard(null); setCardRaw(""); setInterim("");
+    setCallStage(0); setHint(""); setMood("neutral");
     if (voiceWanted) { await enableVoice(); } else { setVoiceOn(false); }
     setMessages([]); apiMsgsRef.current = [];
     setScreen("call"); callActiveRef.current = true;
@@ -674,7 +728,7 @@ export default function App() {
     } finally { setGrading(false); }
   };
 
-  const reset = () => { stopAll(); setScreen("setup"); setMessages([]); apiMsgsRef.current = []; setCard(null); setCardRaw(""); setErr(""); setSeconds(0); setInterim(""); };
+  const reset = () => { stopAll(); setScreen("setup"); setMessages([]); apiMsgsRef.current = []; setCard(null); setCardRaw(""); setErr(""); setSeconds(0); setInterim(""); setCallStage(0); setHint(""); setMood("neutral"); };
 
   /* ---- render ---- */
   const root = {
@@ -743,18 +797,24 @@ export default function App() {
             <Setup serif={serif} mode={mode} setMode={setMode} persona={persona} setPersona={setPersona}
               useCustom={useCustom} setUseCustom={setUseCustom} custom={custom} setCustom={setCustom}
               startCall={startCall} history={history}
-              voiceWanted={voiceWanted} setVoiceWanted={setVoiceWanted} sttSupported={sttSupported} ttsSupported={ttsSupported}/>
+              voiceWanted={voiceWanted} setVoiceWanted={setVoiceWanted} sttSupported={sttSupported} ttsSupported={ttsSupported}
+              repName={repName} setRepName={setRepName}
+              difficulty={difficulty} setDifficulty={setDifficulty}/>
           )}
           {screen === "call" && (
             <CallView serif={serif} mode={mode} persona={activePersona}
               messages={messages.filter(m => !m.hidden)} busy={busy}
               input={input} setInput={setInput} send={() => sendText(input)}
               seconds={seconds} endCall={endCall} err={err} scrollRef={scrollRef} voice={voiceApi}
-              letThemOpen={letThemOpen}/>
+              letThemOpen={letThemOpen}
+              callStage={callStage} totalStages={6}
+              hint={hint} setHint={setHint}
+              mood={mood}/>
           )}
           {screen === "feedback" && (
             <Feedback serif={serif} mode={mode} persona={activePersona} card={card} cardRaw={cardRaw}
-              grading={grading} err={err} reset={reset} again={startCall} duration={fmtTime(seconds)} useCustom={useCustom}/>
+              grading={grading} err={err} reset={reset} again={startCall} duration={fmtTime(seconds)} useCustom={useCustom}
+              repName={repName}/>
           )}
         </>)}
 
@@ -1324,14 +1384,40 @@ const Field = ({ label, children }) => (<label style={{ display:"block" }}><div 
 const inputStyle = { width:"100%", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 14px", color:TXT, fontSize:14.5 };
 
 /* ------------------------------------------------------------------ */
-function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported }) {
+function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, difficulty, setDifficulty }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
+
+  // Feature 1: streak calculation
+  const streak = (() => {
+    if (!history.length) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    let count = 0, check = new Date(today);
+    while (true) {
+      const dayStr = check.toDateString();
+      if (history.some(h => new Date(h.date).toDateString() === dayStr)) {
+        count++;
+        check.setDate(check.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return count;
+  })();
+
   return (
     <div className="osf">
       <h1 style={{ ...serif, fontSize:37, fontWeight:600, margin:"0 0 6px", letterSpacing:-0.5 }}>Run a practice call.</h1>
       <p style={{ color:MUTE, margin:"0 0 24px", fontSize:15, maxWidth:560 }}>
         Talk to a realistic prospect out loud, then get an instant, evidence-based scorecard. Practice as many times as you want — no senior rep required.
       </p>
+
+      {/* Feature 1: Rep name input */}
+      <div style={{ marginBottom:18 }}>
+        <Field label="Your name (for your scorecard)">
+          <input value={repName} onChange={e=>{ setRepName(e.target.value); try { localStorage.setItem("sarafai_repname", e.target.value); } catch {} }}
+            placeholder="e.g. Rahul" style={inputStyle}/>
+        </Field>
+      </div>
 
       {/* voice toggle */}
       <div style={{ background:PANEL, border:`1px solid ${voiceWanted?"rgba(194,238,69,0.4)":BORDER}`, borderRadius:14, padding:"14px 16px", marginBottom:22,
@@ -1352,6 +1438,26 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))", gap:12, marginBottom:26 }}>
         <ModeCard active={mode==="learner"} onClick={()=>setMode("learner")} icon={<Headphones size={18}/>} title="I sell · AI is the customer" sub="You're the salesperson. The AI plays the customer. You lead the call and get scored." serif={serif}/>
         <ModeCard active={mode==="agent"} onClick={()=>setMode("agent")} icon={<GraduationCap size={18}/>} title="AI sells · I'm the customer" sub="The AI is the salesperson and consults you. You play the customer and learn by listening." serif={serif}/>
+      </div>
+
+      {/* Feature 2: Difficulty pills */}
+      <div style={{ marginBottom:22 }}>
+        <SectionLabel>Difficulty</SectionLabel>
+        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+          {[
+            { id:"easy", emoji:"🟢", label:"Easy", sub:"Warm & cooperative" },
+            { id:"medium", emoji:"🟡", label:"Medium", sub:"Realistic mixed signals" },
+            { id:"hard", emoji:"🔴", label:"Hard", sub:"Aggressive, tricky objections" },
+          ].map(d=>(
+            <button key={d.id} onClick={()=>setDifficulty(d.id)}
+              style={{ display:"flex", alignItems:"center", gap:8, background: difficulty===d.id?"rgba(194,238,69,0.12)":PANEL,
+                border:`1px solid ${difficulty===d.id?"rgba(194,238,69,0.5)":BORDER}`, borderRadius:30, padding:"9px 16px", fontSize:13.5, transition:"all .15s" }}>
+              <span>{d.emoji}</span>
+              <span style={{ fontWeight:600, color: difficulty===d.id?LIME:TXT }}>{d.label}</span>
+              <span style={{ color:MUTE, fontSize:12 }}>— {d.sub}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {mode === "learner" && (
@@ -1388,7 +1494,10 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
 
       {history.length > 0 && (
         <div style={{ marginTop:24 }}>
-          <SectionLabel>Your recent reps</SectionLabel>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
+            <SectionLabel>Your recent reps</SectionLabel>
+            {streak >= 2 && <span style={{ fontSize:13, color:"#e8b24b", fontWeight:600, marginLeft:8 }}>🔥 {streak} day streak</span>}
+          </div>
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {history.slice(0,5).map((h,i)=>(
               <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"9px 13px" }}>
@@ -1407,11 +1516,19 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
 }
 
 /* ------------------------------------------------------------------ */
-function CallView({ serif, mode, persona, messages, busy, input, setInput, send, seconds, endCall, err, scrollRef, voice, letThemOpen }) {
+function CallView({ serif, mode, persona, messages, busy, input, setInput, send, seconds, endCall, err, scrollRef, voice, letThemOpen, callStage, totalStages, hint, setHint, mood }) {
   const overtime = seconds > 420;
   const youAre = mode==="learner" ? "the salesperson" : "the customer";
   const otherName = mode==="learner" ? persona.name : "the salesperson";
   const noOneSpoke = messages.length === 0 && !busy;
+  const STAGE_NAMES = ["Opening", "Discovery", "Routing", "Value Pitch", "Objection", "Close"];
+  const MOOD_CONFIG = {
+    interested: { emoji:"😊", label:"Warming up", color:LIME },
+    hot: { emoji:"😍", label:"Ready to close!", color:"#c2ee45" },
+    cold: { emoji:"😤", label:"Losing them", color:"#e87a6b" },
+    neutral: { emoji:"😐", label:"Neutral", color:MUTE },
+  };
+  const moodInfo = MOOD_CONFIG[mood] || MOOD_CONFIG.neutral;
   return (
     <div className="osf">
       <div style={{ display:"flex", alignItems:"center", gap:12, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"12px 14px", marginBottom:14, flexWrap:"wrap" }}>
@@ -1422,7 +1539,11 @@ function CallView({ serif, mode, persona, messages, busy, input, setInput, send,
           <div style={{ fontWeight:600, fontSize:14.5 }}>{mode==="learner" ? persona.name : "OutSkill salesperson (AI)"}</div>
           <div style={{ fontSize:11.5, color:MUTE, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{mode==="learner" ? persona.lead : "You're the customer — respond naturally."}</div>
         </div>
-        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:14 }}>
+        <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:10 }}>
+          {/* Feature 5: Mood indicator */}
+          <span style={{ display:"inline-flex", alignItems:"center", gap:5, fontSize:12, color:moodInfo.color, background:`${moodInfo.color}18`, border:`1px solid ${moodInfo.color}44`, borderRadius:20, padding:"4px 10px", fontWeight:500 }}>
+            {moodInfo.emoji} {moodInfo.label}
+          </span>
           <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, color: overtime?"#e8b24b":MUTE, fontVariantNumeric:"tabular-nums" }}>
             <Clock size={14}/> {fmtTime(seconds)} {overtime && <span style={{fontSize:10.5}}>· wrap up</span>}
           </div>
@@ -1434,6 +1555,28 @@ function CallView({ serif, mode, persona, messages, busy, input, setInput, send,
         <span style={{width:7,height:7,borderRadius:"50%",background:LIME,boxShadow:`0 0 8px ${LIME}`}}/>
         Call connected · you are <b style={{color:TXT, margin:"0 3px"}}>{youAre}</b>. Either side can speak first.
       </div>
+
+      {/* Feature 3: Stage progress bar */}
+      <div style={{ marginBottom:10 }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:4 }}>
+          <span style={{ fontSize:11, color:MUTE }}>{STAGE_NAMES[callStage]}</span>
+        </div>
+        <div style={{ display:"flex", gap:4 }}>
+          {STAGE_NAMES.map((name, i) => (
+            <div key={i} title={name} style={{ flex:1, height:5, borderRadius:4,
+              background: i <= callStage ? LIME : "rgba(255,255,255,0.09)",
+              transition:"background .3s ease" }}/>
+          ))}
+        </div>
+      </div>
+
+      {/* Feature 4: Hint banner */}
+      {hint && (
+        <div style={{ display:"flex", alignItems:"center", gap:10, background:"rgba(232,178,75,0.08)", border:"1px solid rgba(232,178,75,0.35)", borderRadius:10, padding:"9px 13px", marginBottom:10, fontSize:12.5, color:"#f0d29a" }}>
+          <span style={{ flex:1 }}>{hint}</span>
+          <button onClick={()=>setHint("")} style={{ background:"none", border:"none", color:"#f0d29a", fontSize:15, lineHeight:1, padding:"0 2px", opacity:0.7 }}>✕</button>
+        </div>
+      )}
 
       {noOneSpoke && (
         <div style={{ background:PANEL, border:`1px dashed ${BORDER}`, borderRadius:12, padding:"12px 14px", marginBottom:10, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
@@ -1591,7 +1734,7 @@ function Bubble({ m, mode, persona }) {
 const Who = ({ label, mine }) => (<div style={{ fontSize:11, color:MUTE, margin:"0 0 4px", textAlign: mine?"right":"left", paddingLeft:mine?0:4, paddingRight:mine?4:0 }}>{label}</div>);
 
 /* ------------------------------------------------------------------ */
-function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, again, duration, useCustom }) {
+function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, again, duration, useCustom, repName }) {
   if (grading) {
     return (
       <div className="osf" style={{ textAlign:"center", padding:"70px 0" }}>
@@ -1632,7 +1775,7 @@ function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, ag
       <div style={{ background:`linear-gradient(135deg, rgba(194,238,69,0.07) 0%, rgba(10,12,8,0) 60%)`, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 24px 20px", marginBottom:18, display:"flex", gap:24, alignItems:"center", flexWrap:"wrap" }}>
         <Ring value={score}/>
         <div style={{ flex:1, minWidth:200 }}>
-          <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>{isDemo ? "Ideal-call breakdown" : "Your call scorecard"}</div>
+          <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>{isDemo ? "Ideal-call breakdown" : (repName ? `${repName}'s coaching` : "Your call scorecard")}</div>
           <h2 style={{ ...serif, fontSize:30, fontWeight:600, margin:"0 0 12px", color:scoreColor }}>{scoreVerdict(score)}</h2>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             <Pill ok={routedRight}>{routedRight ? <CheckCircle2 size={13}/> : <XCircle size={13}/>}<span style={{marginLeft:5}}>Routed → {card.recommendedProgram}{routedRight?" ✓":" ✗ wrong track"}</span></Pill>

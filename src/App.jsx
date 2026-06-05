@@ -1759,6 +1759,9 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
         </>
       )}
 
+      {/* Certificate progress strip — motivates reps to keep going */}
+      <CertProgressStrip history={history} serif={serif}/>
+
       {/* AI learning indicator — shows how many facts the prospect already knows */}
       {learnedFacts && learnedFacts.length > 0 && (
         <div style={{ background:"rgba(194,238,69,0.06)", border:`1px solid rgba(194,238,69,0.25)`, borderRadius:12, padding:"12px 16px", marginTop:18, display:"flex", alignItems:"center", gap:12 }}>
@@ -1886,7 +1889,7 @@ function ProgressPanel({ history, serif, repName }) {
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
       {configured && <Toggle/>}
-      <PersonalProgress history={history} serif={serif}/>
+      <PersonalProgress history={history} serif={serif} repName={repName}/>
     </div>
   );
 }
@@ -1999,7 +2002,7 @@ function TeamView({ calls, serif, me }) {
 }
 
 /* One person's own improvement trend (from this browser's localStorage). */
-function PersonalProgress({ history, serif }) {
+function PersonalProgress({ history, repName, serif }) {
   // chronological (oldest → newest) for trend math
   const chron = [...history].reverse();
   const scores = chron.map(h => h.overall);
@@ -2039,6 +2042,7 @@ function PersonalProgress({ history, serif }) {
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+      <CertificatesSection history={history} repName={repName} serif={serif}/>
       {/* headline stats */}
       <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
         <Stat label="Calls done" value={history.length}/>
@@ -2547,6 +2551,273 @@ const secondaryBtn = { display:"inline-flex", alignItems:"center", background:"t
 const endBtn = { display:"inline-flex", alignItems:"center", background:"rgba(232,122,107,0.14)", color:"#f0a594", border:"1px solid rgba(232,122,107,0.4)", borderRadius:30, padding:"9px 15px", fontSize:13, fontWeight:600 };
 const sendBtn = { display:"inline-flex", alignItems:"center", justifyContent:"center", background:LIME, color:INK, border:"none", borderRadius:13, width:50, height:48, flexShrink:0 };
 const linkBtn = { display:"inline-flex", alignItems:"center", background:"transparent", color:MUTE, border:"none", fontSize:12.5, padding:"4px 2px" };
+
+/* ------------------------------------------------------------------ */
+/* Certificate tier definitions                                         */
+const CERT_TIERS = [
+  { id:"beginner", level:1, calls:10, minAvg:50,
+    title:"Sales Foundations", badge:"Beginner",
+    color:"#cd7f32", glow:"rgba(205,127,50,0.35)",
+    icon:"🥉",
+    desc:"You've nailed the basics — opening, discovery, and rapport. A solid start to your sales journey.",
+    tagline:"Foundations of sales, locked in." },
+  { id:"intermediate", level:2, calls:15, minAvg:60,
+    title:"Sales Practitioner", badge:"Intermediate",
+    color:"#b0b8c1", glow:"rgba(176,184,193,0.35)",
+    icon:"🥈",
+    desc:"Discovery, objection handling, program routing — you handle the full call with confidence.",
+    tagline:"You know the playbook. Now run it." },
+  { id:"certified", level:3, calls:20, minAvg:70,
+    title:"Certified Sales Agent", badge:"Sales Ready",
+    color:LIME, glow:"rgba(194,238,69,0.35)",
+    icon:"🏆",
+    desc:"Top-tier performance across 20+ calls. You are ready to take real calls and close real deals for OutSkill.",
+    tagline:"Ready for the real world. Go close." },
+];
+
+function certEarned(tier, history) {
+  if (!history || history.length < tier.calls) return false;
+  const avg = Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length);
+  return avg >= tier.minAvg;
+}
+
+/* Mini progress strip shown on the Setup page before starting a call */
+function CertProgressStrip({ history, serif }) {
+  const n = history.length;
+  const avg = n ? Math.round(history.reduce((a,h)=>a+h.overall,0)/n) : 0;
+  const next = CERT_TIERS.find(t => !certEarned(t, history));
+  const earned = CERT_TIERS.filter(t => certEarned(t, history));
+
+  return (
+    <div style={{ background:"rgba(194,238,69,0.04)", border:`1px solid rgba(194,238,69,0.18)`, borderRadius:14, padding:"14px 16px", marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+        <span style={{ fontSize:12, letterSpacing:1.5, textTransform:"uppercase", color:LIME_DIM, fontWeight:700 }}>Your certificates</span>
+        {earned.map(t => (
+          <span key={t.id} style={{ fontSize:13 }} title={t.title}>{t.icon}</span>
+        ))}
+      </div>
+      {next ? (
+        <>
+          <div style={{ fontSize:13, color:TXT, fontWeight:600, marginBottom:3 }}>
+            Next: <span style={{ color:next.color }}>{next.icon} {next.title}</span>
+          </div>
+          <div style={{ fontSize:12, color:MUTE, marginBottom:10 }}>
+            Need <b style={{color:TXT}}>{next.calls} calls</b> (avg ≥ <b style={{color:TXT}}>{next.minAvg}</b>) — you have <b style={{color:LIME}}>{n}</b> calls, avg <b style={{color:LIME}}>{avg || "—"}</b>
+          </div>
+          <div style={{ display:"flex", gap:6 }}>
+            {/* calls progress */}
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:MUTE, marginBottom:3 }}><span>Calls</span><span>{Math.min(n,next.calls)}/{next.calls}</span></div>
+              <div style={{ height:5, borderRadius:4, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${Math.min(100,(n/next.calls)*100)}%`, background:next.color, borderRadius:4, transition:"width .8s ease" }}/>
+              </div>
+            </div>
+            {/* avg score progress */}
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:MUTE, marginBottom:3 }}><span>Avg score</span><span>{avg||0}/{next.minAvg}</span></div>
+              <div style={{ height:5, borderRadius:4, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                <div style={{ height:"100%", width:`${Math.min(100,((avg||0)/next.minAvg)*100)}%`, background:next.color, borderRadius:4, transition:"width .8s ease" }}/>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div style={{ fontSize:13, color:LIME, fontWeight:600 }}>🏆 All certificates earned! You're a Certified Sales Agent.</div>
+      )}
+    </div>
+  );
+}
+
+/* Full certificate modal — opens when "View Certificate" is clicked */
+function CertificateModal({ tier, repName, history, onClose }) {
+  const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : 0;
+  const dateStr = new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
+  const certId = `OUTSKILL-L${tier.level}-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+  const verifyUrl = `https://outskill-garvit.vercel.app/?cert=${certId}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verifyUrl)}&bgcolor=ffffff&color=0a0c08&margin=6`;
+
+  const printCert = () => {
+    const w = window.open("", "_blank", "width=900,height=650");
+    const el = document.getElementById("saraf-cert-inner");
+    w.document.write(`<!DOCTYPE html><html><head><title>${tier.title} — ${repName}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet"/>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{background:#0a0c08;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Hanken Grotesk',sans-serif}
+      @media print{body{background:#0a0c08}@page{size:A4 landscape;margin:0}}
+    </style></head><body>${el.outerHTML}</body></html>`);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 800);
+  };
+
+  return createPortal(
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.88)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px 14px", zIndex:9999, overflowY:"auto" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:820, display:"flex", flexDirection:"column", gap:16 }}>
+        {/* Certificate */}
+        <div id="saraf-cert-inner" style={{
+          background:"#0a0c08", border:`2px solid ${tier.color}`,
+          borderRadius:20, padding:"44px 52px 36px", position:"relative", overflow:"hidden",
+          boxShadow:`0 0 60px ${tier.glow}, inset 0 0 80px rgba(0,0,0,0.5)`,
+          fontFamily:"'Hanken Grotesk',sans-serif",
+        }}>
+          {/* corner decorations */}
+          {["topleft","topright","bottomleft","bottomright"].map(pos => (
+            <div key={pos} style={{
+              position:"absolute",
+              top: pos.includes("top") ? 14 : "auto", bottom: pos.includes("bottom") ? 14 : "auto",
+              left: pos.includes("left") ? 14 : "auto", right: pos.includes("right") ? 14 : "auto",
+              width:28, height:28, borderTop: pos.includes("top")?`2px solid ${tier.color}`:"none",
+              borderBottom: pos.includes("bottom")?`2px solid ${tier.color}`:"none",
+              borderLeft: pos.includes("left")?`2px solid ${tier.color}`:"none",
+              borderRight: pos.includes("right")?`2px solid ${tier.color}`:"none",
+            }}/>
+          ))}
+
+          {/* header row */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:32 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,8px)", gap:3.5 }}>
+                {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:8, height:8, borderRadius:"50%", background:d?tier.color:"transparent", border:d?"none":`1px solid rgba(255,255,255,0.15)` }}/>))}
+              </div>
+              <div>
+                <div style={{ fontSize:10, letterSpacing:3, textTransform:"uppercase", color:tier.color, fontWeight:700 }}>OutSkill</div>
+                <div style={{ fontSize:9, letterSpacing:2, textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginTop:1 }}>Sales Department</div>
+              </div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:`rgba(255,255,255,0.04)`, border:`1px solid ${tier.color}44`, borderRadius:30, padding:"6px 14px" }}>
+                <span style={{ fontSize:16 }}>{tier.icon}</span>
+                <span style={{ fontSize:11, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", color:tier.color }}>{tier.badge}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* main body */}
+          <div style={{ textAlign:"center", marginBottom:32 }}>
+            <div style={{ fontSize:11, letterSpacing:3, textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:14 }}>This is to certify that</div>
+            <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:"clamp(28px,5vw,46px)", fontWeight:700, color:"#fff", letterSpacing:-0.5, marginBottom:10, textShadow:`0 0 40px ${tier.color}66` }}>
+              {repName || "Sales Representative"}
+            </div>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.55)", maxWidth:480, margin:"0 auto", lineHeight:1.65 }}>
+              has successfully completed the <strong style={{color:"rgba(255,255,255,0.85)"}}>OutSkill AI Sales Mock Call Training Program</strong> and demonstrated competency in AI-assisted consultative sales techniques.
+            </div>
+          </div>
+
+          {/* stats row */}
+          <div style={{ display:"flex", justifyContent:"center", gap:28, marginBottom:32, flexWrap:"wrap" }}>
+            {[
+              { label:"Mock Calls", value: history.length },
+              { label:"Average Score", value:`${avg}/100` },
+              { label:"Level Achieved", value:tier.title },
+              { label:"Date Issued", value:dateStr },
+            ].map((s,i)=>(
+              <div key={i} style={{ textAlign:"center" }}>
+                <div style={{ fontSize:16, fontWeight:700, color:tier.color }}>{s.value}</div>
+                <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"rgba(255,255,255,0.35)", marginTop:2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* divider */}
+          <div style={{ height:1, background:`linear-gradient(90deg, transparent, ${tier.color}44, transparent)`, marginBottom:28 }}/>
+
+          {/* footer: signatures + QR */}
+          <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between", flexWrap:"wrap", gap:20 }}>
+            <div style={{ display:"flex", gap:40, flexWrap:"wrap" }}>
+              <div>
+                <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:17, fontWeight:600, color:"#fff", marginBottom:4 }}>Garvit Saraf</div>
+                <div style={{ width:120, height:1, background:`${tier.color}66`, marginBottom:6 }}/>
+                <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"rgba(255,255,255,0.35)" }}>Issued by</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.5)", marginTop:2 }}>OutSkill Sales Department</div>
+              </div>
+              <div>
+                <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:15, color:"rgba(255,255,255,0.5)", marginBottom:4, fontStyle:"italic" }}>OutSkill AI</div>
+                <div style={{ width:120, height:1, background:`${tier.color}44`, marginBottom:6 }}/>
+                <div style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:"rgba(255,255,255,0.3)" }}>Training Platform</div>
+              </div>
+            </div>
+            <div style={{ textAlign:"center" }}>
+              <img src={qrUrl} alt="Verify" style={{ width:80, height:80, borderRadius:8, border:`1.5px solid ${tier.color}55`, display:"block", marginBottom:6 }}/>
+              <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", letterSpacing:1 }}>SCAN TO VERIFY</div>
+              <div style={{ fontSize:8, color:"rgba(255,255,255,0.2)", marginTop:2 }}>{certId}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* action buttons */}
+        <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+          <button onClick={printCert} style={{ ...primaryBtn, gap:8 }}>
+            <span>⬇</span> Download / Print Certificate
+          </button>
+          <button onClick={onClose} style={{ ...secondaryBtn }}>Close</button>
+        </div>
+      </div>
+    </div>
+  , document.body);
+}
+
+/* Certificates section inside PersonalProgress */
+function CertificatesSection({ history, repName, serif }) {
+  const [openTier, setOpenTier] = useState(null);
+  const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : 0;
+
+  return (
+    <div style={{ marginBottom:20 }}>
+      <SectionLabel>Certificates & Badges</SectionLabel>
+      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        {CERT_TIERS.map(tier => {
+          const earned = certEarned(tier, history);
+          const callPct = Math.min(100, (history.length / tier.calls) * 100);
+          const avgPct = Math.min(100, ((avg||0) / tier.minAvg) * 100);
+          return (
+            <div key={tier.id} style={{
+              background: earned ? `rgba(${tier.id==="certified"?"194,238,69":tier.id==="intermediate"?"176,184,193":"205,127,50"},0.07)` : PANEL,
+              border:`1px solid ${earned ? tier.color+"66" : BORDER}`,
+              borderRadius:14, padding:"14px 16px",
+              opacity: earned ? 1 : 0.75,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:28, filter: earned?"none":"grayscale(1) opacity(0.4)" }}>{tier.icon}</span>
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+                    <span style={{ fontWeight:700, color: earned?tier.color:TXT, fontSize:14 }}>{tier.title}</span>
+                    <span style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", color:MUTE }}>{tier.badge}</span>
+                  </div>
+                  <div style={{ fontSize:12, color:MUTE }}>
+                    {tier.calls} calls · avg {tier.minAvg}+
+                    {!earned && <span style={{ marginLeft:8, color:TXT }}>
+                      ({history.length}/{tier.calls} calls · {avg||0}/{tier.minAvg} avg)
+                    </span>}
+                  </div>
+                  {!earned && (
+                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ height:4, borderRadius:3, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                          <div style={{ height:"100%", width:`${callPct}%`, background:tier.color, borderRadius:3, transition:"width .8s ease" }}/>
+                        </div>
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ height:4, borderRadius:3, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                          <div style={{ height:"100%", width:`${avgPct}%`, background:tier.color, borderRadius:3, transition:"width .8s ease" }}/>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {earned && (
+                  <button onClick={()=>setOpenTier(tier)} style={{ ...primaryBtn, padding:"8px 16px", fontSize:13, background:tier.color, flexShrink:0 }}>
+                    View Certificate
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {openTier && <CertificateModal tier={openTier} repName={repName} history={history} onClose={()=>setOpenTier(null)}/>}
+    </div>
+  );
+}
 const errStyle = { background:"rgba(232,122,107,0.1)", border:"1px solid rgba(232,122,107,0.4)", color:"#f3cabf", borderRadius:12, padding:"11px 14px", fontSize:13.5, marginTop:12 };
 const chip = active => ({ display:"inline-flex", alignItems:"center", background: active?LIME:PANEL, color: active?INK:TXT, border:`1px solid ${active?LIME:BORDER}`, borderRadius:12, padding:"11px 13px", fontSize:13.5, fontWeight:500 });
 

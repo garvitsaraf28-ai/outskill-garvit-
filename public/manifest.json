@@ -1,0 +1,22 @@
+{
+  "name": "OutSkill Sales · Garvit Saraf",
+  "short_name": "OutSkill Sales",
+  "description": "AI-powered mock call trainer by Garvit Saraf",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0c08",
+  "theme_color": "#0a0c08",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

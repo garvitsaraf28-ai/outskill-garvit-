@@ -631,9 +631,8 @@ export default function App() {
         .oscroll::-webkit-scrollbar{width:8px}.oscroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
         button{cursor:pointer;font-family:inherit;color:inherit}
         select{background:${PANEL};color:${TXT};border:1px solid ${BORDER};border-radius:9px;padding:6px 9px;font-size:12px}
-        /* Cover credit: in-flow on phones (no overlap), pinned bottom-left on laptops */
-        .os-credit{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:12px;margin-top:34px}
-        @media (min-width:820px){.os-credit{position:fixed;bottom:16px;right:16px;margin-top:0;z-index:60}}
+        /* Cover credit: pinned to bottom-right, same line as the music button */
+        .os-credit{position:fixed;bottom:16px;right:16px;z-index:60;display:inline-flex;align-items:center;gap:9px;background:rgba(194,238,69,0.07);border:1px solid rgba(194,238,69,0.38);border-radius:30px;padding:9px 16px}
       `}</style>
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
@@ -712,6 +711,13 @@ export default function App() {
           {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
           <span>{musicOn ? "Music on" : "Music off"}</span>
         </button>
+      )}
+      {/* Built-by credit — only on cover, bottom-right, same line as music button */}
+      {section === "cover" && (
+        <div className="os-credit">
+          <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
+          <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>
+        </div>
       )}
     </div>
   );
@@ -835,13 +841,6 @@ function Cover({ serif, onEnter }) {
           <span style={{ marginLeft:4 }}>tap anywhere to enter</span>
         </div>
 
-        {/* Credit — in-flow on phones (no overlap), pinned bottom-left on laptops */}
-        <div className="os-credit">
-          <div style={{ display:"inline-flex", alignItems:"center", gap:9, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"9px 16px" }}>
-            <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
-            <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -301,6 +301,18 @@ function pickVoice(voices, lang, gender) {
 export default function App() {
   const [section, setSection] = useState("cover"); // cover | dept | home | salesuccess | practice | realcall | reports | followups
 
+  // Global background music — persists across every page.
+  const [musicOn, setMusicOn] = useState(true);
+  const [musicStarted, setMusicStarted] = useState(false);
+  useEffect(() => {
+    // Browsers block audio until the first user gesture — start on the very
+    // first tap/click/key anywhere, then it keeps playing across pages.
+    const start = () => setMusicStarted(true);
+    const evs = ["pointerdown", "touchstart", "keydown"];
+    evs.forEach(e => window.addEventListener(e, start, { once: true, passive: true }));
+    return () => evs.forEach(e => window.removeEventListener(e, start));
+  }, []);
+
   const [screen, setScreen] = useState("setup");
   const [mode, setMode] = useState("learner");
   const [persona, setPersona] = useState(PERSONAS[0]);
@@ -668,6 +680,26 @@ export default function App() {
         {section === "reports" && <Reports serif={serif} />}
         {section === "followups" && <FollowUps serif={serif} go={setSection} />}
       </div>
+
+      {/* Global background music — RCB anthem, persists across all pages */}
+      {musicOn && musicStarted && (
+        <iframe
+          src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&playsinline=1"
+          allow="autoplay; encrypted-media"
+          style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
+          title="bg-music"
+        />
+      )}
+      {/* Floating music toggle — always visible */}
+      <button onClick={() => { setMusicStarted(true); setMusicOn(v => !v); }}
+        title={musicOn ? "Mute music" : "Play music"}
+        style={{ position:"fixed", bottom:16, right:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
+          background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
+          border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
+          color: musicOn ? TXT : MUTE, fontSize:12.5, boxShadow:"0 4px 18px rgba(0,0,0,0.35)" }}>
+        {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
+        <span>{musicOn ? "Music on" : "Music off"}</span>
+      </button>
     </div>
   );
 }
@@ -763,17 +795,12 @@ function makeAmbience() {
 }
 
 function Cover({ serif, onEnter }) {
-  const [musicOn, setMusicOn] = useState(false);
   useEffect(() => {
     const t = setTimeout(onEnter, 10000);
     const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
     window.addEventListener("keydown", onKey);
     return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); };
   }, []);
-
-  // Mount/unmount the iframe on tap — this counts as a user gesture so it
-  // plays reliably on mobile too (hidden autoplay is blocked on phones).
-  const toggleMusic = (e) => { e.stopPropagation(); setMusicOn(v => !v); };
 
   return (
     <div onClick={onEnter} role="button" title="Enter"
@@ -795,41 +822,20 @@ function Cover({ serif, onEnter }) {
           <span style={{ marginLeft:4 }}>tap anywhere to enter</span>
         </div>
 
-        {/* Music toggle + credit — in normal flow, wraps on mobile, never overlaps */}
+        {/* Credit — in normal flow, wraps on mobile, never overlaps */}
         <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", alignItems:"center", gap:12, marginTop:34 }}>
-          <button onClick={toggleMusic} title={musicOn ? "Turn music off" : "Turn music on"}
-            style={{ display:"inline-flex", alignItems:"center", gap:8,
-              background: musicOn ? "rgba(194,238,69,0.07)" : "rgba(255,255,255,0.05)",
-              border:`1px solid ${musicOn ? "rgba(194,238,69,0.38)" : BORDER}`, borderRadius:30, padding:"9px 16px",
-              color: musicOn ? TXT : MUTE, fontSize:13 }}>
-            {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
-            <span>{musicOn ? "Music on" : "Play music"}</span>
-          </button>
           <div style={{ display:"inline-flex", alignItems:"center", gap:9, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"9px 16px" }}>
             <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
             <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>
           </div>
         </div>
       </div>
-
-      {/* RCB anthem — mounted only when music is on (user-gesture driven = mobile-safe) */}
-      {musicOn && (
-        <iframe
-          src="https://www.youtube.com/embed/M3RQ9ILnC5U?autoplay=1&loop=1&playlist=M3RQ9ILnC5U&controls=0&playsinline=1"
-          allow="autoplay; encrypted-media"
-          style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
-          title="rcb-anthem"
-        />
-      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
 function Home({ serif, go, history, goBack }) {
-  const [musicOn, setMusicOn] = useState(false);
-  const toggleMusic = () => setMusicOn(v => !v);
-
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
   const tiles = [
     { id:"practice", icon:<GraduationCap size={22}/>, title:"Practice Calls", desc:"Train new reps against realistic AI prospects, then get an instant coaching scorecard.", tag: avg!==null ? `${history.length} practiced · avg ${avg}` : "Mock call + coaching" },
@@ -839,22 +845,9 @@ function Home({ serif, go, history, goBack }) {
   ];
   return (
     <div className="osf">
-      {musicOn && (
-        <iframe
-          src="https://www.youtube.com/embed/vt5rqLHB4yA?autoplay=1&controls=0&playsinline=1"
-          allow="autoplay; encrypted-media"
-          style={{ position:"absolute", width:1, height:1, opacity:0, pointerEvents:"none" }}
-          title="rcb-home"
-        />
-      )}
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:14, flexWrap:"wrap" }}>
         <button onClick={goBack} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5 }}>
           <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back to start</span>
-        </button>
-        <button onClick={toggleMusic} title={musicOn ? "Mute music" : "Play music"}
-          style={{ display:"inline-flex", alignItems:"center", gap:6, background: musicOn?"rgba(194,238,69,0.07)":"rgba(255,255,255,0.05)", border:`1px solid ${musicOn?"rgba(194,238,69,0.38)":BORDER}`, borderRadius:30, padding:"7px 13px", color: musicOn?TXT:MUTE, fontSize:12.5 }}>
-          {musicOn ? <Volume2 size={13} color={LIME}/> : <VolumeX size={13}/>}
-          <span>{musicOn ? "Music on" : "Play music"}</span>
         </button>
       </div>
       <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,40px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.7 }}>Welcome back. What's the move?</h1>

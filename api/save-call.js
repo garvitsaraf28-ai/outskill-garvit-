@@ -22,6 +22,8 @@ export default async function handler(req, res) {
       overall: typeof b.overall === "number" ? b.overall : null,
       correctRouting: !!b.correctRouting,
       categories: Array.isArray(b.categories) ? b.categories : [],
+      // full scorecard (strengths, lostPoints, missed, sayNextTime, behavioral, flags)
+      card: b.card && typeof b.card === "object" ? b.card : null,
     };
     if (entry.overall === null) return res.json({ ok: true, stored: false });
 

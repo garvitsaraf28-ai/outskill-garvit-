@@ -785,6 +785,8 @@ export default function App() {
               overall: parsed.overall,
               correctRouting: parsed.correctRouting,
               categories: parsed.categories.map(c => ({ name: c.name, pct: Math.round((c.score / c.max) * 100) })),
+              // full scorecard so anyone can open the detailed report from the team view
+              card: parsed,
             }),
           });
         } catch {}
@@ -1070,7 +1072,6 @@ function Home({ serif, go, history, goBack }) {
     { id:"realcall", icon:<Mic size={22}/>, title:"Real Call · Record & Report", desc:"Upload a recording of a real learner call. Get a transcript and a CRM-ready report with next steps.", tag:"Upload → transcribe → report", soon:true },
     { id:"reports", icon:<TrendingUp size={22}/>, title:"Reports & Pipeline", desc:"Every real call in one place — interest level, intent, and how many learners you contacted.", tag:"Sales head + management view", soon:true },
     { id:"followups", icon:<Clock size={22}/>, title:"Follow-ups", desc:"Who to call back and when, with what you already discussed and what's still open.", tag:"Never miss a callback", soon:true },
-    { id:"feedbackwall", icon:<MessageSquare size={22}/>, title:"Feedback & Reviews", desc:"Tried the mock call? Rate it and leave a comment. See what everyone on the team thinks.", tag:"⭐ Rate & review — public wall" },
   ];
   return (
     <div className="osf">
@@ -1104,6 +1105,21 @@ function Home({ serif, go, history, goBack }) {
           </button>
         ))}
       </div>
+
+      {/* Distinct feedback CTA — separated from the feature tiles */}
+      <button onClick={()=>go("feedbackwall")}
+        style={{ width:"100%", textAlign:"left", marginTop:24, background:"linear-gradient(100deg, rgba(194,238,69,0.14), rgba(194,238,69,0.04))", border:`1px solid rgba(194,238,69,0.4)`, borderRadius:18, padding:"20px 22px", display:"flex", alignItems:"center", gap:18, flexWrap:"wrap", transition:"all .16s ease" }}
+        onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.75)";e.currentTarget.style.transform="translateY(-1px)";}}
+        onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.4)";e.currentTarget.style.transform="none";}}>
+        <div style={{ display:"flex", gap:2 }}>{[1,2,3,4,5].map(n=>(<Star key={n} size={20} color="#e8b24b" fill="#e8b24b"/>))}</div>
+        <div style={{ flex:1, minWidth:220 }}>
+          <div style={{ ...serif, fontSize:20, fontWeight:600, marginBottom:3 }}>Tried it? Tell us in 10 seconds. 👀</div>
+          <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Loved the mock call? Hated something? Drop a rating + a line — your honest take shapes what we build next. Everyone's reviews are public.</div>
+        </div>
+        <span style={{ display:"inline-flex", alignItems:"center", gap:7, fontSize:13, fontWeight:700, color:INK, background:LIME, borderRadius:30, padding:"10px 18px", flexShrink:0 }}>
+          Leave a review <ChevronRight size={16}/>
+        </span>
+      </button>
     </div>
   );
 }
@@ -1175,9 +1191,9 @@ function FeedbackWall({ serif, goBack, defaultName }) {
       <button onClick={goBack} style={{ ...secondaryBtn, marginBottom:16, padding:"7px 13px", fontSize:12.5 }}>
         <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back</span>
       </button>
-      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,38px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.6 }}>Feedback &amp; reviews</h1>
-      <p style={{ color:MUTE, margin:"0 0 22px", fontSize:15, maxWidth:600, lineHeight:1.5 }}>
-        Tried the mock call? Tell us what you think — what you liked, what could be better, any ideas. Your review is public; everyone can see it.
+      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,38px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.6 }}>Be honest. We can take it. 😄</h1>
+      <p style={{ color:MUTE, margin:"0 0 22px", fontSize:15, maxWidth:600, lineHeight:1.55 }}>
+        You just trained against an AI prospect — wild, right? Tap the stars, drop a line on what hit and what flopped. Takes 10 seconds, and it genuinely decides what we build next. No filters — every review here is public.
       </p>
 
       {/* summary */}
@@ -1206,7 +1222,7 @@ function FeedbackWall({ serif, goBack, defaultName }) {
           <Stars value={rating} onChange={setRating}/>
         </div>
         <textarea value={comment} onChange={e=>setComment(e.target.value)} rows={4}
-          placeholder="What did you think of the mock call? What would make it better?"
+          placeholder="Did the AI prospect feel real? What made you smile? What annoyed you? One line is plenty…"
           style={{ width:"100%", background:INK, border:`1px solid ${BORDER}`, borderRadius:11, padding:"12px 14px", color:TXT, fontSize:14.5, resize:"vertical", fontFamily:"inherit", marginBottom:err?8:14 }}/>
         {err && <div style={{ fontSize:12.5, color:"#e87a6b", marginBottom:12 }}>{err}</div>}
         {done && <div style={{ fontSize:12.5, color:LIME_DIM, marginBottom:12 }}>✓ Thanks! Your review is live below.</div>}
@@ -1730,57 +1746,105 @@ function ProgressPanel({ history, serif, repName }) {
   );
 }
 
-/* Team leaderboard + everyone's recent calls, grouped by rep name. */
+/* Team leaderboard + everyone's recent calls, grouped by rep name.
+   Click any row to open that call's full report. */
 function TeamView({ calls, serif, me }) {
+  const [detail, setDetail] = useState(null); // a call object, or null
+
   const byRep = {};
   calls.forEach(c => {
     const k = c.rep || "Anonymous";
-    if (!byRep[k]) byRep[k] = { rep:k, scores:[], routed:0 };
-    if (typeof c.overall === "number") byRep[k].scores.push(c.overall);
-    if (c.correctRouting) byRep[k].routed++;
+    if (!byRep[k]) byRep[k] = { rep:k, scores:[], routed:0, best:null };
+    if (typeof c.overall === "number") {
+      byRep[k].scores.push(c.overall);
+      if (!byRep[k].best || c.overall > byRep[k].best.overall) byRep[k].best = c;
+    }
   });
   const board = Object.values(byRep).map(r => ({
     rep: r.rep,
     n: r.scores.length,
     avg: r.scores.length ? Math.round(r.scores.reduce((a,b)=>a+b,0)/r.scores.length) : 0,
     best: r.scores.length ? Math.max(...r.scores) : 0,
+    bestCall: r.best,
   })).filter(r => r.n > 0).sort((a,b) => b.avg - a.avg);
 
   const meNorm = (me || "").trim().toLowerCase();
+  const rowHover = { transition:"all .14s" };
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
       <div>
-        <SectionLabel>Team leaderboard · by avg score</SectionLabel>
+        <SectionLabel>Team leaderboard · tap a name for their best call</SectionLabel>
         <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
           {board.map((r,i)=>{
             const isMe = r.rep.trim().toLowerCase() === meNorm && meNorm;
             return (
-              <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background: isMe ? "rgba(194,238,69,0.10)" : PANEL, border:`1px solid ${isMe ? "rgba(194,238,69,0.45)" : BORDER}`, borderRadius:10, padding:"10px 13px" }}>
+              <button key={i} onClick={()=> r.bestCall && setDetail(r.bestCall)} style={{ ...rowHover, textAlign:"left", display:"flex", alignItems:"center", gap:12, fontSize:13, background: isMe ? "rgba(194,238,69,0.10)" : PANEL, border:`1px solid ${isMe ? "rgba(194,238,69,0.45)" : BORDER}`, borderRadius:10, padding:"10px 13px", cursor:"pointer" }}>
                 <span style={{ width:22, color:MUTE, fontWeight:700, fontSize:12 }}>{i+1}</span>
                 <span style={{ color:TXT, fontWeight:600 }}>{r.rep}{isMe ? " (you)" : ""}</span>
                 <span style={{ color:MUTE, fontSize:11.5 }}>{r.n} call{r.n>1?"s":""}</span>
                 <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>best <b style={{color:scoreColor(r.best)}}>{r.best}</b></span>
                 <span style={{ fontWeight:700, color:scoreColor(r.avg), width:34, textAlign:"right" }}>{r.avg}</span>
-              </div>
+                <ChevronRight size={15} color={MUTE}/>
+              </button>
             );
           })}
         </div>
       </div>
       <div>
-        <SectionLabel>Everyone’s recent calls</SectionLabel>
+        <SectionLabel>Everyone’s recent calls · tap to see the report</SectionLabel>
         <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-          {calls.slice(0,12).map((c,i)=>(
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:12, fontSize:13, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"9px 13px" }}>
+          {calls.slice(0,15).map((c,i)=>(
+            <button key={i} onClick={()=>setDetail(c)} style={{ ...rowHover, textAlign:"left", display:"flex", alignItems:"center", gap:12, fontSize:13, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"9px 13px", cursor:"pointer" }}>
               <span style={{ fontWeight:700, color: scoreColor(c.overall), width:30 }}>{c.overall}</span>
               <span style={{ color:TXT, fontWeight:600 }}>{c.rep || "Anonymous"}</span>
               <span style={{ color:MUTE, fontSize:11.5 }}>vs {c.persona}</span>
               {c.correctRouting ? <CheckCircle2 size={14} color={LIME_DIM}/> : <XCircle size={14} color="#e87a6b"/>}
               <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>{new Date(c.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span>
-            </div>
+              <ChevronRight size={15} color={MUTE}/>
+            </button>
           ))}
         </div>
       </div>
+
+      {/* Detail report modal */}
+      {detail && (
+        <div onClick={()=>setDetail(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.78)", display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"30px 14px", zIndex:60, overflowY:"auto" }}>
+          <div onClick={e=>e.stopPropagation()} className="osf oscroll" style={{ background:"#11140d", border:`1px solid ${BORDER}`, borderRadius:20, padding:"22px 22px 26px", width:"100%", maxWidth:760, marginTop:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
+              <div>
+                <div style={{ ...serif, fontSize:21, fontWeight:600 }}>{detail.rep || "Anonymous"}’s call</div>
+                <div style={{ fontSize:12.5, color:MUTE, marginTop:2 }}>
+                  vs {detail.persona}{detail.difficulty?` · ${detail.difficulty}`:""}{detail.ts?` · ${new Date(detail.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"})}`:""}
+                </div>
+              </div>
+              <button onClick={()=>setDetail(null)} style={{ ...secondaryBtn, marginLeft:"auto", padding:"7px 13px", fontSize:12.5 }}>Close</button>
+            </div>
+            {detail.card
+              ? <ScorecardReport card={detail.card} serif={serif} sub={`vs ${detail.persona}`} duration={detail.duration}/>
+              : (
+                // Older calls saved before full reports — show what we have
+                <div>
+                  <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:14 }}>
+                    <Ring value={detail.overall}/>
+                    <div style={{ fontSize:13.5, color:MUTE }}>{scoreVerdict(detail.overall)}</div>
+                  </div>
+                  {Array.isArray(detail.categories) && detail.categories.length > 0 && (
+                    <Panel title="Category breakdown">
+                      {detail.categories.map((c,i)=>(
+                        <div key={i} style={{ marginBottom:11 }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:5 }}><span>{c.name}</span><b style={{color:barColor(c.pct/100)}}>{c.pct}%</b></div>
+                          <div style={{ height:8, borderRadius:6, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}><div style={{ height:"100%", width:`${c.pct}%`, background:barColor(c.pct/100), borderRadius:6 }}/></div>
+                        </div>
+                      ))}
+                    </Panel>
+                  )}
+                  <div style={{ fontSize:12.5, color:MUTE, marginTop:14 }}>This call was saved before detailed reports were added, so only the score summary is available.</div>
+                </div>
+              )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2340,3 +2404,64 @@ const chip = active => ({ display:"inline-flex", alignItems:"center", background
 function scoreColor(v){ return v>=80?LIME:v>=60?"#e8d24b":v>=40?"#e8a94b":"#e87a6b"; }
 function barColor(r){ return r>=0.8?LIME:r>=0.55?"#d8e84b":r>=0.35?"#e8a94b":"#e87a6b"; }
 function scoreVerdict(v){ return v>=85?"Strong call.":v>=70?"Solid, with room to sharpen.":v>=50?"Some good instincts — key gaps to fix.":"Let's rebuild the fundamentals."; }
+
+/* Reusable full scorecard report — used in the team detail view. Takes a
+   normalized card object plus light meta. */
+function ScorecardReport({ card, serif, title, sub, duration }) {
+  if (!card) return <div style={{ color:MUTE, fontSize:13.5 }}>No detailed report was saved for this call.</div>;
+  const score = card.overall;
+  const scoreCol = scoreColor(score);
+  const routedRight = card.correctRouting;
+  return (
+    <div>
+      <div style={{ background:`linear-gradient(135deg, rgba(194,238,69,0.07) 0%, rgba(10,12,8,0) 60%)`, border:`1px solid ${BORDER}`, borderRadius:18, padding:"20px 20px 16px", marginBottom:16, display:"flex", gap:20, alignItems:"center", flexWrap:"wrap" }}>
+        <Ring value={score}/>
+        <div style={{ flex:1, minWidth:180 }}>
+          {sub && <div style={{ fontSize:11, letterSpacing:2, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>{sub}</div>}
+          <h2 style={{ ...serif, fontSize:24, fontWeight:600, margin:"0 0 10px", color:scoreCol }}>{title || scoreVerdict(score)}</h2>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            <Pill ok={routedRight}>{routedRight ? <CheckCircle2 size={13}/> : <XCircle size={13}/>}<span style={{marginLeft:5}}>Routed → {card.recommendedProgram}{routedRight?" ✓":" ✗"}</span></Pill>
+            {duration && <Pill neutral><Clock size={12}/><span style={{marginLeft:5}}>{duration}</span></Pill>}
+          </div>
+        </div>
+      </div>
+
+      {card.flags && card.flags.length > 0 && (
+        <div style={{ background:"rgba(232,122,107,0.08)", border:"1px solid rgba(232,122,107,0.4)", borderRadius:14, padding:"13px 16px", marginBottom:16 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, color:"#f0a594", fontWeight:700, fontSize:13, marginBottom:6 }}><AlertTriangle size={15}/> Critical flags</div>
+          {card.flags.map((f,i)=>(<div key={i} style={{ fontSize:12.5, color:"#f3cabf", marginTop:4, paddingLeft:8, borderLeft:`2px solid rgba(232,122,107,0.5)` }}>• {f}</div>))}
+        </div>
+      )}
+
+      <Panel title="Category breakdown">
+        {card.categories.map((c,i)=>{ const pct=c.score/c.max; return (
+          <div key={i} style={{ marginBottom:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:13, marginBottom:5 }}>
+              <span style={{ fontWeight:500 }}>{c.name}</span>
+              <span style={{ color:MUTE }}><b style={{ color:barColor(pct), fontSize:15 }}>{c.score}</b><span style={{fontSize:11}}>/{c.max}</span></span>
+            </div>
+            <div style={{ height:8, borderRadius:6, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}><div style={{ height:"100%", width:`${pct*100}%`, background:barColor(pct), borderRadius:6 }}/></div>
+          </div>
+        );})}
+      </Panel>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:12, marginTop:12 }}>
+        <ListPanel title="✓ What went well" items={card.strengths} icon={<CheckCircle2 size={15} color={LIME_DIM}/>} color={LIME_DIM}/>
+        <ListPanel title="✗ Where points were lost" items={card.lostPoints} icon={<Target size={15} color="#e8b24b"/>} color="#e8b24b"/>
+        <ListPanel title="◎ Missed opportunities" items={card.missed} icon={<Sparkles size={15} color="#7bb8e8"/>} color="#7bb8e8"/>
+        <ListPanel title="💬 Say this next time" items={card.sayNextTime} icon={<ChevronRight size={15} color={LIME}/>} color={LIME} quote/>
+      </div>
+
+      {card.behavioral && (
+        <Panel title="Behavioral read" style={{ marginTop:12 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:12, fontSize:13.5 }}>
+            <Meta k="Pace" v={card.behavioral.pace}/>
+            <Meta k="Tone" v={card.behavioral.tone}/>
+            <Meta k="Talk-time balance" v={card.behavioral.talkTime}/>
+            <Meta k="Red flags" v={card.behavioral.redFlags}/>
+          </div>
+        </Panel>
+      )}
+    </div>
+  );
+}

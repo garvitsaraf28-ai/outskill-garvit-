@@ -1084,25 +1084,7 @@ function Home({ serif, go, history, goBack }) {
 }
 
 /* ------------------------------------------------------------------ */
-// Team access passwords. Change these to whatever your team should use.
-const PASSWORDS = { inside: "inside123", success: "success123" };
-
 function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
-  const [gate, setGate] = useState(null); // null | "inside" | "success"
-  const [pw, setPw] = useState("");
-  const [error, setError] = useState("");
-
-  const open = (which) => { setGate(which); setPw(""); setError(""); };
-  const submit = () => {
-    if (pw === PASSWORDS[gate]) {
-      const fn = gate === "inside" ? onInsideSales : onSaleSuccess;
-      setGate(null); setPw(""); setError("");
-      fn();
-    } else {
-      setError("Incorrect password. Please try again.");
-    }
-  };
-
   return (
     <div className="osf" style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:"40px 18px", position:"relative" }}>
       {/* brand dot-mark */}
@@ -1114,10 +1096,10 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
         Which team are you on?
       </h1>
       <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16px)", maxWidth:480, margin:"0 auto 40px", lineHeight:1.55 }}>
-        Select your sales track. Team password required for access.
+        Select your sales track to get started.
       </p>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))", gap:16, width:"100%", maxWidth:560 }}>
-        <button onClick={()=>open("inside")}
+        <button onClick={onInsideSales}
           style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 22px", transition:"all .16s ease", cursor:"pointer" }}
           onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.6)";e.currentTarget.style.background="rgba(194,238,69,0.07)";}}
           onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
@@ -1127,11 +1109,11 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
           <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:8 }}>Inside Sales</div>
           <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Mock call training, real call reporting, pipeline and follow-ups.</div>
           <div style={{ marginTop:16, display:"inline-flex", alignItems:"center", gap:6, fontSize:12, color:LIME, fontWeight:600 }}>
-            🔒 Enter <ChevronRight size={14}/>
+            Enter <ChevronRight size={14}/>
           </div>
         </button>
 
-        <button onClick={()=>open("success")}
+        <button onClick={onSaleSuccess}
           style={{ textAlign:"left", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:20, padding:"24px 22px", transition:"all .16s ease", cursor:"pointer" }}
           onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(194,238,69,0.6)";e.currentTarget.style.background="rgba(194,238,69,0.07)";}}
           onMouseLeave={e=>{e.currentTarget.style.borderColor=BORDER;e.currentTarget.style.background=PANEL;}}>
@@ -1141,7 +1123,7 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
           <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:8 }}>Sales Success</div>
           <div style={{ fontSize:13.5, color:MUTE, lineHeight:1.5 }}>Coming soon — details being added.</div>
           <div style={{ marginTop:16, display:"inline-flex", alignItems:"center", gap:6, fontSize:12, color:LIME, fontWeight:600 }}>
-            🔒 Enter <ChevronRight size={14}/>
+            Enter <ChevronRight size={14}/>
           </div>
         </button>
       </div>
@@ -1149,29 +1131,6 @@ function DeptSelect({ serif, goBack, onInsideSales, onSaleSuccess }) {
       <button onClick={goBack} style={{ ...secondaryBtn, marginTop:32, padding:"8px 16px", fontSize:12.5 }}>
         <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back</span>
       </button>
-
-      {/* Password modal */}
-      {gate && (
-        <div onClick={()=>setGate(null)}
-          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center", padding:18, zIndex:50 }}>
-          <div onClick={e=>e.stopPropagation()} className="osf"
-            style={{ background:"#11140d", border:`1px solid ${BORDER}`, borderRadius:20, padding:"28px 24px", width:"100%", maxWidth:380, textAlign:"center" }}>
-            <div style={{ width:54, height:54, borderRadius:16, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:24 }}>🔒</div>
-            <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:6 }}>{gate === "inside" ? "Inside Sales" : "Sales Success"}</div>
-            <div style={{ fontSize:13.5, color:MUTE, marginBottom:18 }}>Enter the team password to continue.</div>
-            <input type="password" autoFocus value={pw}
-              onChange={e=>{ setPw(e.target.value); setError(""); }}
-              onKeyDown={e=>{ if(e.key==="Enter") submit(); }}
-              placeholder="Password"
-              style={{ width:"100%", background:PANEL, border:`1px solid ${error?"#e87a6b":BORDER}`, borderRadius:12, padding:"13px 15px", color:TXT, fontSize:15, textAlign:"center", marginBottom:error?8:16 }}/>
-            {error && <div style={{ fontSize:12.5, color:"#e87a6b", marginBottom:14 }}>{error}</div>}
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={()=>setGate(null)} style={{ ...secondaryBtn, flex:1, justifyContent:"center" }}>Cancel</button>
-              <button onClick={submit} style={{ ...primaryBtn, flex:1, justifyContent:"center" }}>Unlock</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

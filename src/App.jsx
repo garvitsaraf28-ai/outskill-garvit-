@@ -256,12 +256,12 @@ function parseScorecard(raw) {
     else return null;
     // Pass 1: direct parse
     try { return JSON.parse(t); } catch {}
-    // Pass 2: fix common LLM quirks
+    // Pass 2: fix common LLM quirks (trailing commas, unquoted keys, single-quoted values)
     try {
       const r = t
         .replace(/,\s*([}\]])/g, "$1")
-        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
-        .replace(/:\s*'([^']*)'/g, ': "$1"')
+        .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+        .replace(/:\s*'([^'\\]*)'/g, ': "$1"')
         .replace(/[\x00-\x1F\x7F]/g, " ");
       return JSON.parse(r);
     } catch {}
@@ -727,7 +727,10 @@ export default function App() {
       const raw = await callClaude({ system: evaluatorSystem(mode, useCustom ? null : activePersona, fmtTime(seconds)), messages: [{ role: "user", content: `TRANSCRIPT:\n${transcript}` }], json: true });
       let parsed = null;
       try { parsed = normalizeScorecard(parseScorecard(raw)); } catch { parsed = null; }
-      if (!parsed) setCardRaw(raw);
+      if (!parsed) {
+        if (raw && raw.trim()) setCardRaw(raw);
+        else setErr("The scorecard came back empty. Please try ending the call again.");
+      }
       if (parsed) {
         setCard(parsed);
         const entry = { date: Date.now(), persona: activePersona.name, mode, overall: parsed.overall, correctRouting: parsed.correctRouting };
@@ -1672,7 +1675,7 @@ function VoiceDock({ voice, mode, persona, input, setInput, send, busy }) {
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"10px 0 4px" }}>
         <button onClick={onMicTap} disabled={blocked || busy}
           style={{
-            width:96, height:96, borderRadius:"50%", border:"none", display:"flex", alignItems:"center", justifyContent:"center",
+            width:96, height:96, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
             background: state==="listening" ? "rgba(194,238,69,0.16)" : state==="speaking" ? "rgba(194,238,69,0.10)" : PANEL,
             boxShadow: state==="listening" ? `0 0 0 0 rgba(194,238,69,.45)` : "none",
             animation: state==="listening" ? "pulse 1.6s infinite" : "none",

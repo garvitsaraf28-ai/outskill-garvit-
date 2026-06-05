@@ -11,14 +11,14 @@ function parseModels(v) {
   return v.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-// Scorecard evaluator chain (free; not time-critical)
+// Scorecard evaluator chain — paid fast model first for reliability, free fallbacks.
 const SCORE_MODELS = parseModels(
   process.env.OPENROUTER_MODELS ||
     [
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "qwen/qwen3-next-80b-a3b-instruct:free",
-      "nvidia/nemotron-nano-9b-v2:free",
-      "z-ai/glm-4.5-air:free",
+      "google/gemini-2.0-flash-001",              // fast + cheap (paid), best JSON compliance
+      "anthropic/claude-3.5-haiku",               // strong JSON, paid fallback
+      "meta-llama/llama-3.3-70b-instruct:free",   // free fallback
+      "qwen/qwen3-next-80b-a3b-instruct:free",    // free fallback
     ].join(",")
 );
 

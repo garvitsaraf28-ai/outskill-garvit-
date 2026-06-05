@@ -335,26 +335,41 @@ const MALE_HINTS   = /(\bmale\b|\bman\b|prabhat|ravi|hemant|guy|david|mark|rishi
 function pickVoice(voices, lang, gender) {
   if (!voices.length) return null;
   const norm = s => (s || "").replace("_", "-").toLowerCase();
-  const wantIN = /in$/i.test(lang || "");
   const en = voices.filter(v => /^en/i.test(v.lang));
-  // Prefer Indian-English voices when the persona is Indian
-  const pool = wantIN ? (en.filter(v => /in$/i.test(v.lang)).length ? en.filter(v => /in$/i.test(v.lang)) : en) : en;
+  if (!en.length) return voices[0];
 
   const matchGender = v => {
     if (gender === "female") return FEMALE_HINTS.test(v.name) && !MALE_HINTS.test(v.name);
     if (gender === "male")   return MALE_HINTS.test(v.name) && !FEMALE_HINTS.test(v.name);
     return true;
   };
-  const isNatural = v => /google|natural|neural|premium|enhanced/i.test(v.name);
 
-  // 1) natural + right gender, 2) right gender, 3) natural, 4) exact lang, 5) anything
-  return (
-    pool.find(v => isNatural(v) && matchGender(v)) ||
-    pool.find(v => matchGender(v)) ||
-    pool.find(v => isNatural(v)) ||
-    pool.find(v => norm(v.lang) === norm(lang || "")) ||
-    pool[0] || en[0] || voices[0] || null
-  );
+  // Score each English voice; higher = more human / more on-target. This makes
+  // the mock-call voice sound like a real Indian person, not a robot.
+  const score = v => {
+    const n = (v.name || "").toLowerCase();
+    let s = 0;
+    // 1) The single most natural class on each platform
+    if (/natural/.test(n)) s += 60;                      // MS "… Online (Natural)" — most human
+    if (/\bonline\b/.test(n)) s += 14;
+    if (/google/.test(n)) s += 45;                        // Google neural voices — very natural
+    if (/neural|premium|enhanced/.test(n)) s += 25;
+    if (/siri|samantha/.test(n)) s += 18;                 // Apple high-quality
+    // 2) Indian English locale strongly preferred (en-IN)
+    if (/in$/i.test(v.lang)) s += 50;
+    // Known Indian voice names (MS Neerja/Prabhat, Google hi-IN, etc.)
+    if (/neerja|prabhat|heera|ravi|swara|hemant|kalpana|aarav|ananya|kavya|priya|rehaan/.test(n)) s += 30;
+    // 3) Gender match
+    if (matchGender(v)) s += 20;
+    // 4) Penalise obviously robotic / legacy compact voices
+    if (/compact|espeak|microsoft (david|zira|mark|hazel) desktop/.test(n)) s -= 25;
+    return s;
+  };
+
+  const ranked = [...en].sort((a, b) => score(b) - score(a));
+  return ranked[0] ||
+    en.find(v => norm(v.lang) === norm(lang || "")) ||
+    en[0] || voices[0] || null;
 }
 
 /* ================================================================== */
@@ -411,7 +426,7 @@ export default function App() {
   const [voiceBlocked, setVoiceBlocked] = useState(false);
   const [voices, setVoices] = useState([]);
   const [voiceURI, setVoiceURI] = useState("");
-  const [rate, _setRate] = useState(1.45); // TTS speaking speed — fast enough for a live call
+  const [rate, _setRate] = useState(1.08); // TTS speaking speed — natural conversational pace
 
   const scrollRef = useRef(null);
 
@@ -428,7 +443,7 @@ export default function App() {
   const sysRef = useRef("");
   const voiceRef = useRef(null);
   const genderRef = useRef("female");
-  const rateRef = useRef(1.15);
+  const rateRef = useRef(1.08);
   const finalRef = useRef("");
   const speakRef = useRef(() => {});
   const listenRef = useRef(() => {});
@@ -535,9 +550,11 @@ export default function App() {
     }
     if (!chunks.length) { reArm(); return; }
 
-    const jitter = (Math.random() - 0.5) * 0.06;
+    // Tiny per-utterance jitter so it doesn't sound mechanically uniform.
+    const jitter = (Math.random() - 0.5) * 0.05;
     const spkRate = rateRef.current + jitter;
-    const spkPitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
+    // Pitch kept close to 1.0 (natural human range) — extreme pitch sounds synthetic.
+    const spkPitch = (genderRef.current === "male" ? 0.97 : 1.05) + jitter;
 
     setSpeaking(true);
 
@@ -1897,6 +1914,7 @@ function VoiceDock({ voice, mode, persona, input, setInput, send, busy }) {
           <select value={rate} onChange={e=>setRate(Number(e.target.value))}>
             <option value={0.9}>0.9× slow</option>
             <option value={1}>1× normal</option>
+            <option value={1.08}>1.08× natural</option>
             <option value={1.15}>1.15×</option>
             <option value={1.3}>1.3× fast</option>
             <option value={1.5}>1.5× faster</option>

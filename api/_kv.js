@@ -33,3 +33,4 @@ export async function cmd(command) {
 }
 
 export const PRACTICE_KEY = "saraf_practice_calls_v1";
+export const FEEDBACK_KEY = "saraf_feedback_v1";

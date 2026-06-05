@@ -3,7 +3,7 @@ import {
   Phone, PhoneOff, Send, ArrowLeft, RotateCcw, AlertTriangle,
   CheckCircle2, XCircle, Target, Sparkles, Clock, User, Shuffle, Pencil,
   TrendingUp, Headphones, GraduationCap, ChevronRight, Loader2,
-  Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX
+  Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star, MessageSquare
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -887,6 +887,7 @@ export default function App() {
         {section === "realcall" && <RealCall serif={serif} goHome={() => setSection("home")} />}
         {section === "reports" && <Reports serif={serif} />}
         {section === "followups" && <FollowUps serif={serif} go={setSection} />}
+        {section === "feedbackwall" && <FeedbackWall serif={serif} goBack={() => setSection("home")} defaultName={repName} />}
       </div>
 
       {/* Page-specific music: Cover = RCB anthem, Home = hype track, others = silent */}
@@ -1069,6 +1070,7 @@ function Home({ serif, go, history, goBack }) {
     { id:"realcall", icon:<Mic size={22}/>, title:"Real Call · Record & Report", desc:"Upload a recording of a real learner call. Get a transcript and a CRM-ready report with next steps.", tag:"Upload → transcribe → report", soon:true },
     { id:"reports", icon:<TrendingUp size={22}/>, title:"Reports & Pipeline", desc:"Every real call in one place — interest level, intent, and how many learners you contacted.", tag:"Sales head + management view", soon:true },
     { id:"followups", icon:<Clock size={22}/>, title:"Follow-ups", desc:"Who to call back and when, with what you already discussed and what's still open.", tag:"Never miss a callback", soon:true },
+    { id:"feedbackwall", icon:<MessageSquare size={22}/>, title:"Feedback & Reviews", desc:"Tried the mock call? Rate it and leave a comment. See what everyone on the team thinks.", tag:"⭐ Rate & review — public wall" },
   ];
   return (
     <div className="osf">
@@ -1102,6 +1104,141 @@ function Home({ serif, go, history, goBack }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Public feedback wall — testers leave a name, a 1-5 star rating and a
+   comment. Everyone sees everyone's reviews. */
+function Stars({ value, onChange, size = 22 }) {
+  const [hover, setHover] = useState(0);
+  const active = hover || value;
+  return (
+    <div style={{ display:"inline-flex", gap:4 }}>
+      {[1,2,3,4,5].map(n=>(
+        <button key={n} type="button"
+          onMouseEnter={onChange ? ()=>setHover(n) : undefined}
+          onMouseLeave={onChange ? ()=>setHover(0) : undefined}
+          onClick={onChange ? ()=>onChange(n) : undefined}
+          style={{ background:"none", border:"none", padding:0, lineHeight:0, cursor: onChange ? "pointer" : "default" }}>
+          <Star size={size} color={n<=active ? "#e8b24b" : MUTE} fill={n<=active ? "#e8b24b" : "none"} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FeedbackWall({ serif, goBack, defaultName }) {
+  const [name, setName] = useState(defaultName || "");
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [reviews, setReviews] = useState(null); // null=loading
+  const [configured, setConfigured] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(false);
+
+  const load = () => {
+    fetch("/api/feedback")
+      .then(r=>r.json())
+      .then(d=>{ setConfigured(!!d.configured); setReviews(Array.isArray(d.reviews)?d.reviews:[]); })
+      .catch(()=>{ setConfigured(false); setReviews([]); });
+  };
+  useEffect(() => { load(); }, []);
+
+  const submit = async () => {
+    setErr("");
+    if (!name.trim()) return setErr("Please add your name.");
+    if (!rating) return setErr("Please tap the stars to give a rating.");
+    if (!comment.trim()) return setErr("Please write a quick comment.");
+    setPosting(true);
+    try {
+      const r = await fetch("/api/feedback", {
+        method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ name: name.trim(), rating, comment: comment.trim() }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error || "Couldn't post your feedback.");
+      setReviews(prev => [d.review, ...(prev||[])]);
+      setComment(""); setRating(0); setDone(true);
+      setTimeout(()=>setDone(false), 2600);
+    } catch (e) {
+      setErr(e.message || "Couldn't post. Try again.");
+    } finally { setPosting(false); }
+  };
+
+  const avg = reviews && reviews.length ? (reviews.reduce((a,r)=>a+(r.rating||0),0)/reviews.length) : 0;
+
+  return (
+    <div className="osf">
+      <button onClick={goBack} style={{ ...secondaryBtn, marginBottom:16, padding:"7px 13px", fontSize:12.5 }}>
+        <ArrowLeft size={14}/><span style={{marginLeft:6}}>Back</span>
+      </button>
+      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,38px)", fontWeight:600, margin:"0 0 8px", letterSpacing:-0.6 }}>Feedback &amp; reviews</h1>
+      <p style={{ color:MUTE, margin:"0 0 22px", fontSize:15, maxWidth:600, lineHeight:1.5 }}>
+        Tried the mock call? Tell us what you think — what you liked, what could be better, any ideas. Your review is public; everyone can see it.
+      </p>
+
+      {/* summary */}
+      {reviews && reviews.length > 0 && (
+        <div style={{ display:"flex", alignItems:"center", gap:14, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"14px 18px", marginBottom:18, flexWrap:"wrap" }}>
+          <div style={{ ...serif, fontSize:34, fontWeight:600, color:"#e8b24b" }}>{avg.toFixed(1)}</div>
+          <div>
+            <Stars value={Math.round(avg)} size={18}/>
+            <div style={{ fontSize:12.5, color:MUTE, marginTop:3 }}>{reviews.length} review{reviews.length>1?"s":""}</div>
+          </div>
+        </div>
+      )}
+
+      {/* write a review */}
+      <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:16, padding:"18px 18px 20px", marginBottom:24 }}>
+        <div style={{ ...serif, fontSize:18, fontWeight:600, marginBottom:14 }}>Write a review</div>
+        {!configured && (
+          <div style={{ fontSize:12.5, color:"#e8b24b", background:"rgba(232,178,75,0.1)", border:"1px solid rgba(232,178,75,0.35)", borderRadius:10, padding:"10px 13px", marginBottom:14 }}>
+            The feedback store isn’t connected yet — your review can’t be saved until the database is linked in Vercel.
+          </div>
+        )}
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="Your name"
+          style={{ width:"100%", background:INK, border:`1px solid ${BORDER}`, borderRadius:11, padding:"12px 14px", color:TXT, fontSize:14.5, marginBottom:12 }}/>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:12 }}>
+          <span style={{ fontSize:13.5, color:MUTE }}>Your rating:</span>
+          <Stars value={rating} onChange={setRating}/>
+        </div>
+        <textarea value={comment} onChange={e=>setComment(e.target.value)} rows={4}
+          placeholder="What did you think of the mock call? What would make it better?"
+          style={{ width:"100%", background:INK, border:`1px solid ${BORDER}`, borderRadius:11, padding:"12px 14px", color:TXT, fontSize:14.5, resize:"vertical", fontFamily:"inherit", marginBottom:err?8:14 }}/>
+        {err && <div style={{ fontSize:12.5, color:"#e87a6b", marginBottom:12 }}>{err}</div>}
+        {done && <div style={{ fontSize:12.5, color:LIME_DIM, marginBottom:12 }}>✓ Thanks! Your review is live below.</div>}
+        <button onClick={submit} disabled={posting || !configured} style={{ ...primaryBtn, opacity: posting||!configured ? 0.6 : 1 }}>
+          {posting ? <Loader2 size={16} style={{ animation:"spin 1s linear infinite" }}/> : <Send size={16}/>}
+          <span style={{marginLeft:8}}>{posting ? "Posting…" : "Post review"}</span>
+        </button>
+      </div>
+
+      {/* the wall */}
+      <SectionLabel>What people are saying</SectionLabel>
+      {reviews === null ? (
+        <div style={{ color:MUTE, fontSize:13.5, padding:"10px 2px" }}>Loading reviews…</div>
+      ) : reviews.length === 0 ? (
+        <div style={{ color:MUTE, fontSize:13.5, padding:"10px 2px" }}>No reviews yet — be the first to share your thoughts.</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {reviews.map((r,i)=>(
+            <div key={r.id||i} style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"14px 16px" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:7, flexWrap:"wrap" }}>
+                <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(194,238,69,0.14)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontWeight:700, color:LIME, fontSize:13 }}>
+                  {(r.name||"?").trim().charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontWeight:600, color:TXT, fontSize:14 }}>{r.name||"Anonymous"}</span>
+                <Stars value={r.rating} size={14}/>
+                <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>{r.ts ? new Date(r.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"}) : ""}</span>
+              </div>
+              <div style={{ fontSize:14, color:TXT, lineHeight:1.55, whiteSpace:"pre-wrap" }}>{r.comment}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

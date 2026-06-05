@@ -1,6 +1,6 @@
 const API_KEY = process.env.OPENROUTER_API_KEY;
 const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2600);
-const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 180); // shorter = faster real-time call feel
+const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 320); // enough headroom so replies aren't empty
 
 function parseModels(v) {
   return v.split(",").map((s) => s.trim()).filter(Boolean);
@@ -18,13 +18,15 @@ const MODELS = parseModels(
     ].join(",")
 );
 
+// Conversation chain: only plain instruct models (no reasoning models, which
+// tend to spend the whole token budget 'thinking' and return empty text).
 const CONVO_MODELS = parseModels(
   process.env.OPENROUTER_CONVO_MODELS ||
     [
       "meta-llama/llama-3.3-70b-instruct:free",
       "qwen/qwen3-next-80b-a3b-instruct:free",
-      "moonshotai/kimi-k2.6:free",
-      "nvidia/nemotron-nano-9b-v2:free",
+      "google/gemma-3-27b-it:free",
+      "mistralai/mistral-small-3.2-24b-instruct:free",
     ].join(",")
 );
 
@@ -55,12 +57,15 @@ async function callOpenRouter({ system, messages, json }) {
           headers: {
             authorization: `Bearer ${API_KEY}`,
             "content-type": "application/json",
-            "x-title": "Hopkins Agent",
+            "x-title": "Saraf.AI",
           },
           body: JSON.stringify({
             model,
             max_tokens: json ? MAX_TOKENS : CONVO_TOKENS,
-            reasoning: { effort: "low" },
+            temperature: json ? 0.4 : 0.8,
+            // reasoning only helps the structured scorecard; for live chat it
+            // just eats the token budget and yields empty replies.
+            ...(json ? { reasoning: { effort: "low" } } : {}),
             ...(json ? { response_format: { type: "json_object" } } : {}),
             messages: orMessages,
           }),

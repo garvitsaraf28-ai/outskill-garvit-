@@ -511,18 +511,29 @@ export default function App() {
     const synth = window.speechSynthesis;
     if (!synth) { reArm(); return; }
     try { synth.cancel(); } catch {}
-    const u = new SpeechSynthesisUtterance(ttsSnippet(text));
-    if (voiceRef.current) u.voice = voiceRef.current;
-    // Lively, engaging delivery — female slightly brighter, male a touch warmer.
-    // A small random jitter on pitch/rate keeps it from sounding flat & robotic.
+
+    // Chrome silently cuts off utterances >~15s. Fix: split into sentences
+    // and chain them so every sentence is spoken as its own utterance.
+    const clean = ttsSnippet(text);
+    const parts = (clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean])
+      .map(s => s.trim()).filter(Boolean);
+
     const jitter = (Math.random() - 0.5) * 0.06;
-    u.rate = rateRef.current + jitter;
-    u.pitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
-    u.volume = 1;
+    const spkRate = rateRef.current + jitter;
+    const spkPitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
+
     setSpeaking(true);
-    u.onend = () => { setSpeaking(false); reArm(); };
-    u.onerror = () => { setSpeaking(false); reArm(); };
-    try { synth.speak(u); } catch { setSpeaking(false); reArm(); }
+    let i = 0;
+    const speakNext = () => {
+      if (i >= parts.length) { setSpeaking(false); reArm(); return; }
+      const u = new SpeechSynthesisUtterance(parts[i++]);
+      if (voiceRef.current) u.voice = voiceRef.current;
+      u.rate = spkRate; u.pitch = spkPitch; u.volume = 1;
+      u.onend = speakNext;
+      u.onerror = () => { setSpeaking(false); reArm(); };
+      try { synth.speak(u); } catch { setSpeaking(false); reArm(); }
+    };
+    speakNext();
   }, []);
   useEffect(() => { speakRef.current = speak; }, [speak]);
 

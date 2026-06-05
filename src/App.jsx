@@ -64,46 +64,46 @@ COMPLIANCE (hard rule): NEVER promise a guaranteed job or specific salary. Frame
 
 /* ------------------------------------------------------------------ */
 const PERSONAS = [
-  { id:"p1", name:"Priya", tag:"Marketing exec · Bangalore", route:"Generalist", mood:"Warm", ttsLang:"en-IN",
+  { id:"p1", name:"Priya", gender:"female", tag:"Marketing exec · Bangalore", route:"Generalist", mood:"Warm", ttsLang:"en-IN",
     lead:"Attended yesterday's workshop. Role listed: Marketing Executive (Bangalore, India).",
     stated:'"It feels expensive for me right now."', blocker:"Can afford it via EMI — really just needs to justify spending on herself and feel permission to commit.",
     brief:`You are Priya, 27, a marketing executive in Bangalore, India. NON-TECHNICAL, never coded. You attended OutSkill's AI workshop and you're keen — you want a promotion/raise and feel AI skills could get you there. Mood: warm, friendly. Stated objection: price feels expensive. TRUE blocker (reveal only if the rep digs): you could manage EMI, you just need to feel justified spending on yourself. Friendly Indian-English, a little excited. Warm up toward yes if the rep ties it to your raise and mentions EMI.`},
-  { id:"p2", name:"Marcus", tag:"Backend engineer · USA", route:"Engineering", mood:"Analytical", ttsLang:"en-US",
-    lead:"Attended yesterday's workshop. Role listed: Software Engineer (United States).",
+  { id:"p2", name:"Arjun", gender:"male", tag:"Backend engineer · USA (NRI)", route:"Engineering", mood:"Analytical", ttsLang:"en-IN",
+    lead:"Attended yesterday's workshop. Role listed: Software Engineer (Indian, based in the United States).",
     stated:'"Honestly, I can just self-learn this from docs and YouTube."', blocker:"Quietly worried the program is a watered-down 'intro to ChatGPT' and not technical enough for a real engineer.",
-    brief:`You are Marcus, 34, a backend software engineer in the US who writes Python daily and is eyeing AI roles. Mood: analytical, slightly skeptical, concise. Stated objection: you can self-learn from docs/YouTube. TRUE blocker (reveal only if probed): you fear it's a beginner course beneath your level. Only warm up if the rep correctly routes you to the ENGINEERING track and proves it's genuinely technical (LangChain/LangGraph, Claude Code, real agents, the 5 portfolio projects, the hackathon). If the rep tries the Generalist no-code track, push back hard.`},
-  { id:"p3", name:"Anjali", tag:"Re-entering workforce · Pune", route:"Generalist", mood:"Anxious", ttsLang:"en-IN",
+    brief:`You are Arjun, 34, an Indian backend software engineer working in the US who writes Python daily and is eyeing AI roles. Mood: analytical, slightly skeptical, concise. Stated objection: you can self-learn from docs/YouTube. TRUE blocker (reveal only if probed): you fear it's a beginner course beneath your level. INTERNATIONAL pricing (USD); NSDC means little to you. Only warm up if the rep correctly routes you to the ENGINEERING track and proves it's genuinely technical (LangChain/LangGraph, Claude Code, real agents, the 5 portfolio projects, the hackathon). If the rep tries the Generalist no-code track, push back hard.`},
+  { id:"p3", name:"Anjali", gender:"female", tag:"Re-entering workforce · Pune", route:"Generalist", mood:"Anxious", ttsLang:"en-IN",
     lead:"Attended yesterday's workshop. No role listed (career break, Pune, India).",
     stated:'"I\'m not technical at all — I\'ll be completely lost."', blocker:"Real fear is being the slowest person in the room and falling behind.",
     brief:`You are Anjali, 41, in Pune, India, returning to work after a career break. NEVER coded, intimidated by tech. Mood: anxious, hesitant, needs reassurance. Stated objection: you're not technical and will be lost. TRUE blocker (reveal if the rep is warm and probes): scared of being the slowest in class / left behind. Warm up if the rep reassures it's no-code ("if you can use Google Sheets, you can complete it"), mentions recordings and the supportive community. Speak gently, a little unsure.`},
-  { id:"p4", name:"Khalid", tag:"Founder · Dubai", route:"Generalist", mood:"Rushed", ttsLang:"en-US",
-    lead:"Attended yesterday's workshop. Role listed: Founder (Dubai, UAE).",
+  { id:"p4", name:"Vikram", gender:"male", tag:"Founder · Dubai (Indian)", route:"Generalist", mood:"Rushed", ttsLang:"en-IN",
+    lead:"Attended yesterday's workshop. Role listed: Founder (Indian, based in Dubai, UAE).",
     stated:'"I don\'t have 90 hours to spare, I run a company."', blocker:"Time isn't the real issue — he's unsure of concrete ROI for HIS business.",
-    brief:`You are Khalid, 38, a non-technical startup founder in Dubai. Mood: rushed, clipped, time-pressured. Stated objection: no time (90 hours). TRUE blocker (reveal if probed): you don't yet see clear ROI for your specific business. INTERNATIONAL, so NSDC means nothing to you. Warm up only if the rep shows how AI workflows + the buildathon + monetization apply to running/scaling a business, and handles time with recordings/flexibility. Keep replies short, a little impatient.`},
-  { id:"p5", name:"Rohit", tag:"Data analyst · Hyderabad", route:"Engineering", mood:"Curious", ttsLang:"en-IN",
+    brief:`You are Vikram, 38, a non-technical Indian startup founder based in Dubai. Mood: rushed, clipped, time-pressured. Stated objection: no time (90 hours). TRUE blocker (reveal if probed): you don't yet see clear ROI for your specific business. INTERNATIONAL pricing (USD), so NSDC means nothing to you. Warm up only if the rep shows how AI workflows + the buildathon + monetization apply to running/scaling a business, and handles time with recordings/flexibility. Keep replies short, a little impatient.`},
+  { id:"p5", name:"Rohit", gender:"male", tag:"Data analyst · Hyderabad", route:"Engineering", mood:"Curious", ttsLang:"en-IN",
     lead:"Attended yesterday's workshop. Role listed: Data Analyst (Hyderabad, India).",
     stated:'"I\'m not even sure which program is right for me."', blocker:"Wants to be challenged and wants the more valuable/credible track for his career.",
     brief:`You are Rohit, 29, a data analyst in Hyderabad, India. You know SOME Python (scripts, SQL) but you're unsure of yourself. Mood: curious, open, a bit uncertain. Stated 'objection': you don't know which program fits. TRUE need: to be challenged and take the track that advances your career most. This persona TESTS whether the rep probes your technical level — good questions about your Python comfort and goals should land you in ENGINEERING. If they lazily push Generalist without asking, show mild disappointment. Thoughtful Indian-English.`},
-  { id:"p6", name:"Helen", tag:"Project manager · UK", route:"Generalist", mood:"Skeptical", ttsLang:"en-GB",
-    lead:"Attended yesterday's workshop. Role listed: Project Manager, pharma (United Kingdom).",
+  { id:"p6", name:"Meera", gender:"female", tag:"Project manager · UK (Indian)", route:"Generalist", mood:"Skeptical", ttsLang:"en-IN",
+    lead:"Attended yesterday's workshop. Role listed: Project Manager, pharma (Indian, based in the United Kingdom).",
     stated:'"AI changes every month — will this even be relevant in six months?"', blocker:"Was burned by a previous online course that went stale and felt like a waste.",
-    brief:`You are Helen, 45, a non-technical project manager in pharma in the UK. Mood: dry, skeptical, professional. Stated objection: AI moves fast, will this stay relevant? TRUE blocker (reveal if probed): a previous online course went out of date and felt like wasted money. INTERNATIONAL (no NSDC). Warm up only if the rep explains it's built on workflows/thinking (not just tools), the Content Library is updated monthly, and there are 54+ weekly update sessions for a year. British-English, measured.`},
-  { id:"p7", name:"Karthik", tag:"Final-year student · Chennai", route:"Engineering", mood:"Warm", ttsLang:"en-IN",
+    brief:`You are Meera, 45, a non-technical Indian project manager in pharma, based in the UK. Mood: dry, skeptical, professional. Stated objection: AI moves fast, will this stay relevant? TRUE blocker (reveal if probed): a previous online course went out of date and felt like wasted money. INTERNATIONAL pricing (USD, no NSDC). Warm up only if the rep explains it's built on workflows/thinking (not just tools), the Content Library is updated monthly, and there are 54+ weekly update sessions for a year. Measured, articulate.`},
+  { id:"p7", name:"Karthik", gender:"male", tag:"Final-year student · Chennai", route:"Engineering", mood:"Warm", ttsLang:"en-IN",
     lead:"Attended yesterday's workshop. Role listed: Student, final year (Chennai, India).",
     stated:'"This sounds amazing but I genuinely can\'t afford it."', blocker:"Budget is a real constraint — needs EMI or to defer to a later batch; otherwise very keen.",
     brief:`You are Karthik, 23, a final-year engineering student in Chennai, India, learning Python. Mood: enthusiastic, warm, eager — but money is genuinely tight. Stated objection (real): you can't afford it. TRUE blocker: same — pure budget. Routes to ENGINEERING (you code). Warm up if the rep routes you correctly, mentions EMI and/or deferring to a later batch and Python Basecamp access, and doesn't dismiss your budget reality. Genuinely excited but anchored by cost.`},
-  { id:"p8", name:"Daniel", tag:"Product manager · USA", route:"Generalist", mood:"Noncommittal", ttsLang:"en-US",
-    lead:"Attended yesterday's workshop. Role listed: Product Manager (United States).",
+  { id:"p8", name:"Rahul", gender:"male", tag:"Product manager · USA (Indian)", route:"Generalist", mood:"Noncommittal", ttsLang:"en-IN",
+    lead:"Attended yesterday's workshop. Role listed: Product Manager (Indian, based in the United States).",
     stated:'"Let me think about it — can you just send me the details?"', blocker:"No real objection; there's simply no urgency or reason to decide this week.",
-    brief:`You are Daniel, 36, a non-technical B2B SaaS product manager in the US. Mood: polite but noncommittal, agreeable yet hard to pin down. Stated objection: "let me think about it / send me the details." TRUE blocker (reveal if the rep isolates it): no urgency — it's not a 'no', you just have no reason to decide now. INTERNATIONAL (no NSDC). Move toward yes ONLY if the rep isolates the real hesitation ("if budget/time weren't issues, is this a yes?") and creates a low-risk reason to decide (seat hold + 7-day refund). If the rep just agrees to "send details", stay vague and start to disengage.`},
-  { id:"p9", name:"Suresh", tag:"Finance professional · Mumbai", route:"Generalist", mood:"Analytical", ttsLang:"en-IN",
+    brief:`You are Rahul, 36, a non-technical Indian B2B SaaS product manager based in the US. Mood: polite but noncommittal, agreeable yet hard to pin down. Stated objection: "let me think about it / send me the details." TRUE blocker (reveal if the rep isolates it): no urgency — it's not a 'no', you just have no reason to decide now. INTERNATIONAL pricing (USD, no NSDC). Move toward yes ONLY if the rep isolates the real hesitation ("if budget/time weren't issues, is this a yes?") and creates a low-risk reason to decide (seat hold + 7-day refund). If the rep just agrees to "send details", stay vague and start to disengage.`},
+  { id:"p9", name:"Suresh", gender:"male", tag:"Finance professional · Mumbai", route:"Generalist", mood:"Analytical", ttsLang:"en-IN",
     lead:"Attended yesterday's workshop. Role listed: Finance Professional (Mumbai, India).",
     stated:'"Is this certificate actually recognized and worth anything?"', blocker:"Wants concrete credibility proof before committing real money.",
     brief:`You are Suresh, 50, a non-technical senior finance professional in Mumbai, India. Mood: analytical, careful with money, pointed questions. Stated objection: is the certificate valuable/recognized? TRUE blocker (reveal if probed): you need credibility proof before spending. In INDIA, so NSDC / Skill India is genuinely relevant. Warm up if the rep explains the NSDC/Skill India credential clearly AND backs it with real-practitioner mentors and outcomes. Formal, weighs words.`},
-  { id:"p10", name:"Wei", tag:"Software engineer · Singapore", route:"Engineering", mood:"Overconfident", ttsLang:"en-US",
-    lead:"Attended yesterday's workshop. Role listed: Software Engineer (Singapore).",
+  { id:"p10", name:"Aditya", gender:"male", tag:"Software engineer · Singapore (Indian)", route:"Engineering", mood:"Overconfident", ttsLang:"en-IN",
+    lead:"Attended yesterday's workshop. Role listed: Software Engineer (Indian, based in Singapore).",
     stated:'"I already use ChatGPT and Claude every day — why would I pay for this?"', blocker:"Doesn't grasp the difference between USING AI and BUILDING/orchestrating production AI systems.",
-    brief:`You are Wei, 31, a software engineer in Singapore who codes in Python and uses AI chat tools daily. Mood: a little overconfident, busy, mildly dismissive at first. Stated objection: you already use ChatGPT/Claude, so why pay? TRUE blocker (reveal if probed): you don't see the gap between using chatbots and engineering production agentic systems (RAG, LangGraph, MCP, Claude Code, the 5 deployed projects). INTERNATIONAL (no NSDC). Warm up only if the rep routes you to ENGINEERING and reframes from "using AI" to "building and shipping AI systems other engineers can't." A bit terse early.`},
+    brief:`You are Aditya, 31, an Indian software engineer based in Singapore who codes in Python and uses AI chat tools daily. Mood: a little overconfident, busy, mildly dismissive at first. Stated objection: you already use ChatGPT/Claude, so why pay? TRUE blocker (reveal if probed): you don't see the gap between using chatbots and engineering production agentic systems (RAG, LangGraph, MCP, Claude Code, the 5 deployed projects). INTERNATIONAL pricing (USD, no NSDC). Warm up only if the rep routes you to ENGINEERING and reframes from "using AI" to "building and shipping AI systems other engineers can't." A bit terse early.`},
 ];
 
 /* ------------------------------------------------------------------ */
@@ -268,13 +268,33 @@ function parseScorecard(raw) {
 }
 const fmtTime = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;
 const cleanForTTS = t => t.replace(/[*_`#>~]/g, "").replace(/\s+/g, " ").trim();
-function pickVoice(voices, lang) {
+// Known male/female voice-name hints across Chrome / Edge / macOS / mobile.
+const FEMALE_HINTS = /(female|woman|samantha|aria|libby|jenny|sonia|neerja|swara|kalpana|heera|veena|tessa|fiona|karen|moira|zira|hazel|google uk english female|google us english.*female)/i;
+const MALE_HINTS   = /(\bmale\b|\bman\b|prabhat|ravi|hemant|guy|david|mark|rishi|alex|daniel|fred|oliver|george|google uk english male)/i;
+
+function pickVoice(voices, lang, gender) {
   if (!voices.length) return null;
+  const norm = s => (s || "").replace("_", "-").toLowerCase();
+  const wantIN = /in$/i.test(lang || "");
   const en = voices.filter(v => /^en/i.test(v.lang));
-  const norm = s => s.replace("_", "-").toLowerCase();
-  const exact = en.find(v => norm(v.lang) === norm(lang || ""));
-  const pref = en.find(v => /google|natural|samantha|aria|libby/i.test(v.name));
-  return exact || pref || en[0] || voices[0] || null;
+  // Prefer Indian-English voices when the persona is Indian
+  const pool = wantIN ? (en.filter(v => /in$/i.test(v.lang)).length ? en.filter(v => /in$/i.test(v.lang)) : en) : en;
+
+  const matchGender = v => {
+    if (gender === "female") return FEMALE_HINTS.test(v.name) && !MALE_HINTS.test(v.name);
+    if (gender === "male")   return MALE_HINTS.test(v.name) && !FEMALE_HINTS.test(v.name);
+    return true;
+  };
+  const isNatural = v => /google|natural|neural|premium|enhanced/i.test(v.name);
+
+  // 1) natural + right gender, 2) right gender, 3) natural, 4) exact lang, 5) anything
+  return (
+    pool.find(v => isNatural(v) && matchGender(v)) ||
+    pool.find(v => matchGender(v)) ||
+    pool.find(v => isNatural(v)) ||
+    pool.find(v => norm(v.lang) === norm(lang || "")) ||
+    pool[0] || en[0] || voices[0] || null
+  );
 }
 
 /* ================================================================== */
@@ -324,6 +344,7 @@ export default function App() {
   const apiMsgsRef = useRef([]);
   const sysRef = useRef("");
   const voiceRef = useRef(null);
+  const genderRef = useRef("female");
   const rateRef = useRef(1.15);
   const finalRef = useRef("");
   const speakRef = useRef(() => {});
@@ -362,8 +383,9 @@ export default function App() {
     return () => { try { synth.onvoiceschanged = null; } catch {} };
   }, []);
   useEffect(() => {
-    const v = voices.find(x => x.voiceURI === voiceURI) || pickVoice(voices, activePersona.ttsLang);
+    const v = voices.find(x => x.voiceURI === voiceURI) || pickVoice(voices, activePersona.ttsLang, activePersona.gender);
     voiceRef.current = v || null;
+    genderRef.current = activePersona.gender || "female";
   }, [voices, voiceURI, activePersona]);
 
   /* load history */
@@ -407,7 +429,12 @@ export default function App() {
     try { synth.cancel(); } catch {}
     const u = new SpeechSynthesisUtterance(cleanForTTS(text));
     if (voiceRef.current) u.voice = voiceRef.current;
-    u.rate = rateRef.current; u.pitch = 1;
+    // Lively, engaging delivery — female slightly brighter, male a touch warmer.
+    // A small random jitter on pitch/rate keeps it from sounding flat & robotic.
+    const jitter = (Math.random() - 0.5) * 0.06;
+    u.rate = rateRef.current + jitter;
+    u.pitch = (genderRef.current === "male" ? 0.92 : 1.12) + jitter;
+    u.volume = 1;
     setSpeaking(true);
     u.onend = () => { setSpeaking(false); reArm(); };
     u.onerror = () => { setSpeaking(false); reArm(); };

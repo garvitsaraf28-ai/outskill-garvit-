@@ -1,7 +1,7 @@
 import { isConfigured, cmd } from "./_kv.js";
 
 const VISITORS_KEY = "saraf_visitors_v1";
-const NOTIFY_EMAIL = "tools@growthschool.io";
+const NOTIFY_EMAIL = "garvitsaraf28@gmail.com";
 
 async function sendEmailNotification(name) {
   const apiKey = process.env.RESEND_API_KEY;

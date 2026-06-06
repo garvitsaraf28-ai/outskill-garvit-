@@ -1785,15 +1785,13 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
         )}
       </div>
 
-      {history.length > 0 && (
-        <div style={{ marginTop:24 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
-            <SectionLabel>Your progress</SectionLabel>
-            {streak >= 2 && <span style={{ fontSize:13, color:"#e8b24b", fontWeight:600, marginLeft:8 }}>🔥 {streak} day streak</span>}
-          </div>
-          <ProgressPanel history={history} serif={serif} repName={repName}/>
+      <div style={{ marginTop:24 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:8 }}>
+          <SectionLabel>Your progress & certificates</SectionLabel>
+          {streak >= 2 && <span style={{ fontSize:13, color:"#e8b24b", fontWeight:600, marginLeft:8 }}>🔥 {streak} day streak</span>}
         </div>
-      )}
+        <ProgressPanel history={history} serif={serif} repName={repName}/>
+      </div>
     </div>
   );
 }
@@ -1962,6 +1960,16 @@ function TeamView({ calls, serif, me }) {
 
 /* One person's own improvement trend (from this browser's localStorage). */
 function PersonalProgress({ history, repName, serif }) {
+  if (!history.length) {
+    return (
+      <div>
+        <CertificatesSection history={history} repName={repName} serif={serif}/>
+        <div style={{ background:PANEL, border:`1px dashed ${BORDER}`, borderRadius:14, padding:"22px 20px", textAlign:"center", color:MUTE, fontSize:14 }}>
+          No mock calls yet — run your first call above and your progress will appear here.
+        </div>
+      </div>
+    );
+  }
   // chronological (oldest → newest) for trend math
   const chron = [...history].reverse();
   const scores = chron.map(h => h.overall);
@@ -2587,8 +2595,8 @@ function CertProgressStrip({ history, serif }) {
   );
 }
 
-/* Full certificate modal — opens when "View Certificate" is clicked */
-function CertificateModal({ tier, repName, history, onClose }) {
+/* Full certificate modal — opens when "View Certificate" or "Preview" is clicked */
+function CertificateModal({ tier, repName, history, isPreview, onClose }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : 0;
   const dateStr = new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
   const certId = `OUTSKILL-L${tier.level}-${Date.now().toString(36).toUpperCase().slice(-6)}`;
@@ -2619,6 +2627,12 @@ function CertificateModal({ tier, repName, history, onClose }) {
           boxShadow:`0 0 60px ${tier.glow}, inset 0 0 80px rgba(0,0,0,0.5)`,
           fontFamily:"'Hanken Grotesk',sans-serif",
         }}>
+          {/* Preview watermark */}
+          {isPreview && (
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none", zIndex:2 }}>
+              <div style={{ fontSize:80, fontWeight:900, color:"rgba(255,255,255,0.04)", transform:"rotate(-35deg)", userSelect:"none", letterSpacing:8, whiteSpace:"nowrap" }}>PREVIEW</div>
+            </div>
+          )}
           {/* corner decorations */}
           {["topleft","topright","bottomleft","bottomright"].map(pos => (
             <div key={pos} style={{
@@ -2703,11 +2717,20 @@ function CertificateModal({ tier, repName, history, onClose }) {
           </div>
         </div>
 
+        {/* Preview notice */}
+        {isPreview && (
+          <div style={{ background:"rgba(232,178,75,0.12)", border:"1px solid rgba(232,178,75,0.45)", borderRadius:12, padding:"11px 18px", textAlign:"center", fontSize:13, color:"#f0d29a" }}>
+            <b>Preview mode</b> — this is exactly what your certificate will look like once you earn it. Complete {tier.calls} mock calls with an average score of {tier.minAvg}+ to unlock the real one.
+          </div>
+        )}
+
         {/* action buttons */}
         <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
-          <button onClick={printCert} style={{ ...primaryBtn, gap:8 }}>
-            <span>⬇</span> Download / Print Certificate
-          </button>
+          {!isPreview && (
+            <button onClick={printCert} style={{ ...primaryBtn, gap:8 }}>
+              <span>⬇</span> Download / Print Certificate
+            </button>
+          )}
           <button onClick={onClose} style={{ ...secondaryBtn }}>Close</button>
         </div>
       </div>
@@ -2718,62 +2741,130 @@ function CertificateModal({ tier, repName, history, onClose }) {
 /* Certificates section inside PersonalProgress */
 function CertificatesSection({ history, repName, serif }) {
   const [openTier, setOpenTier] = useState(null);
+  const [previewTier, setPreviewTier] = useState(null);
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : 0;
+  const previewName = repName || "Your Name";
 
   return (
     <div style={{ marginBottom:20 }}>
-      <SectionLabel>Certificates & Badges</SectionLabel>
-      <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      {/* Section header explaining the certificate system */}
+      <div style={{ marginBottom:12 }}>
+        <SectionLabel>Certificates & Badges</SectionLabel>
+        <div style={{ fontSize:13, color:MUTE, lineHeight:1.6, maxWidth:620 }}>
+          Complete mock calls with a qualifying average score to earn a real certificate — issued by <b style={{color:TXT}}>Garvit Saraf · OutSkill Sales Department</b>, with a QR code you can download, print, or share. Three tiers, each harder to earn.
+        </div>
+      </div>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
         {CERT_TIERS.map(tier => {
           const earned = certEarned(tier, history);
           const callPct = Math.min(100, (history.length / tier.calls) * 100);
           const avgPct = Math.min(100, ((avg||0) / tier.minAvg) * 100);
+          const callsDone = Math.min(history.length, tier.calls);
+          const callsLeft = Math.max(0, tier.calls - history.length);
+          const scoreGap = Math.max(0, tier.minAvg - (avg||0));
+
           return (
             <div key={tier.id} style={{
-              background: earned ? `rgba(${tier.id==="certified"?"194,238,69":tier.id==="intermediate"?"176,184,193":"205,127,50"},0.07)` : PANEL,
+              background: earned
+                ? `rgba(${tier.id==="certified"?"194,238,69":tier.id==="intermediate"?"176,184,193":"205,127,50"},0.07)`
+                : PANEL,
               border:`1px solid ${earned ? tier.color+"66" : BORDER}`,
-              borderRadius:14, padding:"14px 16px",
-              opacity: earned ? 1 : 0.75,
+              borderRadius:16, padding:"16px 18px",
             }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <span style={{ fontSize:28, filter: earned?"none":"grayscale(1) opacity(0.4)" }}>{tier.icon}</span>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
-                    <span style={{ fontWeight:700, color: earned?tier.color:TXT, fontSize:14 }}>{tier.title}</span>
-                    <span style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", color:MUTE }}>{tier.badge}</span>
+              {/* Top row: icon + title + action button */}
+              <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
+                <span style={{ fontSize:32, lineHeight:1, filter: earned?"none":"grayscale(1) opacity(0.35)", marginTop:2 }}>{tier.icon}</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  {/* Title row */}
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:3 }}>
+                    <span style={{ fontWeight:700, color: earned?tier.color:TXT, fontSize:15 }}>{tier.title}</span>
+                    <span style={{ fontSize:10, letterSpacing:1.2, textTransform:"uppercase",
+                      color: earned?tier.color:MUTE,
+                      background: earned?`${tier.color}18`:"rgba(255,255,255,0.05)",
+                      border:`1px solid ${earned?tier.color+"44":BORDER}`,
+                      borderRadius:20, padding:"2px 8px" }}>
+                      {tier.badge}
+                    </span>
+                    {earned && <span style={{ fontSize:11, color:LIME_DIM, fontWeight:600 }}>✓ Earned</span>}
                   </div>
-                  <div style={{ fontSize:12, color:MUTE }}>
-                    {tier.calls} calls · avg {tier.minAvg}+
-                    {!earned && <span style={{ marginLeft:8, color:TXT }}>
-                      ({history.length}/{tier.calls} calls · {avg||0}/{tier.minAvg} avg)
-                    </span>}
+
+                  {/* Description */}
+                  <div style={{ fontSize:12.5, color: earned?TXT:MUTE, lineHeight:1.55, marginBottom:8 }}>{tier.desc}</div>
+
+                  {/* Requirement pill */}
+                  <div style={{ fontSize:11.5, color:MUTE, marginBottom: !earned ? 10 : 0 }}>
+                    Requires <b style={{color:TXT}}>{tier.calls} mock calls</b> with an <b style={{color:TXT}}>average score ≥ {tier.minAvg}</b>
+                    {earned
+                      ? <span style={{ color:LIME_DIM, marginLeft:8 }}>· You've met both requirements.</span>
+                      : callsLeft === 0 && scoreGap > 0
+                        ? <span style={{ color:"#e8b24b", marginLeft:8 }}>· Calls ✓ — need {scoreGap} more avg points</span>
+                        : callsLeft > 0 && scoreGap === 0
+                          ? <span style={{ color:"#e8b24b", marginLeft:8 }}>· Score ✓ — need {callsLeft} more call{callsLeft>1?"s":""}</span>
+                          : !earned
+                            ? <span style={{ color:MUTE, marginLeft:8 }}>· {callsDone}/{tier.calls} calls · {avg||0}/{tier.minAvg} avg</span>
+                            : null
+                    }
                   </div>
+
+                  {/* Progress bars (locked only) */}
                   {!earned && (
-                    <div style={{ display:"flex", gap:8, marginTop:8 }}>
+                    <div style={{ display:"flex", gap:10, marginBottom:6 }}>
                       <div style={{ flex:1 }}>
-                        <div style={{ height:4, borderRadius:3, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:MUTE, marginBottom:3 }}>
+                          <span>Calls</span><span>{callsDone}/{tier.calls}</span>
+                        </div>
+                        <div style={{ height:5, borderRadius:3, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
                           <div style={{ height:"100%", width:`${callPct}%`, background:tier.color, borderRadius:3, transition:"width .8s ease" }}/>
                         </div>
                       </div>
                       <div style={{ flex:1 }}>
-                        <div style={{ height:4, borderRadius:3, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", fontSize:10.5, color:MUTE, marginBottom:3 }}>
+                          <span>Avg score</span><span>{avg||0}/{tier.minAvg}</span>
+                        </div>
+                        <div style={{ height:5, borderRadius:3, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
                           <div style={{ height:"100%", width:`${avgPct}%`, background:tier.color, borderRadius:3, transition:"width .8s ease" }}/>
                         </div>
                       </div>
                     </div>
                   )}
                 </div>
-                {earned && (
-                  <button onClick={()=>setOpenTier(tier)} style={{ ...primaryBtn, padding:"8px 16px", fontSize:13, background:tier.color, flexShrink:0 }}>
-                    View Certificate
-                  </button>
-                )}
+
+                {/* Action buttons */}
+                <div style={{ display:"flex", flexDirection:"column", gap:7, flexShrink:0 }}>
+                  {earned ? (
+                    <button onClick={()=>setOpenTier(tier)}
+                      style={{ ...primaryBtn, padding:"9px 16px", fontSize:13, background:tier.color, color:tier.id==="certified"?INK:"#0a0c08" }}>
+                      View Certificate
+                    </button>
+                  ) : (
+                    <button onClick={()=>setPreviewTier(tier)}
+                      style={{ display:"inline-flex", alignItems:"center", gap:7, fontSize:12.5, color:tier.color,
+                        background:`${tier.color}12`, border:`1px solid ${tier.color}44`, borderRadius:30, padding:"7px 14px", fontWeight:600 }}>
+                      <span>👁</span> Preview
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
-      {openTier && <CertificateModal tier={openTier} repName={repName} history={history} onClose={()=>setOpenTier(null)}/>}
+
+      {/* Earned: real certificate with actual data */}
+      {openTier && (
+        <CertificateModal tier={openTier} repName={repName} history={history} onClose={()=>setOpenTier(null)}/>
+      )}
+      {/* Preview: certificate with sample data so they know exactly what they're working toward */}
+      {previewTier && (
+        <CertificateModal
+          tier={previewTier}
+          repName={previewName}
+          history={Array.from({length:previewTier.calls}, (_,i)=>({ overall: previewTier.minAvg + Math.floor(Math.random()*10) }))}
+          isPreview
+          onClose={()=>setPreviewTier(null)}
+        />
+      )}
     </div>
   );
 }

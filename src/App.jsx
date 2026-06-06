@@ -1802,9 +1802,8 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
    team's. Personal data comes from this browser's localStorage (instant,
    always available); the team view is pulled from the shared store. */
 function ProgressPanel({ history, serif, repName }) {
-  const [scope, setScope] = useState("mine"); // "mine" | "team" | "visitors"
+  const [scope, setScope] = useState("mine"); // "mine" | "team"
   const [team, setTeam] = useState(null);
-  const [visitors, setVisitors] = useState(null);
   const [configured, setConfigured] = useState(true);
 
   useEffect(() => {
@@ -1817,18 +1816,14 @@ function ProgressPanel({ history, serif, repName }) {
   }, []);
 
   useEffect(() => {
-    if (scope !== "visitors") return;
+    if (true) return; // visitors tab removed
     let live = true;
-    fetch("/api/log-visitor")
-      .then(r => r.json())
-      .then(d => { if (live) setVisitors(Array.isArray(d.visitors) ? d.visitors : []); })
-      .catch(() => { if (live) setVisitors([]); });
     return () => { live = false; };
   }, [scope]);
 
   const Toggle = () => (
     <div style={{ display:"inline-flex", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:3, marginBottom:4 }}>
-      {[["mine","My mock calls"],["team","Everyone"],["visitors","Who visited"]].map(([k,label])=>(
+      {[["mine","My mock calls"],["team","Everyone"]].map(([k,label])=>(
         <button key={k} onClick={()=>setScope(k)} style={{
           border:"none", borderRadius:8, padding:"6px 14px", fontSize:12.5, fontWeight:600,
           background: scope===k ? LIME : "transparent", color: scope===k ? INK : MUTE, transition:"all .15s",
@@ -1836,36 +1831,6 @@ function ProgressPanel({ history, serif, repName }) {
       ))}
     </div>
   );
-
-  if (scope === "visitors") {
-    return (
-      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-        <Toggle/>
-        {visitors === null ? (
-          <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>Loading visitors…</div>
-        ) : visitors.length === 0 ? (
-          <div style={{ color:MUTE, fontSize:13, padding:"10px 2px" }}>No visitors logged yet — share the link with your team!</div>
-        ) : (
-          <div>
-            <SectionLabel>People who opened the site · {visitors.length} total</SectionLabel>
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {visitors.map((v,i) => (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:12, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:"10px 14px" }}>
-                  <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                    <span style={{ fontSize:14, fontWeight:700, color:LIME }}>{v.name.charAt(0).toUpperCase()}</span>
-                  </div>
-                  <span style={{ fontWeight:600, color:TXT, fontSize:13.5 }}>{v.name}</span>
-                  <span style={{ marginLeft:"auto", color:MUTE, fontSize:11.5 }}>
-                    {new Date(v.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"})} · {new Date(v.ts).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   if (scope === "team") {
     return (

@@ -1815,12 +1815,6 @@ function ProgressPanel({ history, serif, repName }) {
     return () => { live = false; };
   }, []);
 
-  useEffect(() => {
-    if (true) return; // visitors tab removed
-    let live = true;
-    return () => { live = false; };
-  }, [scope]);
-
   const Toggle = () => (
     <div style={{ display:"inline-flex", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:10, padding:3, marginBottom:4 }}>
       {[["mine","My mock calls"],["team","Everyone"]].map(([k,label])=>(

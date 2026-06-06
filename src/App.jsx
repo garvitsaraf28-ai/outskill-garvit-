@@ -2522,23 +2522,23 @@ const linkBtn = { display:"inline-flex", alignItems:"center", background:"transp
 /* ------------------------------------------------------------------ */
 /* Certificate tier definitions                                         */
 const CERT_TIERS = [
-  { id:"beginner", level:1, calls:10, minAvg:50,
+  { id:"beginner", level:1, calls:5, minAvg:50,
     title:"Sales Foundations", badge:"Beginner",
     color:"#cd7f32", glow:"rgba(205,127,50,0.35)",
     icon:"🥉",
     desc:"You've nailed the basics — opening, discovery, and rapport. A solid start to your sales journey.",
     tagline:"Foundations of sales, locked in." },
-  { id:"intermediate", level:2, calls:15, minAvg:60,
+  { id:"intermediate", level:2, calls:10, minAvg:60,
     title:"Sales Practitioner", badge:"Intermediate",
     color:"#b0b8c1", glow:"rgba(176,184,193,0.35)",
     icon:"🥈",
     desc:"Discovery, objection handling, program routing — you handle the full call with confidence.",
     tagline:"You know the playbook. Now run it." },
-  { id:"certified", level:3, calls:20, minAvg:70,
+  { id:"certified", level:3, calls:15, minAvg:70,
     title:"Certified Sales Agent", badge:"Sales Ready",
     color:LIME, glow:"rgba(194,238,69,0.35)",
     icon:"🏆",
-    desc:"Top-tier performance across 20+ calls. You are ready to take real calls and close real deals for OutSkill.",
+    desc:"Top-tier performance across 15+ calls. You are ready to take real calls and close real deals for OutSkill.",
     tagline:"Ready for the real world. Go close." },
 ];
 
@@ -2598,7 +2598,12 @@ function CertProgressStrip({ history, serif }) {
 /* Full certificate modal — opens when "View Certificate" or "Preview" is clicked */
 function CertificateModal({ tier, repName, history, isPreview, onClose }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : 0;
+  // Always the date the certificate is opened — never a stored past date
   const dateStr = new Date().toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
+  // Name: prefer the typed rep name, fall back to the visitor name saved on first login
+  const displayName = (repName || "").trim()
+    || (() => { try { return localStorage.getItem("sarafai_visitor_name") || ""; } catch { return ""; } })()
+    || "Sales Representative";
   const certId = `OUTSKILL-L${tier.level}-${Date.now().toString(36).toUpperCase().slice(-6)}`;
   const verifyUrl = `https://outskill-garvit.vercel.app/?cert=${certId}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(verifyUrl)}&bgcolor=ffffff&color=0a0c08&margin=6`;
@@ -2606,7 +2611,7 @@ function CertificateModal({ tier, repName, history, isPreview, onClose }) {
   const printCert = () => {
     const w = window.open("", "_blank", "width=900,height=650");
     const el = document.getElementById("saraf-cert-inner");
-    w.document.write(`<!DOCTYPE html><html><head><title>${tier.title} — ${repName}</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${tier.title} — ${displayName}</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Hanken+Grotesk:wght@400;600;700&display=swap" rel="stylesheet"/>
     <style>
       *{margin:0;padding:0;box-sizing:border-box}
@@ -2669,7 +2674,7 @@ function CertificateModal({ tier, repName, history, isPreview, onClose }) {
           <div style={{ textAlign:"center", marginBottom:32 }}>
             <div style={{ fontSize:11, letterSpacing:3, textTransform:"uppercase", color:"rgba(255,255,255,0.4)", marginBottom:14 }}>This is to certify that</div>
             <div style={{ fontFamily:"'Fraunces',Georgia,serif", fontSize:"clamp(28px,5vw,46px)", fontWeight:700, color:"#fff", letterSpacing:-0.5, marginBottom:10, textShadow:`0 0 40px ${tier.color}66` }}>
-              {repName || "Sales Representative"}
+              {displayName}
             </div>
             <div style={{ fontSize:13, color:"rgba(255,255,255,0.55)", maxWidth:480, margin:"0 auto", lineHeight:1.65 }}>
               has successfully completed the <strong style={{color:"rgba(255,255,255,0.85)"}}>OutSkill AI Sales Mock Call Training Program</strong> and demonstrated competency in AI-assisted consultative sales techniques.

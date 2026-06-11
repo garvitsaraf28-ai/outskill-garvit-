@@ -1,0 +1,17 @@
+{
+  "urlTemplate": "https://applications.outskill.com/2021/{id}",
+  "_comment": "urlTemplate: {id} is replaced by each form id. Change the '2021' path segment here if a funnel lives under a different path. Segments below are exactly as provided; add/remove ids freely.",
+  "segments": [
+    { "segment": "C57 | Gen AI Engineering Mastermind | 1", "ids": [14081, 15896, 16226, 16292, 16293, 16361, 13586, 17381, 17711, 17414, 17513, 18437, 15302, 18438] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | 2", "ids": [] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | 3", "ids": [] },
+    { "segment": "C57 | INFL-1 | Gen AI Engineering Mastermind | 1", "ids": [15269, 15270, 18939] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | P", "ids": [] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | WEB", "ids": [16755, 16754] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | REF", "ids": [13587] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | ES", "ids": [19199] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | NC", "ids": [19394, 19395] },
+    { "segment": "C57 | Gen AI Engineering Mastermind | CS (Reddit, Cred and Competitive Search)", "ids": [19559, 19988, 20253] },
+    { "segment": "ENG 57 | Staying Ahead Club | 11 Perf", "ids": [19131] }
+  ]
+}

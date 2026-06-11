@@ -6,3 +6,4 @@ dist
 calls
 models
 .claude/
+.cache/

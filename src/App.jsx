@@ -1148,7 +1148,7 @@ function Cover({ serif, onEnter }) {
         </div>
         <div style={{ fontSize:"clamp(10px,3vw,13px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:18, fontWeight:600 }}>OutSkill · New-Joiner Onboarding</div>
         <h1 style={{ ...serif, fontSize:"clamp(34px, 9vw, 92px)", fontWeight:600, lineHeight:1.05, margin:"0 0 18px", letterSpacing:-1 }}>
-          From day one to<br/><span style={{ color:LIME }}>closer.</span>
+          From day one to<br/><span style={{ color:LIME }}>deal-closer.</span>
         </h1>
         <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,18px)", maxWidth:600, margin:"0 auto", lineHeight:1.55 }}>
           A guided training journey for every new OutSkill joiner — company knowledge, product &amp; offer, live mock-calls with instant coaching, and the ramp to real work. Starting with the Sales department.

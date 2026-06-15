@@ -12,7 +12,7 @@ import {
   LayoutDashboard, Building2, Users, Briefcase, Package, ClipboardList,
   Phone, MessageSquare, Award, Headphones, Radio, RefreshCw,
   Lock, CheckCircle2, ChevronRight, ArrowLeft, ArrowRight, LogOut,
-  Mail, User, Clock, MapPin, Target, GraduationCap, AlertTriangle,
+  Mail, User, Clock, MapPin, Target, GraduationCap, AlertTriangle, Sparkles,
 } from "lucide-react";
 
 /* ---- palette (kept in sync with App.jsx) ---- */
@@ -457,6 +457,31 @@ function Spark({ values, h = 50 }) {
   );
 }
 
+// On-demand AI coaching note (reuses the app's /api/chat endpoint).
+function CoachNote({ stats }) {
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const ask = async () => {
+    setLoading(true); setNote("");
+    try {
+      const res = await fetch("/api/chat", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({
+        system: "You are a sharp, encouraging OutSkill sales coach. Given a trainee's stats, reply in 2-3 sentences (under 55 words): name one specific strength, one specific gap, and one concrete next drill (suggest a persona + difficulty round if useful). No preamble, no bullet points.",
+        messages: [{ role:"user", content: stats }],
+      })});
+      const data = await res.json();
+      const txt = (data?.content || []).filter(b => b.type === "text").map(b => b.text).join(" ").trim();
+      setNote(txt || "Couldn't generate a note right now — try again.");
+    } catch { setNote("Couldn't reach the coach right now — try again."); }
+    setLoading(false);
+  };
+  if (note) return <div style={{ fontSize:13.5, color:TXT, lineHeight:1.55, background:"rgba(194,238,69,0.06)", border:`1px solid rgba(194,238,69,0.25)`, borderRadius:12, padding:"12px 14px", marginTop:12 }}>{note}</div>;
+  return (
+    <button onClick={ask} disabled={loading} style={{ ...secondaryBtn, marginTop:12, padding:"9px 14px", fontSize:13, opacity: loading ? 0.6 : 1 }}>
+      <Sparkles size={14}/><span style={{ marginLeft:7 }}>{loading ? "Thinking…" : "Ask my AI coach"}</span>
+    </button>
+  );
+}
+
 export function Dashboard({ user, completed, goStage, onLogout, history = [] }) {
   const quizScores = (() => { try { return JSON.parse(localStorage.getItem("sarafai_quiz_v1") || "{}"); } catch { return {}; } })();
   const doneCount = TRAINABLE.filter((n) => completed.includes(n)).length;
@@ -492,6 +517,27 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
   };
   const ctaLabel = doneCount === 0 ? "Start Level 1" : doneCount >= total ? "Review journey" : "Continue";
 
+  // AI-coach stats line
+  const statsStr = `Completion ${pct}% (${doneCount}/${total} levels). Program knowledge ${knowledge != null ? knowledge + "%" : "not taken"}. Mock-call avg ${callAvg != null ? callAvg : "none"} (best ${best != null ? best : "-"}, ${calls.length} calls). Strongest ${strongest ? SHORT(strongest.name) + " " + strongest.pct + "%" : "n/a"}. Weakest ${weakest ? SHORT(weakest.name) + " " + weakest.pct + "%" : "n/a"}. Personas: Rajesh, Sandeep, Priya, Meena, Arvind, Vikram, Anjali, Suresh, Salman. Difficulty rounds: Peer..Director.`;
+
+  // next-best-action
+  const focus = (weakest && weakest.pct < 70)
+    ? { title: `Drill your weakest skill: ${SHORT(weakest.name)} (${weakest.pct}%)`, sub: "Run a mock call and focus on this.", go: () => goStage(7), cta: "Open Mock-Call Room" }
+    : next
+    ? { title: `Continue Level ${next.n - 1}: ${next.title}`, sub: next.short || "Pick up where you left off.", go: () => goStage(next.n), cta: "Continue" }
+    : { title: "Keep your edge — run a fresh mock call", sub: "You're Sales Ready; stay sharp.", go: () => goStage(7), cta: "Open Mock-Call Room" };
+
+  // achievements
+  const anyQuizAce = Object.values(quizScores).some((q) => q.total > 0 && q.correct === q.total);
+  const badges = [
+    { e:"🚀", label:"First Steps", on: completed.includes(2) },
+    { e:"🎯", label:"Quiz Ace", on: anyQuizAce },
+    { e:"📞", label:"First Call", on: calls.length >= 1 },
+    { e:"🔥", label:"Practised ×3", on: calls.length >= 3 },
+    { e:"⭐", label:"Halfway", on: doneCount >= 6 },
+    { e:"🏆", label:"Sales Ready", on: ready },
+  ];
+
   return (
     <div className="osf">
       {/* top bar */}
@@ -522,6 +568,17 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
         <KPI label="Rank" value={readiness} sub={level} color={ready ? LIME : TXT} />
       </div>
 
+      {/* today's focus — next best action */}
+      <button onClick={focus.go} style={{ width:"100%", textAlign:"left", background:"linear-gradient(100deg, rgba(194,238,69,0.16), rgba(194,238,69,0.04))", border:`1px solid rgba(194,238,69,0.4)`, borderRadius:16, padding:"16px 18px", display:"flex", alignItems:"center", gap:14, flexWrap:"wrap", marginBottom:14 }}>
+        <div style={{ width:42, height:42, borderRadius:12, background:"rgba(194,238,69,0.18)", display:"flex", alignItems:"center", justifyContent:"center", color:LIME, flexShrink:0 }}><Target size={20}/></div>
+        <div style={{ flex:1, minWidth:180 }}>
+          <div style={{ fontSize:10.5, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:2 }}>Today's focus</div>
+          <div style={{ ...serif, fontSize:17, fontWeight:600 }}>{focus.title}</div>
+          <div style={{ fontSize:12.5, color:MUTE, marginTop:1 }}>{focus.sub}</div>
+        </div>
+        <span style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:700, color:INK, background:LIME, borderRadius:30, padding:"9px 16px", flexShrink:0 }}>{focus.cta} <ChevronRight size={15}/></span>
+      </button>
+
       {/* progress donut + analysis */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:14, marginBottom:14 }}>
         <div style={{ background:"linear-gradient(120deg, rgba(194,238,69,0.12), rgba(194,238,69,0.03))", border:`1px solid rgba(194,238,69,0.3)`, borderRadius:16, padding:"18px 20px", display:"flex", alignItems:"center", gap:18, flexWrap:"wrap" }}>
@@ -542,6 +599,7 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
             <Insight warn={!!weakest}>{weakest ? `Focus next: ${SHORT(weakest.name)} (${weakest.pct}%).` : "Your weak spots surface after a few calls."}</Insight>
             <Insight ok={!next}>{next ? `Up next: Level ${next.n - 1} · ${next.title}.` : "Every level complete — you're Sales Ready! 🎉"}</Insight>
           </ul>
+          <CoachNote stats={statsStr} />
         </Card>
       </div>
 
@@ -563,6 +621,17 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
               </div>)
             : <EmptyViz>Your scores over time appear here once you've run a mock call.</EmptyViz>}
         </Card>
+      </div>
+
+      {/* achievements */}
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:MUTE, fontWeight:600, marginBottom:10 }}>Achievements</div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:24 }}>
+        {badges.map((b, i) => (
+          <div key={i} title={b.on ? "Earned" : "Locked"} style={{ display:"flex", alignItems:"center", gap:7, background: b.on ? "rgba(194,238,69,0.1)" : "rgba(255,255,255,0.03)", border:`1px solid ${b.on ? LIME+"44" : BORDER}`, borderRadius:30, padding:"7px 13px", opacity: b.on ? 1 : 0.45 }}>
+            <span style={{ fontSize:15, filter: b.on ? "none" : "grayscale(1)" }}>{b.e}</span>
+            <span style={{ fontSize:12.5, fontWeight:600, color: b.on ? TXT : MUTE }}>{b.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* roadmap */}

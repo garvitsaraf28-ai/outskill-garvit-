@@ -255,6 +255,7 @@ export function LoginScreen({ onAuth }) {
             This is a local training profile saved on this device. No password is sent anywhere.
           </div>
         </form>
+        <MadeBy />
       </div>
     </div>
   );
@@ -272,6 +273,17 @@ function BrandMark() {
       <div>
         <div style={{ ...serif, fontSize:20, fontWeight:600, lineHeight:1, color:TXT }}>Outskill</div>
         <div style={{ fontSize:10.5, letterSpacing:1.5, textTransform:"uppercase", color:MUTE, marginTop:3 }}>Sales Onboarding</div>
+      </div>
+    </div>
+  );
+}
+
+function MadeBy({ mt = 22 }) {
+  return (
+    <div style={{ display:"flex", justifyContent:"center", marginTop:mt }}>
+      <div style={{ display:"inline-flex", alignItems:"center", gap:9, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.34)`, borderRadius:30, padding:"7px 15px" }}>
+        <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>OutSkill · Built by</span>
+        <span style={{ ...serif, fontSize:13.5, fontWeight:600, letterSpacing:1, color:LIME }}>GARVIT SARAF</span>
       </div>
     </div>
   );
@@ -399,6 +411,8 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
         {STAGES.map((s) => <StepRow key={s.n} stage={s} status={statusFor(s.n)} onClick={() => goStage(s.n)} />)}
       </div>
+
+      <MadeBy mt={26} />
     </div>
   );
 }

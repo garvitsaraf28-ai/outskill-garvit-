@@ -27,7 +27,17 @@ ROUTING RULE (the single most important thing in the call):
 - "Some scripting, not sure"                     -> the rep MUST probe before recommending.
 
 AI GENERALIST ACCELERATOR (no-code, for business people across functions: marketing, sales, ops, product, finance):
-- 14-day live program (plus a Day-0 kick-off and a graduation). Weekday sessions 7:30-11:00pm IST (10:00am-1:30pm EST); weekend sessions 10am-7pm IST. Real curriculum: Gen-AI fundamentals & prompt engineering with local models (Ollama, MSTY); AI clone generation (video + voice + image); AI automations with n8n (build your first "AI employee"); agentic AI; MCPs (Claude, Perplexity, build your own MCP server); real-time human-like voice agents; a 6-hour Build Day (ship an AI MVP, "Jerry"); then office-hours + build days to ship a project, ending in pitch submissions.
+- 14-day live program (Day-0 kick-off + graduation). Weekdays 7:30-11:00pm IST (10:00am-1:30pm EST); weekends 10am-7pm IST; recordings for every session.
+- DAY BY DAY (a rep should be able to pitch any day with confidence):
+  • Day 1 — Gen-AI fundamentals & your own AI playground: prompt engineering, deploy local models (Ollama, MSTY), APIs/webhooks.
+  • Day 2 — Image, video & AI clones: clone your face, voice & image; create content (ElevenLabs, Suno).
+  • Day 3 — AI automations with n8n: replace repetitive tasks; build a lead-management system.
+  • Day 4 — Agentic AI: build your first "AI employee".
+  • Day 5 — Beyond prompting: MCPs (Claude, Perplexity, build your own MCP server).
+  • Day 6 — Real-time human-like voice agents + Tech 101.
+  • Day 7 — Build Day: ideate -> design -> build -> ship an AI MVP ("Jerry") in ~6 hours.
+  • Days 8-13 — Office hours + build days: troubleshooting, team formation, build your MVP, pitch submissions.
+  • Day 14 — Graduation + community networking.
 - Includes: 48-hour buildathon (you ship a real product, not just a certificate), AI Content Library (12 months access, updated monthly), Kairos Business Fellowship (stated worth $5000), Monetization Mastery 101, 54+ weekly live update sessions for 12 months, bonus tool stack worth ~$2,528, and a 1:1 onboarding call.
 - Tagline that disarms "I'm not technical": "If you can use Google Sheets, you can complete it."
 - NOT for deep ML researchers or AI engineers.

@@ -544,28 +544,31 @@ function Quiz({ questions, onPass }) {
 // Mastermind recordings embedded in-portal (Level 2). Generalist = YouTube
 // playlist (plays inline); Engineering = Google Drive folder (opens in a tab).
 export function MastermindRecordings() {
+  const GEN = ["VDnFr_hx5N0", "GYBdgKZlKaA"]; // Generalist mastermind (YouTube)
+  const ENG = [                                // Engineering mastermind (Google Drive video files)
+    "1nagIgLAy21WDxYiUIshm9H7oYd9V0WJF",
+    "1VxyKz_dzpERToySg4g_RQV-KdI8a86TC",
+    "1awA_ier_xASpEAEvlmlRPzZQmMrNnDhT",
+    "1lshsoYccafTas6u_YXDaAU_QqiBgQ3Yj",
+  ];
+  const labelStyle = { fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 };
+  const Frame = ({ src, title }) => (
+    <div style={{ position:"relative", paddingTop:"56.25%", borderRadius:14, overflow:"hidden", border:`1px solid ${BORDER}`, background:"#000", marginBottom:12 }}>
+      <iframe src={src} title={title} allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:0 }} />
+    </div>
+  );
   return (
-    <div style={{ display:"flex", flexDirection:"column", gap:20, marginTop:8 }}>
+    <div style={{ display:"flex", flexDirection:"column", gap:22, marginTop:8 }}>
       <div>
-        <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 }}>Generalist mastermind — watch in full</div>
-        <div style={{ position:"relative", paddingTop:"56.25%", borderRadius:14, overflow:"hidden", border:`1px solid ${BORDER}`, background:"#000" }}>
-          <iframe
-            src="https://www.youtube.com/embed/videoseries?list=PLP2Og2n6NgEU8aqCP1FACWYJGopnzuvf3"
-            title="Generalist Mastermind Recordings"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:0 }}
-          />
-        </div>
-        <div style={{ fontSize:12.5, color:MUTE, marginTop:7 }}>Full playlist — non-technical track. Watch every session.</div>
+        <div style={labelStyle}>Generalist mastermind — watch in full</div>
+        {GEN.map((id, i) => <Frame key={id} src={`https://www.youtube.com/embed/${id}`} title={`Generalist Mastermind — session ${i + 1}`} />)}
+        <div style={{ fontSize:12.5, color:MUTE }}>Non-technical track. Watch both sessions.</div>
       </div>
       <div>
-        <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 }}>Engineering mastermind — watch in full</div>
-        <a href="https://drive.google.com/drive/folders/1yHbYhfGAguz6CI5zZG-CFUg20tAj-ryH" target="_blank" rel="noopener noreferrer"
-          style={{ ...primaryBtn, textDecoration:"none" }}>
-          Open Engineering recordings (Google Drive) <ChevronRight size={16} style={{ marginLeft:6 }} />
-        </a>
-        <div style={{ fontSize:12.5, color:MUTE, marginTop:8 }}>Hosted on Drive (opens in a new tab) — technical / Python track.</div>
+        <div style={labelStyle}>Engineering mastermind — watch in full</div>
+        {ENG.map((id, i) => <Frame key={id} src={`https://drive.google.com/file/d/${id}/preview`} title={`Engineering Mastermind — session ${i + 1}`} />)}
+        <div style={{ fontSize:12.5, color:MUTE }}>Technical / Python track. Plays here from Drive (the files must be shared "anyone with the link").</div>
       </div>
     </div>
   );

@@ -190,13 +190,12 @@ export function LoginScreen({ onAuth }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [track, setTrack] = useState("Generalist"); // Generalist | Engineering
   const signup = mode === "signup";
   const canSubmit = email.trim() && pw.trim() && (!signup || name.trim());
   const submit = (e) => {
     if (e) e.preventDefault();
     if (!canSubmit) return;
-    onAuth({ name: (name.trim() || email.split("@")[0]), email: email.trim(), track, role: "New joiner" });
+    onAuth({ name: (name.trim() || email.split("@")[0]), email: email.trim(), role: "New joiner" });
   };
   return (
     <div className="osf" style={{ minHeight:"82vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
@@ -233,18 +232,9 @@ export function LoginScreen({ onAuth }) {
           </AuthField>
 
           {signup && (
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:12, color:MUTE, marginBottom:6, fontWeight:500 }}>Your track</div>
-              <div style={{ display:"flex", gap:8 }}>
-                {["Generalist","Engineering"].map(t=>(
-                  <button key={t} type="button" onClick={()=>setTrack(t)}
-                    style={{ flex:1, borderRadius:11, padding:"10px 0", fontSize:13, fontWeight:600,
-                      background: track===t ? "rgba(194,238,69,0.14)" : "rgba(255,255,255,0.04)",
-                      border:`1px solid ${track===t ? LIME+"66" : BORDER}`, color: track===t ? LIME : MUTE }}>
-                    {t}
-                  </button>
-                ))}
-              </div>
+            <div style={{ display:"flex", alignItems:"flex-start", gap:8, background:"rgba(194,238,69,0.06)", border:`1px solid rgba(194,238,69,0.2)`, borderRadius:11, padding:"11px 13px", marginBottom:16 }}>
+              <GraduationCap size={15} color={LIME_DIM} style={{ marginTop:1, flexShrink:0 }}/>
+              <div style={{ fontSize:12.5, color:MUTE, lineHeight:1.5 }}>You'll learn <b style={{ color:TXT }}>both</b> the Generalist and Engineering programs during training — nothing to pick here.</div>
             </div>
           )}
 
@@ -360,7 +350,7 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
         <div style={{ marginLeft:"auto", display:"flex", alignItems:"center", gap:10 }}>
           <div style={{ textAlign:"right" }}>
             <div style={{ fontSize:13, fontWeight:600, color:TXT }}>{user?.name || "Trainee"}</div>
-            <div style={{ fontSize:11, color:MUTE }}>{user?.track ? `${user.track} track` : (user?.email || "")}</div>
+            <div style={{ fontSize:11, color:MUTE }}>{user?.email || "New joiner"}</div>
           </div>
           <button onClick={onLogout} title="Log out" style={{ ...secondaryBtn, padding:"8px 12px", fontSize:12.5 }}>
             <LogOut size={14}/><span style={{ marginLeft:6 }}>Log out</span>

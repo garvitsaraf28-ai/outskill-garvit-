@@ -396,6 +396,7 @@ export default function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("sarafai_user") || "null"); } catch { return null; } });
   const [completed, setCompleted] = useState(() => { try { return JSON.parse(localStorage.getItem("sarafai_journey_v1") || "[]"); } catch { return []; } });
   const [openStage, setOpenStage] = useState(2);
+  const [entered, setEntered] = useState(false); // cover splash shows first, before login
 
   // Global background music — persists across every page.
   const [musicOn, setMusicOn] = useState(true);
@@ -926,7 +927,9 @@ If the rep said nothing factually useful or correct, return [].`,
       `}</style>
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
-        {!user ? (
+        {!entered ? (
+          <Cover serif={serif} onEnter={() => setEntered(true)} />
+        ) : !user ? (
           <LoginScreen onAuth={onAuth} />
         ) : (<>
         {!["cover","dept","login","dashboard","stage"].includes(section) && (
@@ -965,12 +968,6 @@ If the rep said nothing factually useful or correct, return [].`,
           if (openStage === 12) return wrap(<PersonalProgress history={history} repName={repName} serif={serif} />);
           return wrap(null);
         })()}
-
-        {section === "cover" && (
-          <Cover serif={serif} onEnter={() => setSection("dept")}
-            musicOn={musicOn} musicStarted={musicStarted}
-            setMusicOn={setMusicOn} setMusicStarted={setMusicStarted} />
-        )}
 
         {section === "dept" && (
           <DeptSelect serif={serif} goBack={() => setSection("cover")}
@@ -1133,45 +1130,36 @@ function makeAmbience() {
   };
 }
 
-function Cover({ serif, onEnter, musicOn, musicStarted, setMusicOn, setMusicStarted }) {
+function Cover({ serif, onEnter }) {
   useEffect(() => {
-    const t = setTimeout(onEnter, 10000);
+    const t = setTimeout(onEnter, 12000);
     const onKey = (e) => { if (e.key === "Enter" || e.key === " ") onEnter(); };
     window.addEventListener("keydown", onKey);
     return () => { clearTimeout(t); window.removeEventListener("keydown", onKey); };
   }, []);
 
   return (
-    <div onClick={onEnter} role="button" title="Enter"
+    <div onClick={onEnter} role="button" title="Begin"
       style={{ minHeight:"86vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", cursor:"pointer", position:"relative", padding:"40px 18px 90px" }}>
       <div className="osf">
         {/* brand dot-mark */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,11px)", gap:5, justifyContent:"center", marginBottom:22 }}>
           {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:11, height:11, borderRadius:"50%", background: d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow: d?`0 0 14px ${LIME}55`:"none" }} />))}
         </div>
-        <div style={{ fontSize:"clamp(10px,3vw,13px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:18, fontWeight:600 }}>OutSkill · Sales Department</div>
+        <div style={{ fontSize:"clamp(10px,3vw,13px)", letterSpacing:5, textTransform:"uppercase", color:LIME_DIM, marginBottom:18, fontWeight:600 }}>OutSkill · New-Joiner Onboarding</div>
         <h1 style={{ ...serif, fontSize:"clamp(34px, 9vw, 92px)", fontWeight:600, lineHeight:1.05, margin:"0 0 18px", letterSpacing:-1 }}>
-          Where conversations<br/><span style={{ color:LIME }}>become conversions.</span>
+          From day one to<br/><span style={{ color:LIME }}>sales-ready.</span>
         </h1>
-        <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,18px)", maxWidth:580, margin:"0 auto", lineHeight:1.55 }}>
-          The command center for OutSkill's sales team — train, call, report, and follow up. All in one place.
+        <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,18px)", maxWidth:600, margin:"0 auto", lineHeight:1.55 }}>
+          A guided training journey for every new OutSkill joiner — company knowledge, product &amp; offer, live mock-calls with instant coaching, and the ramp to real work. Starting with the Sales department.
         </p>
         <div style={{ marginTop:30, fontSize:12.5, color:MUTE, display:"inline-flex", alignItems:"center", gap:9 }}>
           <span className="osd"/><span className="osd"/><span className="osd"/>
-          <span style={{ marginLeft:4 }}>tap anywhere to enter</span>
+          <span style={{ marginLeft:4 }}>tap anywhere to begin</span>
         </div>
 
-        {/* Music + credit row — centered, just below the tap line */}
-        <div onClick={(e)=>e.stopPropagation()} style={{ marginTop:26, display:"flex", flexWrap:"wrap", justifyContent:"center", alignItems:"center", gap:12 }}>
-          <button onClick={() => { if (!musicStarted) { setMusicStarted(true); setMusicOn(true); } else { setMusicOn(v => !v); } }}
-            title={musicOn ? "Mute music" : "Play music"}
-            style={{ display:"inline-flex", alignItems:"center", gap:7,
-              background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
-              border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
-              color: musicOn ? TXT : MUTE, fontSize:12.5 }}>
-            {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
-            <span>{musicOn ? "Music on" : "Music off"}</span>
-          </button>
+        {/* Built-by credit */}
+        <div onClick={(e)=>e.stopPropagation()} style={{ marginTop:26, display:"flex", justifyContent:"center" }}>
           <div style={{ display:"inline-flex", alignItems:"center", gap:9, background:"rgba(194,238,69,0.07)", border:`1px solid rgba(194,238,69,0.38)`, borderRadius:30, padding:"9px 16px" }}>
             <span style={{ fontSize:10, letterSpacing:1.5, textTransform:"uppercase", color:MUTE }}>Built by</span>
             <span style={{ ...serif, fontSize:14, fontWeight:600, letterSpacing:1.5, color:LIME }}>GARVIT SARAF</span>

@@ -1829,21 +1829,29 @@ function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCus
         <ModeCard active={mode==="agent"} onClick={()=>setMode("agent")} icon={<GraduationCap size={18}/>} title="AI sells · I'm the customer" sub="The AI is the salesperson and consults you. You play the customer and learn by listening." serif={serif}/>
       </div>
 
-      {/* Feature 2: Difficulty pills */}
+      {/* Mock-call ladder: hint mode (how much help) + difficulty round (who you face) */}
+      <div style={{ marginBottom:16 }}>
+        <SectionLabel>Hint mode — how much help</SectionLabel>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {HINT_MODES.map(m=>(
+            <button key={m.id} onClick={()=>setHintMode(m.id)}
+              style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:1, background: hintMode===m.id?"rgba(194,238,69,0.12)":PANEL,
+                border:`1px solid ${hintMode===m.id?"rgba(194,238,69,0.5)":BORDER}`, borderRadius:13, padding:"8px 13px", transition:"all .15s" }}>
+              <span style={{ fontWeight:600, fontSize:13, color: hintMode===m.id?LIME:TXT }}>{m.label}</span>
+              <span style={{ color:MUTE, fontSize:11 }}>{m.desc}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{ marginBottom:22 }}>
-        <SectionLabel>Difficulty</SectionLabel>
-        <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-          {[
-            { id:"easy", emoji:"🟢", label:"Easy", sub:"Warm & cooperative" },
-            { id:"medium", emoji:"🟡", label:"Medium", sub:"Realistic mixed signals" },
-            { id:"hard", emoji:"🔴", label:"Hard", sub:"Aggressive, tricky objections" },
-          ].map(d=>(
-            <button key={d.id} onClick={()=>setDifficulty(d.id)}
-              style={{ display:"flex", alignItems:"center", gap:8, background: difficulty===d.id?"rgba(194,238,69,0.12)":PANEL,
-                border:`1px solid ${difficulty===d.id?"rgba(194,238,69,0.5)":BORDER}`, borderRadius:30, padding:"9px 16px", fontSize:13.5, transition:"all .15s" }}>
-              <span>{d.emoji}</span>
-              <span style={{ fontWeight:600, color: difficulty===d.id?LIME:TXT }}>{d.label}</span>
-              <span style={{ color:MUTE, fontSize:12 }}>— {d.sub}</span>
+        <SectionLabel>Difficulty round — who you face</SectionLabel>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {ROUNDS.map(r=>(
+            <button key={r.n} onClick={()=>setRound(r.n)}
+              style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", gap:1, background: round===r.n?"rgba(194,238,69,0.12)":PANEL,
+                border:`1px solid ${round===r.n?"rgba(194,238,69,0.5)":BORDER}`, borderRadius:13, padding:"8px 13px", transition:"all .15s" }}>
+              <span style={{ fontWeight:600, fontSize:13, color: round===r.n?LIME:TXT }}>{r.n}. {r.name}</span>
+              <span style={{ color:MUTE, fontSize:11 }}>{r.desc}</span>
             </button>
           ))}
         </div>

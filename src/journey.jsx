@@ -76,7 +76,7 @@ export const STAGES = [
       { h: "The departments", items: ["Sales — convert mastermind attendees", "Marketing — runs the campaigns / TOFU", "Operations — keeps it all running"] },
       { h: "Inside Sales — your team", items: ["Audience: mastermind attendees who did NOT pay", "What's sold: the Accelerator", "Your role: discover, pitch, close, follow up", "How leads come in: straight from the masterminds"] },
     ],
-    unlock: "Department chosen → Stage 5",
+    unlock: "Choose Inside Sales to continue",
   },
   {
     n: 5, title: "Product & Offer Training", subtitle: "Know the offer cold", when: "Week 1",
@@ -143,7 +143,7 @@ export const STAGES = [
     sections: [
       { h: "Readiness gates", items: ["Company knowledge quiz — basics + funnel", "Product knowledge quiz — Accelerator, pricing & EMI", "Sales pitch test — deliver it end to end", "Mock-call score — minimum across the ladder, incl. Director round"] },
     ],
-    unlock: "All gates passed → Stage 10",
+    unlock: "Pass all the gates to become Sales Ready",
   },
   {
     n: 10, title: "Shadowing & Live Support", subtitle: "Learn beside a closer", when: "Transition",
@@ -153,7 +153,7 @@ export const STAGES = [
     sections: [
       { h: "The 5-step ramp", items: ["1 · Listen — recorded senior calls", "2 · Observe — watch live customer handling", "3 · Co-pilot — join calls, senior leads", "4 · Supported live — you lead, senior on standby", "5 · Independent — solo live calls"] },
     ],
-    unlock: "Cleared by a senior / manager → Stage 11",
+    unlock: "Cleared by a senior or manager to go live",
   },
   {
     n: 11, title: "Live Work Mode", subtitle: "Real calls, real learners", when: "On ground",

@@ -64,6 +64,14 @@ INTERNATIONAL — payment options (XP gateway):
 
 KEY RULES: Indian EMI is ZERO-COST (company bears the interest) — never tell an Indian learner that EMI costs extra. The 9% fee applies to INTERNATIONAL installments ONLY. EMI tenures are always 3, 6, 9 or 12 months.
 
+WHAT THE MASTERMIND SHOWED (the prospect already saw this in the free workshop — a great rep references it):
+- "AI changes every week" -> the program keeps you updated with weekly live sessions for ~1 year (54 weeks). "Stay current for a year" is a major value prop.
+- Income angle: AI consulting / freelancing is "an ocean of opportunity" — automate for small businesses, build a side income. Many attendees came for exactly this.
+- The 14 days are hands-on and end in a shipped AI MVP (Build Day) — not just theory.
+- Tools they already saw: local models (Ollama / MSTY); image, video & voice cloning (e.g. ElevenLabs, Suno); n8n automations (pitched as the easiest, safest, most economical vs Zapier / Make / Power Automate / UiPath); MCPs; real-time voice agents; agentic AI / "AI orchestrator".
+- Flexibility: two cohort start slots, recordings for any missed session, and one free deferral to a later batch if the dates don't suit.
+- No scholarships or discounts — hold the price and sell the value.
+
 COMPLIANCE (hard rule): NEVER promise a guaranteed job or specific salary. Frame outcomes as ranges / what learners have done ("1.5x-3x is the range we see", "300+ professionals have come through", testimonials). Mentors are active builders shipping real products (ex-NVIDIA and Adobe ML engineers, applied scientists, AI engineers).
 `.trim();
 

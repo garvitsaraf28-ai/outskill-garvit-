@@ -190,15 +190,13 @@ function AuthField({ label, icon, children }) {
 const ACCT_KEY = "sarafai_accounts_v1";
 function loadAccounts() { try { return JSON.parse(localStorage.getItem(ACCT_KEY) || "{}"); } catch { return {}; } }
 function saveAccounts(a) { try { localStorage.setItem(ACCT_KEY, JSON.stringify(a)); } catch {} }
-// Every signup/login event is logged locally and (when a webhook is set) POSTed
-// to a Google Sheet via an Apps Script Web App. Put the Web App URL in the Vercel
-// env var VITE_SHEET_WEBHOOK to turn the live sync on.
-const SHEET_WEBHOOK = import.meta.env.VITE_SHEET_WEBHOOK || "";
+// Every signup/login event is logged locally and POSTed to our own serverless
+// proxy (/api/log), which holds the private Google Sheet URL + secret token in
+// server-side env vars — so neither ever appears in the browser or the repo.
 function logEvent(payload) {
   const rec = { ts: new Date().toISOString(), userAgent: (typeof navigator !== "undefined" ? navigator.userAgent : ""), ...payload };
   try { const k = "sarafai_events_v1"; const a = JSON.parse(localStorage.getItem(k) || "[]"); a.push(rec); localStorage.setItem(k, JSON.stringify(a)); } catch {}
-  if (!SHEET_WEBHOOK) return;
-  try { fetch(SHEET_WEBHOOK, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(rec) }); } catch {}
+  try { fetch("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }); } catch {}
 }
 
 export function LoginScreen({ onAuth }) {

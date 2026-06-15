@@ -50,7 +50,7 @@ MARKET RULE:
 
 PRICING & PAYMENT (rep must know these exactly — source: OutSkill payment-gateways sheet):
 
-PRICE: Quote the CURRENT batch price from the latest brochure/schedule (indicative India price ~Rs 94,999 — always confirm the live figure; never invent or undercut it).
+PRICE (current, confirmed): India = Rs 94,999 (INR). International = $2,995 (USD). If a learner pays in USD but attended the INDIAN mastermind = $1,199 (USD). Never invent, discount or undercut these.
 
 INDIA — payment options:
 - One-time (full payment): Razorpay. No extra charge.

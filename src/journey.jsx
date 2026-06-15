@@ -81,14 +81,20 @@ export const STAGES = [
   {
     n: 5, title: "Product & Offer Training", subtitle: "Know the offer cold", when: "Week 1",
     Icon: Package, kind: "page",
-    short: "Master the Accelerator: value, pricing & EMI, who it's for, why it beats bootcamp.",
-    detail: "Study the actual offer until you can explain it simply — value, pricing & EMI, who it's for, what sets it apart from the bootcamp, and the common objections. Pricing/EMI ties to the payment gateways.",
+    short: "Master the Accelerator: price, payment routes, who it's for, and why it beats the bootcamp.",
+    detail: "Study the offer until you can explain it simply — the price, the payment routes, who it's for (your 9 buyer personas), and what sets it apart from the bootcamp. Compliance: never promise a job or a specific salary.",
     sections: [
-      { h: "Know cold", items: ["Why the Accelerator is the main high-ticket offer", "Pricing & value · EMI options", "Who it's for", "Why it beats the bootcamp", "The common objections"] },
-      { h: "Payment gateways", items: ["Razorpay", "Pine Labs", "Shopse", "Fibe / Propel", "XP"] },
-      { h: "Compliance — hard rule", items: ["Never promise a job", "Never promise a specific salary"] },
+      { h: "The offer & price", items: ["The Accelerator is the main high-ticket offer — 14-day, no-code", "India: Rs 94,999 · International: $2,995", "USD-paying but attended the Indian mastermind: $1,199", "Why it beats the bootcamp (depth, projects, support)"] },
+      { h: "Payment routes", items: ["India one-time: Razorpay", "India EMI (credit card): Pine Labs — zero-cost, 3/6/9/12 mo", "India EMI (debit card): Shopse — zero-cost, after eligibility check", "India, no card: Fibe / Propel (NBFC) via Google form", "International: XP — one-time free; installments add 9%"] },
+      { h: "Compliance — hard rule", items: ["Never promise a job", "Never promise a specific salary", "Frame outcomes as ranges / learner stories"] },
     ],
-    unlock: "Explain the offer simply → Stage 6",
+    quiz: [
+      { q: "How does Indian EMI work for the learner?", options: ["A 9% fee is added", "Zero-cost — OutSkill bears the interest", "Interest charged monthly", "EMI isn't available in India"], answer: 1 },
+      { q: "An INTERNATIONAL learner wants installments. What applies?", options: ["Zero-cost EMI", "A 9% convenience fee is added (via XP)", "No installments allowed", "Pay via Pine Labs"], answer: 1 },
+      { q: "India, no credit card, fails the Shopse eligibility check — the route is…", options: ["Refuse EMI", "NBFC partners Fibe / Propel via a Google form", "Razorpay only", "Just charge 9%"], answer: 1 },
+      { q: "What must you NEVER promise?", options: ["That it's 14 days", "A guaranteed job or a specific salary", "Zero-cost EMI for India", "That it's no-code"], answer: 1 },
+    ],
+    unlock: "Pass the offer check to continue",
   },
   {
     n: 6, title: "Sales Process Training", subtitle: "The OutSkill call, step by step", when: "Week 1–2",
@@ -99,7 +105,13 @@ export const STAGES = [
       { h: "The 8-step call flow", items: ["1 · Warm intro", "2 · Why they attended the mastermind", "3 · Their goals", "4 · Why they didn't pay", "5 · Address objections", "6 · Pitch the Accelerator", "7 · Ask for commitment", "8 · Follow-up"] },
       { h: "Also covered", items: ["Lead qualification", "Discovery questions", "Handling no-payment users"] },
     ],
-    unlock: "Pass the sales knowledge check → Stage 7",
+    quiz: [
+      { q: "Who is the audience for these sales calls?", options: ["Cold leads from ads", "Mastermind attendees who did NOT pay", "Existing Accelerator students", "Random website visitors"], answer: 1 },
+      { q: "In the 8-step flow, what comes right after the warm intro?", options: ["Pitch the Accelerator", "Ask why they attended the mastermind", "Ask for payment", "Handle objections"], answer: 1 },
+      { q: "Before you pitch, you should first…", options: ["Quote the price", "Understand their goals and why they didn't pay", "Offer a discount", "Send the brochure"], answer: 1 },
+      { q: "Best way to handle an objection?", options: ["Repeat the pitch louder", "Empathize, give one specific fact, confirm it landed, then find the real blocker", "Drop the price", "Move on quickly"], answer: 1 },
+    ],
+    unlock: "Pass the sales knowledge check to continue",
   },
   {
     n: 7, title: "Mock-Call Room", subtitle: "Practice on realistic AI prospects", when: "Week 2+",

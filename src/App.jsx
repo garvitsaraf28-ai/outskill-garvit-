@@ -6,7 +6,7 @@ import {
   TrendingUp, Headphones, GraduationCap, ChevronRight, Loader2,
   Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star, Radio
 } from "lucide-react";
-import { LoginScreen, Dashboard, StagePage, STAGES, isUnlocked } from "./journey.jsx";
+import { LoginScreen, Dashboard, StagePage, STAGES, isUnlocked, MastermindRecordings } from "./journey.jsx";
 
 /* ------------------------------------------------------------------ */
 const LIME = "#c2ee45";
@@ -966,6 +966,7 @@ If the rep said nothing factually useful or correct, return [].`,
             </div>
           );
           if (openStage === 12) return wrap(<PersonalProgress history={history} repName={repName} serif={serif} />);
+          if (openStage === 3) return wrap(<MastermindRecordings />);
           return wrap(null);
         })()}
 

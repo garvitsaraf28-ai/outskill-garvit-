@@ -42,11 +42,11 @@ export const STAGES = [
     n: 2, title: "Company Foundations", subtitle: "What OutSkill is & how we win", when: "Day 1",
     Icon: Building2, kind: "page",
     short: "What OutSkill is, the products, the funnel, and the two masterminds.",
-    detail: "OutSkill is an edtech company that sells AI courses. Learn the products, the TOFU/MOFU/BOFU funnel, and the two free masterminds where we pitch — then pass a short funnel quiz.",
+    detail: "OutSkill is an edtech company that sells AI courses, and the Accelerator is our main offer. Learn the products, how the TOFU/MOFU/BOFU funnel feeds the Accelerator, and the two free masterminds where we pitch — then pass the funnel quiz.",
     sections: [
-      { h: "The products", items: ["Bootcamp — low-ticket entry course", "Accelerator — 14-day, high-ticket · THE main offer", "Fellowship & Catalyst — 6-month deep programs"] },
-      { h: "The funnel", items: ["TOFU — Mastermind + Bootcamp", "MOFU — Accelerator", "BOFU — Fellowship + Catalyst", "Catalyst needs Accelerator or Fellowship first"] },
-      { h: "The two masterminds", items: ["Generalist — Sat/Sun, non-technical", "Engineering — Fri/Sat, Python / tech", "~12–14 hrs, free — where we pitch Bootcamp + Accelerator"] },
+      { h: "The products", items: ["Bootcamp — low-ticket entry course (also pitches the Accelerator)", "Accelerator — 14-day, high-ticket · THE main offer you'll sell", "Fellowship & Catalyst — 6-month deep programs"] },
+      { h: "The funnel", items: ["TOFU — Mastermind + Bootcamp (audience comes from our marketing campaigns)", "MOFU — the Accelerator", "BOFU — Fellowship + Catalyst", "Accelerator or Fellowship can be joined right after a mastermind", "Catalyst is never direct — Accelerator or Fellowship first"] },
+      { h: "The two masterminds (free workshops)", items: ["Generalist — Sat/Sun, for non-technical people", "Engineering — Fri/Sat, for coders (Python / technical)", "~12–14 hrs, free — where we pitch the Bootcamp + Accelerator"] },
     ],
     quiz: [
       { q: "Which program is OutSkill's MAIN high-ticket offer?", options: ["Bootcamp", "Accelerator", "Fellowship", "Catalyst"], answer: 1 },
@@ -60,12 +60,12 @@ export const STAGES = [
     n: 3, title: "Mastermind Immersion", subtitle: "Live the learner experience", when: "Days 2–5",
     Icon: Users, kind: "page",
     short: "Watch the recent Generalist + Engineering recordings to learn how we pitch.",
-    detail: "Watch recent Generalist (Days 2–3) then Engineering (Days 4–5) recordings, chunked into modules. Each chunk has key-takeaway notes and 'what was pitched / how it was framed' annotations — so you learn the real pitch and which prospect routes to which track.",
+    detail: "Watch the most recent Generalist and Engineering mastermind recordings end to end. This is where you learn HOW we actually pitch the Accelerator and which prospect routes to which track. Both are embedded below — no tab-switching.",
     sections: [
-      { h: "Generalist track · Days 2–3", items: ["Recorded mastermind, chunked into modules", "Key-takeaway notes per chunk", "How the Accelerator is framed for non-tech"] },
-      { h: "Engineering track · Days 4–5", items: ["Recorded mastermind, chunked into modules", "What was pitched + how it was framed", "Spotting who routes to Engineering"] },
+      { h: "Generalist mastermind", items: ["For non-technical people (Sat/Sun)", "See how the Accelerator is framed for them", "Watch the full recording below"] },
+      { h: "Engineering mastermind", items: ["For coders — Python / technical (Fri/Sat)", "Spot who routes to the Engineering track", "Watch the full recording below"] },
     ],
-    unlock: "Both tracks + checks done → Stage 4",
+    unlock: "Watch both recordings to continue",
   },
   {
     n: 4, title: "Department Overview", subtitle: "How sales fits together", when: "Day 5–6",
@@ -537,6 +537,36 @@ function Quiz({ questions, onPass }) {
           Check answers
         </button>
       )}
+    </div>
+  );
+}
+
+// Mastermind recordings embedded in-portal (Level 2). Generalist = YouTube
+// playlist (plays inline); Engineering = Google Drive folder (opens in a tab).
+export function MastermindRecordings() {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:20, marginTop:8 }}>
+      <div>
+        <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 }}>Generalist mastermind — watch in full</div>
+        <div style={{ position:"relative", paddingTop:"56.25%", borderRadius:14, overflow:"hidden", border:`1px solid ${BORDER}`, background:"#000" }}>
+          <iframe
+            src="https://www.youtube.com/embed/videoseries?list=PLP2Og2n6NgEU8aqCP1FACWYJGopnzuvf3"
+            title="Generalist Mastermind Recordings"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ position:"absolute", inset:0, width:"100%", height:"100%", border:0 }}
+          />
+        </div>
+        <div style={{ fontSize:12.5, color:MUTE, marginTop:7 }}>Full playlist — non-technical track. Watch every session.</div>
+      </div>
+      <div>
+        <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 }}>Engineering mastermind — watch in full</div>
+        <a href="https://drive.google.com/drive/folders/1yHbYhfGAguz6CI5zZG-CFUg20tAj-ryH" target="_blank" rel="noopener noreferrer"
+          style={{ ...primaryBtn, textDecoration:"none" }}>
+          Open Engineering recordings (Google Drive) <ChevronRight size={16} style={{ marginLeft:6 }} />
+        </a>
+        <div style={{ fontSize:12.5, color:MUTE, marginTop:8 }}>Hosted on Drive (opens in a new tab) — technical / Python track.</div>
+      </div>
     </div>
   );
 }

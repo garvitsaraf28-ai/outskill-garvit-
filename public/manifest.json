@@ -1,7 +1,7 @@
 {
-  "name": "OutSkill Sales · Garvit Saraf",
-  "short_name": "OutSkill Sales",
-  "description": "AI-powered mock call trainer by Garvit Saraf",
+  "name": "OutSkill Training",
+  "short_name": "OutSkill Training",
+  "description": "OutSkill new-joiner sales onboarding. Built by Garvit Saraf.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0c08",

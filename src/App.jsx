@@ -980,7 +980,7 @@ If the rep said nothing factually useful or correct, return [].`,
         {!entered ? (
           <Cover serif={serif} onEnter={() => setEntered(true)} />
         ) : !user ? (
-          <LoginScreen onAuth={onAuth} />
+          <LoginScreen onAuth={onAuth} onBack={() => setEntered(false)} />
         ) : (<>
         {!["cover","dept","login","dashboard","stage"].includes(section) && (
           <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("dashboard"); }} inCall={screen === "call"} />

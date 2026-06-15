@@ -218,7 +218,7 @@ function logEvent(payload) {
   try { fetch("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }); } catch {}
 }
 
-export function LoginScreen({ onAuth }) {
+export function LoginScreen({ onAuth, onBack }) {
   const [mode, setMode] = useState("signup"); // signup | login
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -252,6 +252,11 @@ export function LoginScreen({ onAuth }) {
   return (
     <div className="osf" style={{ minHeight:"82vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
       <div style={{ width:"100%", maxWidth:440 }}>
+        {onBack && (
+          <button onClick={onBack} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5, marginBottom:14 }}>
+            <ArrowLeft size={14}/><span style={{ marginLeft:6 }}>Back</span>
+          </button>
+        )}
         <div style={{ textAlign:"center", marginBottom:22 }}>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,10px)", gap:4, justifyContent:"center", marginBottom:18 }}>
             {[1,1,0,1,1,1,1,1,0].map((d,i)=>(<span key={i} style={{ width:10, height:10, borderRadius:"50%", background:d?LIME:"transparent", border:d?"none":`1.5px solid ${MUTE}`, boxShadow:d?`0 0 12px ${LIME}55`:"none" }}/>))}
@@ -483,6 +488,7 @@ function CoachNote({ stats }) {
 }
 
 export function Dashboard({ user, completed, goStage, onLogout, history = [] }) {
+  const [view, setView] = useState("home"); // "home" roadmap vs "report" analytics
   const quizScores = (() => { try { return JSON.parse(localStorage.getItem("sarafai_quiz_v1") || "{}"); } catch { return {}; } })();
   const doneCount = TRAINABLE.filter((n) => completed.includes(n)).length;
   const total = TRAINABLE.length;
@@ -554,10 +560,13 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
         </div>
       </div>
 
-      {/* hero */}
-      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Your readiness snapshot</div>
-      <h1 style={{ ...serif, fontSize:"clamp(26px,6.5vw,40px)", fontWeight:600, margin:"0 0 16px", letterSpacing:-0.6 }}>
-        Welcome, {firstName}. Here's where you stand.
+      {view === "report" ? (<>
+      <button onClick={() => setView("home")} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5, marginBottom:16 }}>
+        <ArrowLeft size={14}/><span style={{ marginLeft:6 }}>Back to dashboard</span>
+      </button>
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Your readiness report</div>
+      <h1 style={{ ...serif, fontSize:"clamp(24px,6vw,36px)", fontWeight:600, margin:"0 0 16px", letterSpacing:-0.6 }}>
+        {firstName}'s analysis snapshot
       </h1>
 
       {/* KPI row */}
@@ -633,12 +642,24 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
           </div>
         ))}
       </div>
+      </>) : (<>
+      {/* home: greeting + actions + roadmap */}
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Your onboarding dashboard</div>
+      <h1 style={{ ...serif, fontSize:"clamp(26px,6.5vw,40px)", fontWeight:600, margin:"0 0 6px", letterSpacing:-0.6 }}>Welcome, {firstName}.</h1>
+      <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16.5px)", lineHeight:1.55, maxWidth:620, margin:"0 0 16px" }}>
+        Your onboarding runs in 11 self-paced levels. Open your dashboard for the full analysis &amp; report, or jump back in below.
+      </p>
+      <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:24 }}>
+        <button onClick={() => goStage(next ? next.n : 12)} style={primaryBtn}>{ctaLabel} <ArrowRight size={16} style={{ marginLeft:8 }}/></button>
+        <button onClick={() => setView("report")} style={secondaryBtn}><LayoutDashboard size={15}/><span style={{ marginLeft:7 }}>My dashboard &amp; report</span></button>
+      </div>
 
       {/* roadmap */}
       <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:MUTE, fontWeight:600, marginBottom:10 }}>Your journey · 11 levels</div>
       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
         {STAGES.map((s) => <StepRow key={s.n} stage={s} status={statusFor(s.n)} onClick={() => goStage(s.n)} />)}
       </div>
+      </>)}
 
       <MadeBy mt={26} />
     </div>

@@ -399,6 +399,36 @@ function pickVoice(voices, lang, gender) {
     en[0] || voices[0] || null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Mock-call ladder: 4 hint-modes × 6 difficulty rounds (Peer → Director) */
+const HINT_MODES = [
+  { id:"beginner", label:"Beginner", desc:"script-assisted prompts" },
+  { id:"standard", label:"Standard", desc:"free-flow, no script" },
+  { id:"advanced", label:"Advanced", desc:"minimal help" },
+  { id:"senior", label:"Senior", desc:"no hints, real pressure" },
+];
+const ROUNDS = [
+  { n:1, name:"Peer", desc:"warm, easy" },
+  { n:2, name:"Senior", desc:"analytical, skeptical" },
+  { n:3, name:"Utmost Senior", desc:"overconfident, noncommittal" },
+  { n:4, name:"Manager", desc:"hard, hidden blockers" },
+  { n:5, name:"Management", desc:"high pressure, mixed" },
+  { n:6, name:"Director", desc:"hardest objections" },
+];
+function ladderModifier(round, hintMode) {
+  const tough = {
+    1: "Peer round — cooperative and warm; raise just one mild objection; don't probe hard.",
+    2: "Senior round — analytical and a little skeptical; ask pointed questions; raise about two objections before warming up.",
+    3: "Utmost-Senior round — overconfident and noncommittal; hard to pin down; make the rep isolate your real hesitation.",
+    4: "Manager round — tough; keep your true blocker hidden and reveal it only under genuinely good discovery; push back twice on rebuttals.",
+    5: "Management round — high pressure; stack multiple objections (price, time, trust); interrupt occasionally; concede nothing easily.",
+    6: "Director round — the hardest room; challenge everything, question credibility and ROI aggressively, near-hang-up energy; only an excellent rep converts you.",
+  };
+  const extra = { advanced: " Be a notch less forgiving than usual.", senior: " Show no mercy: if the rep is generic, robotic or unprepared, disengage fast." };
+  const r = ROUNDS.find(x => x.n === round) || ROUNDS[0];
+  return `\nDIFFICULTY (${r.name} round): ${tough[round] || tough[1]}${extra[hintMode] || ""}`;
+}
+
 /* ================================================================== */
 export default function App() {
   const [section, setSection] = useState("dashboard"); // login(gate) | dashboard | stage | dept | home | salesuccess | practice | realcall | reports | followups
@@ -446,8 +476,9 @@ export default function App() {
 
   // Feature 1: rep name
   const [repName, setRepName] = useState("");
-  // Feature 2: difficulty
-  const [difficulty, setDifficulty] = useState("medium");
+  // Mock-call ladder: difficulty round (1-6) + hint mode (how much help)
+  const [round, setRound] = useState(1);
+  const [hintMode, setHintMode] = useState("standard");
   // Feature 3: call stage progress
   const [callStage, setCallStage] = useState(0);
   // Feature 4: live hints
@@ -501,12 +532,10 @@ export default function App() {
         lead:"Custom scenario you defined.", stated:"—", blocker:"—",
         brief:`You are a prospective OutSkill learner: ${custom || "a generic interested prospect from the workshop"}. Behave realistically, raise natural objections, keep spoken replies to 1-2 sentences, stay in character, never reveal you are an AI.` }
     : persona;
-  const difficultyModifier = difficulty === "easy"
-    ? "\nDIFFICULTY: Easy mode — be cooperative, warm, raise only one mild objection, don't probe too hard."
-    : difficulty === "hard"
-    ? "\nDIFFICULTY: Hard mode — be skeptical and terse, interrupt occasionally, ask multiple pointed objections, challenge pricing aggressively."
-    : "";
-  const sysPrompt = (mode === "learner" ? learnerSystem(activePersona, learnedFacts) : agentSystem()) + difficultyModifier;
+  const levelLabel = `${(ROUNDS.find(x=>x.n===round)||ROUNDS[0]).name} · ${(HINT_MODES.find(h=>h.id===hintMode)||HINT_MODES[1]).label}`;
+  const sysPrompt = mode === "learner"
+    ? learnerSystem(activePersona, learnedFacts) + ladderModifier(round, hintMode)
+    : agentSystem();
 
   /* sync refs */
   useEffect(() => { busyRef.current = busy; }, [busy]);
@@ -799,7 +828,7 @@ export default function App() {
           personaTag: activePersona.tag,
           mode,
           rep: repName || "",
-          difficulty,
+          difficulty: levelLabel,
           duration: fmtTime(seconds),
           overall: parsed.overall,
           correctRouting: parsed.correctRouting,
@@ -820,7 +849,7 @@ export default function App() {
               ts: Date.now(), mode,
               rep: repName || "Anonymous",
               persona: activePersona.name, personaTag: activePersona.tag,
-              difficulty,
+              difficulty: levelLabel,
               duration: fmtTime(seconds),
               overall: parsed.overall,
               correctRouting: parsed.correctRouting,
@@ -1002,7 +1031,7 @@ If the rep said nothing factually useful or correct, return [].`,
               startCall={startCall} history={history}
               voiceWanted={voiceWanted} setVoiceWanted={setVoiceWanted} sttSupported={sttSupported} ttsSupported={ttsSupported}
               repName={repName} setRepName={setRepName}
-              difficulty={difficulty} setDifficulty={setDifficulty}
+              round={round} setRound={setRound} hintMode={hintMode} setHintMode={setHintMode}
               learnedFacts={learnedFacts} clearLearnedFacts={()=>{ setLearnedFacts([]); try { localStorage.removeItem("sarafai_learned_facts_v1"); } catch {} }}/>
           )}
           {screen === "call" && (
@@ -1012,7 +1041,7 @@ If the rep said nothing factually useful or correct, return [].`,
               seconds={seconds} endCall={endCall} err={err} scrollRef={scrollRef} voice={voiceApi}
               letThemOpen={letThemOpen}
               callStage={callStage} totalStages={6}
-              hint={hint} setHint={setHint}
+              hint={(hintMode === "advanced" || hintMode === "senior") ? "" : hint} setHint={setHint}
               mood={mood}/>
           )}
           {screen === "feedback" && (
@@ -1734,7 +1763,7 @@ const Field = ({ label, children }) => (<label style={{ display:"block" }}><div 
 const inputStyle = { width:"100%", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 14px", color:TXT, fontSize:14.5 };
 
 /* ------------------------------------------------------------------ */
-function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, difficulty, setDifficulty, learnedFacts, clearLearnedFacts }) {
+function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, round, setRound, hintMode, setHintMode, learnedFacts, clearLearnedFacts }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
 
   // Feature 1: streak calculation

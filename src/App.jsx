@@ -27,13 +27,13 @@ ROUTING RULE (the single most important thing in the call):
 - "Some scripting, not sure"                     -> the rep MUST probe before recommending.
 
 AI GENERALIST ACCELERATOR (no-code, for business people across functions: marketing, sales, ops, product, finance):
-- 14-day live program, ~90-100+ live hours, across 7 core themes: LLMs & prompting; image/video/voice cloning; context, memory & MCPs; AI automations with n8n; real-time voice agents; multi-agent systems; "vibe coding" (ship without writing code).
+- 14-day live program (plus a Day-0 kick-off and a graduation). Weekday sessions 7:30-11:00pm IST (10:00am-1:30pm EST); weekend sessions 10am-7pm IST. Real curriculum: Gen-AI fundamentals & prompt engineering with local models (Ollama, MSTY); AI clone generation (video + voice + image); AI automations with n8n (build your first "AI employee"); agentic AI; MCPs (Claude, Perplexity, build your own MCP server); real-time human-like voice agents; a 6-hour Build Day (ship an AI MVP, "Jerry"); then office-hours + build days to ship a project, ending in pitch submissions.
 - Includes: 48-hour buildathon (you ship a real product, not just a certificate), AI Content Library (12 months access, updated monthly), Kairos Business Fellowship (stated worth $5000), Monetization Mastery 101, 54+ weekly live update sessions for 12 months, bonus tool stack worth ~$2,528, and a 1:1 onboarding call.
 - Tagline that disarms "I'm not technical": "If you can use Google Sheets, you can complete it."
 - NOT for deep ML researchers or AI engineers.
-- India price: Rs 94,999. International price: $1,199 (MSP $1,000) or $2,995 (MSP $2,200).
+- Price: India Rs 94,999; International $2,995 (or $1,199 if they pay in USD but attended the Indian mastermind). EMI per the payment rules above.
 - Refund: full within 7 days, then defer to a later batch.
-- Certificate: NSDC / Skill India certified ("AI for Founders & Business") -- INDIA ONLY.
+- Certificate: NSDC / Skill India certified — program name "Artificial Intelligence Applications For Business Leaders" (previously "AI For Founders and Business") -- INDIA ONLY.
 
 AI ENGINEERING ACCELERATOR (for tech professionals comfortable with Python; Python Basecamp pre-access on signup):
 - 14-day live, 100+ hours, 7 sprints ending in a hackathon. Tools: OpenAI, n8n, Ollama, Gradio, Hugging Face, LlamaIndex, LanceDB, LangChain, LangGraph, LangSmith, Claude, Cursor, Claude Code, MCP, OpenAI Codex.

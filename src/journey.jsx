@@ -85,6 +85,7 @@ export const STAGES = [
     detail: "Study the offer until you can explain it simply — the price, the payment routes, who it's for (your 9 buyer personas), and what sets it apart from the bootcamp. Compliance: never promise a job or a specific salary.",
     sections: [
       { h: "The offer & price", items: ["The Accelerator is the main high-ticket offer — 14-day, no-code", "India: Rs 94,999 · International: $2,995", "USD-paying but attended the Indian mastermind: $1,199", "Why it beats the bootcamp (depth, projects, support)"] },
+      { h: "What they learn (the 14 days)", items: ["Gen-AI fundamentals & prompt engineering (local models: Ollama, MSTY)", "AI clones — video, voice & image", "AI automations with n8n + agentic AI ('your first AI employee')", "MCPs — Claude, Perplexity, build your own server", "Real-time human-like voice agents", "6-hour Build Day → ship an AI MVP, then build & pitch your project"] },
       { h: "Payment routes", items: ["India one-time: Razorpay", "India EMI (credit card): Pine Labs — zero-cost, 3/6/9/12 mo", "India EMI (debit card): Shopse — zero-cost, after eligibility check", "India, no card: Fibe / Propel (NBFC) via Google form", "International: XP — one-time free; installments add 9%"] },
       { h: "Compliance — hard rule", items: ["Never promise a job", "Never promise a specific salary", "Frame outcomes as ranges / learner stories"] },
     ],

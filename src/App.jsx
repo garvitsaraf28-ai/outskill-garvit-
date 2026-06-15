@@ -6,7 +6,7 @@ import {
   TrendingUp, Headphones, GraduationCap, ChevronRight, Loader2,
   Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star, Radio
 } from "lucide-react";
-import { LoginScreen, Dashboard, StagePage, STAGES, isUnlocked, MastermindRecordings } from "./journey.jsx";
+import { LoginScreen, Dashboard, StagePage, STAGES, isUnlocked, MastermindRecordings, ManagerView } from "./journey.jsx";
 
 /* ------------------------------------------------------------------ */
 const LIME = "#c2ee45";
@@ -448,6 +448,7 @@ export default function App() {
   const [completed, setCompleted] = useState(() => { try { return JSON.parse(localStorage.getItem("sarafai_journey_v1") || "[]"); } catch { return []; } });
   const [openStage, setOpenStage] = useState(2);
   const [entered, setEntered] = useState(false); // cover splash shows first, before login
+  const [managerMode, setManagerMode] = useState(false); // manager / team leaderboard view
 
   // Global background music — persists across every page.
   const [musicOn, setMusicOn] = useState(true);
@@ -939,6 +940,27 @@ If the rep said nothing factually useful or correct, return [].`,
     else setSection("dashboard");
   };
 
+  // Sync this rep's onboarding snapshot to the team store (for the Manager view).
+  // No-op server-side if no DB is configured; never stores passwords/transcripts.
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const qz = JSON.parse(localStorage.getItem("sarafai_quiz_v1") || "{}");
+      const qv = Object.values(qz);
+      const knowledge = qv.length ? Math.round(qv.reduce((a, q) => a + (q.correct / q.total) * 100, 0) / qv.length) : null;
+      const done = [2,3,4,5,6,7,8,9,10,11,12].filter((n) => completed.includes(n)).length;
+      const calls = history.filter((h) => typeof h.overall === "number");
+      const callAvg = calls.length ? Math.round(calls.reduce((a, h) => a + h.overall, 0) / calls.length) : null;
+      const sm = {}; calls.forEach((h) => (h.categories || []).forEach((c) => { if (!sm[c.name]) sm[c.name] = { s:0, n:0 }; sm[c.name].s += c.pct; sm[c.name].n++; }));
+      const sk = Object.entries(sm).map(([name, v]) => ({ name, pct: Math.round(v.s / v.n) }));
+      const weak = sk.length ? sk.reduce((a, b) => a.pct <= b.pct ? a : b) : null;
+      const completion = Math.round((done / 11) * 100);
+      const ready = done >= 11 && (callAvg || 0) >= 75;
+      const readiness = ready ? "Sales Ready" : done === 0 ? "Day one" : done >= 7 ? "Almost there" : done >= 3 ? "On track" : "Getting started";
+      fetch("/api/progress", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ name:user.name, email:user.email, completion, done, readiness, knowledge, callAvg, calls:calls.length, weakSkill: weak ? weak.name : "" }) }).catch(() => {});
+    } catch {}
+  }, [completed, history, user]);
+
   /* ---- render ---- */
   const root = {
     minHeight:"100vh", background:INK, color:TXT,
@@ -979,8 +1001,10 @@ If the rep said nothing factually useful or correct, return [].`,
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
         {!entered ? (
           <Cover serif={serif} onEnter={() => setEntered(true)} />
+        ) : managerMode ? (
+          <ManagerView onBack={() => setManagerMode(false)} />
         ) : !user ? (
-          <LoginScreen onAuth={onAuth} onBack={() => setEntered(false)} />
+          <LoginScreen onAuth={onAuth} onBack={() => setEntered(false)} onManager={() => setManagerMode(true)} />
         ) : (<>
         {!["cover","dept","login","dashboard","stage"].includes(section) && (
           <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("dashboard"); }} inCall={screen === "call"} />

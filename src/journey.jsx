@@ -218,7 +218,7 @@ function logEvent(payload) {
   try { fetch("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(rec) }); } catch {}
 }
 
-export function LoginScreen({ onAuth, onBack }) {
+export function LoginScreen({ onAuth, onBack, onManager }) {
   const [mode, setMode] = useState("signup"); // signup | login
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -310,6 +310,11 @@ export function LoginScreen({ onAuth, onBack }) {
               : "Welcome back. New joiner? Switch to Sign up to create your profile."}
           </div>
         </form>
+        {onManager && (
+          <div style={{ textAlign:"center", marginTop:16 }}>
+            <button onClick={onManager} style={{ background:"transparent", border:"none", color:LIME_DIM, fontSize:12.5, fontWeight:600, cursor:"pointer", textDecoration:"underline" }}>Are you a manager? View the team →</button>
+          </div>
+        )}
         <MadeBy />
       </div>
     </div>
@@ -662,6 +667,96 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
       </>)}
 
       <MadeBy mt={26} />
+    </div>
+  );
+}
+
+/* ============================================================================
+   Manager / Team view — gated leaderboard of every rep's onboarding progress
+   ========================================================================== */
+export function ManagerView({ onBack }) {
+  const [key, setKey] = useState("");
+  const [reps, setReps] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [configured, setConfigured] = useState(true);
+  const load = async () => {
+    setLoading(true); setErr("");
+    try {
+      const r = await fetch(`/api/progress?key=${encodeURIComponent(key)}`);
+      if (r.status === 403) { setErr("Wrong passcode."); setReps(null); setLoading(false); return; }
+      const d = await r.json();
+      setConfigured(d.configured !== false);
+      setReps((d.reps || []).sort((a, b) => (b.completion - a.completion) || ((b.callAvg || 0) - (a.callAvg || 0))));
+    } catch { setErr("Couldn't load team data."); }
+    setLoading(false);
+  };
+
+  const readyCount = reps ? reps.filter((r) => r.readiness === "Sales Ready").length : 0;
+  const avgCompletion = reps && reps.length ? Math.round(reps.reduce((a, r) => a + (r.completion || 0), 0) / reps.length) : 0;
+  const weakFreq = {};
+  (reps || []).forEach((r) => { if (r.weakSkill) weakFreq[r.weakSkill] = (weakFreq[r.weakSkill] || 0) + 1; });
+  const teamWeak = Object.entries(weakFreq).sort((a, b) => b[1] - a[1])[0];
+
+  return (
+    <div className="osf" style={{ maxWidth:760, margin:"0 auto" }}>
+      <button onClick={onBack} style={{ ...secondaryBtn, padding:"7px 13px", fontSize:12.5, marginBottom:16 }}>
+        <ArrowLeft size={14}/><span style={{ marginLeft:6 }}>Back</span>
+      </button>
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>OutSkill · Sales · Manager view</div>
+      <h1 style={{ ...serif, fontSize:"clamp(24px,6vw,36px)", fontWeight:600, margin:"0 0 14px", letterSpacing:-0.6 }}>Team onboarding</h1>
+
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:18 }}>
+        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="Manager passcode (if set)" type="password"
+          style={{ flex:1, minWidth:180, background:"rgba(255,255,255,0.04)", border:`1px solid ${BORDER}`, borderRadius:11, padding:"11px 13px", color:TXT, fontSize:14 }} />
+        <button onClick={load} disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.6 : 1 }}>{loading ? "Loading…" : "View team"}</button>
+      </div>
+      {err && <div style={{ color:"#e8a99b", fontSize:13, marginBottom:14 }}>{err}</div>}
+
+      {reps && (
+        <>
+          <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:16 }}>
+            <KPI label="Reps" value={reps.length} />
+            <KPI label="Sales Ready" value={readyCount} color={LIME} />
+            <KPI label="Avg completion" value={`${avgCompletion}%`} />
+            <KPI label="Team weak spot" value={teamWeak ? SHORT(teamWeak[0]) : "—"} sub={teamWeak ? `${teamWeak[1]} rep${teamWeak[1] > 1 ? "s" : ""}` : ""} color="#e8a94b" />
+          </div>
+
+          {!configured && (
+            <div style={{ background:"rgba(232,178,75,0.1)", border:"1px solid rgba(232,178,75,0.4)", borderRadius:12, padding:"12px 14px", fontSize:12.5, color:"#e8c98b", marginBottom:14, lineHeight:1.5 }}>
+              No team database connected yet. Add the free <b>Upstash Redis</b> integration in Vercel (Storage → Marketplace) and reps' progress will sync here automatically — no code change needed.
+            </div>
+          )}
+
+          {reps.length === 0 ? (
+            <EmptyViz>No rep data yet. Once reps use the app (with the team database connected), they appear here ranked by completion.</EmptyViz>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {reps.map((r, i) => (
+                <div key={r.email || i} style={{ display:"flex", alignItems:"center", gap:12, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"12px 14px", flexWrap:"wrap" }}>
+                  <div style={{ ...serif, fontSize:16, fontWeight:600, color:MUTE, width:22, textAlign:"center" }}>{i + 1}</div>
+                  <div style={{ flex:1, minWidth:130 }}>
+                    <div style={{ fontSize:14, fontWeight:600, color:TXT }}>{r.name || r.email}</div>
+                    <div style={{ fontSize:11, color:MUTE }}>{r.email}</div>
+                  </div>
+                  <div style={{ minWidth:110, flex:1 }}>
+                    <div style={{ height:7, borderRadius:30, background:"rgba(255,255,255,0.07)", overflow:"hidden" }}>
+                      <div style={{ width:`${r.completion || 0}%`, height:"100%", background:`linear-gradient(90deg, ${LIME_DIM}, ${LIME})`, borderRadius:30 }} />
+                    </div>
+                    <div style={{ fontSize:10.5, color:MUTE, marginTop:3 }}>{r.completion || 0}% · {r.done || 0}/11 levels</div>
+                  </div>
+                  <div style={{ textAlign:"right", minWidth:54 }}>
+                    <div style={{ ...serif, fontSize:18, fontWeight:600, color: r.callAvg != null ? scoreCol(r.callAvg) : MUTE }}>{r.callAvg != null ? r.callAvg : "—"}</div>
+                    <div style={{ fontSize:10, color:MUTE }}>mock avg</div>
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:700, color: r.readiness === "Sales Ready" ? INK : TXT, background: r.readiness === "Sales Ready" ? LIME : "rgba(255,255,255,0.06)", border:`1px solid ${r.readiness === "Sales Ready" ? LIME : BORDER}`, borderRadius:20, padding:"3px 9px" }}>{r.readiness || "—"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <MadeBy mt={24} />
     </div>
   );
 }

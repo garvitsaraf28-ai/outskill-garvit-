@@ -4,8 +4,9 @@ import {
   Phone, PhoneOff, Send, ArrowLeft, RotateCcw, AlertTriangle,
   CheckCircle2, XCircle, Target, Sparkles, Clock, User, Shuffle, Pencil,
   TrendingUp, Headphones, GraduationCap, ChevronRight, Loader2,
-  Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star
+  Mic, MicOff, AudioLines, Keyboard, Volume2, VolumeX, Star, Radio
 } from "lucide-react";
+import { LoginScreen, Dashboard, StagePage, STAGES, isUnlocked } from "./journey.jsx";
 
 /* ------------------------------------------------------------------ */
 const LIME = "#c2ee45";
@@ -389,7 +390,12 @@ function pickVoice(voices, lang, gender) {
 
 /* ================================================================== */
 export default function App() {
-  const [section, setSection] = useState("cover"); // cover | dept | home | salesuccess | practice | realcall | reports | followups
+  const [section, setSection] = useState("dashboard"); // login(gate) | dashboard | stage | dept | home | salesuccess | practice | realcall | reports | followups
+
+  // ---- Onboarding journey: Stage 0 auth + 12-stage progress (persisted) ----
+  const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("sarafai_user") || "null"); } catch { return null; } });
+  const [completed, setCompleted] = useState(() => { try { return JSON.parse(localStorage.getItem("sarafai_journey_v1") || "[]"); } catch { return []; } });
+  const [openStage, setOpenStage] = useState(2);
 
   // Global background music — persists across every page.
   const [musicOn, setMusicOn] = useState(true);
@@ -774,6 +780,7 @@ export default function App() {
       }
       if (parsed) {
         setCard(parsed);
+        completeStage(7); // Stage 7 (Mock-Call Room) clears once a call is scored
         const entry = {
           date: Date.now(),
           persona: activePersona.name,
@@ -851,6 +858,36 @@ If the rep said nothing factually useful or correct, return [].`,
 
   const reset = () => { stopAll(); setScreen("setup"); setMessages([]); apiMsgsRef.current = []; setCard(null); setCardRaw(""); setErr(""); setSeconds(0); setInterim(""); setCallStage(0); setHint(""); setMood("neutral"); };
 
+  /* ---- Journey navigation & progress ---- */
+  const completeStage = (n) => {
+    setCompleted(prev => {
+      if (prev.includes(n)) return prev;
+      const nx = [...prev, n].sort((a, b) => a - b);
+      try { localStorage.setItem("sarafai_journey_v1", JSON.stringify(nx)); } catch {}
+      return nx;
+    });
+  };
+  const onAuth = (u) => {
+    setUser(u);
+    try { localStorage.setItem("sarafai_user", JSON.stringify(u)); localStorage.setItem("sarafai_visitor_name", u.name || ""); } catch {}
+    setSection("dashboard");
+  };
+  const onLogout = () => {
+    setUser(null);
+    try { localStorage.removeItem("sarafai_user"); } catch {}
+    setSection("dashboard");
+  };
+  const goStage = (n) => {
+    if (n === 1) { setSection("dashboard"); return; }
+    if (!isUnlocked(n, completed)) return; // locked — needs the previous stage done
+    setOpenStage(n); setSection("stage");
+  };
+  const goNextFrom = (n) => {
+    const nx = n + 1;
+    if (nx <= 12) { setOpenStage(nx); setSection("stage"); }
+    else setSection("dashboard");
+  };
+
   /* ---- render ---- */
   const root = {
     minHeight:"100vh", background:INK, color:TXT,
@@ -889,9 +926,45 @@ If the rep said nothing factually useful or correct, return [].`,
       `}</style>
 
       <div style={{ maxWidth: 960, margin:"0 auto", padding:"22px 18px 60px" }}>
-        {section !== "cover" && section !== "dept" && (
-          <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("home"); }} inCall={screen === "call"} />
+        {!user ? (
+          <LoginScreen onAuth={onAuth} />
+        ) : (<>
+        {!["cover","dept","login","dashboard","stage"].includes(section) && (
+          <Header serif={serif} section={section} goHome={() => { if (screen === "call") return; reset(); setSection("dashboard"); }} inCall={screen === "call"} />
         )}
+
+        {section === "dashboard" && (
+          <Dashboard user={user} completed={completed} goStage={goStage} onLogout={onLogout} />
+        )}
+
+        {section === "stage" && (() => {
+          const def = STAGES.find(s => s.n === openStage) || STAGES[1];
+          const wrap = (inner) => (
+            <StagePage stage={def} isDone={completed.includes(def.n)}
+              onComplete={() => { completeStage(def.n); goNextFrom(def.n); }}
+              goDashboard={() => setSection("dashboard")}>{inner}</StagePage>
+          );
+          if (openStage === 7) return wrap(
+            <LaunchCard Icon={Phone} title="Enter the Mock-Call Room"
+              desc="Pick a persona, hint-mode and difficulty, then run a live voice mock-call against a realistic AI prospect. You'll get a scored coaching breakdown the moment you hang up."
+              cta="Launch Mock-Call Room" onLaunch={() => { reset(); setSection("practice"); }} />
+          );
+          if (openStage === 8) return wrap(<PersonalProgress history={history} repName={repName} serif={serif} />);
+          if (openStage === 9) return wrap(<><CertProgressStrip history={history} serif={serif} /><CertificatesSection history={history} repName={repName} serif={serif} /></>);
+          if (openStage === 11) return wrap(
+            <div>
+              <LaunchCard Icon={Radio} title="Open Live Work Mode"
+                desc="Record a real learner call, auto-transcribe it, and generate a CRM-ready report with the single best next action."
+                cta="Record & report a call" onLaunch={() => setSection("realcall")} />
+              <div style={{ display:"flex", gap:10, marginTop:12, flexWrap:"wrap" }}>
+                <button onClick={() => setSection("reports")} style={{ ...secondaryBtn, padding:"10px 16px", fontSize:13 }}><TrendingUp size={15}/><span style={{ marginLeft:7 }}>View Reports</span></button>
+                <button onClick={() => setSection("followups")} style={{ ...secondaryBtn, padding:"10px 16px", fontSize:13 }}><Clock size={15}/><span style={{ marginLeft:7 }}>Follow-ups</span></button>
+              </div>
+            </div>
+          );
+          if (openStage === 12) return wrap(<PersonalProgress history={history} repName={repName} serif={serif} />);
+          return wrap(null);
+        })()}
 
         {section === "cover" && (
           <Cover serif={serif} onEnter={() => setSection("dept")}
@@ -940,33 +1013,14 @@ If the rep said nothing factually useful or correct, return [].`,
           )}
         </>)}
 
-        {section === "realcall" && <RealCall serif={serif} goHome={() => setSection("home")} />}
+        {section === "realcall" && <RealCall serif={serif} goHome={() => setSection("dashboard")} />}
         {section === "reports" && <Reports serif={serif} />}
         {section === "followups" && <FollowUps serif={serif} go={setSection} />}
-        {section === "feedbackwall" && <FeedbackWall serif={serif} goBack={() => setSection("home")} defaultName={repName} />}
+        {section === "feedbackwall" && <FeedbackWall serif={serif} goBack={() => setSection("dashboard")} defaultName={repName} />}
+        </>)}
       </div>
 
-      {/* Background music — plays everywhere except the mock call page */}
-      {musicOn && musicStarted && section !== "practice" && (
-        <iframe key="music-global-VuziUrQKNsA"
-          src="https://www.youtube.com/embed/VuziUrQKNsA?autoplay=1&loop=1&playlist=VuziUrQKNsA&controls=0&playsinline=1&mute=0&start=0"
-          allow="autoplay; encrypted-media"
-          style={{ position:"fixed", width:1, height:1, opacity:0, pointerEvents:"none", bottom:0, left:0 }}
-          title="bg-music"
-        />
-      )}
-      {/* Floating music toggle — home page only (cover has its own in-flow row) */}
-      {section === "home" && (
-        <button onClick={() => { if (!musicStarted) { setMusicStarted(true); setMusicOn(true); } else { setMusicOn(v => !v); } }}
-          title={musicOn ? "Mute music" : "Play music"}
-          style={{ position:"fixed", bottom:16, left:16, zIndex:60, display:"inline-flex", alignItems:"center", gap:7,
-            background: musicOn ? "rgba(194,238,69,0.12)" : "rgba(20,20,16,0.9)",
-            border:`1px solid ${musicOn ? "rgba(194,238,69,0.5)" : BORDER}`, borderRadius:30, padding:"9px 14px",
-            color: musicOn ? TXT : MUTE, fontSize:12.5, boxShadow:"0 4px 18px rgba(0,0,0,0.35)" }}>
-          {musicOn ? <Volume2 size={15} color={LIME}/> : <VolumeX size={15}/>}
-          <span>{musicOn ? "Music on" : "Music off"}</span>
-        </button>
-      )}
+      {/* Background music removed site-wide. */}
     </div>
   );
 }
@@ -997,6 +1051,24 @@ function Header({ serif, section, goHome, inCall }) {
           <Sparkles size={13} color={LIME_DIM}/> AI-powered
         </div>
         <div style={{ fontSize:10, color:MUTE, letterSpacing:1.5, textTransform:"uppercase" }}>By SARAF</div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+// Used by wired stages (7 Mock-Call Room, 11 Live Work) to hand off into a
+// full-screen built tool while keeping the stage's chrome around it.
+function LaunchCard({ Icon, title, desc, cta, onLaunch }) {
+  return (
+    <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:16, padding:"22px", display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
+      <div style={{ width:50, height:50, borderRadius:14, background:"rgba(194,238,69,0.12)", display:"flex", alignItems:"center", justifyContent:"center", color:LIME, flexShrink:0 }}>
+        {Icon ? <Icon size={22}/> : null}
+      </div>
+      <div style={{ flex:1, minWidth:220 }}>
+        <div style={{ fontFamily:"'Fraunces', Georgia, serif", fontSize:19, fontWeight:600, marginBottom:6 }}>{title}</div>
+        <div style={{ fontSize:14, color:MUTE, lineHeight:1.55, marginBottom:14 }}>{desc}</div>
+        <button onClick={onLaunch} style={primaryBtn}>{cta}<ChevronRight size={16} style={{ marginLeft:6 }}/></button>
       </div>
     </div>
   );

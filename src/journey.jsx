@@ -12,7 +12,7 @@ import {
   LayoutDashboard, Building2, Users, Briefcase, Package, ClipboardList,
   Phone, MessageSquare, Award, Headphones, Radio, RefreshCw,
   Lock, CheckCircle2, ChevronRight, ArrowLeft, ArrowRight, LogOut,
-  Mail, User, Clock, MapPin, Target, GraduationCap,
+  Mail, User, Clock, MapPin, Target, GraduationCap, AlertTriangle,
 } from "lucide-react";
 
 /* ---- palette (kept in sync with App.jsx) ---- */
@@ -185,17 +185,44 @@ function AuthField({ label, icon, children }) {
   );
 }
 
+/* Local account registry (device-only for now). A backend / Google sign-in and a
+   Sheet-or-email sync can replace this once the data destination is confirmed. */
+const ACCT_KEY = "sarafai_accounts_v1";
+function loadAccounts() { try { return JSON.parse(localStorage.getItem(ACCT_KEY) || "{}"); } catch { return {}; } }
+function saveAccounts(a) { try { localStorage.setItem(ACCT_KEY, JSON.stringify(a)); } catch {} }
+function logSignup(rec) {
+  try { const k = "sarafai_signups_v1"; const arr = JSON.parse(localStorage.getItem(k) || "[]"); arr.push(rec); localStorage.setItem(k, JSON.stringify(arr)); } catch {}
+}
+
 export function LoginScreen({ onAuth }) {
   const [mode, setMode] = useState("signup"); // signup | login
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [error, setError] = useState("");
   const signup = mode === "signup";
   const canSubmit = email.trim() && pw.trim() && (!signup || name.trim());
+  const switchMode = (m) => { setMode(m); setError(""); };
   const submit = (e) => {
     if (e) e.preventDefault();
-    if (!canSubmit) return;
-    onAuth({ name: (name.trim() || email.split("@")[0]), email: email.trim(), role: "New joiner" });
+    setError("");
+    const em = email.trim().toLowerCase();
+    if (!em || !pw.trim() || (signup && !name.trim())) return;
+    const accounts = loadAccounts();
+    if (signup) {
+      // Can't sign up with an email that already has an account → send to Log in.
+      if (accounts[em]) { setError("An account with this email already exists — please log in instead."); setMode("login"); return; }
+      const acc = { name: name.trim(), email: email.trim(), password: pw, role: "New joiner", createdAt: Date.now() };
+      accounts[em] = acc; saveAccounts(accounts);
+      logSignup({ name: acc.name, email: acc.email, ts: acc.createdAt });
+      onAuth({ name: acc.name, email: acc.email, role: acc.role });
+    } else {
+      // Can't log in without an account → send to Sign up. Wrong password is rejected.
+      const acc = accounts[em];
+      if (!acc) { setError("No account found for this email — please sign up first."); setMode("signup"); return; }
+      if (acc.password !== pw) { setError("Incorrect password. Please try again."); return; }
+      onAuth({ name: acc.name, email: acc.email, role: acc.role || "New joiner" });
+    }
   };
   return (
     <div className="osf" style={{ minHeight:"82vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
@@ -212,12 +239,18 @@ export function LoginScreen({ onAuth }) {
         <form onSubmit={submit} style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:18, padding:"22px" }}>
           <div style={{ display:"flex", background:"rgba(0,0,0,0.3)", borderRadius:30, padding:4, marginBottom:18 }}>
             {[["signup","Sign up"],["login","Log in"]].map(([m,label])=>(
-              <button key={m} type="button" onClick={()=>setMode(m)}
+              <button key={m} type="button" onClick={()=>switchMode(m)}
                 style={{ flex:1, border:"none", borderRadius:30, padding:"9px 0", fontSize:13, fontWeight:600, background: mode===m ? LIME : "transparent", color: mode===m ? INK : MUTE }}>
                 {label}
               </button>
             ))}
           </div>
+
+          {error && (
+            <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(232,122,107,0.1)", border:"1px solid rgba(232,122,107,0.4)", color:"#e8a99b", borderRadius:11, padding:"10px 13px", fontSize:12.5, marginBottom:14 }}>
+              <AlertTriangle size={14} style={{ flexShrink:0 }}/><span>{error}</span>
+            </div>
+          )}
 
           {signup && (
             <AuthField label="Full name" icon={<User size={15}/>}>
@@ -242,7 +275,9 @@ export function LoginScreen({ onAuth }) {
             {signup ? "Create account & start" : "Log in"} <ArrowRight size={17} style={{ marginLeft:8 }}/>
           </button>
           <div style={{ fontSize:11.5, color:MUTE, textAlign:"center", marginTop:14, lineHeight:1.5 }}>
-            This is a local training profile saved on this device. No password is sent anywhere.
+            {signup
+              ? "Creating your training profile. Already enrolled? Switch to Log in."
+              : "Welcome back. New joiner? Switch to Sign up to create your profile."}
           </div>
         </form>
         <MadeBy />

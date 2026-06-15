@@ -987,7 +987,7 @@ If the rep said nothing factually useful or correct, return [].`,
         )}
 
         {section === "dashboard" && (
-          <Dashboard user={user} completed={completed} goStage={goStage} onLogout={onLogout} />
+          <Dashboard user={user} completed={completed} goStage={goStage} onLogout={onLogout} history={history} />
         )}
 
         {section === "stage" && (() => {

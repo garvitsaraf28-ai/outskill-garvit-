@@ -387,13 +387,103 @@ function StepRow({ stage, status, onClick }) {
   );
 }
 
-export function Dashboard({ user, completed, goStage, onLogout }) {
+/* ---- dashboard analytics: inline-SVG charts (no chart library) ---- */
+const SHORT = (s) => (s || "").split(/[ &,/]/)[0];
+const scoreCol = (v) => v >= 80 ? LIME : v >= 60 ? "#e8d24b" : v >= 40 ? "#e8a94b" : "#e87a6b";
+const Insight = ({ children, ok, warn }) => (
+  <li style={{ display:"flex", alignItems:"flex-start", gap:9, fontSize:13.5, color:TXT, lineHeight:1.45 }}>
+    <span style={{ width:7, height:7, borderRadius:"50%", marginTop:6, flexShrink:0, background: ok ? LIME : warn ? "#e8a94b" : LIME_DIM }} />
+    <span>{children}</span>
+  </li>
+);
+const EmptyViz = ({ children }) => (
+  <div style={{ padding:"24px 12px", textAlign:"center", color:MUTE, fontSize:12.5, lineHeight:1.5, border:`1px dashed ${BORDER}`, borderRadius:12, background:"rgba(255,255,255,0.02)" }}>{children}</div>
+);
+const Card = ({ title, children, style }) => (
+  <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:16, padding:"16px 18px", ...style }}>
+    {title && <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:12 }}>{title}</div>}
+    {children}
+  </div>
+);
+function KPI({ label, value, sub, color = TXT }) {
+  return (
+    <div style={{ flex:1, minWidth:138, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"13px 15px" }}>
+      <div style={{ fontSize:10, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:6 }}>{label}</div>
+      <div style={{ ...serif, fontSize:25, fontWeight:600, color, lineHeight:1.05 }}>{value}</div>
+      {sub && <div style={{ fontSize:11, color:MUTE, marginTop:4 }}>{sub}</div>}
+    </div>
+  );
+}
+function Donut({ pct, size = 122, stroke = 12, color = LIME, big, sub }) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  return (
+    <div style={{ position:"relative", width:size, height:size, flexShrink:0 }}>
+      <svg width={size} height={size}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${size/2} ${size/2})`} style={{ transition:"stroke-dashoffset .9s ease" }} />
+      </svg>
+      <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+        <div style={{ ...serif, fontSize:size*0.26, fontWeight:600, color:TXT, lineHeight:1 }}>{big}</div>
+        {sub && <div style={{ fontSize:10.5, color:MUTE, marginTop:2 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+function Radar({ data, size = 200 }) {
+  const cx = size/2, cy = size/2, R = size/2 - 30, n = data.length;
+  const ang = (i) => (Math.PI * 2 * i) / n - Math.PI / 2;
+  const pt = (i, rad) => [cx + Math.cos(ang(i)) * rad, cy + Math.sin(ang(i)) * rad];
+  const ring = (f) => data.map((_, i) => pt(i, R * f).join(",")).join(" ");
+  const poly = data.map((d, i) => pt(i, R * (Math.max(0, Math.min(100, d.pct)) / 100)).join(",")).join(" ");
+  return (
+    <svg width={size} height={size} style={{ overflow:"visible", display:"block", margin:"0 auto" }}>
+      {[0.25,0.5,0.75,1].map(f => <polygon key={f} points={ring(f)} fill="none" stroke="rgba(255,255,255,0.07)" />)}
+      {data.map((_, i) => { const [x,y] = pt(i, R); return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(255,255,255,0.05)" />; })}
+      <polygon points={poly} fill="rgba(194,238,69,0.20)" stroke={LIME} strokeWidth={2} />
+      {data.map((d, i) => { const [x,y] = pt(i, R + 14); return <text key={i} x={x} y={y} fill={MUTE} fontSize="8.5" textAnchor="middle" dominantBaseline="middle">{SHORT(d.name)}</text>; })}
+    </svg>
+  );
+}
+function Spark({ values, h = 50 }) {
+  if (!values.length) return null;
+  const w = 240, n = values.length;
+  const pts = values.map((v, i) => `${(n === 1 ? w/2 : (i/(n-1))*w).toFixed(1)},${(h - (Math.max(0, Math.min(100, v))/100)*h).toFixed(1)}`).join(" ");
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={LIME} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function Dashboard({ user, completed, goStage, onLogout, history = [] }) {
+  const quizScores = (() => { try { return JSON.parse(localStorage.getItem("sarafai_quiz_v1") || "{}"); } catch { return {}; } })();
   const doneCount = TRAINABLE.filter((n) => completed.includes(n)).length;
   const total = TRAINABLE.length;
   const pct = Math.round((doneCount / total) * 100);
   const level = levelFor(doneCount);
   const next = STAGES.find((s) => s.n >= 2 && !completed.includes(s.n) && isUnlocked(s.n, completed));
   const firstName = (user?.name || "there").trim().split(/\s+/)[0];
+
+  // program knowledge — from the level quiz checks
+  const qs = Object.values(quizScores);
+  const knowledge = qs.length ? Math.round(qs.reduce((a, q) => a + (q.correct / q.total) * 100, 0) / qs.length) : null;
+
+  // mock-call analytics — from saved scorecards
+  const calls = history.filter((h) => typeof h.overall === "number");
+  const callAvg = calls.length ? Math.round(calls.reduce((a, h) => a + h.overall, 0) / calls.length) : null;
+  const best = calls.length ? Math.max(...calls.map((h) => h.overall)) : null;
+  const trend = [...calls].reverse().map((h) => h.overall);
+  const skillMap = {};
+  calls.forEach((h) => (h.categories || []).forEach((c) => { if (!skillMap[c.name]) skillMap[c.name] = { s:0, n:0 }; skillMap[c.name].s += c.pct; skillMap[c.name].n++; }));
+  const skills = Object.entries(skillMap).map(([name, v]) => ({ name, pct: Math.round(v.s / v.n) }));
+  const strongest = skills.length ? skills.reduce((a, b) => a.pct >= b.pct ? a : b) : null;
+  const weakest = skills.length ? skills.reduce((a, b) => a.pct <= b.pct ? a : b) : null;
+
+  const ready = doneCount >= total && (callAvg || 0) >= 75;
+  const readiness = ready ? "Sales Ready" : doneCount === 0 ? "Day one" : doneCount >= 7 ? "Almost there" : doneCount >= 3 ? "On track" : "Getting started";
+
   const statusFor = (n) => {
     if (completed.includes(n)) return "done";
     if (n === 1) return "here";
@@ -419,41 +509,60 @@ export function Dashboard({ user, completed, goStage, onLogout }) {
       </div>
 
       {/* hero */}
-      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Your onboarding dashboard</div>
-      <h1 style={{ ...serif, fontSize:"clamp(28px,7vw,42px)", fontWeight:600, margin:"0 0 6px", letterSpacing:-0.6 }}>
-        Welcome, {firstName}. Let's get you Sales Ready.
+      <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>Your readiness snapshot</div>
+      <h1 style={{ ...serif, fontSize:"clamp(26px,6.5vw,40px)", fontWeight:600, margin:"0 0 16px", letterSpacing:-0.6 }}>
+        Welcome, {firstName}. Here's where you stand.
       </h1>
-      <p style={{ color:MUTE, fontSize:"clamp(14px,4vw,16.5px)", lineHeight:1.55, maxWidth:620, margin:"0 0 18px" }}>
-        Your OutSkill sales onboarding runs in 11 self-paced levels — from company foundations to live calls and a continuous improvement loop. Clear each to unlock the next.
-      </p>
 
-      {/* 3 instant-answer cards */}
-      <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:18 }}>
-        <QCard icon={<MapPin size={14}/>} q="Where am I?" a="You're in OutSkill onboarding." />
-        <QCard icon={<Target size={14}/>} q="What should I do next?" a={next ? `Level ${next.n - 1} · ${next.title}` : "Every level complete 🎉"} />
-        <QCard icon={<GraduationCap size={14}/>} q="How do I become Sales Ready?" a="Finish learning → practice mock calls → pass certification." />
+      {/* KPI row */}
+      <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:14 }}>
+        <KPI label="Completion" value={`${pct}%`} sub={`${doneCount} of ${total} levels`} color={LIME} />
+        <KPI label="Program knowledge" value={knowledge != null ? `${knowledge}%` : "—"} sub={qs.length ? `${qs.length} quiz check${qs.length>1?"s":""}` : "take the quizzes"} color={knowledge != null ? scoreCol(knowledge) : MUTE} />
+        <KPI label="Mock-call avg" value={callAvg != null ? callAvg : "—"} sub={calls.length ? `best ${best} · ${calls.length} call${calls.length>1?"s":""}` : "no calls yet"} color={callAvg != null ? scoreCol(callAvg) : MUTE} />
+        <KPI label="Rank" value={readiness} sub={level} color={ready ? LIME : TXT} />
       </div>
 
-      {/* progress card */}
-      <div style={{ background:"linear-gradient(100deg, rgba(194,238,69,0.12), rgba(194,238,69,0.03))", border:`1px solid rgba(194,238,69,0.32)`, borderRadius:18, padding:"20px 22px", marginBottom:26 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:18, flexWrap:"wrap" }}>
-          <div>
-            <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>Rank</div>
-            <div style={{ ...serif, fontSize:26, fontWeight:600, color:LIME }}>{level}</div>
+      {/* progress donut + analysis */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:14, marginBottom:14 }}>
+        <div style={{ background:"linear-gradient(120deg, rgba(194,238,69,0.12), rgba(194,238,69,0.03))", border:`1px solid rgba(194,238,69,0.3)`, borderRadius:16, padding:"18px 20px", display:"flex", alignItems:"center", gap:18, flexWrap:"wrap" }}>
+          <Donut pct={pct} big={`${pct}%`} sub="complete" />
+          <div style={{ flex:1, minWidth:130 }}>
+            <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>Training progress</div>
+            <div style={{ ...serif, fontSize:22, fontWeight:600, marginBottom:12 }}>{doneCount} / {total} levels</div>
+            <button onClick={() => goStage(next ? next.n : 12)} style={primaryBtn}>{ctaLabel} <ArrowRight size={16} style={{ marginLeft:8 }}/></button>
           </div>
-          <div style={{ width:1, height:38, background:BORDER }} />
-          <div>
-            <div style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:MUTE, marginBottom:4 }}>Completed</div>
-            <div style={{ ...serif, fontSize:26, fontWeight:600 }}>{doneCount}<span style={{ fontSize:16, color:MUTE }}> / {total}</span></div>
+        </div>
+        <Card title="Your analysis">
+          <div style={{ display:"inline-flex", alignItems:"center", gap:7, background: ready ? "rgba(194,238,69,0.14)" : "rgba(255,255,255,0.05)", border:`1px solid ${ready ? LIME+"55" : BORDER}`, borderRadius:30, padding:"5px 12px", fontSize:12.5, fontWeight:600, color: ready ? LIME : TXT, marginBottom:12 }}>
+            <Award size={14}/> {readiness}
           </div>
-          <button onClick={() => goStage(next ? next.n : 12)} style={{ ...primaryBtn, marginLeft:"auto" }}>
-            {ctaLabel} <ArrowRight size={16} style={{ marginLeft:8 }}/>
-          </button>
-        </div>
-        <div style={{ marginTop:16, height:9, borderRadius:30, background:"rgba(0,0,0,0.35)", overflow:"hidden" }}>
-          <div style={{ width:`${pct}%`, height:"100%", borderRadius:30, background:`linear-gradient(90deg, ${LIME_DIM}, ${LIME})`, transition:"width .5s ease" }} />
-        </div>
-        <div style={{ fontSize:11.5, color:MUTE, marginTop:7 }}>{pct}% of training complete</div>
+          <ul style={{ margin:0, padding:0, listStyle:"none", display:"flex", flexDirection:"column", gap:9 }}>
+            <Insight ok={knowledge != null && knowledge >= 70}>{knowledge != null ? `Program knowledge at ${knowledge}% across ${qs.length} quiz check${qs.length>1?"s":""}.` : "Take the level quizzes to build your program-knowledge score."}</Insight>
+            <Insight ok={!!strongest}>{strongest ? `Strongest skill: ${SHORT(strongest.name)} (${strongest.pct}%).` : "Run a mock call (Level 6) to chart your selling skills."}</Insight>
+            <Insight warn={!!weakest}>{weakest ? `Focus next: ${SHORT(weakest.name)} (${weakest.pct}%).` : "Your weak spots surface after a few calls."}</Insight>
+            <Insight ok={!next}>{next ? `Up next: Level ${next.n - 1} · ${next.title}.` : "Every level complete — you're Sales Ready! 🎉"}</Insight>
+          </ul>
+        </Card>
+      </div>
+
+      {/* charts: skills radar + score trend */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:14, marginBottom:24 }}>
+        <Card title="Selling skills">
+          {skills.length >= 3
+            ? <Radar data={skills} />
+            : <EmptyViz>Run mock calls (Level 6) to chart your skills across opening, discovery, objection-handling and close.</EmptyViz>}
+        </Card>
+        <Card title="Mock-call trend">
+          {trend.length
+            ? (<div>
+                <div style={{ display:"flex", alignItems:"baseline", gap:10, marginBottom:8 }}>
+                  <span style={{ ...serif, fontSize:30, fontWeight:600, color:scoreCol(callAvg) }}>{callAvg}</span>
+                  <span style={{ fontSize:12, color:MUTE }}>avg · best {best} · {calls.length} call{calls.length>1?"s":""}</span>
+                </div>
+                <Spark values={trend} />
+              </div>)
+            : <EmptyViz>Your scores over time appear here once you've run a mock call.</EmptyViz>}
+        </Card>
       </div>
 
       {/* roadmap */}
@@ -497,7 +606,7 @@ function SectionPanel({ h, items }) {
 }
 
 // Reusable quiz gate. Pass = every question correct; calls onPass when cleared.
-function Quiz({ questions, onPass }) {
+function Quiz({ questions, onPass, quizKey }) {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const allAnswered = questions.every((_, i) => answers[i] != null);
@@ -506,6 +615,15 @@ function Quiz({ questions, onPass }) {
     const correct = questions.reduce((n, q, i) => n + (answers[i] === q.answer ? 1 : 0), 0);
     const passed = correct === questions.length;
     setResult({ correct, total: questions.length, passed });
+    if (quizKey != null) {
+      try {
+        const k = "sarafai_quiz_v1";
+        const all = JSON.parse(localStorage.getItem(k) || "{}");
+        const prev = all[quizKey];
+        if (!prev || correct >= prev.correct) all[quizKey] = { correct, total: questions.length, ts: Date.now() };
+        localStorage.setItem(k, JSON.stringify(all));
+      } catch {}
+    }
     if (passed && onPass) onPass();
   };
   return (
@@ -616,7 +734,7 @@ export function StagePage({ stage, isDone, onComplete, goDashboard, children }) 
 
       {children}
 
-      {stage.quiz && <Quiz questions={stage.quiz} onPass={() => setQuizPassed(true)} />}
+      {stage.quiz && <Quiz questions={stage.quiz} quizKey={stage.n} onPass={() => setQuizPassed(true)} />}
 
       {stage.unlock && (
         <div style={{ display:"inline-flex", alignItems:"center", gap:8, marginTop:22, background:"rgba(194,238,69,0.06)", border:`1px solid rgba(194,238,69,0.22)`, borderRadius:30, padding:"8px 15px", fontSize:12.5, color:LIME_DIM, fontWeight:600 }}>

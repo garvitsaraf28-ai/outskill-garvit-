@@ -988,6 +988,7 @@ If the rep said nothing factually useful or correct, return [].`,
         .osd:nth-child(2){animation-delay:.18s}.osd:nth-child(3){animation-delay:.36s}
         @keyframes osb{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
         @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pageturn{0%{opacity:0;transform:perspective(1400px) rotateY(-32deg);transform-origin:left center}100%{opacity:1;transform:none}}
         @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(194,238,69,.45)}70%{box-shadow:0 0 0 22px rgba(194,238,69,0)}100%{box-shadow:0 0 0 0 rgba(194,238,69,0)}}
         @keyframes bob{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1)}}
         textarea,input,select{outline:none}

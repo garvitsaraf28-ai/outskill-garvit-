@@ -14,7 +14,6 @@ import {
   Lock, CheckCircle2, ChevronRight, ArrowLeft, ArrowRight, LogOut,
   Mail, User, Clock, MapPin, Target, GraduationCap, AlertTriangle, Sparkles,
 } from "lucide-react";
-import HTMLFlipBook from "react-pageflip";
 
 /* ---- palette (kept in sync with App.jsx) ---- */
 const LIME = "#c2ee45";
@@ -561,8 +560,9 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [], on
             <div style={{ fontSize:11, color:MUTE }}>{user?.email || "New joiner"}</div>
           </div>
           {onManager && (
-            <button onClick={onManager} title="Manager / team view" style={{ ...secondaryBtn, padding:"8px 12px", fontSize:12.5 }}>
-              <Users size={14}/><span style={{ marginLeft:6 }}>Manager view</span>
+            <button onClick={onManager} title="Manager / team view"
+              style={{ display:"inline-flex", alignItems:"center", gap:7, background:"rgba(194,238,69,0.12)", border:`1px solid ${LIME}66`, color:LIME, borderRadius:30, padding:"9px 16px", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+              <Users size={15}/><span>Manager view</span>
             </button>
           )}
           <button onClick={onLogout} title="Log out" style={{ ...secondaryBtn, padding:"8px 12px", fontSize:12.5 }}>
@@ -884,31 +884,43 @@ const BROCHURES = [
 ];
 function Brochures() {
   const [active, setActive] = useState("india");
+  const [page, setPage] = useState(1);
   const b = BROCHURES.find((x) => x.key === active);
-  const pages = Array.from({ length: b.count }, (_, i) => `/brochures/${active}/p${i + 1}.jpg`);
+  const select = (k) => { setActive(k); setPage(1); };
+  const go = (d) => setPage((p) => Math.max(1, Math.min(b.count, p + d)));
   return (
     <div>
-      <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 }}>The brochures — read them like a book</div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
-        {BROCHURES.map((x) => (
-          <button key={x.key} onClick={() => setActive(x.key)}
-            style={{ fontSize:12.5, fontWeight:600, borderRadius:30, padding:"7px 14px", cursor:"pointer",
-              background: x.key === active ? LIME : "rgba(255,255,255,0.04)", color: x.key === active ? INK : TXT,
-              border:`1px solid ${x.key === active ? LIME : BORDER}` }}>{x.label}</button>
-        ))}
+      <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:12 }}>The brochures — open them like a book</div>
+      {/* the 3 books */}
+      <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginBottom:20, justifyContent:"center" }}>
+        {BROCHURES.map((x) => {
+          const on = x.key === active;
+          return (
+            <button key={x.key} onClick={() => select(x.key)} style={{ background:"transparent", border:"none", cursor:"pointer", padding:0, textAlign:"center", width:150 }}>
+              <div style={{ position:"relative", borderRadius:"3px 9px 9px 3px", overflow:"hidden", border:`2px solid ${on ? LIME : BORDER}`, boxShadow: on ? `0 12px 28px ${LIME}33` : "0 6px 16px rgba(0,0,0,0.45)", transform: on ? "translateY(-4px)" : "none", transition:"all .2s ease" }}>
+                <div style={{ position:"absolute", left:0, top:0, bottom:0, width:7, background:"linear-gradient(90deg, rgba(0,0,0,0.55), transparent)", zIndex:1 }} />
+                <img src={`/brochures/${x.key}/p1.jpg`} alt={x.label} style={{ width:"100%", display:"block" }} />
+              </div>
+              <div style={{ fontSize:12.5, fontWeight:600, color: on ? LIME : TXT, marginTop:9 }}>{x.label}</div>
+              <div style={{ fontSize:11, color:MUTE }}>{x.count} pages</div>
+            </button>
+          );
+        })}
       </div>
-      <div style={{ display:"flex", justifyContent:"center" }}>
-        <HTMLFlipBook key={active} width={440} height={248} size="stretch"
-          minWidth={260} maxWidth={460} minHeight={146} maxHeight={259}
-          showCover={false} maxShadowOpacity={0.5} drawShadow={true} mobileScrollSupport={true}>
-          {pages.map((src, i) => (
-            <div key={i} style={{ background:"#0a0c08", overflow:"hidden" }}>
-              <img src={src} alt={`Page ${i + 1}`} loading="lazy" style={{ width:"100%", height:"100%", display:"block", objectFit:"contain" }} />
-            </div>
-          ))}
-        </HTMLFlipBook>
+      {/* the open book — big & readable */}
+      <div style={{ maxWidth:840, margin:"0 auto" }}>
+        <div style={{ position:"relative", borderRadius:10, overflow:"hidden", border:`1px solid ${BORDER}`, background:"#0a0c08", boxShadow:"0 20px 50px rgba(0,0,0,0.55)" }}>
+          <img key={`${active}-${page}`} src={`/brochures/${active}/p${page}.jpg`} alt={`Page ${page}`} style={{ width:"100%", display:"block", animation:"pageturn .35s ease" }} />
+          {page > 1 && <button onClick={() => go(-1)} aria-label="Previous page" style={{ position:"absolute", left:0, top:0, bottom:0, width:"40%", background:"transparent", border:"none", cursor:"pointer" }} />}
+          {page < b.count && <button onClick={() => go(1)} aria-label="Next page" style={{ position:"absolute", right:0, top:0, bottom:0, width:"40%", background:"transparent", border:"none", cursor:"pointer" }} />}
+        </div>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginTop:12 }}>
+          <button onClick={() => go(-1)} disabled={page <= 1} style={{ ...secondaryBtn, padding:"8px 14px", fontSize:13, opacity: page <= 1 ? 0.4 : 1 }}><ArrowLeft size={15} /></button>
+          <span style={{ fontSize:13, color:MUTE, minWidth:74, textAlign:"center" }}>{page} / {b.count}</span>
+          <button onClick={() => go(1)} disabled={page >= b.count} style={{ ...secondaryBtn, padding:"8px 14px", fontSize:13, opacity: page >= b.count ? 0.4 : 1 }}><ArrowRight size={15} /></button>
+        </div>
+        <div style={{ textAlign:"center", fontSize:11.5, color:MUTE, marginTop:8 }}>Click the left or right side of the page — or use the arrows — to turn the page.</div>
       </div>
-      <div style={{ textAlign:"center", fontSize:12, color:MUTE, marginTop:10 }}>Drag a page corner or click the edges to flip — just like a real book.</div>
     </div>
   );
 }
@@ -916,6 +928,7 @@ function Brochures() {
 // Mastermind recordings embedded in-portal (Level 2). Generalist = YouTube
 // playlist (plays inline); Engineering = Google Drive folder (opens in a tab).
 export function MastermindRecordings() {
+  const [step, setStep] = useState("videos"); // videos -> brochures
   const GEN = ["VDnFr_hx5N0", "GYBdgKZlKaA"]; // Generalist mastermind (YouTube)
   const ENG = [                                // Engineering mastermind (Google Drive video files)
     "1nagIgLAy21WDxYiUIshm9H7oYd9V0WJF",
@@ -932,6 +945,7 @@ export function MastermindRecordings() {
   );
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:22, marginTop:8 }}>
+      {step === "videos" ? (<>
       <div>
         <div style={labelStyle}>Generalist mastermind — watch in full</div>
         {GEN.map((id, i) => <Frame key={id} src={`https://www.youtube.com/embed/${id}`} title={`Generalist Mastermind — session ${i + 1}`} />)}
@@ -942,7 +956,11 @@ export function MastermindRecordings() {
         {ENG.map((id, i) => <Frame key={id} src={`https://drive.google.com/file/d/${id}/preview`} title={`Engineering Mastermind — session ${i + 1}`} />)}
         <div style={{ fontSize:12.5, color:MUTE }}>Technical / Python track. Plays here from Drive (the files must be shared "anyone with the link").</div>
       </div>
+      <button onClick={() => setStep("brochures")} style={{ ...primaryBtn, alignSelf:"flex-start" }}>Next: read the brochures <ArrowRight size={16} style={{ marginLeft:8 }} /></button>
+      </>) : (<>
+      <button onClick={() => setStep("videos")} style={{ ...secondaryBtn, alignSelf:"flex-start", padding:"7px 13px", fontSize:12.5 }}><ArrowLeft size={14} /><span style={{ marginLeft:6 }}>Back to videos</span></button>
       <Brochures />
+      </>)}
     </div>
   );
 }

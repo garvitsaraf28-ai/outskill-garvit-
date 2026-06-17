@@ -492,7 +492,7 @@ function CoachNote({ stats }) {
   );
 }
 
-export function Dashboard({ user, completed, goStage, onLogout, history = [] }) {
+export function Dashboard({ user, completed, goStage, onLogout, history = [], onManager }) {
   const [view, setView] = useState("home"); // "home" roadmap vs "report" analytics
   const quizScores = (() => { try { return JSON.parse(localStorage.getItem("sarafai_quiz_v1") || "{}"); } catch { return {}; } })();
   const doneCount = TRAINABLE.filter((n) => completed.includes(n)).length;
@@ -559,6 +559,11 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
             <div style={{ fontSize:13, fontWeight:600, color:TXT }}>{user?.name || "Trainee"}</div>
             <div style={{ fontSize:11, color:MUTE }}>{user?.email || "New joiner"}</div>
           </div>
+          {onManager && (
+            <button onClick={onManager} title="Manager / team view" style={{ ...secondaryBtn, padding:"8px 12px", fontSize:12.5 }}>
+              <Users size={14}/><span style={{ marginLeft:6 }}>Manager view</span>
+            </button>
+          )}
           <button onClick={onLogout} title="Log out" style={{ ...secondaryBtn, padding:"8px 12px", fontSize:12.5 }}>
             <LogOut size={14}/><span style={{ marginLeft:6 }}>Log out</span>
           </button>
@@ -662,7 +667,7 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
       {/* roadmap */}
       <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:MUTE, fontWeight:600, marginBottom:10 }}>Your journey · 11 levels</div>
       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-        {STAGES.map((s) => <StepRow key={s.n} stage={s} status={statusFor(s.n)} onClick={() => goStage(s.n)} />)}
+        {STAGES.map((s) => <StepRow key={s.n} stage={s} status={statusFor(s.n)} onClick={() => s.n === 1 ? setView("report") : goStage(s.n)} />)}
       </div>
       </>)}
 
@@ -675,18 +680,22 @@ export function Dashboard({ user, completed, goStage, onLogout, history = [] }) 
    Manager / Team view — gated leaderboard of every rep's onboarding progress
    ========================================================================== */
 export function ManagerView({ onBack }) {
-  const [key, setKey] = useState("");
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
   const [reps, setReps] = useState(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [configured, setConfigured] = useState(true);
+  const [secured, setSecured] = useState(true);
   const load = async () => {
+    if (!email.trim() || !pass.trim()) { setErr("Enter your manager email and password."); return; }
     setLoading(true); setErr("");
     try {
-      const r = await fetch(`/api/progress?key=${encodeURIComponent(key)}`);
-      if (r.status === 403) { setErr("Wrong passcode."); setReps(null); setLoading(false); return; }
+      const r = await fetch(`/api/progress?email=${encodeURIComponent(email)}&pass=${encodeURIComponent(pass)}`);
+      if (r.status === 403) { setErr("Not a manager account — check your email & password."); setReps(null); setLoading(false); return; }
       const d = await r.json();
       setConfigured(d.configured !== false);
+      setSecured(d.secured !== false);
       setReps((d.reps || []).sort((a, b) => (b.completion - a.completion) || ((b.callAvg || 0) - (a.callAvg || 0))));
     } catch { setErr("Couldn't load team data."); }
     setLoading(false);
@@ -706,15 +715,22 @@ export function ManagerView({ onBack }) {
       <div style={{ fontSize:11.5, letterSpacing:1.4, textTransform:"uppercase", color:LIME_DIM, fontWeight:600, marginBottom:8 }}>OutSkill · Sales · Manager view</div>
       <h1 style={{ ...serif, fontSize:"clamp(24px,6vw,36px)", fontWeight:600, margin:"0 0 14px", letterSpacing:-0.6 }}>Team onboarding</h1>
 
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:18 }}>
-        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="Manager passcode (if set)" type="password"
-          style={{ flex:1, minWidth:180, background:"rgba(255,255,255,0.04)", border:`1px solid ${BORDER}`, borderRadius:11, padding:"11px 13px", color:TXT, fontSize:14 }} />
-        <button onClick={load} disabled={loading} style={{ ...primaryBtn, opacity: loading ? 0.6 : 1 }}>{loading ? "Loading…" : "View team"}</button>
-      </div>
-      {err && <div style={{ color:"#e8a99b", fontSize:13, marginBottom:14 }}>{err}</div>}
-
-      {reps && (
+      {!reps ? (
+        <div style={{ maxWidth:380, background:PANEL, border:`1px solid ${BORDER}`, borderRadius:16, padding:"20px" }}>
+          <div style={{ fontSize:13.5, color:MUTE, marginBottom:14, lineHeight:1.5 }}>Managers only. Sign in to see the whole team's progress.</div>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Manager email" type="email"
+            style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${BORDER}`, borderRadius:11, padding:"11px 13px", color:TXT, fontSize:14, marginBottom:10 }} />
+          <input value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Password" type="password" onKeyDown={(e) => { if (e.key === "Enter") load(); }}
+            style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${BORDER}`, borderRadius:11, padding:"11px 13px", color:TXT, fontSize:14, marginBottom:12 }} />
+          <button onClick={load} disabled={loading} style={{ ...primaryBtn, width:"100%", justifyContent:"center", opacity: loading ? 0.6 : 1 }}>{loading ? "Signing in…" : "Sign in"}</button>
+          {err && <div style={{ color:"#e8a99b", fontSize:13, marginTop:12 }}>{err}</div>}
+        </div>
+      ) : (
         <>
+          <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:14, flexWrap:"wrap" }}>
+            <button onClick={() => { setReps(null); setPass(""); }} style={{ ...secondaryBtn, padding:"6px 12px", fontSize:12 }}>Sign out</button>
+            {!secured && <span style={{ fontSize:11.5, color:"#e8c98b" }}>⚠ Not locked yet — set MANAGER_USERS in Vercel</span>}
+          </div>
           <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:16 }}>
             <KPI label="Reps" value={reps.length} />
             <KPI label="Sales Ready" value={readyCount} color={LIME} />

@@ -9,20 +9,39 @@ import { isConfigured, cmd } from "./_kv.js";
 
 const PROGRESS_KEY = "saraf_progress_v1";
 
+// Manager credentials live in Vercel env (never in the repo):
+//   MANAGER_USERS = "boss@outskill.com:pass1,lead@outskill.com:pass2"
+//   (or a single MANAGER_EMAIL + MANAGER_PASSWORD)
+// If none are configured yet, access is open (demo) and we flag secured:false.
+function checkManager(email, pass) {
+  const list = (process.env.MANAGER_USERS || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (process.env.MANAGER_EMAIL && process.env.MANAGER_PASSWORD) {
+    list.push(`${process.env.MANAGER_EMAIL}:${process.env.MANAGER_PASSWORD}`);
+  }
+  if (list.length === 0) return { ok: true, secured: false };
+  const e = (email || "").trim().toLowerCase();
+  const p = pass || "";
+  const ok = list.some((pair) => {
+    const i = pair.indexOf(":");
+    return i > 0 && pair.slice(0, i).trim().toLowerCase() === e && pair.slice(i + 1) === p;
+  });
+  return { ok, secured: true };
+}
+
 export default async function handler(req, res) {
   if (req.method === "GET") {
-    const need = process.env.MANAGER_KEY;
-    if (need && (req.query.key || "") !== need) return res.status(403).json({ ok: false, error: "bad_key" });
-    if (!isConfigured()) return res.json({ ok: true, configured: false, reps: [] });
+    const chk = checkManager(req.query.email, req.query.pass);
+    if (!chk.ok) return res.status(403).json({ ok: false, error: "not_manager" });
+    if (!isConfigured()) return res.json({ ok: true, configured: false, secured: chk.secured, reps: [] });
     try {
       const flat = (await cmd(["HGETALL", PROGRESS_KEY])) || [];
       const reps = [];
       for (let i = 0; i + 1 < flat.length; i += 2) {
         try { reps.push(JSON.parse(flat[i + 1])); } catch {}
       }
-      return res.json({ ok: true, configured: true, reps });
+      return res.json({ ok: true, configured: true, secured: chk.secured, reps });
     } catch (e) {
-      return res.json({ ok: true, configured: false, reps: [], error: String((e && e.message) || e) });
+      return res.json({ ok: true, configured: false, secured: chk.secured, reps: [], error: String((e && e.message) || e) });
     }
   }
 

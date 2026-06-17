@@ -14,6 +14,7 @@ import {
   Lock, CheckCircle2, ChevronRight, ArrowLeft, ArrowRight, LogOut,
   Mail, User, Clock, MapPin, Target, GraduationCap, AlertTriangle, Sparkles,
 } from "lucide-react";
+import HTMLFlipBook from "react-pageflip";
 
 /* ---- palette (kept in sync with App.jsx) ---- */
 const LIME = "#c2ee45";
@@ -873,6 +874,45 @@ function Quiz({ questions, onPass, quizKey }) {
   );
 }
 
+// The 3 Accelerator brochures, rendered as a real page-flip book (images
+// pre-rendered to /public/brochures). Order: Generalist India -> Engineering ->
+// Generalist International.
+const BROCHURES = [
+  { key:"india", label:"Generalist · India", count:70 },
+  { key:"eng",   label:"Engineering", count:39 },
+  { key:"intl",  label:"Generalist · International", count:70 },
+];
+function Brochures() {
+  const [active, setActive] = useState("india");
+  const b = BROCHURES.find((x) => x.key === active);
+  const pages = Array.from({ length: b.count }, (_, i) => `/brochures/${active}/p${i + 1}.jpg`);
+  return (
+    <div>
+      <div style={{ fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:10 }}>The brochures — read them like a book</div>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
+        {BROCHURES.map((x) => (
+          <button key={x.key} onClick={() => setActive(x.key)}
+            style={{ fontSize:12.5, fontWeight:600, borderRadius:30, padding:"7px 14px", cursor:"pointer",
+              background: x.key === active ? LIME : "rgba(255,255,255,0.04)", color: x.key === active ? INK : TXT,
+              border:`1px solid ${x.key === active ? LIME : BORDER}` }}>{x.label}</button>
+        ))}
+      </div>
+      <div style={{ display:"flex", justifyContent:"center" }}>
+        <HTMLFlipBook key={active} width={440} height={248} size="stretch"
+          minWidth={260} maxWidth={460} minHeight={146} maxHeight={259}
+          showCover={false} maxShadowOpacity={0.5} drawShadow={true} mobileScrollSupport={true}>
+          {pages.map((src, i) => (
+            <div key={i} style={{ background:"#0a0c08", overflow:"hidden" }}>
+              <img src={src} alt={`Page ${i + 1}`} loading="lazy" style={{ width:"100%", height:"100%", display:"block", objectFit:"contain" }} />
+            </div>
+          ))}
+        </HTMLFlipBook>
+      </div>
+      <div style={{ textAlign:"center", fontSize:12, color:MUTE, marginTop:10 }}>Drag a page corner or click the edges to flip — just like a real book.</div>
+    </div>
+  );
+}
+
 // Mastermind recordings embedded in-portal (Level 2). Generalist = YouTube
 // playlist (plays inline); Engineering = Google Drive folder (opens in a tab).
 export function MastermindRecordings() {
@@ -902,6 +942,7 @@ export function MastermindRecordings() {
         {ENG.map((id, i) => <Frame key={id} src={`https://drive.google.com/file/d/${id}/preview`} title={`Engineering Mastermind — session ${i + 1}`} />)}
         <div style={{ fontSize:12.5, color:MUTE }}>Technical / Python track. Plays here from Drive (the files must be shared "anyone with the link").</div>
       </div>
+      <Brochures />
     </div>
   );
 }

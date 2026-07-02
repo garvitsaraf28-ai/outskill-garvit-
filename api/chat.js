@@ -76,6 +76,34 @@ function cleanReply(text) {
   return t;
 }
 
+// SPOKEN replies must sound like a human on the phone. Some fallback models
+// leak chain-of-thought, markdown, code fences or stage directions into the
+// visible reply — all of it gets read aloud by TTS. Strip every code-shaped
+// artifact here, server-side, so no client ever hears it.
+function sanitizeSpoken(text) {
+  let t = String(text || "")
+    .replace(/<think>[\s\S]*?<\/think>/gi, " ")
+    .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, " ");
+  // An UNCLOSED think tag means everything after it is reasoning — drop it.
+  const open = t.search(/<think>|<reasoning>/i);
+  if (open !== -1) t = t.slice(0, open);
+  t = t
+    .replace(/```[\s\S]*?```/g, " ")            // fenced code blocks
+    .replace(/`[^`\n]*`/g, " ")                  // inline code
+    .replace(/\[[^\]\n]{0,80}\]/g, " ")          // [stage directions] / [labels]
+    .replace(/\*\*([^*\n]{0,80})\*\*/g, "$1")    // **bold** → keep the words
+    .replace(/\*[^*\n]{1,60}\*/g, " ")           // *chuckles*-style emotes
+    .replace(/^#{1,6}\s+/gm, "")                 // markdown headers
+    .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, "")   // bullet / numbered list markers
+    .replace(/^\s*(?:[A-Z][a-z]+(?: [A-Z][a-z]+)?|REP|LEARNER|PROSPECT|ASSISTANT|AI)\s*:\s*/, "") // speaker labels
+    .replace(/[*_~#>|]+/g, " ")                  // leftover markdown decoration
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "") // emoji
+    .replace(/\s+/g, " ")
+    .trim();
+  if (t.length > 1 && t.startsWith('"') && t.endsWith('"')) t = t.slice(1, -1).trim();
+  return t;
+}
+
 async function tryModel(target, orMessages, { json, maxTokens, timeoutMs }) {
   const isOpenAI = target.startsWith("openai:");
   const model = isOpenAI ? target.slice(7) : target;
@@ -111,7 +139,8 @@ async function tryModel(target, orMessages, { json, maxTokens, timeoutMs }) {
     if (!r.ok) {
       throw new Error((data && data.error && data.error.message) || `Model error ${r.status}`);
     }
-    const reply = cleanReply(data?.choices?.[0]?.message?.content);
+    const raw = data?.choices?.[0]?.message?.content;
+    const reply = json ? cleanReply(raw) : sanitizeSpoken(raw);
     if (!reply) throw new Error(`Empty reply from ${target}`);
     return reply;
   } catch (e) {
@@ -122,26 +151,59 @@ async function tryModel(target, orMessages, { json, maxTokens, timeoutMs }) {
   }
 }
 
+// Model-health memory. Serverless functions stay warm between turns of the
+// same call, so remembering which target just worked (and which just failed)
+// makes every turn after the first go straight to a known-good model instead
+// of re-paying for the same dead providers.
+const modelDownUntil = new Map(); // target -> epoch-ms to skip until
+let lastGoodModel = null;
+const BILLING_COOLDOWN_MS = 10 * 60 * 1000; // credits/quota issues don't fix themselves fast
+const FAIL_COOLDOWN_MS = 60 * 1000;         // rate-limit / hiccup — retry soon
+
+function markFailed(target, msg) {
+  const billing = /credit|quota|billing|payment|insufficient|402/i.test(msg || "");
+  modelDownUntil.set(target, Date.now() + (billing ? BILLING_COOLDOWN_MS : FAIL_COOLDOWN_MS));
+  if (lastGoodModel === target) lastGoodModel = null;
+}
+
+function orderChain(chain) {
+  const now = Date.now();
+  const healthy = chain.filter((t) => (modelDownUntil.get(t) || 0) <= now);
+  const usable = healthy.length ? healthy : chain; // never end up with an empty chain
+  if (lastGoodModel && usable.includes(lastGoodModel)) {
+    return [lastGoodModel, ...usable.filter((t) => t !== lastGoodModel)];
+  }
+  return usable;
+}
+
 async function callChain({ system, messages, json }) {
   const orMessages = [
     ...(system ? [{ role: "system", content: system }] : []),
     ...messages.map(({ role, content }) => ({ role, content })),
   ];
   let lastErr = "All models are busy right now. Wait a few seconds and try again.";
-  const chain = json ? SCORE_MODELS : CONVO_MODELS;
+  const baseChain = json ? SCORE_MODELS : CONVO_MODELS;
   const timeoutMs = json ? SCORE_TIMEOUT_MS : CONVO_TIMEOUT_MS;
   const maxTokens = json ? MAX_TOKENS : CONVO_TOKENS;
 
   // Two passes: with a funded key the first model succeeds almost always; the
-  // second pass only exists for the rare moment the whole chain hiccups.
+  // second pass only exists for the rare moment the whole chain hiccups (and
+  // ignores cooldowns, so a marked-down model can still recover).
   for (let pass = 0; pass < 2; pass++) {
     if (pass > 0) await new Promise((r) => setTimeout(r, 800));
+    const chain = pass === 0 ? orderChain(baseChain) : baseChain;
     for (const target of chain) {
+      // Paid targets answer in ~1-2s; if one hangs, bail early and move on —
+      // only the free reasoning fallbacks get the full window.
+      const perTry = target.includes(":free") ? timeoutMs : Math.min(timeoutMs, json ? 30000 : 12000);
       try {
-        const reply = await tryModel(target, orMessages, { json, maxTokens, timeoutMs });
+        const reply = await tryModel(target, orMessages, { json, maxTokens, timeoutMs: perTry });
+        lastGoodModel = target;
+        modelDownUntil.delete(target);
         return { reply, model: target };
       } catch (e) {
         lastErr = String((e && e.message) || e);
+        markFailed(target, lastErr);
       }
     }
   }

@@ -77,6 +77,7 @@ for (const s of STAGES) {
 console.log("— Level 2 content —");
 check("MastermindRecordings (videos)", () => <MastermindRecordings />, "Generalist mastermind");
 check("MastermindRecordings (brochures)", () => <MastermindRecordings initialStep="brochures" />, "brochures");
+check("MastermindRecordings (payments)", () => <MastermindRecordings initialStep="payments" />, "Razorpay");
 
 console.log("— Mock-Call Room (the heart) —");
 check("Setup (learner mode)", () => <Setup serif={serif} mode="learner" setMode={noop} persona={persona} setPersona={noop}

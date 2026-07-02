@@ -363,7 +363,17 @@ function normalizeScorecard(c) {
     } : null,
   };
 }
-const cleanForTTS = t => t.replace(/[*_`#>~]/g, "").replace(/\s+/g, " ").trim();
+// Belt-and-braces: the server already sanitizes spoken replies, but nothing
+// code-shaped may ever reach the voice — TTS reads markdown, code and stage
+// directions out loud ("asterisk asterisk…"), which instantly breaks the call.
+const cleanForTTS = t => String(t || "")
+  .replace(/```[\s\S]*?```/g, " ")
+  .replace(/`[^`\n]*`/g, " ")
+  .replace(/\[[^\]\n]{0,80}\]/g, " ")
+  .replace(/\*[^*\n]{1,60}\*/g, " ")
+  .replace(/[*_`#>~|]/g, " ")
+  .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "")
+  .replace(/\s+/g, " ").trim();
 const ttsSnippet = text => cleanForTTS(text);
 // Known male/female voice-name hints across Chrome / Edge / macOS / mobile.
 const FEMALE_HINTS = /(female|woman|samantha|aria|libby|jenny|sonia|neerja|swara|kalpana|heera|veena|tessa|fiona|karen|moira|zira|hazel|google uk english female|google us english.*female)/i;

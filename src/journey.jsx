@@ -59,11 +59,12 @@ export const STAGES = [
   {
     n: 3, title: "Mastermind Immersion", subtitle: "Live the learner experience", when: "Days 2–5",
     Icon: Users, kind: "page",
-    short: "Watch the recent Generalist + Engineering recordings to learn how we pitch.",
-    detail: "Watch the most recent Generalist and Engineering mastermind recordings end to end. This is where you learn HOW we actually pitch the Accelerator and which prospect routes to which track. Both are embedded below — no tab-switching.",
+    short: "Watch the recordings, read the brochures, then master the payments.",
+    detail: "Three parts, in order. Watch the most recent Generalist and Engineering mastermind recordings end to end — this is where you learn HOW we actually pitch the Accelerator and which prospect routes to which track. Then read the three Accelerator brochures like the learner would. Finally, master the payments: every platform, every EMI route, and exactly how each payment is completed.",
     sections: [
       { h: "Generalist mastermind", items: ["For non-technical people (Sat/Sun)", "See how the Accelerator is framed for them", "Watch the full recording below"] },
       { h: "Engineering mastermind", items: ["For coders — Python / technical (Fri/Sat)", "Spot who routes to the Engineering track", "Watch the full recording below"] },
+      { h: "Payments — close without fumbling", items: ["India: Razorpay (full) · Pine Labs (credit-card EMI) · Shopse (debit-card EMI) · Fibe/Propel (NBFC)", "International: XP — full (no fee) or installments (+9% fee)", "Zero-cost EMI in India · tenures always 3/6/9/12 months"] },
     ],
     unlock: "Watch both recordings to continue",
   },
@@ -980,10 +981,94 @@ function Brochures() {
   );
 }
 
+// How every payment actually gets collected — the exact platforms, modes and
+// completion steps from the OutSkill payment-gateways sheet. Same ground truth
+// the AI mock-call agent is graded against, so what a rep reads here is what
+// the scorecard rewards on the phone.
+const PAY_PRICES = [
+  { label: "India", value: "₹94,999", note: "INR · attended the Indian mastermind" },
+  { label: "International", value: "$2,995", note: "USD · attended the international mastermind" },
+  { label: "USD · Indian mastermind", value: "$1,199", note: "pays in USD but attended the INDIAN mastermind" },
+];
+const PAY_ROUTES_INDIA = [
+  { plat: "Razorpay", mode: "One-time (full payment)", how: "Share the Razorpay link → learner pays in one go. No extra charge.", tag: "Fastest close" },
+  { plat: "Pine Labs", mode: "EMI with a CREDIT card", how: "Share the Pine Labs link → learner picks 3 / 6 / 9 / 12 months. ZERO-COST EMI — OutSkill bears the interest, the learner never pays a rupee extra.", tag: "Most common EMI" },
+  { plat: "Shopse", mode: "EMI WITHOUT a credit card (debit-card EMI)", how: "FIRST run the learner's mobile number through the debit-card-EMI eligibility check → only if it passes, share the Shopse link → 3 / 6 / 9 / 12 months, zero-cost.", tag: "Check eligibility first" },
+  { plat: "Fibe / Propel (NBFC)", mode: "No credit card AND not Shopse-eligible", how: "Share the Fibe/Propel Google form → learner fills it → a confirmation page appears → learner sends you the confirmation screenshot → you forward it to the Fibe/Propel team, who handle the rest. 3 / 6 / 9 / 12 months, zero-cost.", tag: "The backup route" },
+];
+const PAY_ROUTES_INTL = [
+  { plat: "XP", mode: "One-time (full payment)", how: "Share the XP link → learner pays in full. No convenience fee.", tag: "No fee" },
+  { plat: "XP", mode: "EMI / installments", how: "XP installments over 3 / 6 / 9 / 12 months — a 9% convenience fee is added to the total. Always disclose it upfront.", tag: "+9% fee — disclose it" },
+];
+const PAY_RULES = [
+  "Indian EMI is ZERO-COST — OutSkill bears the interest. Never tell an Indian learner that EMI costs extra.",
+  "The 9% convenience fee applies to INTERNATIONAL installments ONLY.",
+  "EMI tenures are always 3, 6, 9 or 12 months — no other tenure exists.",
+  "Never invent a price, a discount or a scholarship. Hold the price, sell the value.",
+];
+function PaymentRouteCard({ r }) {
+  return (
+    <div style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"16px 18px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:6 }}>
+        <span style={{ fontSize:15, fontWeight:700, color:LIME }}>{r.plat}</span>
+        <span style={{ fontSize:10.5, letterSpacing:1, textTransform:"uppercase", color:MUTE, border:`1px solid ${BORDER}`, borderRadius:20, padding:"3px 9px" }}>{r.tag}</span>
+      </div>
+      <div style={{ fontSize:13.5, fontWeight:600, marginBottom:6 }}>{r.mode}</div>
+      <div style={{ fontSize:12.5, color:MUTE, lineHeight:1.55 }}>{r.how}</div>
+    </div>
+  );
+}
+export function PaymentsGuide() {
+  const labelStyle = { fontSize:11, letterSpacing:1.2, textTransform:"uppercase", color:LIME_DIM, fontWeight:700, marginBottom:12 };
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
+      <div>
+        <div style={labelStyle}>The prices — know them cold</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))", gap:12 }}>
+          {PAY_PRICES.map((p) => (
+            <div key={p.label} style={{ background:PANEL, border:`1px solid ${BORDER}`, borderRadius:14, padding:"15px 17px" }}>
+              <div style={{ fontSize:11.5, color:MUTE, marginBottom:4 }}>{p.label}</div>
+              <div style={{ ...serif, fontSize:26, fontWeight:600, color:LIME }}>{p.value}</div>
+              <div style={{ fontSize:11.5, color:MUTE, marginTop:4 }}>{p.note}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize:12, color:MUTE, marginTop:8 }}>Engineering Accelerator price is not publicly listed — say you'll confirm current pricing; never invent a number.</div>
+      </div>
+      <div>
+        <div style={labelStyle}>India — how each payment is completed</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", gap:12 }}>
+          {PAY_ROUTES_INDIA.map((r, i) => <PaymentRouteCard key={i} r={r} />)}
+        </div>
+      </div>
+      <div>
+        <div style={labelStyle}>International — XP gateway</div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(260px, 1fr))", gap:12 }}>
+          {PAY_ROUTES_INTL.map((r, i) => <PaymentRouteCard key={i} r={r} />)}
+        </div>
+      </div>
+      <div style={{ background:"rgba(194,238,69,0.06)", border:"1px solid rgba(194,238,69,0.25)", borderRadius:14, padding:"16px 18px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <AlertTriangle size={15} color={LIME_DIM} />
+          <span style={{ fontSize:12.5, fontWeight:700, letterSpacing:1, textTransform:"uppercase", color:LIME_DIM }}>Golden rules — the scorecard flags these</span>
+        </div>
+        <ul style={{ margin:0, paddingLeft:18, display:"flex", flexDirection:"column", gap:7 }}>
+          {PAY_RULES.map((r, i) => <li key={i} style={{ fontSize:13, color:TXT, lineHeight:1.5 }}>{r}</li>)}
+        </ul>
+      </div>
+      <div style={{ fontSize:12.5, color:MUTE, lineHeight:1.6 }}>
+        Pick the route in this order on a live call: <b style={{ color:TXT }}>India?</b> Full payment → Razorpay. Has a credit card → Pine Labs.
+        No credit card → check Shopse eligibility. Not eligible → Fibe/Propel form. <b style={{ color:TXT }}>International?</b> XP — full (no fee) or installments (+9%, disclose it).
+        The AI prospect in the Mock-Call Room will test you on exactly this.
+      </div>
+    </div>
+  );
+}
+
 // Mastermind recordings embedded in-portal (Level 2). Generalist = YouTube
 // playlist (plays inline); Engineering = Google Drive folder (opens in a tab).
 export function MastermindRecordings({ initialStep = "videos" }) {
-  const [step, setStep] = useState(initialStep); // videos -> brochures
+  const [step, setStep] = useState(initialStep); // videos -> brochures -> payments
   const GEN = ["VDnFr_hx5N0", "GYBdgKZlKaA"]; // Generalist mastermind (YouTube)
   const ENG = [                                // Engineering mastermind (Google Drive video files)
     "1nagIgLAy21WDxYiUIshm9H7oYd9V0WJF",
@@ -1012,9 +1097,13 @@ export function MastermindRecordings({ initialStep = "videos" }) {
         <div style={{ fontSize:12.5, color:MUTE }}>Technical / Python track. Plays here from Drive (the files must be shared "anyone with the link").</div>
       </div>
       <button onClick={() => setStep("brochures")} style={{ ...primaryBtn, alignSelf:"flex-start" }}>Next: read the brochures <ArrowRight size={16} style={{ marginLeft:8 }} /></button>
-      </>) : (<>
+      </>) : step === "brochures" ? (<>
       <button onClick={() => setStep("videos")} style={{ ...secondaryBtn, alignSelf:"flex-start", padding:"7px 13px", fontSize:12.5 }}><ArrowLeft size={14} /><span style={{ marginLeft:6 }}>Back to videos</span></button>
       <Brochures />
+      <button onClick={() => setStep("payments")} style={{ ...primaryBtn, alignSelf:"flex-start" }}>Next: master the payments <ArrowRight size={16} style={{ marginLeft:8 }} /></button>
+      </>) : (<>
+      <button onClick={() => setStep("brochures")} style={{ ...secondaryBtn, alignSelf:"flex-start", padding:"7px 13px", fontSize:12.5 }}><ArrowLeft size={14} /><span style={{ marginLeft:6 }}>Back to brochures</span></button>
+      <PaymentsGuide />
       </>)}
     </div>
   );

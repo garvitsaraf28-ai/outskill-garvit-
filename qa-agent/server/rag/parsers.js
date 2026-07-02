@@ -57,8 +57,14 @@ export async function parseFile(filePath) {
     return { title: base, text: csvToText(fs.readFileSync(filePath, "utf8")) };
   }
   if (ext === ".pdf") {
-    const { default: pdfParse } = await optionalDep("pdf-parse");
-    const data = await pdfParse(fs.readFileSync(filePath));
+    const mod = await optionalDep("pdf-parse");
+    const buf = fs.readFileSync(filePath);
+    if (mod.PDFParse) {
+      // pdf-parse v2 class API
+      const result = await new mod.PDFParse({ data: new Uint8Array(buf) }).getText();
+      return { title: base, text: result.text };
+    }
+    const data = await mod.default(buf); // legacy v1 function API
     return { title: base, text: data.text };
   }
   if (ext === ".docx") {

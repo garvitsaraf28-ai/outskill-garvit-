@@ -251,3 +251,111 @@ body[data-theme="light"] .error-note { color: #a13030; }
   .msg { max-width: 100%; }
   .composer-wrap { padding-left: 12px; padding-right: 12px; }
 }
+
+/* ---- two-panel layout: cohort (left) + chat with mode bar (right) ---- */
+.shell { max-width: 1240px; }
+
+.layout {
+  flex: 1; min-height: 0;
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 0;
+}
+
+.chat-panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+/* cohort sidebar */
+.cohort {
+  border-right: 1px solid var(--border);
+  padding: 22px 20px;
+  overflow-y: auto;
+}
+.eyebrow {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2.2px; text-transform: uppercase;
+  color: var(--accent);
+}
+.cohort-sub { font-family: var(--serif); font-size: 19px; font-weight: 700; margin: 8px 0 16px; }
+
+.cohort-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.stat-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px;
+}
+.stat-card b { display: block; font-family: var(--serif); font-size: 22px; color: var(--accent); }
+.stat-card span { font-size: 11px; color: var(--mute); line-height: 1.4; display: block; margin-top: 3px; }
+
+.senior-card {
+  background: color-mix(in srgb, var(--lime) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lime) 35%, var(--border));
+  border-radius: 14px; padding: 14px; margin-bottom: 18px;
+}
+.senior-card .sc-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.6px;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 9px;
+}
+.senior-card .sc-roles { display: flex; flex-wrap: wrap; gap: 6px; }
+.senior-card .sc-roles i {
+  font-style: normal; font-size: 11.5px;
+  background: var(--panel); border: 1px solid var(--border);
+  padding: 4px 9px; border-radius: 999px; color: var(--txt);
+}
+
+.cohort-mix { display: flex; flex-direction: column; gap: 11px; }
+.mix-row { }
+.mix-row .mr-top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+.mix-row .mr-top b { font-weight: 600; color: var(--txt); }
+.mix-row.senior .mr-top b::after {
+  content: "senior-heavy"; font-weight: 700; font-size: 9px;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--accent);
+  margin-left: 7px; vertical-align: 1px;
+}
+.mix-row .mr-top span { color: var(--mute); font-variant-numeric: tabular-nums; }
+.mix-row .mr-bar {
+  height: 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--txt) 8%, transparent);
+  overflow: hidden;
+}
+.mix-row .mr-bar i {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--lime-dim);
+}
+.mix-row.senior .mr-bar i { background: var(--lime); }
+
+.cohort-disclaimer { font-size: 10.5px; color: var(--mute); margin-top: 16px; letter-spacing: .3px; }
+
+/* mode bar */
+.modebar {
+  display: flex; gap: 8px;
+  padding: 12px 20px 0;
+  justify-content: flex-end;
+}
+.mode-tab {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); background: var(--panel);
+  color: var(--mute); font-family: var(--font); font-size: 13px; font-weight: 600;
+  padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.mode-tab small { font-weight: 500; font-size: 10.5px; color: var(--mute); }
+.mode-tab .mode-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mute); }
+.mode-tab.on {
+  background: color-mix(in srgb, var(--lime) 12%, transparent);
+  border-color: color-mix(in srgb, var(--lime) 55%, var(--border));
+  color: var(--txt);
+}
+.mode-tab.on .mode-dot { background: var(--lime); }
+.mode-tab:hover:not(.on) { background: var(--panel-hover); }
+
+/* per-message mode tag */
+.msg-tag {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+  color: var(--mute); margin: 0 4px 4px;
+}
+.msg-tag.agent { color: var(--accent); }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .cohort { display: none; }
+  .modebar { justify-content: center; }
+}

@@ -1,5 +1,5 @@
 import { mergeProfile } from "./profileSchema.js";
-import { systemBlocks, buildUserTurn, buildMessages } from "../prompts/build.js";
+import { systemBlocks, buildUserTurn, buildMessages, MODES } from "../prompts/build.js";
 
 const TRIVIAL_RE = /^(hi|hello|hey|thanks?|thank you|ok(ay)?|cool|great|nice|got it|👍|🙏)[.! ]*$/i;
 
@@ -36,7 +36,10 @@ export function friendlyApiError(err) {
 // streamed answer → persist → async compaction. Fully dependency-injected so
 // tests run without network (ADR-006). See docs/02-architecture.md §2.
 export function createChatService({ client, config, prompts, retriever, sessions, logger = console, profiler }) {
-  const system = systemBlocks(prompts);
+  const systemByMode = {
+    mentor: systemBlocks(prompts, "mentor"),
+    agent: systemBlocks(prompts, "agent"),
+  };
 
   function augmentTerms(profile) {
     const terms = [];
@@ -80,7 +83,8 @@ export function createChatService({ client, config, prompts, retriever, sessions
      * @param {{sessionId: string, message: string, send: (event: string, data: object) => void}} args
      * @returns {Promise<void>} resolves when the SSE stream is complete
      */
-    async handleMessage({ sessionId, message, send }) {
+    async handleMessage({ sessionId, message, send, mode = "mentor" }) {
+      if (!MODES.includes(mode)) mode = "mentor";
       const session = sessions.ensure(sessionId);
       const trivial = TRIVIAL_RE.test(message.trim());
 
@@ -101,6 +105,7 @@ export function createChatService({ client, config, prompts, retriever, sessions
 
       const sources = chunks.map((c) => ({ doc: c.doc, section: c.heading }));
       send("meta", {
+        mode,
         profile: {
           profession: session.profile.profession,
           market: session.profile.market,
@@ -125,7 +130,7 @@ export function createChatService({ client, config, prompts, retriever, sessions
           model: config.answerModel,
           max_tokens: config.answerMaxTokens,
           thinking: { type: "adaptive" },
-          system,
+          system: systemByMode[mode],
           messages: buildMessages({ windowMessages, userTurn }),
         });
         stream.on("text", (delta) => {
@@ -137,9 +142,10 @@ export function createChatService({ client, config, prompts, retriever, sessions
           answer = answer || "I can't help with that one — but I'm all yours for anything about AI or the programs.";
           send("delta", { text: answer });
         }
-        const saved = sessions.appendMessage(session, { role: "assistant", content: answer, sources });
+        const saved = sessions.appendMessage(session, { role: "assistant", content: answer, sources, mode });
         send("done", {
           messageId: saved.id,
+          mode,
           usage: {
             input: final.usage.input_tokens,
             output: final.usage.output_tokens,

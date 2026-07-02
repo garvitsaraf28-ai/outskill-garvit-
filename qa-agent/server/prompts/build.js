@@ -7,17 +7,20 @@ import path from "node:path";
 export function loadPrompts(promptsDir) {
   const read = (f) => fs.readFileSync(path.join(promptsDir, f), "utf8").trim();
   return {
-    system: read("system.md"),
+    system: read("system.md"), // Mentor mode
+    agent: read("agent.md"),   // AI Agent mode (fast, precise)
     profiler: read("profiler.md"),
     summarizer: read("summarizer.md"),
   };
 }
 
-export function systemBlocks(prompts) {
+export const MODES = ["mentor", "agent"];
+
+export function systemBlocks(prompts, mode = "mentor") {
   return [
     {
       type: "text",
-      text: prompts.system,
+      text: mode === "agent" ? prompts.agent : prompts.system,
       cache_control: { type: "ephemeral" },
     },
   ];

@@ -167,3 +167,35 @@ test("API errors map to actionable messages", async () => {
   assert.match(friendlyApiError({ message: "Connection error: fetch failed" }), /reach the Anthropic API/);
   assert.match(friendlyApiError({ message: "something odd" }), /snag/);
 });
+
+test("agent mode uses the AI Agent system prompt and labels the message", async () => {
+  const client = fakeClient({ answerText: "₹94,999 in India. EMI: 3/6/9/12 months, zero-cost.", profileJson: HR_PROFILE });
+  const { service, sessions } = await makeService({ client });
+
+  const events = [];
+  await service.handleMessage({
+    sessionId: "s_test000006",
+    message: "price and EMI options, quick",
+    mode: "agent",
+    send: (event, data) => events.push({ event, data }),
+  });
+  assert.equal(events[0].data.mode, "agent");
+  assert.ok(client.calls.stream[0].system[0].text.includes("Outskill AI Agent"));
+  assert.equal(events.at(-1).data.mode, "agent");
+  const session = sessions.load("s_test000006");
+  assert.equal(session.messages.at(-1).mode, "agent");
+});
+
+test("invalid mode falls back to mentor", async () => {
+  const client = fakeClient({ answerText: "ok", profileJson: HR_PROFILE });
+  const { service } = await makeService({ client });
+  const events = [];
+  await service.handleMessage({
+    sessionId: "s_test000007",
+    message: "what is an LLM in simple words?",
+    mode: "hacker",
+    send: (event, data) => events.push({ event, data }),
+  });
+  assert.equal(events[0].data.mode, "mentor");
+  assert.ok(client.calls.stream[0].system[0].text.includes("official AI Response Agent"));
+});

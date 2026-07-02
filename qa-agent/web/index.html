@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark light" />
   <title>Outskill AI Mentor</title>
-  <meta name="description" content="Ask anything about AI, your career, or Outskill's programs — answered instantly by your Outskill mentor." />
+  <meta name="description" content="Ask anything about AI, your career, or Outskill's programs — answered instantly during the live session." />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>" />
 </head>
@@ -26,7 +26,7 @@
           </svg>
         </div>
         <div>
-          <div class="brand-name">Outskill <span>AI Mentor</span></div>
+          <div class="brand-name">Outskill <span>Live Session Assistant</span></div>
         </div>
       </div>
       <div class="topbar-actions">
@@ -40,25 +40,52 @@
       </div>
     </header>
 
-    <main id="chat" class="chat" aria-live="polite">
-      <div id="welcome" class="welcome">
-        <div class="welcome-badge">Your live session assistant</div>
-        <h1>Ask me anything.</h1>
-        <p>AI concepts, how AI applies to <em>your</em> work, careers, or anything about the
-        Mastermind, Bootcamp and Accelerator — I'm your Outskill mentor for this session.</p>
-        <div id="suggestions" class="chips" role="list"></div>
-      </div>
-    </main>
+    <div class="layout">
+      <!-- LEFT: cohort panel -->
+      <aside id="cohortPanel" class="cohort">
+        <div class="eyebrow" id="cohortHeadline">Who learns with Outskill</div>
+        <div class="cohort-sub" id="cohortSubline">Professionals across our paid programs</div>
+        <div id="cohortStats" class="cohort-stats"></div>
+        <div id="seniorSpotlight" class="senior-card"></div>
+        <div id="cohortMix" class="cohort-mix"></div>
+        <div id="cohortDisclaimer" class="cohort-disclaimer"></div>
+      </aside>
 
-    <footer class="composer-wrap">
-      <form id="composer" class="composer">
-        <textarea id="input" rows="1" placeholder="Type your question…" maxlength="4000" autocomplete="off"></textarea>
-        <button id="sendBtn" type="submit" aria-label="Send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
-        </button>
-      </form>
-      <div class="footnote">Answers are grounded in Outskill's official program docs. For payment or refund issues we'll connect you to the team.</div>
-    </footer>
+      <!-- RIGHT: chat panel with mode bar -->
+      <main class="chat-panel">
+        <div class="modebar" role="tablist" aria-label="Assistant mode">
+          <button id="modeMentor" class="mode-tab on" role="tab" aria-selected="true">
+            <span class="mode-dot"></span> Mentor
+            <small>personal guidance</small>
+          </button>
+          <button id="modeAgent" class="mode-tab" role="tab" aria-selected="false">
+            <span class="mode-dot"></span> AI Agent
+            <small>instant answers</small>
+          </button>
+        </div>
+
+        <div id="chat" class="chat" aria-live="polite">
+          <div id="welcome" class="welcome">
+            <div class="welcome-badge">Your live session assistant</div>
+            <h1>Ask me anything.</h1>
+            <p>AI concepts, the session content, careers, or anything about the
+            Mastermind, Bootcamp and Accelerator — pick <em>Mentor</em> for guidance
+            or <em>AI Agent</em> for instant answers.</p>
+            <div id="suggestions" class="chips" role="list"></div>
+          </div>
+        </div>
+
+        <footer class="composer-wrap">
+          <form id="composer" class="composer">
+            <textarea id="input" rows="1" placeholder="Type your question…" maxlength="4000" autocomplete="off"></textarea>
+            <button id="sendBtn" type="submit" aria-label="Send">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+            </button>
+          </form>
+          <div class="footnote">Answers are grounded in Outskill's official program docs. For payment or refund issues we'll connect you to the team.</div>
+        </footer>
+      </main>
+    </div>
   </div>
   <script src="/app.js"></script>
 </body>

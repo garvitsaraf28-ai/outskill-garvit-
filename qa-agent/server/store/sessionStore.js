@@ -52,13 +52,14 @@ export function createSessionStore({ dir }) {
       cache.set(session.id, session);
       persist(session);
     },
-    appendMessage(session, { role, content, sources = null }) {
+    appendMessage(session, { role, content, sources = null, mode = null }) {
       const msg = {
         id: `m_${crypto.randomBytes(8).toString("hex")}`,
         role,
         content,
         ts: Date.now(),
         ...(sources ? { sources } : {}),
+        ...(mode ? { mode } : {}),
         feedback: null,
       };
       session.messages.push(msg);

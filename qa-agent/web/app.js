@@ -25,6 +25,48 @@
     localStorage.setItem("outskill_theme", document.body.dataset.theme);
   });
 
+  /* ---------- mode (Mentor vs AI Agent) ---------- */
+  let mode = localStorage.getItem("outskill_mode") || "mentor";
+  const mentorBtn = $("#modeMentor");
+  const agentBtn = $("#modeAgent");
+  function renderMode() {
+    mentorBtn.classList.toggle("on", mode === "mentor");
+    agentBtn.classList.toggle("on", mode === "agent");
+    mentorBtn.setAttribute("aria-selected", mode === "mentor");
+    agentBtn.setAttribute("aria-selected", mode === "agent");
+    input.placeholder = mode === "agent" ? "Ask for an instant answer…" : "Type your question…";
+  }
+  mentorBtn.addEventListener("click", () => { mode = "mentor"; localStorage.setItem("outskill_mode", mode); renderMode(); input.focus(); });
+  agentBtn.addEventListener("click", () => { mode = "agent"; localStorage.setItem("outskill_mode", mode); renderMode(); input.focus(); });
+  renderMode();
+
+  /* ---------- cohort panel ---------- */
+  (async () => {
+    try {
+      const c = await (await fetch("/api/cohort")).json();
+      if (c.headline) $("#cohortHeadline").textContent = c.headline;
+      if (c.subline) $("#cohortSubline").textContent = c.subline;
+      $("#cohortStats").innerHTML = (c.verifiedStats || [])
+        .map((s) => `<div class="stat-card"><b>${esc(s.value)}</b><span>${esc(s.label)}</span></div>`)
+        .join("");
+      if (c.seniorSpotlight) {
+        $("#seniorSpotlight").innerHTML =
+          `<div class="sc-title">${esc(c.seniorSpotlight.title)}</div>` +
+          `<div class="sc-roles">${(c.seniorSpotlight.roles || []).map((r) => `<i>${esc(r)}</i>`).join("")}</div>`;
+      }
+      const max = Math.max(...(c.mix || []).map((m) => m.pct), 1);
+      $("#cohortMix").innerHTML = (c.mix || [])
+        .map(
+          (m) =>
+            `<div class="mix-row${m.senior ? " senior" : ""}">` +
+            `<div class="mr-top"><b>${esc(m.label)}</b><span>${m.pct}%</span></div>` +
+            `<div class="mr-bar"><i style="width:${(m.pct / max) * 100}%"></i></div></div>`
+        )
+        .join("");
+      if (c.disclaimer) $("#cohortDisclaimer").textContent = c.disclaimer;
+    } catch {}
+  })();
+
   $("#newChatBtn").addEventListener("click", () => {
     sessionId = newId();
     localStorage.setItem("outskill_session", sessionId);
@@ -52,9 +94,15 @@
   /* ---------- rendering ---------- */
   const scroll = () => { chat.scrollTop = chat.scrollHeight; };
 
-  function addMsg(role, text) {
+  function addMsg(role, text, msgMode) {
     const wrap = document.createElement("div");
     wrap.className = `msg ${role}`;
+    if (role === "assistant" && msgMode) {
+      const tag = document.createElement("div");
+      tag.className = `msg-tag ${msgMode}`;
+      tag.textContent = msgMode === "agent" ? "AI Agent" : "Mentor";
+      wrap.appendChild(tag);
+    }
     const bubble = document.createElement("div");
     bubble.className = "bubble";
     bubble.innerHTML = role === "user" ? `<p>${esc(text).replace(/\n/g, "<br>")}</p>` : md(text);
@@ -164,7 +212,7 @@
 
     addMsg("user", msg);
 
-    const { wrap, bubble } = addMsg("assistant", "");
+    const { wrap, bubble } = addMsg("assistant", "", mode);
     bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
     wrap.classList.add("streaming");
 
@@ -181,7 +229,7 @@
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message: msg }),
+        body: JSON.stringify({ sessionId, message: msg, mode }),
       });
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({}));
@@ -238,7 +286,7 @@
       if (messages.length) {
         welcome.style.display = "none";
         for (const m of messages) {
-          const { wrap, bubble } = addMsg(m.role, m.content);
+          const { wrap, bubble } = addMsg(m.role, m.content, m.mode);
           if (m.role === "assistant") addActions(wrap, bubble, m.id, m.feedback);
         }
       }

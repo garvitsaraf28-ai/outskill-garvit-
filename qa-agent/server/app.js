@@ -1,5 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import { getSuggestions } from "./services/suggestions.js";
+
+const COHORT_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), "cohort.json");
 
 // Simple sliding-window rate limiter keyed by session+IP. In-memory: correct
 // for a single process; move to Redis alongside the session store when
@@ -35,6 +40,15 @@ export function createApp({ config, chatService, sessions, feedback, retriever }
     res.json({ ok: true, version: config.version, index: retriever.stats() });
   });
 
+  app.get("/api/cohort", (_req, res) => {
+    try {
+      const { _note, ...cohort } = JSON.parse(fs.readFileSync(COHORT_FILE, "utf8"));
+      res.json(cohort);
+    } catch {
+      res.status(500).json({ error: "cohort data unavailable" });
+    }
+  });
+
   app.get("/api/suggestions", (req, res) => {
     const session = sessions.load(String(req.query.sessionId || ""));
     res.json({ suggestions: getSuggestions(session?.profile) });
@@ -44,7 +58,7 @@ export function createApp({ config, chatService, sessions, feedback, retriever }
     const session = sessions.load(req.params.sessionId);
     if (!session) return res.json({ messages: [] });
     res.json({
-      messages: session.messages.map(({ id, role, content, ts, feedback: fb }) => ({ id, role, content, ts, feedback: fb })),
+      messages: session.messages.map(({ id, role, content, ts, feedback: fb, mode }) => ({ id, role, content, ts, feedback: fb, mode })),
     });
   });
 
@@ -61,7 +75,7 @@ export function createApp({ config, chatService, sessions, feedback, retriever }
   });
 
   app.post("/api/chat", async (req, res) => {
-    const { sessionId, message } = req.body || {};
+    const { sessionId, message, mode } = req.body || {};
     const msg = typeof message === "string" ? message.trim() : "";
     if (!sessions.validId(String(sessionId || ""))) {
       return res.status(400).json({ error: "invalid sessionId (6-64 chars, [A-Za-z0-9_-])" });
@@ -84,7 +98,7 @@ export function createApp({ config, chatService, sessions, feedback, retriever }
     };
 
     try {
-      await chatService.handleMessage({ sessionId, message: msg, send });
+      await chatService.handleMessage({ sessionId, message: msg, send, mode: mode === "agent" ? "agent" : "mentor" });
     } catch (err) {
       send("error", { message: "Something went wrong — please try again." });
       console.error("[api/chat]", err);

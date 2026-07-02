@@ -39,8 +39,19 @@ if (config.apiKey) {
   console.warn("⚠️  No API key set (ANTHROPIC_API_KEY or OPENROUTER_API_KEY) — the UI will load but chat calls will fail. See .env.example.");
 }
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   const stats = retriever.stats();
-  console.log(`Outskill AI Mentor listening on http://localhost:${config.port}`);
+  console.log(`Outskill AI Mentor v${config.version} listening on http://localhost:${config.port}`);
   console.log(`Knowledge index: ${stats.docs} docs, ${stats.chunks} chunks (built ${stats.builtAt})`);
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error("");
+    console.error(`❌ Port ${config.port} is already in use — ANOTHER COPY of the mentor is already running.`);
+    console.error("   Close every other black window (or restart the computer), then start this one again.");
+    console.error("");
+    process.exit(1);
+  }
+  throw err;
 });

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,10 +28,19 @@ function resolveKeys(env) {
   return { anthropic, openrouter };
 }
 
+function readVersion() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+  } catch {
+    return "0.0.0";
+  }
+}
+
 export function loadConfig(env = process.env) {
   const keys = resolveKeys(env);
   return {
     root: ROOT,
+    version: readVersion(),
     port: int(env.PORT, 8787),
     apiKey: keys.anthropic,
     openrouterKey: keys.openrouter,

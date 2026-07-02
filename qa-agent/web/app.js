@@ -228,6 +228,11 @@
   (async () => {
     loadSuggestions();
     try {
+      const { version } = await (await fetch("/api/health")).json();
+      const note = document.querySelector(".footnote");
+      if (version && note) note.textContent += ` · build v${version}`;
+    } catch {}
+    try {
       const res = await fetch(`/api/history/${encodeURIComponent(sessionId)}`);
       const { messages } = await res.json();
       if (messages.length) {

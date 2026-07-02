@@ -32,7 +32,7 @@ export function createApp({ config, chatService, sessions, feedback, retriever }
   const allow = createRateLimiter({ perMinute: config.rateLimitPerMin });
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, index: retriever.stats() });
+    res.json({ ok: true, version: config.version, index: retriever.stats() });
   });
 
   app.get("/api/suggestions", (req, res) => {

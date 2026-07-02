@@ -26,10 +26,12 @@ const client = createModelClient(config);
 const retriever = await createRetriever({ knowledgeDir: config.knowledgeDir, dataDir: config.dataDir });
 const sessions = createSessionStore({ dir: path.join(config.dataDir, "sessions") });
 const feedback = createFeedbackStore({ file: path.join(config.dataDir, "feedback.jsonl") });
+const signups = createFeedbackStore({ file: path.join(config.dataDir, "signups.jsonl") });
+const mentorQueue = createFeedbackStore({ file: path.join(config.dataDir, "mentor-questions.jsonl") });
 const profiler = createProfiler({ client, config, prompts });
 const chatService = createChatService({ client, config, prompts, retriever, sessions, profiler });
 
-const app = createApp({ config, chatService, sessions, feedback, retriever });
+const app = createApp({ config, chatService, sessions, feedback, retriever, signups, mentorQueue });
 
 if (config.apiKey) {
   console.log(`Provider: Claude (${config.answerModel})`);

@@ -359,3 +359,56 @@ body[data-theme="light"] .error-note { color: #a13030; }
   .cohort { display: none; }
   .modebar { justify-content: center; }
 }
+
+/* ---- sign-up overlay ---- */
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(10px);
+  display: grid; place-items: center; padding: 20px;
+}
+.overlay[hidden] { display: none; }
+.signup-card {
+  width: min(400px, 100%);
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: 22px; padding: 30px 28px;
+  text-align: center; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.signup-card .su-logo { display: grid; place-items: center; margin-bottom: 2px; }
+.signup-card h2 { font-family: var(--serif); font-size: 27px; }
+.signup-card p { color: var(--mute); font-size: 13.5px; margin-bottom: 6px; }
+.signup-card input {
+  border: 1px solid var(--border); background: var(--panel);
+  color: var(--txt); font-family: var(--font); font-size: 14.5px;
+  padding: 13px 16px; border-radius: 999px; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.signup-card input:focus {
+  border-color: color-mix(in srgb, var(--lime) 60%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lime) 13%, transparent);
+}
+.signup-card button {
+  border: none; cursor: pointer;
+  background: var(--lime); color: var(--lime-ink);
+  font-family: var(--font); font-size: 15px; font-weight: 700;
+  padding: 13px 16px; border-radius: 999px; margin-top: 4px;
+  transition: background .15s, transform .1s;
+}
+.signup-card button:hover { background: var(--lime-dim); }
+.signup-card button:active { transform: scale(.98); }
+
+/* mentor hand-off bubble */
+.wa-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 10px;
+  background: #25d366; color: #06230f;
+  font-weight: 700; font-size: 13.5px; text-decoration: none;
+  padding: 10px 16px; border-radius: 999px;
+  transition: transform .1s, filter .15s;
+}
+.wa-btn:hover { filter: brightness(1.06); }
+.wa-btn:active { transform: scale(.97); }
+.mentor-steps { margin: 8px 0 0 2px; padding: 0; list-style: none; }
+.mentor-steps li { font-size: 13px; color: var(--mute); margin: 4px 0; }
+.mentor-steps li::before { content: "•"; color: var(--accent); margin-right: 7px; }

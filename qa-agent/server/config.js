@@ -58,6 +58,7 @@ export function loadConfig(env = process.env) {
     historyWindow: int(env.HISTORY_WINDOW, 12),
     retrieveK: int(env.RETRIEVE_K, 6),
     rateLimitPerMin: int(env.RATE_LIMIT_PER_MIN, 20),
+    mentorWhatsApp: (env.MENTOR_WHATSAPP || "918147069639").replace(/[^\d]/g, ""),
     maxMessageChars: int(env.MAX_MESSAGE_CHARS, 4000),
     knowledgeDir: env.KNOWLEDGE_DIR || path.join(ROOT, "knowledge"),
     dataDir: env.DATA_DIR || path.join(ROOT, "data"),

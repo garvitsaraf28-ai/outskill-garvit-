@@ -28,7 +28,7 @@ function createRateLimiter({ perMinute }) {
   };
 }
 
-export function createApp({ config, chatService, sessions, feedback, retriever }) {
+export function createApp({ config, chatService, sessions, feedback, retriever, signups, mentorQueue }) {
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "32kb" }));
@@ -38,6 +38,57 @@ export function createApp({ config, chatService, sessions, feedback, retriever }
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, version: config.version, index: retriever.stats() });
+  });
+
+  // Quick sign-up: name + contact so mentors know who to reply to.
+  app.post("/api/signup", (req, res) => {
+    const { sessionId, name, contact } = req.body || {};
+    const cleanName = String(name || "").trim().slice(0, 60);
+    const cleanContact = String(contact || "").trim().slice(0, 80);
+    if (!sessions.validId(String(sessionId || ""))) return res.status(400).json({ error: "invalid sessionId" });
+    if (cleanName.length < 2) return res.status(400).json({ error: "name required" });
+    if (cleanContact.length < 5) return res.status(400).json({ error: "WhatsApp number or email required" });
+    const session = sessions.ensure(String(sessionId));
+    session.user = { name: cleanName, contact: cleanContact };
+    sessions.put(session);
+    signups?.append({ sessionId: session.id, name: cleanName, contact: cleanContact });
+    res.json({ ok: true });
+  });
+
+  // Mentor hand-off: log the question for the mentor team and hand back a
+  // prefilled WhatsApp link. No AI call — humans answer this lane.
+  app.post("/api/mentor-question", (req, res) => {
+    const { sessionId, message } = req.body || {};
+    const msg = typeof message === "string" ? message.trim() : "";
+    if (!sessions.validId(String(sessionId || ""))) return res.status(400).json({ error: "invalid sessionId" });
+    if (!msg) return res.status(400).json({ error: "message required" });
+    if (msg.length > config.maxMessageChars) return res.status(400).json({ error: "message too long" });
+    if (!allow(`${sessionId}:${req.ip}`)) return res.status(429).json({ error: "Too many messages — give it a minute." });
+
+    const session = sessions.ensure(String(sessionId));
+    const user = session.user || {};
+    sessions.appendMessage(session, { role: "user", content: msg, mode: "mentor" });
+    const ack =
+      `✅ **Your question is with our mentor team.** We're assigning a mentor to you now — ` +
+      `you'll get a personal reply on WhatsApp${user.contact ? ` at **${user.contact}**` : ""}.\n\n` +
+      `Want it even faster? Send it to us on WhatsApp directly with the button below.`;
+    const saved = sessions.appendMessage(session, { role: "assistant", content: ack, mode: "mentor" });
+    mentorQueue?.append({
+      sessionId: session.id,
+      name: user.name || "",
+      contact: user.contact || "",
+      profession: session.profile?.profession || "unknown",
+      question: msg,
+    });
+    const waText = encodeURIComponent(
+      `Hi Outskill team! I'm ${user.name || "a session participant"}. My question from the session: ${msg}`
+    );
+    res.json({
+      ok: true,
+      messageId: saved.id,
+      ack,
+      waLink: `https://wa.me/${config.mentorWhatsApp}?text=${waText}`,
+    });
   });
 
   app.get("/api/cohort", (_req, res) => {

@@ -25,8 +25,40 @@
     localStorage.setItem("outskill_theme", document.body.dataset.theme);
   });
 
+  /* ---------- quick sign-up ---------- */
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem("outskill_user")); } catch {}
+  const overlay = $("#signupOverlay");
+  if (!user?.name) overlay.hidden = false;
+  $("#signupForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("#suName").value.trim();
+    const contact = $("#suContact").value.trim();
+    if (name.length < 2 || contact.length < 5) return;
+    user = { name, contact };
+    localStorage.setItem("outskill_user", JSON.stringify(user));
+    overlay.hidden = true;
+    try {
+      await fetch("/api/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, name, contact }),
+      });
+    } catch {}
+    const h1 = document.querySelector("#welcome h1");
+    if (h1) h1.textContent = `Ask me anything, ${name.split(" ")[0]}.`;
+    input.focus();
+  });
+  if (user?.name) {
+    const h1 = document.querySelector("#welcome h1");
+    if (h1) h1.textContent = `Ask me anything, ${user.name.split(" ")[0]}.`;
+    fetch("/api/signup", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, name: user.name, contact: user.contact }),
+    }).catch(() => {});
+  }
+
   /* ---------- mode (Mentor vs AI Agent) ---------- */
-  let mode = localStorage.getItem("outskill_mode") || "mentor";
+  let mode = localStorage.getItem("outskill_mode") || "agent";
   const mentorBtn = $("#modeMentor");
   const agentBtn = $("#modeAgent");
   function renderMode() {
@@ -34,7 +66,7 @@
     agentBtn.classList.toggle("on", mode === "agent");
     mentorBtn.setAttribute("aria-selected", mode === "mentor");
     agentBtn.setAttribute("aria-selected", mode === "agent");
-    input.placeholder = mode === "agent" ? "Ask for an instant answer…" : "Type your question…";
+    input.placeholder = mode === "agent" ? "Ask for an instant answer…" : "Ask your question — a mentor will reply on WhatsApp…";
   }
   mentorBtn.addEventListener("click", () => { mode = "mentor"; localStorage.setItem("outskill_mode", mode); renderMode(); input.focus(); });
   agentBtn.addEventListener("click", () => { mode = "agent"; localStorage.setItem("outskill_mode", mode); renderMode(); input.focus(); });
@@ -202,9 +234,37 @@
   /* ---------- send ---------- */
   let busy = false;
 
+  // Mentor lane: no AI — queue for the human team + hand back a WhatsApp link.
+  async function sendMentor(msg) {
+    busy = true; sendBtn.disabled = true;
+    input.value = ""; autoGrow();
+    welcome.style.display = "none";
+    chat.querySelectorAll(".chips.inline").forEach((n) => n.remove());
+    addMsg("user", msg);
+    try {
+      const res = await fetch("/api/mentor-question", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, message: msg }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not reach the mentor team");
+      const { wrap, bubble } = addMsg("assistant", data.ack, "mentor");
+      const wa = document.createElement("a");
+      wa.className = "wa-btn"; wa.href = data.waLink; wa.target = "_blank"; wa.rel = "noopener";
+      wa.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5 0 1.47 1.07 2.9 1.22 3.1.15.2 2.1 3.2 5.1 4.49.71.3 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35z"/><path d="M12.04 2a9.9 9.9 0 0 0-8.4 15.16L2.05 22l4.97-1.55A9.9 9.9 0 1 0 12.04 2zm0 18.1a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-2.95.92.94-2.87-.2-.3a8.2 8.2 0 1 1 6.7 3.58z"/></svg> Send on WhatsApp';
+      bubble.appendChild(wa);
+      addActions(wrap, bubble, data.messageId);
+    } catch (err) {
+      showError(err.message || "Couldn't reach the mentor team — please try again.");
+    } finally {
+      busy = false; sendBtn.disabled = false; input.focus();
+    }
+  }
+
   async function send(text) {
     const msg = (text ?? input.value).trim();
     if (!msg || busy) return;
+    if (mode === "mentor") return sendMentor(msg);
     busy = true; sendBtn.disabled = true;
     input.value = ""; autoGrow();
     welcome.style.display = "none";

@@ -204,11 +204,25 @@ function AuthField({ label, icon, children }) {
   );
 }
 
-/* Local account registry (device-only for now). A backend / Google sign-in and a
-   Sheet-or-email sync can replace this once the data destination is confirmed. */
+/* Account registry. The source of truth is the shared server store (/api/auth,
+   Upstash-backed) so an email can only sign up ONCE across all devices and a
+   returning joiner can log in from anywhere. The device-local copy below is
+   kept as a cache + fallback for when the server store isn't configured. */
 const ACCT_KEY = "sarafai_accounts_v1";
+const LAST_EMAIL_KEY = "sarafai_last_email";
 function loadAccounts() { try { return JSON.parse(localStorage.getItem(ACCT_KEY) || "{}"); } catch { return {}; } }
 function saveAccounts(a) { try { localStorage.setItem(ACCT_KEY, JSON.stringify(a)); } catch {} }
+function rememberEmail(em) { try { localStorage.setItem(LAST_EMAIL_KEY, em); } catch {} }
+// Ask the shared registry. {configured:false} means no server store (or it's
+// unreachable) → the caller falls back to the device-local registry.
+async function serverAuth(payload) {
+  try {
+    const r = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const d = await r.json().catch(() => null);
+    if (!d || d.configured === false) return { configured: false };
+    return { configured: true, ...d };
+  } catch { return { configured: false }; }
+}
 // Every signup/login event is logged locally and POSTed to our own serverless
 // proxy (/api/log), which holds the private Google Sheet URL + secret token in
 // server-side env vars — so neither ever appears in the browser or the repo.
@@ -219,35 +233,76 @@ function logEvent(payload) {
 }
 
 export function LoginScreen({ onAuth, onBack, onManager }) {
-  const [mode, setMode] = useState("signup"); // signup | login
+  // Returning visitors (a remembered email or any account on this device)
+  // land on Log in; only true first-timers start on Sign up.
+  const [lastEmail] = useState(() => { try { return localStorage.getItem(LAST_EMAIL_KEY) || ""; } catch { return ""; } });
+  const [mode, setMode] = useState(() => {
+    try { return (localStorage.getItem(LAST_EMAIL_KEY) || Object.keys(loadAccounts()).length) ? "login" : "signup"; }
+    catch { return "signup"; }
+  });
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(lastEmail);
   const [pw, setPw] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const signup = mode === "signup";
-  const canSubmit = email.trim() && pw.trim() && (!signup || name.trim());
+  const canSubmit = email.trim() && pw.trim() && (!signup || name.trim()) && !busy;
   const switchMode = (m) => { setMode(m); setError(""); };
-  const submit = (e) => {
+  const finish = (event, user, pwUsed) => {
+    rememberEmail(user.email.trim().toLowerCase());
+    logEvent({ event, name: user.name, email: user.email, password: pwUsed });
+    onAuth({ name: user.name, email: user.email, role: user.role || "New joiner" });
+  };
+  const submit = async (e) => {
     if (e) e.preventDefault();
+    if (busy) return;
     setError("");
     const em = email.trim().toLowerCase();
     if (!em || !pw.trim() || (signup && !name.trim())) return;
+    setBusy(true);
     const accounts = loadAccounts();
-    if (signup) {
-      // Can't sign up with an email that already has an account → send to Log in.
-      if (accounts[em]) { setError("An account with this email already exists — please log in instead."); setMode("login"); return; }
-      const acc = { name: name.trim(), email: email.trim(), password: pw, role: "New joiner", createdAt: Date.now() };
-      accounts[em] = acc; saveAccounts(accounts);
-      logEvent({ event: "signup", name: acc.name, email: acc.email, password: pw });
-      onAuth({ name: acc.name, email: acc.email, role: acc.role });
-    } else {
-      // Can't log in without an account → send to Sign up. Wrong password is rejected.
-      const acc = accounts[em];
-      if (!acc) { setError("No account found for this email — please sign up first."); setMode("signup"); return; }
-      if (acc.password !== pw) { setError("Incorrect password. Please try again."); return; }
-      logEvent({ event: "login", name: acc.name, email: acc.email, password: pw });
-      onAuth({ name: acc.name, email: acc.email, role: acc.role || "New joiner" });
-    }
+    try {
+      if (signup) {
+        // Can't sign up with an email that already has an account → send to Log in.
+        if (accounts[em]) { setError("This email is already signed up — please log in instead."); setMode("login"); return; }
+        const sv = await serverAuth({ action: "signup", name: name.trim(), email: em, password: pw });
+        if (sv.configured && !sv.ok) {
+          if (sv.error === "exists") { setError("This email is already signed up (maybe on another device) — please log in instead."); setMode("login"); return; }
+          setError("Couldn't create the account — please try again."); return;
+        }
+        const acc = { name: name.trim(), email: email.trim(), password: pw, role: "New joiner", createdAt: Date.now() };
+        accounts[em] = acc; saveAccounts(accounts);
+        finish("signup", acc, pw);
+      } else {
+        const local = accounts[em];
+        const sv = await serverAuth({ action: "login", email: em, password: pw });
+        if (sv.configured) {
+          if (sv.ok) {
+            // Cache on this device too, so it's recognised even offline.
+            accounts[em] = { name: sv.user.name, email: sv.user.email, password: pw, role: sv.user.role, createdAt: Date.now() };
+            saveAccounts(accounts);
+            finish("login", sv.user, pw);
+            return;
+          }
+          if (sv.error === "wrong_password") { setError("Incorrect password. Please try again."); return; }
+          if (sv.error === "not_found") {
+            if (local && local.password === pw) {
+              // Signed up on this device before the shared registry existed —
+              // migrate the account up so every device knows it from now on.
+              serverAuth({ action: "signup", name: local.name, email: em, password: pw });
+              finish("login", local, pw);
+              return;
+            }
+            setError("No account found for this email — please sign up first."); setMode("signup"); return;
+          }
+          setError("Couldn't log in — please try again."); return;
+        }
+        // No server store → device-local fallback (original behaviour).
+        if (!local) { setError("No account found for this email — please sign up first."); setMode("signup"); return; }
+        if (local.password !== pw) { setError("Incorrect password. Please try again."); return; }
+        finish("login", local, pw);
+      }
+    } finally { setBusy(false); }
   };
   return (
     <div className="osf" style={{ minHeight:"82vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
@@ -302,7 +357,7 @@ export function LoginScreen({ onAuth, onBack, onManager }) {
           )}
 
           <button type="submit" disabled={!canSubmit} style={{ ...primaryBtn, width:"100%", marginTop:4, opacity: canSubmit?1:0.5, fontSize:15.5, padding:"13px 22px" }}>
-            {signup ? "Create account & start" : "Log in"} <ArrowRight size={17} style={{ marginLeft:8 }}/>
+            {busy ? "Checking…" : (signup ? "Create account & start" : "Log in")} {!busy && <ArrowRight size={17} style={{ marginLeft:8 }}/>}
           </button>
           <div style={{ fontSize:11.5, color:MUTE, textAlign:"center", marginTop:14, lineHeight:1.5 }}>
             {signup

@@ -13,25 +13,29 @@ const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 4000);
 // Conversation replies are 1-3 spoken sentences — small cap = fast generation.
 const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 320);
 // Per-attempt timeouts: a live turn must never hang on one slow provider.
-const CONVO_TIMEOUT_MS = Number(process.env.OPENROUTER_CONVO_TIMEOUT_MS || 12000);
-const SCORE_TIMEOUT_MS = Number(process.env.OPENROUTER_SCORE_TIMEOUT_MS || 35000);
+// Wide enough for the free reasoning models (until credits make paid instant).
+const CONVO_TIMEOUT_MS = Number(process.env.OPENROUTER_CONVO_TIMEOUT_MS || 25000);
+const SCORE_TIMEOUT_MS = Number(process.env.OPENROUTER_SCORE_TIMEOUT_MS || 40000);
 
 function parseModels(v) {
   return v.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-// LIVE-CALL chain — paid + fast first for instant spoken replies, then free.
+// LIVE-CALL chain — paid + fast first (instant once the account has credits),
+// then the free models that actually respond on this account today. Dead free
+// slugs (kimi-k2.6:free, glm-4.5-air:free — no longer free) were removed after
+// a live probe; they'd only add failed hops.
 const CONVO_MODELS = parseModels(
   process.env.OPENROUTER_CONVO_MODELS ||
     [
       "google/gemini-2.5-flash",
       "anthropic/claude-haiku-4.5",
-      "meta-llama/llama-3.3-70b-instruct",
       "openai/gpt-4o-mini",
+      "meta-llama/llama-3.3-70b-instruct",
       "meta-llama/llama-3.3-70b-instruct:free",
       "qwen/qwen3-next-80b-a3b-instruct:free",
-      "moonshotai/kimi-k2.6:free",
       "nvidia/nemotron-nano-9b-v2:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
     ].join(",")
 );
 
@@ -46,7 +50,7 @@ const SCORE_MODELS = parseModels(
       "meta-llama/llama-3.3-70b-instruct:free",
       "qwen/qwen3-next-80b-a3b-instruct:free",
       "nvidia/nemotron-3-super-120b-a12b:free",
-      "z-ai/glm-4.5-air:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
     ].join(",")
 );
 
@@ -133,23 +137,31 @@ export default async function handler(req, res) {
       return res.json({ ok: true, keyConfigured: !!OR_KEY, convoChain: CONVO_MODELS, scoreChain: SCORE_MODELS });
     }
     if (!OR_KEY) return res.json({ ok: false, error: "no_api_key", message: "Set OPENROUTER_API_KEY in Vercel env vars, then redeploy." });
-    // Probe EVERY model (both chains) in parallel with a tiny ping + latency.
+    // Probe EVERY model (both chains) in parallel with a small ping + latency.
+    // 64 tokens (not 8): reasoning models spend a little budget thinking and
+    // would otherwise false-negative with an empty visible reply.
     const models = [...new Set([...CONVO_MODELS, ...SCORE_MODELS])];
     const results = await Promise.all(models.map(async (model) => {
       const t0 = Date.now();
       try {
-        await tryModel(model, [{ role: "user", content: "Say OK" }], { json: false, maxTokens: 8, timeoutMs: 15000 });
+        await tryModel(model, [{ role: "user", content: "Say OK" }], { json: false, maxTokens: 64, timeoutMs: 20000 });
         return { model, ok: true, ms: Date.now() - t0 };
       } catch (e) {
         return { model, ok: false, ms: Date.now() - t0, error: String((e && e.message) || e).slice(0, 140) };
       }
     }));
     const working = results.filter((r) => r.ok).sort((a, b) => a.ms - b.ms);
+    const creditsIssue = results.some((r) => !r.ok && /credit/i.test(r.error || ""));
     return res.json({
       ok: working.length > 0,
+      creditsIssue,
+      message: creditsIssue
+        ? "⚠ Your OpenRouter account has NO usable credits — the fast paid models are all rejected. Add credits at openrouter.ai/settings/credits and replies become ~1s. Until then the app runs on slower free models."
+        : working.length
+        ? "Chain is healthy — the mock call uses the first working model in order."
+        : "No model responded — check the key and credits at openrouter.ai/settings/credits.",
       fastest: working[0] || null,
       results,
-      hint: working.length ? "Chain is healthy — the mock call will use the first working model in order." : "No model responded — check the key has credits at openrouter.ai/credits.",
     });
   }
 

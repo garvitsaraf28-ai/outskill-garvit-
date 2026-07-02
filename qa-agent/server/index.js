@@ -1,5 +1,6 @@
 import path from "node:path";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadConfig } from "./config.js";
 import { loadPrompts } from "./prompts/build.js";
 import { createAnthropicClient } from "./services/anthropic.js";
@@ -11,7 +12,7 @@ import { createFeedbackStore } from "./store/feedbackStore.js";
 import { createApp } from "./app.js";
 
 // Load .env if present (no dotenv dependency needed for a flat file).
-const envFile = path.join(path.dirname(new URL(import.meta.url).pathname), "..", ".env");
+const envFile = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env");
 if (fs.existsSync(envFile)) {
   for (const line of fs.readFileSync(envFile, "utf8").split("\n")) {
     const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);

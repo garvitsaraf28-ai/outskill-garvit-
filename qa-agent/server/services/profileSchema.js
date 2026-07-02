@@ -2,11 +2,16 @@
 // builder, and the suggestions service (ADR-005). Coarse enums by design:
 // coarse profiles are stable, and they're all the prompt needs.
 
+// Official Outskill participant domain taxonomy.
 export const PROFESSIONS = [
-  "engineering", "data_analytics", "hr", "marketing", "finance", "sales",
-  "product", "founder", "student", "teacher", "doctor_healthcare",
-  "hospitality", "manufacturing_operations", "customer_support", "recruiting",
-  "design", "freelance_consulting", "other", "unknown",
+  "software_engineering", "data_science", "data_analytics", "finance",
+  "investment_banking", "accounting", "chartered_accountant", "healthcare",
+  "medicine", "hospitality", "sales", "marketing", "product_management", "hr",
+  "operations", "supply_chain", "manufacturing", "civil_engineering",
+  "mechanical_engineering", "electrical_engineering", "electronics_engineering",
+  "architecture", "real_estate", "construction", "law", "education", "research",
+  "startup_founder", "business_owner", "consultant", "freelancer",
+  "government_public_sector", "student", "career_transition", "other", "unknown",
 ];
 
 export const OBJECTIONS = [

@@ -8,12 +8,32 @@ const int = (v, d) => {
   return Number.isFinite(n) && n > 0 ? n : d;
 };
 
+// Keys arrive from hand-edited .env files and copy-paste — trim whitespace
+// and quotes, and route each key to the right provider by its prefix even if
+// it was saved under the wrong variable name.
+const cleanKey = (v) => String(v || "").trim().replace(/^["']+|["']+$/g, "");
+
+function resolveKeys(env) {
+  let anthropic = cleanKey(env.ANTHROPIC_API_KEY);
+  let openrouter = cleanKey(env.OPENROUTER_API_KEY);
+  if (anthropic.startsWith("sk-or-")) {
+    openrouter = openrouter || anthropic;
+    anthropic = "";
+  }
+  if (openrouter.startsWith("sk-ant-")) {
+    anthropic = anthropic || openrouter;
+    openrouter = "";
+  }
+  return { anthropic, openrouter };
+}
+
 export function loadConfig(env = process.env) {
+  const keys = resolveKeys(env);
   return {
     root: ROOT,
     port: int(env.PORT, 8787),
-    apiKey: env.ANTHROPIC_API_KEY || "",
-    openrouterKey: env.OPENROUTER_API_KEY || "",
+    apiKey: keys.anthropic,
+    openrouterKey: keys.openrouter,
     // Comma-separated fallback chain — tried in order when a free model is
     // rate-limited or unavailable (free models are shared and often congested).
     openrouterModel:

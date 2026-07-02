@@ -8,8 +8,8 @@ const TRIVIAL_RE = /^(hi|hello|hey|thanks?|thank you|ok(ay)?|cool|great|nice|got
 export function friendlyApiError(err) {
   const status = err?.status;
   const text = String(err?.message || "");
-  if (status === 401 || /authentication|x-api-key/i.test(text)) {
-    return "⚠️ Setup issue: the Anthropic API key is missing or invalid. Fix: stop the app, delete the .env file in the app folder, start it again and paste the key exactly (it starts with sk-ant-).";
+  if (status === 401 || /authentication|x-api-key|auth credentials/i.test(text)) {
+    return "⚠️ Setup issue: the API key is missing or invalid. Fix: stop the app, delete the .env file in the app folder, start it again and paste the key exactly — an OpenRouter key (sk-or-…) or a Claude key (sk-ant-…), the whole thing, nothing else.";
   }
   if (/credit|billing|balance/i.test(text)) {
     return "⚠️ Setup issue: your Anthropic account has no credits. Add credits at console.anthropic.com → Settings → Billing (minimum $5), then ask again — no restart needed.";

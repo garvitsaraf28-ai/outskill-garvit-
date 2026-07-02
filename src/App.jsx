@@ -26,6 +26,10 @@ ROUTING RULE (the single most important thing in the call):
 - Prospect is non-technical / wants no-code     -> AI GENERALIST ACCELERATOR.
 - "Some scripting, not sure"                     -> the rep MUST probe before recommending.
 
+THE FREE MASTERMINDS (the workshops prospects attended):
+- Generalist mastermind — Saturday & Sunday, for non-technical people.
+- Engineering mastermind — Friday 7-11pm & Saturday 10am-6pm, for coders; prior Python knowledge is a MUST.
+
 AI GENERALIST ACCELERATOR (no-code, for business people across functions: marketing, sales, ops, product, finance):
 - 14-day live program (Day-0 kick-off + graduation). Weekdays 7:30-11:00pm IST (10:00am-1:30pm EST); weekends 10am-7pm IST; recordings for every session.
 - DAY BY DAY (a rep should be able to pitch any day with confidence):

@@ -602,6 +602,23 @@ export default function App() {
     return () => clearInterval(id);
   }, [screen]);
 
+  /* Mic self-heal: in hands-free voice mode the mic must ALWAYS come back.
+     Whatever kills a listening session (missed onend, a swallowed start()
+     error, a TTS glitch, an OS hiccup), this watchdog notices the idle state
+     — call live, voice on, nobody speaking, nothing loading, mic off — and
+     quietly re-arms it. The startListening guards make it a no-op otherwise. */
+  useEffect(() => {
+    if (screen !== "call") return;
+    const id = setInterval(() => {
+      if (voiceOnRef.current && handsFreeRef.current && !blockedRef.current &&
+          !listeningRef.current && !speakingRef.current && !busyRef.current &&
+          !(window.speechSynthesis && window.speechSynthesis.speaking)) {
+        listenRef.current();
+      }
+    }, 1500);
+    return () => clearInterval(id);
+  }, [screen]);
+
   /* ---- voice engine ---- */
   const stopAll = useCallback(() => {
     try { recognitionRef.current && recognitionRef.current.abort(); } catch {}
@@ -613,7 +630,16 @@ export default function App() {
     if (listeningRef.current || speakingRef.current || busyRef.current || blockedRef.current) return;
     const rec = recognitionRef.current; if (!rec) return;
     setInterim("");
-    try { rec.start(); } catch {}
+    try { rec.start(); }
+    catch {
+      // start() throws if a previous session is still winding down — reset
+      // and retry once instead of silently leaving the mic dead.
+      try { rec.abort(); } catch {}
+      setTimeout(() => {
+        if (listeningRef.current || speakingRef.current || busyRef.current || blockedRef.current) return;
+        try { rec.start(); } catch {}
+      }, 250);
+    }
   }, []);
   useEffect(() => { listenRef.current = startListening; }, [startListening]);
 

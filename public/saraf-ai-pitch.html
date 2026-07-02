@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Saraf.AI × OutSkill — Pitch Deck</title>
+<title>Saraf.AI × OutSkill — 5-Minute Pitch</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,700&display=swap');
 
@@ -69,6 +69,7 @@
 
   .tag { display: inline-block; background: var(--glass); border: 1px solid var(--glass-border); color: var(--lime); font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; padding: 7px 15px; border-radius: 100px; margin-bottom: 28px; }
   .tag.danger { color: var(--danger); border-color: rgba(255,77,109,0.3); background: rgba(255,77,109,0.06); }
+  .timechip { display: inline-block; margin-left: 10px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--glass-border); border-radius: 100px; padding: 6px 12px; vertical-align: middle; }
 
   h1 { font-family: 'Fraunces', serif; font-size: clamp(2.6rem, 6.5vw, 6rem); font-weight: 900; line-height: 1.02; color: var(--white); margin-bottom: 22px; letter-spacing: -1px; }
   h1 .accent { color: var(--lime); }
@@ -90,7 +91,6 @@
 
   /* STAT STRIP */
   .stat-strip { display: flex; flex-wrap: wrap; gap: 40px; margin-top: 44px; }
-  .stat { }
   .stat .num { font-family: 'Fraunces', serif; font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 900; color: var(--lime); line-height: 1; }
   .stat .lbl { font-size: 0.78rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 10px; max-width: 200px; line-height: 1.5; }
 
@@ -103,6 +103,21 @@
   .feature-card .icon { font-size: 2rem; margin-bottom: 12px; display: block; }
   .feature-card h3 { font-size: 1.05rem; font-weight: 700; color: var(--lime); margin-bottom: 8px; }
   .feature-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.55; }
+
+  /* METHOD STEPS (numbered) */
+  .method { display: flex; flex-direction: column; gap: 12px; max-width: 760px; margin-top: 4px; }
+  .method-step { display: flex; gap: 18px; align-items: flex-start; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 16px; padding: 18px 22px; transition: border-color .3s, transform .3s; }
+  .method-step:hover { border-color: var(--lime); transform: translateX(6px); }
+  .method-num { font-family: 'Fraunces', serif; font-size: 1.6rem; font-weight: 900; color: var(--lime); line-height: 1; min-width: 34px; }
+  .method-title { font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+  .method-desc { font-size: 0.88rem; color: var(--muted); line-height: 1.55; }
+
+  /* ARCHITECTURE RAIL */
+  .arch { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 26px; max-width: 880px; }
+  .arch-node { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px 16px; }
+  .arch-node b { display: block; font-size: 0.85rem; color: var(--lime); margin-bottom: 3px; }
+  .arch-node span { font-size: 0.72rem; color: var(--muted); }
+  .arch-arrow { color: var(--lime); font-size: 1rem; opacity: 0.7; }
 
   /* BEFORE / AFTER */
   .ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center; width: 100%; max-width: 820px; margin-top: 8px; }
@@ -140,9 +155,7 @@
   #s2 { background: var(--bg2); } #s2 .blob1 { width: 520px; height: 520px; background: rgba(194,238,69,0.07); bottom: -160px; right: -60px; }
   #s3 { background: var(--bg3); } #s3 .blob1 { width: 700px; height: 400px; background: rgba(194,238,69,0.05); top: 50%; left: 50%; transform: translate(-50%,-50%); border-radius: 40%; }
   #s4 { background: var(--bg2); } #s4 .blob1 { width: 600px; height: 600px; background: rgba(194,238,69,0.06); top: 50%; left: 50%; transform: translate(-50%,-50%); }
-
-  #s4 { align-items: center; text-align: center; }
-  #s3 .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; width: 100%; align-items: start; }
+  #s4 .inner { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; width: 100%; align-items: start; }
 
   /* TITLE SLIDE */
   .dotmark { display: grid; grid-template-columns: repeat(3, 16px); gap: 7px; justify-content: center; margin-bottom: 30px; }
@@ -159,7 +172,7 @@
   @media (max-width: 768px) {
     .slide { padding: 70px 6vw; }
     .feature-grid { grid-template-columns: 1fr; }
-    #s3 .inner { grid-template-columns: 1fr; gap: 32px; }
+    #s4 .inner { grid-template-columns: 1fr; gap: 32px; }
     .ba { grid-template-columns: 1fr; }
     .ba-arrow { transform: rotate(90deg); justify-self: center; }
     .slide-num, .watermark { right: 6vw; }
@@ -176,11 +189,11 @@
   <a href="#s0" class="active" data-label="Intro"></a>
   <a href="#s1" data-label="Problem"></a>
   <a href="#s2" data-label="Solution"></a>
-  <a href="#s3" data-label="Demo"></a>
-  <a href="#s4" data-label="Close"></a>
+  <a href="#s3" data-label="Impact"></a>
+  <a href="#s4" data-label="Live Demo"></a>
 </nav>
 
-<!-- ═══ SLIDE 0 — TITLE ═══ -->
+<!-- ═══ SLIDE 0 — TITLE (≈0:20) ═══ -->
 <section class="slide" id="s0">
   <div class="blob blob1"></div>
   <div class="dotmark reveal in">
@@ -188,54 +201,57 @@
     <span class="on"></span><span class="on"></span><span class="on"></span>
     <span class="on"></span><span class="on"></span><span class="off"></span>
   </div>
-  <div class="kicker reveal d1">OutSkill · Sales Onboarding</div>
+  <div class="kicker reveal d1">OutSkill · Sales Onboarding · 5-Minute Pitch</div>
   <h1 class="reveal d2" style="text-align:center;">Saraf<span class="accent">.AI</span></h1>
   <p class="subtext reveal d3" style="text-align:center;margin-left:auto;margin-right:auto;font-size:clamp(1.1rem,2.2vw,1.5rem);color:var(--white);">
     The AI onboarding platform that takes a new sales joiner<br/>from day one to deal-closer — no senior babysitting required.
   </p>
   <div class="stack-pills reveal d4">
-    <span>11-Level Journey</span><span>AI Mock-Call Room</span><span>Instant Scorecards</span><span>Analytics Dashboard</span><span>Manager Leaderboard</span>
+    <span>Problem</span><span>Solution &amp; Architecture</span><span>Business Impact</span><span>Live Demo</span>
   </div>
   <div class="scroll-hint">scroll ↓</div>
 </section>
 
-<!-- ═══ SLIDE 1 — PROBLEM ═══ -->
+<!-- ═══ SLIDE 1 — PURPOSE / PROBLEM STATEMENT (≈1:00) ═══ -->
 <section class="slide" id="s1">
   <div class="blob blob1"></div>
   <div class="slide-num reveal"><b>01</b> / 04</div>
 
-  <div class="tag danger reveal">⚠ Problem Observed</div>
+  <div>
+    <span class="tag danger reveal">⚠ Purpose · Problem Statement</span>
+    <span class="timechip reveal">≈ 1 min</span>
+  </div>
   <h1 class="reveal d1">Your best closers are<br/>stuck <span class="strike">selling</span> <span class="accent">babysitting.</span></h1>
   <div class="divider reveal d2"></div>
-  <p class="subtext reveal d2">Every new joiner has to be trained by a senior rep — live, one-on-one, over and over. That's your highest earners running practice calls instead of closing real deals.</p>
+  <p class="subtext reveal d2">Every new sales joiner at OutSkill must be trained live, one-on-one, by a senior rep — over and over. The people best at closing revenue spend their week playing pretend customers instead.</p>
 
   <div class="problem-list">
     <div class="problem-item reveal d3">
       <div class="problem-icon">⏳</div>
       <div>
         <div class="problem-title">Seniors burn hours role-playing</div>
-        <div class="problem-desc">Top reps spend a huge chunk of their week pretending to be customers for new joiners — time that should be spent closing. Their pipeline stalls while they teach.</div>
+        <div class="problem-desc">Top reps lose a big slice of every week pretending to be customers. Their pipeline stalls while they teach.</div>
       </div>
     </div>
     <div class="problem-item reveal d4">
       <div class="problem-icon">🔁</div>
       <div>
         <div class="problem-title">Training doesn't scale</div>
-        <div class="problem-desc">Onboard 5 new reps and you need 5× the senior time. Every batch repeats the same objections, the same EMI mistakes, the same script — manually, from scratch.</div>
+        <div class="problem-desc">5 new joiners = 5× senior time. Every batch repeats the same objections, the same EMI mistakes, from scratch.</div>
       </div>
     </div>
     <div class="problem-item reveal d5">
       <div class="problem-icon">📉</div>
       <div>
-        <div class="problem-title">No feedback, slow ramp-up</div>
-        <div class="problem-desc">New joiners learn by making mistakes on real, paying customers. There's no safe place to practice and no consistent scorecard to show them exactly what to fix.</div>
+        <div class="problem-title">Mistakes happen on paying customers</div>
+        <div class="problem-desc">No safe place to practice and no objective scorecard — joiners learn by fumbling real ₹95k conversations.</div>
       </div>
     </div>
     <div class="problem-item reveal d6">
       <div class="problem-icon">🕶️</div>
       <div>
         <div class="problem-title">Managers fly blind</div>
-        <div class="problem-desc">Nobody can see, at a glance, who has finished what, who is floor-ready, and which skill the whole team is weakest at — until it shows up in lost deals.</div>
+        <div class="problem-desc">Nobody sees who is floor-ready or which skill the team is weakest at — until it shows up in lost deals.</div>
       </div>
     </div>
   </div>
@@ -243,20 +259,78 @@
   <div class="stat-strip">
     <div class="stat reveal d3"><div class="num"><span class="count" data-to="10">0</span>+ hrs</div><div class="lbl">a senior rep loses every week to manual training</div></div>
     <div class="stat reveal d4"><div class="num">5×</div><div class="lbl">that cost multiplies with every new batch of joiners</div></div>
-    <div class="stat reveal d5"><div class="num">₹<span class="count" data-to="95">0</span>k</div><div class="lbl">avg. deal value lost when a green rep fumbles a live call</div></div>
+    <div class="stat reveal d5"><div class="num">₹<span class="count" data-to="95">0</span>k</div><div class="lbl">deal value at risk when a green rep fumbles a live call</div></div>
   </div>
   <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
 </section>
 
-<!-- ═══ SLIDE 2 — SOLUTION ═══ -->
+<!-- ═══ SLIDE 2 — PROPOSED SOLUTION (≈1:15) ═══ -->
 <section class="slide" id="s2">
   <div class="blob blob1"></div>
   <div class="slide-num reveal"><b>02</b> / 04</div>
 
-  <div class="tag reveal">💡 Proposed Solution</div>
+  <div>
+    <span class="tag reveal">💡 Proposed Solution</span>
+    <span class="timechip reveal">≈ 1 min 15</span>
+  </div>
   <h1 class="reveal d1">One guided journey.<br/>An AI on every call.<br/><span class="accent">Free the seniors.</span></h1>
   <div class="divider reveal d2"></div>
-  <p class="subtext reveal d2">Saraf.AI is the whole onboarding, not just practice: 11 self-paced levels take a joiner from company foundations to live work, an always-on AI runs unlimited mock calls with instant coaching, and the manager watches the whole team ramp — live.</p>
+  <p class="subtext reveal d2">Saraf.AI replaces the human trainer with a complete onboarding platform: 11 self-paced levels of company &amp; product knowledge, an always-on AI prospect for unlimited voice mock calls, an AI coach that scores every call, and a live team view for the manager.</p>
+
+  <div class="method">
+    <div class="method-step reveal d3">
+      <div class="method-num">1</div>
+      <div>
+        <div class="method-title">Ground the AI in real company data</div>
+        <div class="method-desc">Exact prices, all payment routes (Razorpay, Pine Labs, Shopse, Fibe/Propel, XP), the real 14-day curriculum, and 9 buyer personas distilled from analysis of 4,904 actual enrollees — stated objections AND hidden motivations.</div>
+      </div>
+    </div>
+    <div class="method-step reveal d4">
+      <div class="method-num">2</div>
+      <div>
+        <div class="method-title">Live voice role-play in the browser</div>
+        <div class="method-desc">Speech-to-text hears the rep, the LLM answers in persona, gender-matched Indian-English text-to-speech talks back. 4 hint-modes × 6 difficulty rounds, from Peer to Director.</div>
+      </div>
+    </div>
+    <div class="method-step reveal d5">
+      <div class="method-num">3</div>
+      <div>
+        <div class="method-title">Rubric-graded coaching, not vibes</div>
+        <div class="method-desc">A second LLM pass grades the transcript on a weighted 100-point rubric (discovery, routing, objection handling, close) with hard compliance auto-flags — false guarantees or wrong EMI terms cap the score.</div>
+      </div>
+    </div>
+    <div class="method-step reveal d6">
+      <div class="method-num">4</div>
+      <div>
+        <div class="method-title">Close the loop with analytics</div>
+        <div class="method-desc">Every call feeds the rep's dashboard (skills radar, score trend, next-best-action) and the manager's live leaderboard — readiness becomes a number, not a feeling.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch reveal d6">
+    <div class="arch-node"><b>React + Vite SPA</b><span>voice UI · Web Speech API (STT/TTS)</span></div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node"><b>Vercel Serverless</b><span>API keys stay server-side</span></div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node"><b>Hedged multi-model chain</b><span>Gemini 2.5 Flash · Claude Haiku 4.5 · GPT-4o-mini · Llama 3.3 — health-cached failover</span></div>
+    <div class="arch-arrow">→</div>
+    <div class="arch-node"><b>Upstash Redis</b><span>accounts · team store · leaderboard</span></div>
+  </div>
+  <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
+</section>
+
+<!-- ═══ SLIDE 3 — BUSINESS IMPACT (≈1:00) ═══ -->
+<section class="slide" id="s3">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>03</b> / 04</div>
+
+  <div>
+    <span class="tag reveal">📈 Business Impact</span>
+    <span class="timechip reveal">≈ 1 min</span>
+  </div>
+  <h1 class="reveal d1">Seniors sell.<br/>Joiners ramp.<br/><span class="accent">Managers see.</span></h1>
+  <div class="divider reveal d2"></div>
 
   <div class="ba">
     <div class="ba-col ba-before reveal d3">
@@ -274,83 +348,73 @@
       <div class="h">After · Saraf.AI</div>
       <ul>
         <li>AI plays 9 realistic prospects, 24/7</li>
-        <li>Unlimited reps, any number of joiners</li>
-        <li>100-point scorecard after every call</li>
+        <li>Unlimited practice, any number of joiners</li>
+        <li>Objective 100-point scorecard, every call</li>
         <li>Mistakes happen in a safe sandbox</li>
         <li>Readiness is a number on a live board</li>
       </ul>
     </div>
   </div>
 
-  <div class="feature-grid" style="margin-top:32px;">
-    <div class="feature-card reveal d3"><span class="icon">🗺️</span><h3>11-Level Guided Journey</h3><p>Company foundations → product &amp; offer → the 8-step sales process → certification → live work. Sequential unlocks, quizzes, real mastermind recordings and page-flip brochures — all in one portal.</p></div>
-    <div class="feature-card reveal d4"><span class="icon">🎯</span><h3>AI Mock-Call Room</h3><p>9 realistic Indian buyer personas with hidden motivations, 4 hint-modes × 6 difficulty rounds (Peer → Director). Voice or text, real objections, real EMI questions — infinite reps.</p></div>
-    <div class="feature-card reveal d5"><span class="icon">📊</span><h3>Instant Scorecard</h3><p>A weighted 100-point coaching breakdown after every call — discovery, routing, objection handling, close — with hard compliance auto-flags for wrong EMI or invented prices.</p></div>
-    <div class="feature-card reveal d6"><span class="icon">📈</span><h3>Analytics Dashboard</h3><p>Completion, knowledge %, call average, a skills radar, score trend, achievement badges and an AI-picked "Today's focus" — every joiner sees exactly what to fix next.</p></div>
-    <div class="feature-card reveal d5"><span class="icon">👔</span><h3>Manager Leaderboard</h3><p>A login-gated live board of every rep's completion, readiness and mock-call average — plus the team's weakest skill, so coaching goes where it's needed.</p></div>
-    <div class="feature-card reveal d6"><span class="icon">📁</span><h3>Real-Call Reports</h3><p>Upload a real learner-call recording → auto-transcribe → CRM-ready report with sentiment, interest level and the next follow-up date. Practice graduates into pipeline.</p></div>
+  <div class="stat-strip">
+    <div class="stat reveal d3"><div class="num"><span class="count" data-to="10">0</span>+ hrs</div><div class="lbl">of senior selling time reclaimed, per senior, per week</div></div>
+    <div class="stat reveal d4"><div class="num">∞</div><div class="lbl">practice calls at near-zero marginal cost per joiner</div></div>
+    <div class="stat reveal d5"><div class="num">100%</div><div class="lbl">of calls scored on the same objective rubric — compliance included</div></div>
+    <div class="stat reveal d6"><div class="num">1</div><div class="lbl">live leaderboard: who's ready, who's stuck, the team's weakest skill</div></div>
+  </div>
+
+  <div class="proof-list" style="margin-top:34px;">
+    <div class="proof-item reveal d4">Scales sideways: a new persona is a prompt, a new department is a content pack — the engine doesn't change.</div>
+    <div class="proof-item reveal d5">Scales up: serverless architecture means 5 or 500 concurrent joiners cost roughly the same to run.</div>
+    <div class="proof-item reveal d6">Compounding data: every scored call sharpens coaching, batch after batch.</div>
   </div>
   <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
 </section>
 
-<!-- ═══ SLIDE 3 — DEMO ═══ -->
-<section class="slide" id="s3">
+<!-- ═══ SLIDE 4 — LIVE DEMO (≈1:45) ═══ -->
+<section class="slide" id="s4">
   <div class="blob blob1"></div>
-  <div class="slide-num reveal"><b>03</b> / 04</div>
+  <div class="slide-num reveal"><b>04</b> / 04</div>
 
-  <div class="tag reveal">🚀 Project Demo</div>
-  <h1 class="reveal d1">It's live.<br/>It works.<br/><span class="accent">Try it.</span></h1>
+  <div>
+    <span class="tag reveal">🚀 Live Demo</span>
+    <span class="timechip reveal">≈ 1 min 45</span>
+  </div>
+  <h1 class="reveal d1">It's live.<br/>It works.<br/><span class="accent">Watch.</span></h1>
 
   <div class="inner">
     <div>
       <div class="divider reveal d2"></div>
       <div class="url-hero reveal d2">outskill-garvit.vercel.app</div>
       <div class="flow">
-        <div class="flow-step reveal d2"><div class="flow-icon">🔐</div><div><div class="flow-label">Sign up once, log in anywhere</div><div class="flow-sub">One account per email · works across devices</div></div></div>
+        <div class="flow-step reveal d2"><div class="flow-icon">🔐</div><div><div class="flow-label">Log in</div><div class="flow-sub">one account per email · any device</div></div></div>
         <div class="flow-arrow reveal d2">↓</div>
-        <div class="flow-step reveal d3"><div class="flow-icon">📈</div><div><div class="flow-label">Welcome Dashboard</div><div class="flow-sub">KPIs · skills radar · badges · Today's focus</div></div></div>
+        <div class="flow-step reveal d3"><div class="flow-icon">📈</div><div><div class="flow-label">Dashboard</div><div class="flow-sub">skills radar · readiness · Today's focus</div></div></div>
         <div class="flow-arrow reveal d3">↓</div>
-        <div class="flow-step reveal d4"><div class="flow-icon">🗺️</div><div><div class="flow-label">11 Levels, unlocked in order</div><div class="flow-sub">Foundations → product → sales process → live work</div></div></div>
+        <div class="flow-step reveal d4"><div class="flow-icon">🗺️</div><div><div class="flow-label">Level 2 — the knowledge</div><div class="flow-sub">recordings → brochures → payments mastery</div></div></div>
         <div class="flow-arrow reveal d4">↓</div>
-        <div class="flow-step reveal d5"><div class="flow-icon">📞</div><div><div class="flow-label">Live AI Mock Call</div><div class="flow-sub">Speak or type · Rajesh, Priya, Meena, Vikram…</div></div></div>
+        <div class="flow-step reveal d5"><div class="flow-icon">📞</div><div><div class="flow-label">Voice mock call vs "Rajesh"</div><div class="flow-sub">skeptical Program Manager · real objections</div></div></div>
         <div class="flow-arrow reveal d5">↓</div>
-        <div class="flow-step reveal d6"><div class="flow-icon">🏆</div><div><div class="flow-label">Scorecard + Manager view</div><div class="flow-sub">100-pt breakdown · compliance flags · team board</div></div></div>
+        <div class="flow-step reveal d6"><div class="flow-icon">🏆</div><div><div class="flow-label">Instant scorecard → Manager view</div><div class="flow-sub">100-pt coaching · compliance flags · leaderboard</div></div></div>
       </div>
     </div>
     <div>
-      <h2 class="reveal d2" style="font-size:clamp(1.4rem,2.5vw,2rem);">What makes it<br/><span style="color:var(--lime)">actually different</span></h2>
+      <h2 class="reveal d2" style="font-size:clamp(1.4rem,2.5vw,2rem);">What to watch for —<br/><span style="color:var(--lime)">each maps to the problem</span></h2>
       <div class="proof-list">
-        <div class="proof-item reveal d2">Grounded in OutSkill's REAL data — exact prices, Razorpay / Pine Labs / Shopse / Fibe / XP payment routes, the real 14-day curriculum</div>
-        <div class="proof-item reveal d3">9 deep AI personas with stated objections AND hidden motivations the rep must uncover through discovery</div>
-        <div class="proof-item reveal d3">Hard compliance auto-flags — false guarantees, wrong EMI terms or invented discounts cap the score instantly</div>
-        <div class="proof-item reveal d4">Difficulty ladder: 6 rounds from Peer to Director, 4 hint-modes, gender-matched Indian-English voices</div>
-        <div class="proof-item reveal d4">Multi-provider AI failover — if one model is down the call never drops; 41-screen automated smoke test</div>
-        <div class="proof-item reveal d5">Built &amp; deployed end-to-end, solo, by Garvit Saraf</div>
+        <div class="proof-item reveal d2">The AI prospect objects like a real buyer ("I can learn this on YouTube") and hides its true motivation until the rep earns it — that's the senior rep, replaced.</div>
+        <div class="proof-item reveal d3">The rep speaks; the AI hears, answers and talks back in seconds — hands-free, in the browser, nothing to install.</div>
+        <div class="proof-item reveal d3">The scorecard cites what was actually said and flags compliance errors instantly — that's gut-feel feedback, replaced.</div>
+        <div class="proof-item reveal d4">The manager leaderboard updates live with every scored call — that's blind management, replaced.</div>
+        <div class="proof-item reveal d4">Multi-provider failover means the demo doesn't depend on any single AI vendor being up.</div>
       </div>
-      <div class="reveal d5" style="margin-top:30px;padding:20px 24px;background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;max-width:400px;">
-        <div style="font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Stack</div>
-        <div class="stack-pills" style="justify-content:flex-start;">
-          <span>React + Vite</span><span>Vercel Serverless</span><span>OpenAI + OpenRouter</span><span>Upstash Redis</span><span>Web Speech API</span>
-        </div>
+      <div class="reveal d5" style="margin-top:26px;padding:20px 24px;background:var(--glass);border:1px solid var(--glass-border);border-radius:16px;max-width:420px;">
+        <div style="font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">The bottom line</div>
+        <div style="font-family:'Fraunces',serif;font-size:1.25rem;font-weight:900;line-height:1.3;">Learn → Practice → Score → <span style="color:var(--lime)">Sell.</span></div>
+        <div style="font-size:0.85rem;color:var(--muted);margin-top:8px;line-height:1.5;">Seniors stop babysitting. Joiners ramp on one guided track. Every call gets coached. Every manager sees who's ready.</div>
       </div>
     </div>
   </div>
   <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
-</section>
-
-<!-- ═══ SLIDE 4 — CLOSE ═══ -->
-<section class="slide" id="s4">
-  <div class="blob blob1"></div>
-  <div class="slide-num reveal"><b>04</b> / 04</div>
-  <div class="tag reveal">🏁 The Bottom Line</div>
-  <h1 class="reveal d1" style="text-align:center;">Learn → Practice → Score → <span class="accent">Sell.</span></h1>
-  <p class="subtext reveal d2" style="text-align:center;margin-left:auto;margin-right:auto;font-size:clamp(1.05rem,2vw,1.35rem);color:var(--white);">
-    Seniors stop babysitting. Joiners ramp from day one to deal-closer on one guided track.<br/>Every call gets coached. Every manager sees who's ready. Zero excuses.
-  </p>
-  <div class="url-hero reveal d3">outskill-garvit.vercel.app</div>
-  <div class="reveal d4" style="font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-top:16px;">
-    Built by <span style="color:var(--lime);font-weight:700;">Garvit Saraf</span> · Saraf.AI
-  </div>
 </section>
 
 <script>

@@ -157,7 +157,7 @@ ${p.brief}
 - Reveal your TRUE blocker only if the rep genuinely probes for it. Warm up only when they earn it; if they pressure you, over-pitch, or sound robotic, get more guarded or non-committal.
 - The rep's words may contain small speech-to-text errors — infer their intent charitably, don't nitpick transcription.
 - React realistically to the rep's close. If the call genuinely went well and they close properly, you may agree to a concrete next step. If it didn't, stay vague ("send me details", "let me think") — it's fine NOT to convert.
-- Output ONLY your spoken words. No narration, no stage directions, no labels, no emoji.`;
+- Output ONLY your spoken words — exactly what a listener on the phone would HEAR, nothing else. NEVER name your mood or emotion as a label ("angry", "good mood", "tone: skeptical") — show feelings through the words themselves, the way a real person does. No narration, no stage directions like (sighs) or [pauses], no speaker labels, no lists, no markdown, no JSON, no code, no emoji. Just plain spoken sentences.`;
 }
 
 function agentSystem() {
@@ -175,7 +175,7 @@ ${PROGRAM_FACTS}
 - LISTEN and adapt: track everything the learner has told you (their role, budget, coding ability, concerns) and tailor each reply to THAT — never restart the pitch or repeat info they already have. Answer the question they actually asked, then move the call forward.
 - Trial close and secure a concrete next step. On a stall, isolate the real hesitation and create a low-risk reason to decide.
 - ZERO guaranteed-job or guaranteed-income claims.
-- Keep each turn to 1-3 spoken sentences, like real speech. Output ONLY your spoken words — no narration, labels or emoji.`;
+- Keep each turn to 1-3 spoken sentences, like real speech. Output ONLY your spoken words — exactly what the learner would HEAR. Never name your mood or tone as a label; no narration, stage directions, lists, markdown, JSON, code or emoji.`;
 }
 
 function evaluatorSystem(mode, persona, durationStr) {

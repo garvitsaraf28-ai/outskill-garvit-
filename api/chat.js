@@ -77,9 +77,10 @@ function cleanReply(text) {
 }
 
 // SPOKEN replies must sound like a human on the phone. Some fallback models
-// leak chain-of-thought, markdown, code fences or stage directions into the
-// visible reply — all of it gets read aloud by TTS. Strip every code-shaped
-// artifact here, server-side, so no client ever hears it.
+// leak chain-of-thought, markdown, code fences, mood labels or stage
+// directions into the visible reply — all of it gets read aloud by TTS.
+// Strip every code-shaped artifact here, server-side, so no client hears it.
+const MOODS = "angry|annoyed|irritated|frustrated|happy|glad|excited|sad|calm|neutral|skeptical|skeptic|curious|interested|hesitant|nervous|anxious|surprised|confused|bored|impatient|thinking|smiling|laughing|sighing|pausing|good mood|bad mood|warm|cold|friendly|guarded|defensive|upbeat|cheerful|doubtful|suspicious";
 function sanitizeSpoken(text) {
   let t = String(text || "")
     .replace(/<think>[\s\S]*?<\/think>/gi, " ")
@@ -87,6 +88,16 @@ function sanitizeSpoken(text) {
   // An UNCLOSED think tag means everything after it is reasoning — drop it.
   const open = t.search(/<think>|<reasoning>/i);
   if (open !== -1) t = t.slice(0, open);
+  // Some models wrap the whole line in a JSON object — unwrap the text field.
+  const jt = t.trim();
+  if (jt.startsWith("{") && jt.endsWith("}")) {
+    try {
+      const o = JSON.parse(jt);
+      const inner = [o.reply, o.text, o.response, o.message, o.content, o.say]
+        .find((v) => typeof v === "string" && v.trim());
+      if (inner) t = inner;
+    } catch {}
+  }
   t = t
     .replace(/```[\s\S]*?```/g, " ")            // fenced code blocks
     .replace(/`([^`\n]*)`/g, "$1")               // inline code → keep the words
@@ -95,8 +106,13 @@ function sanitizeSpoken(text) {
     .replace(/\*([^*\n]{1,60})\*/g, "$1")        // *emphasis/emotes* → keep the words
     .replace(/^#{1,6}\s+/gm, "")                 // markdown headers
     .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, "")   // bullet / numbered list markers
+    // Mood/tone narration → silence: "Mood: angry", "(sighs)", "(good mood)",
+    // a bare leading "Angry —", "sounds skeptical:" etc.
+    .replace(new RegExp(`^\\s*(?:mood|tone|emotion|feeling|sounding|voice)\\s*[:\\-–]\\s*[^.!?\\n]{0,40}[.!?]?\\s*`, "gim"), "")
+    .replace(new RegExp(`\\((?:[^)\\n]{0,12})?(?:${MOODS})(?:[^)\\n]{0,25})?\\)`, "gi"), " ")
+    .replace(new RegExp(`^\\s*(?:${MOODS})\\s*[.!:,–—-]\\s*`, "i"), "")
     .replace(/^\s*(?:[A-Z][a-z]+(?: [A-Z][a-z]+)?|REP|LEARNER|PROSPECT|ASSISTANT|AI)\s*:\s*/, "") // speaker labels
-    .replace(/[*_~#>|]+/g, " ")                  // leftover markdown decoration
+    .replace(/[*_~#>|{}]+/g, " ")                // leftover markdown / JSON braces
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "") // emoji
     .replace(/\s+/g, " ")
     .trim();
@@ -107,12 +123,16 @@ function sanitizeSpoken(text) {
 async function tryModel(target, orMessages, { json, maxTokens, timeoutMs }) {
   const isOpenAI = target.startsWith("openai:");
   const model = isOpenAI ? target.slice(7) : target;
+  // Free reasoning models spend tokens thinking before they speak — a tight
+  // conversational cap makes them return EMPTY replies. Give them headroom;
+  // paid instruct models keep the small fast budget.
+  const effTokens = !json && target.includes(":free") ? Math.max(maxTokens, 900) : maxTokens;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const body = {
       model,
-      max_tokens: maxTokens,
+      max_tokens: effTokens,
       temperature: json ? 0.2 : 0.8,
       ...(json ? { response_format: { type: "json_object" } } : {}),
       messages: orMessages,

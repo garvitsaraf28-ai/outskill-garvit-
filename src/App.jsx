@@ -516,6 +516,7 @@ export default function App() {
   const [speaking, _setSpeaking] = useState(false);
   const [interim, setInterim] = useState("");
   const [voiceBlocked, setVoiceBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState(""); // "denied" | "network"
   const [voices, setVoices] = useState([]);
   const [voiceURI, setVoiceURI] = useState("");
   const [rate, _setRate] = useState(1.08); // TTS speaking speed — natural conversational pace
@@ -760,7 +761,7 @@ export default function App() {
     let netRetries = 0;
     rec.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        blockedRef.current = true; setVoiceBlocked(true); setListening(false); return;
+        blockedRef.current = true; setVoiceBlocked(true); setBlockReason("denied"); setListening(false); return;
       }
       if (e.error === "network") {
         setListening(false);
@@ -768,9 +769,9 @@ export default function App() {
           netRetries++;
           setTimeout(() => { try { rec.start(); } catch {} }, 600);
         } else {
-          // Give up on voice — silently fall back to text mode
+          // Give up on voice — fall back to text mode, but SAY WHY
           setVoiceOn(false);
-          blockedRef.current = true; setVoiceBlocked(true);
+          blockedRef.current = true; setVoiceBlocked(true); setBlockReason("network");
         }
         return;
       }
@@ -797,8 +798,8 @@ export default function App() {
     let blocked = false;
     if (SR && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try { const s = await navigator.mediaDevices.getUserMedia({ audio: true }); s.getTracks().forEach(t => t.stop()); }
-      catch { blocked = true; }
-    } else if (!SR) { blocked = true; }
+      catch { blocked = true; setBlockReason("denied"); }
+    } else if (!SR) { blocked = true; setBlockReason("denied"); }
     blockedRef.current = blocked; setVoiceBlocked(blocked);
     setVoiceOn(true);
   }, []);
@@ -1004,7 +1005,7 @@ If the rep said nothing factually useful or correct, return [].`,
   const enVoices = voices.filter(v => /^en/i.test(v.lang));
 
   const voiceApi = {
-    on: voiceOn, listening, speaking, busy, interim, blocked: voiceBlocked,
+    on: voiceOn, listening, speaking, busy, interim, blocked: voiceBlocked, blockedWhy: blockReason,
     handsFree, setHandsFree, onMicTap,
     enVoices, voiceURI, setVoiceURI, rate, setRate,
     enable: () => enableVoice(), disable: () => { stopAll(); setVoiceOn(false); },
@@ -2351,7 +2352,13 @@ export function CallView({ serif, mode, persona, messages, busy, input, setInput
           {voice.on && (
             <button onClick={voice.disable} style={{ ...linkBtn }}><MicOff size={13}/><span style={{marginLeft:6}}>Disable voice</span></button>
           )}
-          {voice.blocked && <span style={{ fontSize:12, color:"#e8b24b" }}>Mic blocked — using text mode</span>}
+          {voice.blocked && (
+            <span style={{ fontSize:12, color:"#e8b24b" }}>
+              {voice.blockedWhy === "network"
+                ? "Speech service unreachable (VPN / firewall / offline?) — using text mode. Fix the connection, then tap Enable voice."
+                : "Mic permission blocked — click the 🔒 lock icon in the address bar → allow Microphone → reload the page."}
+            </span>
+          )}
         </div>
       </div>
     </div>

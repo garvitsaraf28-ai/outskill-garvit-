@@ -169,6 +169,54 @@
   .stack-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 30px; }
   .stack-pills span { background: rgba(194,238,69,0.08); border: 1px solid var(--glass-border); color: var(--lime); font-size: 0.78rem; padding: 5px 12px; border-radius: 100px; }
 
+  /* SPOTLIGHT — a soft glow that follows the cursor */
+  .spotlight { position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 40%), rgba(194,238,69,0.055), transparent 65%); }
+
+  /* KEY HINT */
+  .keyhint { position: fixed; bottom: 18px; left: 24px; z-index: 99; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: 0.8; }
+  .keyhint b { color: var(--lime); font-weight: 600; }
+
+  /* PERSONA CHIPS (interactive) */
+  .personas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; max-width: 880px; }
+  .persona-chip { background: var(--glass); border: 1px solid var(--glass-border); color: var(--white); border-radius: 100px; padding: 9px 18px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .25s; }
+  .persona-chip:hover { border-color: var(--lime); transform: translateY(-2px); }
+  .persona-chip.active { background: var(--lime); color: #000; box-shadow: 0 0 18px rgba(194,238,69,0.4); }
+  .persona-reveal { max-width: 760px; margin-top: 14px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 16px; padding: 18px 22px; display: none; animation: pop .35s cubic-bezier(.2,.7,.2,1); }
+  .persona-reveal.show { display: block; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+  .persona-reveal .pr-stated { font-size: 0.92rem; color: var(--white); margin-bottom: 8px; }
+  .persona-reveal .pr-stated b { color: var(--danger); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .persona-reveal .pr-hidden { font-size: 0.92rem; color: var(--white); }
+  .persona-reveal .pr-hidden b { color: var(--lime); font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 3px; }
+  .persona-note { font-size: 0.75rem; color: var(--muted); margin-top: 10px; font-style: italic; }
+
+  /* CALL SIMULATION (demo slide) */
+  .callsim { width: 100%; max-width: 880px; margin-top: 40px; background: rgba(0,0,0,0.35); border: 1px solid var(--glass-border); border-radius: 22px; padding: 26px 28px; position: relative; overflow: hidden; }
+  .callsim::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 80% 0%, rgba(194,238,69,0.07), transparent 60%); pointer-events: none; }
+  .cs-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .cs-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); }
+  .cs-dot.live { background: var(--lime); box-shadow: 0 0 10px var(--lime); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+  .cs-title { font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .cs-title b { color: var(--white); }
+  .cs-btn { margin-left: auto; background: var(--lime); color: #000; border: none; border-radius: 100px; padding: 10px 22px; font-size: 0.85rem; font-weight: 700; font-family: inherit; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+  .cs-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(194,238,69,0.35); }
+  .cs-btn.mute { background: transparent; color: var(--muted); border: 1px solid var(--glass-border); font-weight: 500; }
+  .cs-btn.mute.on { color: var(--lime); border-color: var(--lime); }
+  .cs-feed { display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+  .cs-msg { max-width: 74%; padding: 11px 16px; border-radius: 16px; font-size: 0.92rem; line-height: 1.5; animation: pop .3s cubic-bezier(.2,.7,.2,1); }
+  .cs-msg .who { font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 4px; opacity: 0.8; }
+  .cs-rep { align-self: flex-end; background: rgba(194,238,69,0.13); border: 1px solid rgba(194,238,69,0.3); border-radius: 16px 4px 16px 16px; }
+  .cs-rep .who { color: var(--lime); }
+  .cs-ai { align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 4px 16px 16px 16px; }
+  .cs-ai .who { color: var(--muted); }
+  .cs-typing { align-self: flex-start; display: flex; gap: 5px; padding: 14px 18px; }
+  .cs-typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1s infinite; }
+  .cs-typing span:nth-child(2) { animation-delay: .18s; } .cs-typing span:nth-child(3) { animation-delay: .36s; }
+  @keyframes blink { 0%,100%{opacity:.25} 50%{opacity:1} }
+  .cs-score { align-self: center; margin-top: 8px; background: rgba(194,238,69,0.1); border: 1px solid var(--lime); color: var(--lime); border-radius: 100px; padding: 10px 22px; font-size: 0.85rem; font-weight: 700; animation: pop .4s cubic-bezier(.2,.7,.2,1); box-shadow: 0 0 24px rgba(194,238,69,0.25); }
+
   @media (max-width: 768px) {
     .slide { padding: 70px 6vw; }
     .feature-grid { grid-template-columns: 1fr; }
@@ -177,13 +225,17 @@
     .ba-arrow { transform: rotate(90deg); justify-self: center; }
     .slide-num, .watermark { right: 6vw; }
     .nav-dots { right: 12px; }
+    .keyhint { display: none; }
+    .cs-msg { max-width: 92%; }
   }
-  @media print { .nav-dots, .progress, .scroll-hint { display: none; } .slide { page-break-after: always; } .reveal { opacity: 1 !important; transform: none !important; } }
+  @media print { .nav-dots, .progress, .scroll-hint, .spotlight, .keyhint, .callsim, .persona-reveal, .personas { display: none !important; } .slide { page-break-after: always; } .reveal { opacity: 1 !important; transform: none !important; } }
 </style>
 </head>
 <body>
 
 <div class="progress" id="progress"></div>
+<div class="spotlight" id="spotlight"></div>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
 
 <nav class="nav-dots">
   <a href="#s0" class="active" data-label="Intro"></a>
@@ -317,6 +369,19 @@
     <div class="arch-arrow">→</div>
     <div class="arch-node"><b>Upstash Redis</b><span>accounts · team store · leaderboard</span></div>
   </div>
+
+  <div class="personas reveal d6" id="personaChips">
+    <span style="align-self:center;font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Meet the buyers — tap one:</span>
+    <button class="persona-chip" data-p="rajesh">Rajesh · 44 · Program Manager</button>
+    <button class="persona-chip" data-p="priya">Priya · 38 · Team Lead</button>
+    <button class="persona-chip" data-p="meena">Meena · 42 · Finance Manager</button>
+    <button class="persona-chip" data-p="vikram">Vikram · 52 · CMO, Dubai</button>
+  </div>
+  <div class="persona-reveal" id="personaReveal">
+    <div class="pr-stated"><b>What they SAY on the call</b><span id="prStated"></span></div>
+    <div class="pr-hidden"><b>What they're really thinking — the rep must uncover this</b><span id="prHidden"></span></div>
+    <div class="persona-note">Distilled from the buyer-persona analysis of 4,904 real enrollees. The AI plays this person — objections, hesitation, hidden motive and all.</div>
+  </div>
   <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
 </section>
 
@@ -414,6 +479,19 @@
       </div>
     </div>
   </div>
+
+  <!-- 30-second scripted taste of the real thing — runs entirely in this page -->
+  <div class="callsim reveal d4" id="callsim">
+    <div class="cs-head">
+      <div class="cs-dot" id="csDot"></div>
+      <div class="cs-title"><b>Sample mock call</b> · Rep vs "Rajesh" (skeptical Program Manager)</div>
+      <button class="cs-btn mute" id="csVoice" title="Speak Rajesh's lines aloud">🔊 Voice on</button>
+      <button class="cs-btn" id="csPlay">▶ Play the call</button>
+    </div>
+    <div class="cs-feed" id="csFeed">
+      <div class="cs-msg cs-ai"><span class="who">This is a scripted replay</span>Tap <b>Play the call</b> — then see the real, live version at outskill-garvit.vercel.app.</div>
+    </div>
+  </div>
   <div class="watermark">Built by <span>Garvit Saraf</span> · Saraf.AI</div>
 </section>
 
@@ -461,6 +539,128 @@
     const h = document.documentElement;
     const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
     prog.style.width = pct + '%';
+  });
+
+  // ── Keyboard navigation: ← → PgUp PgDn Space snap between slides; F fullscreen
+  const slideIds = ['s0','s1','s2','s3','s4'];
+  function currentSlide() {
+    const mid = window.scrollY + window.innerHeight / 2;
+    let best = 0, bestD = Infinity;
+    slideIds.forEach((id, i) => {
+      const el = document.getElementById(id);
+      const c = el.offsetTop + el.offsetHeight / 2;
+      const d = Math.abs(c - mid);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+  function goSlide(i) {
+    const clamped = Math.max(0, Math.min(slideIds.length - 1, i));
+    document.getElementById(slideIds[clamped]).scrollIntoView({ behavior: 'smooth' });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); goSlide(currentSlide() + 1); }
+    else if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); goSlide(currentSlide() - 1); }
+    else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
+
+  // ── Spotlight follows the cursor; blobs get a gentle parallax
+  const spot = document.getElementById('spotlight');
+  window.addEventListener('mousemove', (e) => {
+    spot.style.setProperty('--mx', e.clientX + 'px');
+    spot.style.setProperty('--my', e.clientY + 'px');
+    const dx = (e.clientX / window.innerWidth - 0.5) * 26;
+    const dy = (e.clientY / window.innerHeight - 0.5) * 26;
+    document.querySelectorAll('.blob').forEach((b) => { b.style.translate = `${dx}px ${dy}px`; });
+  });
+
+  // ── Persona chips: tap to reveal stated objection vs hidden motivation
+  const PERSONAS = {
+    rajesh: { stated: '"Honestly, I can probably learn most of this free on YouTube. And isn\'t it too basic for someone technical like me?"',
+              hidden: 'Quiet layoff anxiety — juniors use AI better than he does. He wants career insurance and dreams of consulting income, but he\'ll never say that first.' },
+    priya:  { stated: '"Will I actually get clients? Who would pay ME for AI work? Let me think and ask my spouse."',
+              hidden: 'Wants ₹50–75k/month side income while employed — and needs it kept private because her boss follows her on LinkedIn.' },
+    meena:  { stated: '"I\'m not technical at all — is coding required? Will I even keep up with the batch?"',
+              hidden: 'Real fear: her finance function is being automated. She wants to be the AI-savvy person in her department before it\'s too late.' },
+    vikram: { stated: '"Isn\'t this too tool-level for someone at my level? My calendar is brutal — shouldn\'t my team do it instead?"',
+              hidden: 'Wants board-level AI-strategy credibility and a training plan for his teams — and can route the fee to employer funding.' },
+  };
+  const reveal = document.getElementById('personaReveal');
+  document.querySelectorAll('.persona-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const p = PERSONAS[chip.dataset.p];
+      const active = chip.classList.contains('active');
+      document.querySelectorAll('.persona-chip').forEach((c) => c.classList.remove('active'));
+      if (active) { reveal.classList.remove('show'); return; }
+      chip.classList.add('active');
+      document.getElementById('prStated').textContent = ' ' + p.stated;
+      document.getElementById('prHidden').textContent = ' ' + p.hidden;
+      reveal.classList.remove('show'); void reveal.offsetWidth; reveal.classList.add('show');
+    });
+  });
+
+  // ── Sample-call player: animated bubbles + optional TTS for Rajesh
+  const SCRIPT = [
+    { who: 'rep', name: 'Rep · Garvit', text: 'Hi Rajesh! Garvit here from OutSkill — you attended our AI mastermind last weekend, right?' },
+    { who: 'ai',  name: 'Rajesh · AI prospect', text: 'Yes… look, I\'ll be honest — most of this I can probably learn free on YouTube.' },
+    { who: 'rep', name: 'Rep · Garvit', text: 'Fair point. Quick question first — do you write code, or are you more on the business side?' },
+    { who: 'ai',  name: 'Rajesh · AI prospect', text: 'Business side. Eighteen years in IT program management, but no coding.' },
+    { who: 'rep', name: 'Rep · Garvit', text: 'Then the Generalist track fits you — no code, and you ship a real AI MVP by day seven. Every session is recorded if a week gets busy.' },
+    { who: 'ai',  name: 'Rajesh · AI prospect', text: 'Hmm. And the fee? Is there an EMI that doesn\'t cost extra?' },
+    { who: 'rep', name: 'Rep · Garvit', text: '₹94,999 — with zero-cost EMI over 3 to 12 months. OutSkill bears the interest, you pay nothing extra.' },
+    { who: 'ai',  name: 'Rajesh · AI prospect', text: 'Okay… that\'s more reasonable than I expected. Send me the syllabus — and hold a seat in the July batch.' },
+  ];
+  const feed = document.getElementById('csFeed');
+  const playBtn = document.getElementById('csPlay');
+  const voiceBtn = document.getElementById('csVoice');
+  const csDot = document.getElementById('csDot');
+  let voiceOn = false, playing = false;
+  voiceBtn.addEventListener('click', () => { voiceOn = !voiceOn; voiceBtn.classList.toggle('on', voiceOn); voiceBtn.textContent = voiceOn ? '🔊 Voice on' : '🔇 Voice off'; });
+  voiceBtn.classList.add('on'); voiceOn = true;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function speakLine(text) {
+    return new Promise((resolve) => {
+      const synth = window.speechSynthesis;
+      if (!synth) return resolve();
+      const u = new SpeechSynthesisUtterance(text.replace(/[₹]/g, 'rupees '));
+      const voices = synth.getVoices();
+      u.voice = voices.find((v) => /en[-_]IN/i.test(v.lang)) || voices.find((v) => /^en/i.test(v.lang)) || null;
+      u.rate = 1.05; u.pitch = 0.95;
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      u.onend = finish; u.onerror = finish;
+      setTimeout(finish, 9000); // never hang the demo on a TTS glitch
+      try { synth.cancel(); synth.speak(u); } catch { finish(); }
+    });
+  }
+  playBtn.addEventListener('click', async () => {
+    if (playing) return;
+    playing = true; playBtn.textContent = '● Live'; csDot.classList.add('live');
+    feed.innerHTML = '';
+    for (const line of SCRIPT) {
+      const typing = document.createElement('div');
+      typing.className = 'cs-typing';
+      typing.innerHTML = '<span></span><span></span><span></span>';
+      feed.appendChild(typing);
+      await sleep(line.who === 'ai' ? 1100 : 700);
+      typing.remove();
+      const m = document.createElement('div');
+      m.className = 'cs-msg ' + (line.who === 'rep' ? 'cs-rep' : 'cs-ai');
+      m.innerHTML = `<span class="who">${line.name}</span>${line.text}`;
+      feed.appendChild(m);
+      m.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (line.who === 'ai' && voiceOn) await speakLine(line.text); else await sleep(1400);
+    }
+    await sleep(500);
+    const score = document.createElement('div');
+    score.className = 'cs-score';
+    score.textContent = '🏆 Scorecard: 82/100 · Discovery ✓ · Routing ✓ · Zero-cost EMI ✓';
+    feed.appendChild(score);
+    score.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    csDot.classList.remove('live'); playBtn.textContent = '↻ Replay'; playing = false;
   });
 </script>
 </body>

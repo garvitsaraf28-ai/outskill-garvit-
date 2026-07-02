@@ -1,5 +1,24 @@
 # Deployment Guide
 
+## Fastest path — Render Blueprint (one click)
+
+A `render.yaml` at the repo root defines the whole service (root dir `qa-agent`, build,
+start, health check, free plan). Steps:
+
+1. Open https://dashboard.render.com → **New → Blueprint** → connect
+   `garvitsaraf28-ai/outskill-garvit-` and pick the branch containing `render.yaml`.
+2. Render reads the blueprint and shows one service, `outskill-ai-mentor`. It will prompt
+   for `ANTHROPIC_API_KEY` — paste your key (it's marked `sync: false`, so it is never
+   stored in git).
+3. Click **Apply**. In ~2 minutes you get a public `https://outskill-ai-mentor….onrender.com`
+   URL — that's the link to drop into the Zoom session description.
+
+Free-plan notes: the instance sleeps after idle (first request after a quiet period takes
+~30s to wake — upgrade to the cheapest paid instance before a live event) and the disk is
+ephemeral (sessions reset on redeploy; fine for event use, see the scaling section for the
+durable-store upgrade). A `qa-agent/Dockerfile` is also provided for Railway/Fly/any
+container host.
+
 ## Shape of the deployment
 
 A single stateless-ish Node process (state = `data/` directory) serving both the API and the

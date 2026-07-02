@@ -157,3 +157,13 @@ test("pricing question retrieves the pricing document", async () => {
   const sources = events[0].data.sources.map((s) => s.doc);
   assert.ok(sources.includes("04-pricing-and-payments.md"), `expected pricing doc in ${sources}`);
 });
+
+test("API errors map to actionable messages", async () => {
+  const { friendlyApiError } = await import("../server/services/chat.js");
+  assert.match(friendlyApiError({ status: 401, message: "authentication_error" }), /API key is missing or invalid/);
+  assert.match(friendlyApiError({ status: 400, message: "Your credit balance is too low" }), /no credits/);
+  assert.match(friendlyApiError({ status: 429, message: "rate_limit_error" }), /rate-limited/);
+  assert.match(friendlyApiError({ status: 529, message: "overloaded_error" }), /overloaded/);
+  assert.match(friendlyApiError({ message: "Connection error: fetch failed" }), /reach the Anthropic API/);
+  assert.match(friendlyApiError({ message: "something odd" }), /snag/);
+});

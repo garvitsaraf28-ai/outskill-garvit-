@@ -3,6 +3,35 @@ import { systemBlocks, buildUserTurn, buildMessages } from "../prompts/build.js"
 
 const TRIVIAL_RE = /^(hi|hello|hey|thanks?|thank you|ok(ay)?|cool|great|nice|got it|👍|🙏)[.! ]*$/i;
 
+// Translate API failures into messages that tell the operator/user exactly
+// what to do — a generic "snag" hides the fix (key, credits, rate limit).
+export function friendlyApiError(err) {
+  const status = err?.status;
+  const text = String(err?.message || "");
+  if (status === 401 || /authentication|x-api-key/i.test(text)) {
+    return "⚠️ Setup issue: the Anthropic API key is missing or invalid. Fix: stop the app, delete the .env file in the app folder, start it again and paste the key exactly (it starts with sk-ant-).";
+  }
+  if (/credit|billing|balance/i.test(text)) {
+    return "⚠️ Setup issue: your Anthropic account has no credits. Add credits at console.anthropic.com → Settings → Billing (minimum $5), then ask again — no restart needed.";
+  }
+  if (status === 403) {
+    return "⚠️ Setup issue: this API key doesn't have permission for the model. Check the key's workspace at console.anthropic.com or create a fresh key.";
+  }
+  if (status === 404 && /model/i.test(text)) {
+    return "⚠️ Setup issue: the configured model isn't available to this account. Remove any ANSWER_MODEL override from .env, or check model access at console.anthropic.com.";
+  }
+  if (status === 429) {
+    return "The AI is rate-limited right now — wait a minute and ask again.";
+  }
+  if (status >= 500 || /overloaded/i.test(text)) {
+    return "Claude is temporarily overloaded — please try again in a few seconds.";
+  }
+  if (/fetch failed|ENOTFOUND|ECONN|network|Connection error/i.test(text)) {
+    return "⚠️ Can't reach the Anthropic API from this machine — check your internet connection, VPN, or firewall.";
+  }
+  return "I hit a snag answering that — please try again in a few seconds.";
+}
+
 // The orchestrator: profile + retrieve in parallel → merged profile →
 // streamed answer → persist → async compaction. Fully dependency-injected so
 // tests run without network (ADR-006). See docs/02-architecture.md §2.
@@ -120,10 +149,8 @@ export function createChatService({ client, config, prompts, retriever, sessions
         });
         compact(session).catch(() => {}); // off the request path by design (ADR-004)
       } catch (err) {
-        logger.error(`[chat] answer failed: ${err.message}`);
-        send("error", {
-          message: "I hit a snag answering that — please try again in a few seconds.",
-        });
+        logger.error(`[chat] answer failed: ${err.status || ""} ${err.message}`);
+        send("error", { message: friendlyApiError(err) });
       }
     },
   };

@@ -14,7 +14,11 @@ export function loadConfig(env = process.env) {
     port: int(env.PORT, 8787),
     apiKey: env.ANTHROPIC_API_KEY || "",
     openrouterKey: env.OPENROUTER_API_KEY || "",
-    openrouterModel: env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free",
+    // Comma-separated fallback chain — tried in order when a free model is
+    // rate-limited or unavailable (free models are shared and often congested).
+    openrouterModel:
+      env.OPENROUTER_MODEL ||
+      "meta-llama/llama-3.3-70b-instruct:free,nvidia/nemotron-3-super-120b-a12b:free",
     openrouterBaseUrl: env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
     answerModel: env.ANSWER_MODEL || "claude-opus-4-8",
     profileModel: env.PROFILE_MODEL || "claude-opus-4-8",

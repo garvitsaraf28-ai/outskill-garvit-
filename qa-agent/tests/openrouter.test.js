@@ -120,3 +120,41 @@ test("adapter surfaces HTTP errors with status for friendly mapping", async () =
   );
   server.close();
 });
+
+test("falls back to the next free model when the first is rate-limited", async () => {
+  const served = [];
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const parsed = JSON.parse(body);
+      served.push(parsed.model);
+      if (parsed.model === "model-a:free") {
+        res.writeHead(429, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { message: "Rate limit exceeded" } }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "answer from B" } }] })}\n\n`);
+      res.write("data: [DONE]\n\n");
+      res.end();
+    });
+  });
+  await new Promise((r) => server.listen(0, r));
+  const { port } = server.address();
+  const client = createOpenRouterClient(
+    loadConfig({
+      OPENROUTER_API_KEY: "sk-or-test",
+      OPENROUTER_MODEL: "model-a:free, model-b:free",
+      OPENROUTER_BASE_URL: `http://127.0.0.1:${port}/api/v1`,
+    })
+  );
+  let text = "";
+  const stream = client.messages.stream({ system: "s", messages: [{ role: "user", content: "q" }], max_tokens: 50 });
+  stream.on("text", (t) => (text += t));
+  const final = await stream.finalMessage();
+  server.close();
+  assert.deepEqual(served, ["model-a:free", "model-b:free"]);
+  assert.equal(text, "answer from B");
+  assert.equal(final.stop_reason, "end_turn");
+});

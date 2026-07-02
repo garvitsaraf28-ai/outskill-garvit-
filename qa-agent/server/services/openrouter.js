@@ -76,30 +76,49 @@ export function createOpenRouterClient(config) {
     }
   }
 
+  const models = config.openrouterModel.split(",").map((m) => m.trim()).filter(Boolean);
+  const retriable = (err) => err.status === 429 || err.status === 402 || err.status === 404 || err.status >= 500;
+
+  // Try each model in the chain; fall through on rate-limit/unavailable.
+  async function withFallback(fn) {
+    let lastErr;
+    for (const model of models) {
+      try {
+        return await fn(model);
+      } catch (err) {
+        lastErr = err;
+        if (!retriable(err)) throw err;
+      }
+    }
+    throw lastErr;
+  }
+
   return {
     provider: "openrouter",
     messages: {
       async create(params, opts = {}) {
-        const res = await post(toOpenAIRequest(params, config.openrouterModel), { timeout: opts.timeout });
-        if (!res.ok) await throwHttpError(res);
-        const data = await res.json();
-        const text = stripJsonFences(data.choices?.[0]?.message?.content ?? "");
-        return {
-          content: [{ type: "text", text }],
-          stop_reason: "end_turn",
-          usage: {
-            input_tokens: data.usage?.prompt_tokens ?? 0,
-            output_tokens: data.usage?.completion_tokens ?? 0,
-            cache_read_input_tokens: 0,
-            cache_creation_input_tokens: 0,
-          },
-        };
+        return withFallback(async (model) => {
+          const res = await post(toOpenAIRequest(params, model), { timeout: opts.timeout });
+          if (!res.ok) await throwHttpError(res);
+          const data = await res.json();
+          const text = stripJsonFences(data.choices?.[0]?.message?.content ?? "");
+          return {
+            content: [{ type: "text", text }],
+            stop_reason: "end_turn",
+            usage: {
+              input_tokens: data.usage?.prompt_tokens ?? 0,
+              output_tokens: data.usage?.completion_tokens ?? 0,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+          };
+        });
       },
 
       stream(params) {
         const handlers = {};
-        const run = (async () => {
-          const res = await post({ ...toOpenAIRequest(params, config.openrouterModel), stream: true });
+        const run = withFallback(async (model) => {
+          const res = await post({ ...toOpenAIRequest(params, model), stream: true });
           if (!res.ok) await throwHttpError(res);
           const reader = res.body.getReader();
           const decoder = new TextDecoder();
@@ -132,7 +151,7 @@ export function createOpenRouterClient(config) {
               cache_creation_input_tokens: 0,
             },
           };
-        })();
+        });
         return {
           on(event, cb) {
             handlers[event] = cb;

@@ -13,10 +13,20 @@
   <div class="shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark">O</div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 34 34">
+            <g fill="#4a5c1e">
+              <circle cx="6" cy="6" r="3.4"/><circle cx="17" cy="6" r="3.4"/><circle cx="28" cy="6" r="3.4"/>
+              <circle cx="6" cy="17" r="3.4"/><circle cx="17" cy="17" r="3.4"/>
+              <circle cx="6" cy="28" r="3.4"/>
+            </g>
+            <g fill="#c2ee45">
+              <circle cx="28" cy="17" r="3.4"/><circle cx="17" cy="28" r="3.4"/><circle cx="28" cy="28" r="3.4"/>
+            </g>
+          </svg>
+        </div>
         <div>
           <div class="brand-name">Outskill <span>AI Mentor</span></div>
-          <div class="brand-sub"><span class="live-dot"></span>Live during the session — ask anything</div>
         </div>
       </div>
       <div class="topbar-actions">
@@ -32,7 +42,7 @@
 
     <main id="chat" class="chat" aria-live="polite">
       <div id="welcome" class="welcome">
-        <div class="welcome-badge">Zoom chat is off — this line is always open</div>
+        <div class="welcome-badge">Your live session assistant</div>
         <h1>Ask me anything.</h1>
         <p>AI concepts, how AI applies to <em>your</em> work, careers, or anything about the
         Mastermind, Bootcamp and Accelerator — I'm your Outskill mentor for this session.</p>

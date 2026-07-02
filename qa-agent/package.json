@@ -1,6 +1,6 @@
 {
   "name": "outskill-qa-agent",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Outskill AI Mentor — live-event question-answering agent (Claude-powered)",
   "type": "module",
   "private": true,

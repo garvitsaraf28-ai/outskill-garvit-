@@ -63,11 +63,11 @@ prep, teaching materials for medical faculty — always with honest treatment of
 limits, ethics, and patient-data privacy (never put identifiable patient data into public AI
 tools).
 
-## Hospitality professionals
+## Hospitality professionals (hotels, restaurants, travel, resorts)
 
-Guest-experience personalization, booking and inquiry automation, review response and
-sentiment monitoring, multilingual guest communication, ops checklists and scheduling
-automation.
+Guest-experience personalization, hotel booking and inquiry automation, review response and
+sentiment monitoring, multilingual guest communication, restaurant and front-desk ops
+checklists, staff scheduling automation.
 
 ## Manufacturing / operations
 

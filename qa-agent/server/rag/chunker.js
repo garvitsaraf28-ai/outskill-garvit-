@@ -2,7 +2,7 @@
 // facts by topic, so heading boundaries beat fixed-size windows on curated
 // docs. Tiny sections merge forward; oversized sections split by paragraph.
 
-const MIN_WORDS = 40;
+const MIN_WORDS = 25;
 const MAX_WORDS = 450;
 const TARGET_WORDS = 350;
 
@@ -46,12 +46,14 @@ export function chunkDocument({ doc, title, text }) {
     if (m) {
       flush();
       const level = m[1].length;
-      path = [...path.slice(0, level - 1)];
-      path[level - 1] = m[2].trim();
-      path = path.filter(Boolean);
+      const text2 = m[2].trim();
       if (level === 1) {
-        heading = m[2].trim();
-        path = [];
+        heading = text2;
+        path = [text2];
+      } else {
+        path = path.slice(0, level - 1);
+        path[level - 1] = text2;
+        path = path.filter(Boolean);
       }
     } else {
       buf.push(line);
@@ -59,11 +61,13 @@ export function chunkDocument({ doc, title, text }) {
   }
   flush();
 
-  // Merge undersized sections into their successor so facts keep their context.
+  // Merge undersized sections into their successor so facts keep their
+  // context — and keep BOTH headings, so merged topics stay retrievable.
   const merged = [];
   for (const s of sections) {
     const prev = merged[merged.length - 1];
     if (prev && words(prev.text) < MIN_WORDS) {
+      prev.heading = `${prev.heading} / ${s.heading}`;
       prev.text += `\n\n${s.heading}\n${s.text}`;
     } else {
       merged.push({ ...s });

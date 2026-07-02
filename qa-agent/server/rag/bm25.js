@@ -19,10 +19,14 @@ export function tokenize(text) {
 
 export function buildIndex(chunks, { k1 = 1.5, b = 0.75 } = {}) {
   const df = Object.create(null);
+  const HEADING_WEIGHT = 3; // heading terms are the author's own topic labels — count them extra
   const indexed = chunks.map((chunk) => {
     const terms = Object.create(null);
-    for (const t of tokenize(`${chunk.title} ${chunk.heading} ${chunk.text}`)) {
+    for (const t of tokenize(chunk.text)) {
       terms[t] = (terms[t] || 0) + 1;
+    }
+    for (const t of tokenize(`${chunk.title} ${chunk.heading}`)) {
+      terms[t] = (terms[t] || 0) + HEADING_WEIGHT;
     }
     for (const t of Object.keys(terms)) df[t] = (df[t] || 0) + 1;
     return { ...chunk, terms, len: Object.values(terms).reduce((a, n) => a + n, 0) };

@@ -1,6 +1,9 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/*.js": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/((?!api/|saraf-ai-pitch).*)", "destination": "/index.html" }
   ]

@@ -89,10 +89,10 @@ function sanitizeSpoken(text) {
   if (open !== -1) t = t.slice(0, open);
   t = t
     .replace(/```[\s\S]*?```/g, " ")            // fenced code blocks
-    .replace(/`[^`\n]*`/g, " ")                  // inline code
+    .replace(/`([^`\n]*)`/g, "$1")               // inline code → keep the words
     .replace(/\[[^\]\n]{0,80}\]/g, " ")          // [stage directions] / [labels]
     .replace(/\*\*([^*\n]{0,80})\*\*/g, "$1")    // **bold** → keep the words
-    .replace(/\*[^*\n]{1,60}\*/g, " ")           // *chuckles*-style emotes
+    .replace(/\*([^*\n]{1,60})\*/g, "$1")        // *emphasis/emotes* → keep the words
     .replace(/^#{1,6}\s+/gm, "")                 // markdown headers
     .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, "")   // bullet / numbered list markers
     .replace(/^\s*(?:[A-Z][a-z]+(?: [A-Z][a-z]+)?|REP|LEARNER|PROSPECT|ASSISTANT|AI)\s*:\s*/, "") // speaker labels
@@ -176,6 +176,54 @@ function orderChain(chain) {
   return usable;
 }
 
+function perTryTimeout(target, json, timeoutMs) {
+  // Paid targets answer in ~1-2s; if one hangs, bail early and move on —
+  // only the free reasoning fallbacks get the full window.
+  return target.includes(":free") ? timeoutMs : Math.min(timeoutMs, json ? 30000 : 12000);
+}
+
+// Hedged dispatch for LIVE-CALL turns: fire the best target immediately and,
+// if it hasn't answered within `staggerMs`, fire the next one in parallel —
+// first good reply wins, stragglers are ignored. A failure launches the next
+// target at once. Convo replies are tiny (≤320 tokens), so the occasional
+// duplicated request costs pennies and buys a hard latency bound.
+function hedged(targets, orMessages, opts, staggerMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false, pending = 0, nextIdx = 0;
+    const errors = [];
+    const maybeReject = () => {
+      if (!settled && pending === 0 && nextIdx >= targets.length) {
+        settled = true;
+        reject(new Error(errors[errors.length - 1] || "All models are busy right now."));
+      }
+    };
+    const launchNext = () => {
+      if (settled || nextIdx >= targets.length) return;
+      const target = targets[nextIdx++];
+      pending++;
+      tryModel(target, orMessages, { ...opts, timeoutMs: perTryTimeout(target, opts.json, opts.timeoutMs) })
+        .then((reply) => {
+          pending--;
+          if (settled) return;
+          settled = true;
+          lastGoodModel = target;
+          modelDownUntil.delete(target);
+          resolve({ reply, model: target });
+        })
+        .catch((e) => {
+          pending--;
+          const msg = String((e && e.message) || e);
+          errors.push(msg);
+          markFailed(target, msg);
+          if (!settled) launchNext();
+          maybeReject();
+        });
+      if (nextIdx < targets.length) setTimeout(launchNext, staggerMs);
+    };
+    launchNext();
+  });
+}
+
 async function callChain({ system, messages, json }) {
   const orMessages = [
     ...(system ? [{ role: "system", content: system }] : []),
@@ -186,24 +234,29 @@ async function callChain({ system, messages, json }) {
   const timeoutMs = json ? SCORE_TIMEOUT_MS : CONVO_TIMEOUT_MS;
   const maxTokens = json ? MAX_TOKENS : CONVO_TOKENS;
 
-  // Two passes: with a funded key the first model succeeds almost always; the
-  // second pass only exists for the rare moment the whole chain hiccups (and
-  // ignores cooldowns, so a marked-down model can still recover).
-  for (let pass = 0; pass < 2; pass++) {
-    if (pass > 0) await new Promise((r) => setTimeout(r, 800));
-    const chain = pass === 0 ? orderChain(baseChain) : baseChain;
-    for (const target of chain) {
-      // Paid targets answer in ~1-2s; if one hangs, bail early and move on —
-      // only the free reasoning fallbacks get the full window.
-      const perTry = target.includes(":free") ? timeoutMs : Math.min(timeoutMs, json ? 30000 : 12000);
-      try {
-        const reply = await tryModel(target, orMessages, { json, maxTokens, timeoutMs: perTry });
-        lastGoodModel = target;
-        modelDownUntil.delete(target);
-        return { reply, model: target };
-      } catch (e) {
-        lastErr = String((e && e.message) || e);
-        markFailed(target, lastErr);
+  if (!json) {
+    // Live-call turn: hedged, first pass on healthy targets, second on the
+    // full chain (ignores cooldowns, so a marked-down model can recover).
+    try { return await hedged(orderChain(baseChain), orMessages, { json, maxTokens, timeoutMs }, 2000); }
+    catch (e) { lastErr = String((e && e.message) || e); }
+    await new Promise((r) => setTimeout(r, 600));
+    try { return await hedged(baseChain, orMessages, { json, maxTokens, timeoutMs }, 1200); }
+    catch (e) { lastErr = String((e && e.message) || e); }
+  } else {
+    // Scorecard: big token budget — sequential to avoid double-spending.
+    for (let pass = 0; pass < 2; pass++) {
+      if (pass > 0) await new Promise((r) => setTimeout(r, 800));
+      const chain = pass === 0 ? orderChain(baseChain) : baseChain;
+      for (const target of chain) {
+        try {
+          const reply = await tryModel(target, orMessages, { json, maxTokens, timeoutMs: perTryTimeout(target, json, timeoutMs) });
+          lastGoodModel = target;
+          modelDownUntil.delete(target);
+          return { reply, model: target };
+        } catch (e) {
+          lastErr = String((e && e.message) || e);
+          markFailed(target, lastErr);
+        }
       }
     }
   }

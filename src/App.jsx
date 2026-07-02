@@ -368,9 +368,10 @@ function normalizeScorecard(c) {
 // directions out loud ("asterisk asterisk…"), which instantly breaks the call.
 const cleanForTTS = t => String(t || "")
   .replace(/```[\s\S]*?```/g, " ")
-  .replace(/`[^`\n]*`/g, " ")
+  .replace(/`([^`\n]*)`/g, "$1")
   .replace(/\[[^\]\n]{0,80}\]/g, " ")
-  .replace(/\*[^*\n]{1,60}\*/g, " ")
+  .replace(/\*\*([^*\n]{0,80})\*\*/g, "$1")
+  .replace(/\*([^*\n]{1,60})\*/g, "$1")
   .replace(/[*_`#>~|]/g, " ")
   .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "")
   .replace(/\s+/g, " ").trim();
@@ -650,22 +651,39 @@ export default function App() {
     // Queue ALL chunks upfront — Chrome's internal queue handles sequencing
     // reliably. Chaining via onend is unreliable because onend often doesn't
     // fire in Chrome, leaving subsequent chunks unspoken.
+    // Exactly-once "speech finished" → drop the flag and re-arm the mic.
+    // Chrome frequently NEVER fires utterance onend, so this must also be
+    // reachable from the watchdog below — otherwise hands-free listening
+    // silently dies mid-call (the mic never comes back after the AI talks).
+    let finished = false;
+    const onSpeechDone = () => {
+      if (finished) return;
+      finished = true;
+      clearInterval(alive);
+      setSpeaking(false);
+      reArm();
+    };
+
     chunks.forEach((chunk, idx) => {
       const u = new SpeechSynthesisUtterance(chunk);
       if (voiceRef.current) u.voice = voiceRef.current;
       u.rate = spkRate; u.pitch = spkPitch; u.volume = 1;
       if (idx === chunks.length - 1) {
-        u.onend = () => { clearInterval(alive); setSpeaking(false); reArm(); };
-        u.onerror = () => { clearInterval(alive); setSpeaking(false); reArm(); };
+        u.onend = onSpeechDone;
+        u.onerror = onSpeechDone;
       }
       try { synth.speak(u); } catch {}
     });
 
-    // Keepalive: nudge Chrome every 4s so queue doesn't freeze
+    // Watchdog every 800ms: detect the queue actually finishing (belt for
+    // Chrome's unreliable onend) + nudge Chrome every ~4s so the queue
+    // doesn't freeze on long replies.
+    let ticks = 0;
     const alive = setInterval(() => {
-      if (!synth.speaking) { clearInterval(alive); return; }
-      try { synth.pause(); synth.resume(); } catch {}
-    }, 4000);
+      if (!synth.speaking && !synth.pending) { onSpeechDone(); return; }
+      ticks++;
+      if (ticks % 5 === 0) { try { synth.pause(); synth.resume(); } catch {} }
+    }, 800);
   }, []);
   useEffect(() => { speakRef.current = speak; }, [speak]);
 
@@ -714,6 +732,11 @@ export default function App() {
       setMood(newMood);
     } catch (e) {
       setErr((e && e.message) ? `That turn didn't go through: ${e.message}` : "That turn didn't go through. Check your connection and try again.");
+      // A failed turn must NOT kill hands-free listening — bring the mic back
+      // so the rep can simply say it again.
+      if (voiceOnRef.current && handsFreeRef.current && callActiveRef.current && !blockedRef.current) {
+        setTimeout(() => listenRef.current(), 400);
+      }
     } finally { setBusy(false); busyRef.current = false; }
   }, []);
 

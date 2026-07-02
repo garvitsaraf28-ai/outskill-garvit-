@@ -4,11 +4,17 @@ OUTSKILL AI MENTOR — how to run this on your computer
 You received the complete project. It runs on YOUR computer; nothing else is
 needed from the person who sent it.
 
-WHAT YOU NEED (both free to install)
-  1. Node.js — download the LTS version from https://nodejs.org and install it.
-  2. An Anthropic API key — sign in at https://console.anthropic.com,
-     open "API Keys", click "Create Key", copy it (starts with sk-ant-).
-     (The API is pay-per-use; a $5 top-up covers hundreds of test questions.)
+WHAT YOU NEED
+  1. Node.js (free) — download the LTS version from https://nodejs.org and install it.
+  2. ONE API key — two options:
+     FREE : OpenRouter — sign up at https://openrouter.ai (no card needed),
+            open "Keys", create a key (starts with sk-or-). Free models,
+            roughly 50 questions/day, good for testing and demos.
+     PAID : Claude (best quality — recommended for real events) — sign in at
+            https://console.anthropic.com, open "API Keys", create a key
+            (starts with sk-ant-), and add credits under Settings -> Billing
+            ($5 minimum covers hundreds of questions).
+     The start script auto-detects which kind of key you paste.
 
 HOW TO START
   On Mac:      double-click  start-mac.command

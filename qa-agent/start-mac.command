@@ -17,10 +17,11 @@ echo "✓ Node.js $(node -v)"
 echo "✓ Installing dependencies (first run takes ~1 minute)…"
 npm install --no-audit --no-fund --loglevel=error
 
-if [ ! -f .env ] || ! grep -Eq '^ANTHROPIC_API_KEY=..+' .env; then
+if [ ! -f .env ] || ! grep -Eq '^(ANTHROPIC_API_KEY|OPENROUTER_API_KEY)=..+' .env; then
   echo ""
-  echo "One-time setup: paste an Anthropic API key."
-  echo "(Get one at https://console.anthropic.com → API Keys → Create Key)"
+  echo "One-time setup: paste an API key. Two options:"
+  echo "  FREE : OpenRouter key (sk-or-…) from https://openrouter.ai/keys — no card needed"
+  echo "  PAID : Claude key (sk-ant-…) from https://console.anthropic.com — best quality"
   printf "Key: "
   IFS= read -r KEY
   if [ -z "$KEY" ]; then
@@ -28,8 +29,10 @@ if [ ! -f .env ] || ! grep -Eq '^ANTHROPIC_API_KEY=..+' .env; then
     read -n 1 -s -r -p "Press any key to close…"
     exit 1
   fi
-  printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" > .env
-  echo "✓ Saved (only on this computer, in .env)"
+  case "$KEY" in
+    sk-or-*) printf 'OPENROUTER_API_KEY=%s\n' "$KEY" > .env; echo "✓ Saved — running in FREE mode (OpenRouter)" ;;
+    *)       printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" > .env; echo "✓ Saved — running on Claude" ;;
+  esac
 fi
 
 ( sleep 2.5; open "http://localhost:8787" ) >/dev/null 2>&1 &

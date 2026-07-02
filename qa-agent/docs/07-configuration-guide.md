@@ -5,7 +5,10 @@ boot; real env vars win). Defaults are production-sensible.
 
 | Variable | Default | What it controls |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | — (required) | Server-side API key. Never reaches the browser. |
+| `ANTHROPIC_API_KEY` | — | Claude API key (recommended provider). Never reaches the browser. |
+| `OPENROUTER_API_KEY` | — | **Free mode:** used only when no Anthropic key is set. Runs the app on OpenRouter's `:free` models (openrouter.ai/keys, no card; ~50 req/day). Good for demos/testing; noticeably weaker on objection nuance and compliance discipline than Claude — use Claude for real events. |
+| `OPENROUTER_MODEL` | `meta-llama/llama-3.3-70b-instruct:free` | Free-mode model. |
+| `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | Free-mode endpoint override (used by tests). |
 | `PORT` | `8787` | HTTP port. |
 | `ANSWER_MODEL` | `claude-opus-4-8` | Model for user-facing answers. |
 | `PROFILE_MODEL` | `claude-opus-4-8` | Model for the structured-output profiler. |

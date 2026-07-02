@@ -3,37 +3,38 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --lime: #c2ee45;
-  --lime-ink: #2a3505;
+  --core: #7c5cff;
+  --core-2: #4f9cff;
+  --core-ink: #ffffff;
   --radius: 16px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", sans-serif;
 }
 
 body[data-theme="dark"] {
-  --bg: #0a0c08;
-  --bg-soft: #12150e;
+  --bg: #0a0b12;
+  --bg-soft: #12131d;
   --panel: rgba(255,255,255,.045);
   --panel-hover: rgba(255,255,255,.08);
   --border: rgba(255,255,255,.09);
-  --txt: #e9ecdf;
-  --mute: #9aa18c;
-  --user-bubble: #1d2317;
-  --accent: var(--lime);
-  --accent-ink: var(--lime-ink);
+  --txt: #e8eaf2;
+  --mute: #8f94a8;
+  --user-bubble: #1b1e30;
+  --accent: #9d8bff;
+  --accent-ink: #ffffff;
   --shadow: 0 8px 30px rgba(0,0,0,.45);
 }
 body[data-theme="light"] {
-  --bg: #f7f8f3;
+  --bg: #f7f7fb;
   --bg-soft: #fff;
   --panel: #ffffff;
-  --panel-hover: #f0f2e8;
-  --border: #e2e5d8;
-  --txt: #1a1d14;
-  --mute: #6b7160;
-  --user-bubble: #e8f5c0;
-  --accent: #5a7a08;
+  --panel-hover: #ececf7;
+  --border: #e0e1ec;
+  --txt: #14151d;
+  --mute: #63667a;
+  --user-bubble: #e9e5fd;
+  --accent: #4f46e5;
   --accent-ink: #ffffff;
-  --shadow: 0 8px 30px rgba(40,50,10,.08);
+  --shadow: 0 8px 30px rgba(30,25,80,.08);
 }
 
 html, body { height: 100%; }
@@ -64,7 +65,8 @@ body {
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand-mark {
   width: 38px; height: 38px; border-radius: 12px;
-  background: var(--lime); color: var(--lime-ink);
+  background: linear-gradient(135deg, var(--core), var(--core-2));
+  color: var(--core-ink);
   display: grid; place-items: center;
   font-weight: 800; font-size: 20px;
 }
@@ -216,7 +218,7 @@ body[data-theme="light"] .ic-moon { display: none; }
 #input::placeholder { color: var(--mute); }
 #sendBtn {
   width: 40px; height: 40px; border-radius: 13px; border: none; cursor: pointer;
-  background: var(--lime); color: var(--lime-ink);
+  background: linear-gradient(135deg, var(--core), var(--core-2)); color: var(--core-ink);
   display: grid; place-items: center; flex-shrink: 0;
   transition: transform .1s, opacity .15s;
 }

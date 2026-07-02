@@ -492,8 +492,8 @@ function CoachNote({ stats }) {
   );
 }
 
-export function Dashboard({ user, completed, goStage, onLogout, history = [], onManager }) {
-  const [view, setView] = useState("home"); // "home" roadmap vs "report" analytics
+export function Dashboard({ user, completed, goStage, onLogout, history = [], onManager, initialView = "home" }) {
+  const [view, setView] = useState(initialView); // "home" roadmap vs "report" analytics
   const quizScores = (() => { try { return JSON.parse(localStorage.getItem("sarafai_quiz_v1") || "{}"); } catch { return {}; } })();
   const doneCount = TRAINABLE.filter((n) => completed.includes(n)).length;
   const total = TRAINABLE.length;
@@ -927,8 +927,8 @@ function Brochures() {
 
 // Mastermind recordings embedded in-portal (Level 2). Generalist = YouTube
 // playlist (plays inline); Engineering = Google Drive folder (opens in a tab).
-export function MastermindRecordings() {
-  const [step, setStep] = useState("videos"); // videos -> brochures
+export function MastermindRecordings({ initialStep = "videos" }) {
+  const [step, setStep] = useState(initialStep); // videos -> brochures
   const GEN = ["VDnFr_hx5N0", "GYBdgKZlKaA"]; // Generalist mastermind (YouTube)
   const ENG = [                                // Engineering mastermind (Google Drive video files)
     "1nagIgLAy21WDxYiUIshm9H7oYd9V0WJF",

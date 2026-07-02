@@ -1798,7 +1798,7 @@ const Field = ({ label, children }) => (<label style={{ display:"block" }}><div 
 const inputStyle = { width:"100%", background:PANEL, border:`1px solid ${BORDER}`, borderRadius:12, padding:"11px 14px", color:TXT, fontSize:14.5 };
 
 /* ------------------------------------------------------------------ */
-function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, round, setRound, hintMode, setHintMode, learnedFacts, clearLearnedFacts }) {
+export function Setup({ serif, mode, setMode, persona, setPersona, useCustom, setUseCustom, custom, setCustom, startCall, history, voiceWanted, setVoiceWanted, sttSupported, ttsSupported, repName, setRepName, round, setRound, hintMode, setHintMode, learnedFacts, clearLearnedFacts }) {
   const avg = history.length ? Math.round(history.reduce((a,h)=>a+h.overall,0)/history.length) : null;
 
   // Feature 1: streak calculation
@@ -2214,7 +2214,7 @@ function PersonalProgress({ history, repName, serif }) {
 }
 
 /* ------------------------------------------------------------------ */
-function CallView({ serif, mode, persona, messages, busy, input, setInput, send, seconds, endCall, err, scrollRef, voice, letThemOpen, callStage, totalStages, hint, setHint, mood }) {
+export function CallView({ serif, mode, persona, messages, busy, input, setInput, send, seconds, endCall, err, scrollRef, voice, letThemOpen, callStage, totalStages, hint, setHint, mood }) {
   const overtime = seconds > 420;
   const youAre = mode==="learner" ? "the salesperson" : "the customer";
   const otherName = mode==="learner" ? persona.name : "the salesperson";
@@ -2433,7 +2433,7 @@ function Bubble({ m, mode, persona }) {
 const Who = ({ label, mine }) => (<div style={{ fontSize:11, color:MUTE, margin:"0 0 4px", textAlign: mine?"right":"left", paddingLeft:mine?0:4, paddingRight:mine?4:0 }}>{label}</div>);
 
 /* ------------------------------------------------------------------ */
-function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, again, duration, useCustom, repName }) {
+export function Feedback({ serif, mode, persona, card, cardRaw, grading, err, reset, again, duration, useCustom, repName }) {
   if (grading) {
     return (
       <div className="osf" style={{ textAlign:"center", padding:"70px 0" }}>

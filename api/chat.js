@@ -1,36 +1,45 @@
-// All requests go through OpenRouter. Live call turns use a fast paid model
-// if available (configurable), with free models as fallback. Scorecard JSON
-// uses the free chain. The API key lives in Vercel env (OPENROUTER_API_KEY) —
-// never hardcode it here.
+// All requests go through OpenRouter. Mirrors the tuned chain from server.js:
+// FREE models only (no paid IDs that can be deprecated or need credits), ordered
+// for latency, with a second pass when the whole chain is momentarily
+// rate-limited. The API key lives in Vercel env (OPENROUTER_API_KEY).
+//
+// GET  /api/chat          -> { ok, keyConfigured }           (no network)
+// GET  /api/chat?diag=1   -> pings the chain, reports the first working model
+// POST /api/chat          -> { content:[{type:"text",text}], model }
 
 const OR_KEY = process.env.OPENROUTER_API_KEY;
-const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 2600);
+// Generous so the long JSON scorecard isn't truncated on reasoning models.
+const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS || 4000);
+// Conversation replies are 1-3 spoken sentences — a small cap generates fast.
 const CONVO_TOKENS = Number(process.env.OPENROUTER_CONVO_TOKENS || 320);
 
 function parseModels(v) {
   return v.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-// Scorecard evaluator chain — paid fast model first for reliability, free fallbacks.
+// GRADING chain — heavy reasoners are fine here (forced-JSON keeps output clean).
 const SCORE_MODELS = parseModels(
   process.env.OPENROUTER_MODELS ||
     [
-      "google/gemini-2.0-flash-001",              // fast + cheap (paid), best JSON compliance
-      "anthropic/claude-3.5-haiku",               // strong JSON, paid fallback
-      "meta-llama/llama-3.3-70b-instruct:free",   // free fallback
-      "qwen/qwen3-next-80b-a3b-instruct:free",    // free fallback
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "nvidia/nemotron-nano-9b-v2:free",
+      "qwen/qwen3-next-80b-a3b-instruct:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
+      "z-ai/glm-4.5-air:free",
+      "nvidia/nemotron-3-ultra-550b-a55b:free",
     ].join(",")
 );
 
-// Live-call chain. Put fast/paid models FIRST for instant replies; free models
-// remain as a safety net. Override with OPENROUTER_CONVO_MODELS in Vercel.
+// CONVERSATION chain — leak-safe instruct models first, then the small fast
+// nano. Big reasoning models are excluded: at a small token budget they can
+// spill chain-of-thought into the spoken reply.
 const CONVO_MODELS = parseModels(
   process.env.OPENROUTER_CONVO_MODELS ||
     [
-      "google/gemini-2.0-flash-001",          // fast + cheap (paid)
-      "anthropic/claude-3.5-haiku",           // fast + cheap (paid)
-      "meta-llama/llama-3.3-70b-instruct:free", // free fallback
-      "qwen/qwen3-next-80b-a3b-instruct:free",  // free fallback
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "qwen/qwen3-next-80b-a3b-instruct:free",
+      "moonshotai/kimi-k2.6:free",
+      "nvidia/nemotron-nano-9b-v2:free",
     ].join(",")
 );
 
@@ -43,46 +52,51 @@ function cleanReply(text) {
   return t;
 }
 
+async function tryModel(model, orMessages, json, maxTokens) {
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${OR_KEY}`,
+      "content-type": "application/json",
+      "x-title": "OutSkill Training",
+    },
+    // effort:"low" keeps reasoning models from burning the budget on hidden
+    // thinking; non-reasoning models ignore it.
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      reasoning: { effort: "low" },
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+      messages: orMessages,
+    }),
+  });
+  const data = await r.json();
+  if (!r.ok) {
+    throw new Error((data && data.error && data.error.message) || `Model error ${r.status}`);
+  }
+  const reply = cleanReply(data?.choices?.[0]?.message?.content);
+  if (!reply) throw new Error(`Empty reply from ${model}`);
+  return reply;
+}
+
 async function callOpenRouter({ system, messages, json }) {
   const orMessages = [
     ...(system ? [{ role: "system", content: system }] : []),
     ...messages.map(({ role, content }) => ({ role, content })),
   ];
-
-  let lastErr = "All models are busy right now. Wait a few seconds and try again.";
+  let lastErr = "All free models are busy right now. Wait a few seconds and try again.";
   const chain = json ? SCORE_MODELS : CONVO_MODELS;
-  const passes = json ? 2 : 1; // live call: single fast pass, don't stack latency
 
-  for (let pass = 0; pass < passes; pass++) {
+  // Two passes: if the whole chain is momentarily rate-limited, a short wait
+  // usually clears it on the free tier (cheaper than failing the turn).
+  for (let pass = 0; pass < 2; pass++) {
     if (pass > 0) await new Promise((r) => setTimeout(r, 1200));
     for (const model of chain) {
       try {
-        const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${OR_KEY}`,
-            "content-type": "application/json",
-            "x-title": "Saraf.AI",
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: json ? MAX_TOKENS : CONVO_TOKENS,
-            temperature: json ? 0.3 : 0.85,
-            ...(json ? { response_format: { type: "json_object" } } : {}),
-            messages: orMessages,
-          }),
-        });
-        const data = await r.json();
-        if (!r.ok) {
-          lastErr = (data && data.error && data.error.message) || `Model error ${r.status}`;
-          continue;
-        }
-        const reply = cleanReply(data?.choices?.[0]?.message?.content);
-        if (!reply) { lastErr = `Empty reply from ${model}`; continue; }
+        const reply = await tryModel(model, orMessages, json, json ? MAX_TOKENS : CONVO_TOKENS);
         return { reply, model };
       } catch (e) {
         lastErr = String((e && e.message) || e);
-        continue;
       }
     }
   }
@@ -92,6 +106,24 @@ async function callOpenRouter({ system, messages, json }) {
 }
 
 export default async function handler(req, res) {
+  // Self-test: quick health check for the live site.
+  if (req.method === "GET") {
+    if (!req.query.diag) {
+      return res.json({ ok: true, keyConfigured: !!OR_KEY, convoChain: CONVO_MODELS, scoreChain: SCORE_MODELS });
+    }
+    if (!OR_KEY) return res.json({ ok: false, error: "no_api_key", message: "Set OPENROUTER_API_KEY in Vercel env vars, then redeploy." });
+    const tried = [];
+    for (const model of CONVO_MODELS) {
+      try {
+        const reply = await tryModel(model, [{ role: "user", content: "Say OK" }], false, 10);
+        return res.json({ ok: true, workingModel: model, reply, tried });
+      } catch (e) {
+        tried.push({ model, error: String((e && e.message) || e).slice(0, 160) });
+      }
+    }
+    return res.json({ ok: false, error: "all_failed", tried });
+  }
+
   if (req.method !== "POST") return res.status(405).end();
   if (!OR_KEY) {
     return res.status(500).json({ error: "no_api_key", message: "No OPENROUTER_API_KEY set in Vercel environment variables." });

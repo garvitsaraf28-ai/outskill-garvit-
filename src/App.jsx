@@ -702,8 +702,8 @@ export default function App() {
         newMood = "cold";
       }
       setMood(newMood);
-    } catch {
-      setErr("That turn didn't go through. Check your connection and try again.");
+    } catch (e) {
+      setErr((e && e.message) ? `That turn didn't go through: ${e.message}` : "That turn didn't go through. Check your connection and try again.");
     } finally { setBusy(false); busyRef.current = false; }
   }, []);
 
@@ -903,8 +903,8 @@ If the rep said nothing factually useful or correct, return [].`,
           }
         } catch {}
       }
-    } catch {
-      setErr("Couldn't generate the scorecard. Try ending the call again.");
+    } catch (e) {
+      setErr((e && e.message) ? `Couldn't generate the scorecard: ${e.message}` : "Couldn't generate the scorecard. Try ending the call again.");
     } finally { setGrading(false); }
   };
 

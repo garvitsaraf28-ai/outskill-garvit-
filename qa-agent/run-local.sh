@@ -5,7 +5,6 @@
 set -euo pipefail
 
 BRANCH="claude/outskill-qa-agent-design-3r6w6j"
-REPO_URL="${MENTOR_REPO:-https://github.com/garvitsaraf28-ai/outskill-garvit-.git}"
 DIR="${MENTOR_DIR:-$HOME/outskill-ai-mentor}"
 
 echo ""
@@ -24,16 +23,16 @@ if [ "$NODE_MAJOR" -lt 20 ]; then
 fi
 echo "✓ Node.js $(node -v)"
 
-# 2. Get / update the code
-if [ -d "$DIR/.git" ]; then
-  echo "✓ Updating existing copy in $DIR"
-  git -C "$DIR" fetch origin "$BRANCH" --quiet
-  git -C "$DIR" checkout "$BRANCH" --quiet
-  git -C "$DIR" pull --ff-only origin "$BRANCH" --quiet
-else
-  echo "✓ Downloading code to $DIR"
-  git clone --quiet --branch "$BRANCH" --single-branch "$REPO_URL" "$DIR"
-fi
+# 2. Get / update the code — plain HTTPS download, no git / Xcode tools needed.
+TARBALL_URL="${MENTOR_TARBALL:-https://codeload.github.com/garvitsaraf28-ai/outskill-garvit-/tar.gz/refs/heads/$BRANCH}"
+echo "✓ Downloading code to $DIR"
+TMP="$(mktemp -d)"
+curl -fsSL "$TARBALL_URL" -o "$TMP/src.tgz"
+tar -xzf "$TMP/src.tgz" -C "$TMP"
+SRC_DIR="$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+mkdir -p "$DIR/qa-agent"
+cp -R "$SRC_DIR/qa-agent/." "$DIR/qa-agent/"   # .env and node_modules in $DIR are preserved
+rm -rf "$TMP"
 cd "$DIR/qa-agent"
 
 # 3. Install dependencies

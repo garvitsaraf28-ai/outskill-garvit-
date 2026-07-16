@@ -301,6 +301,7 @@
     } else if (engine === 'synth' && gestured) {
       synth.run();
     }
+    paintMusicBtn();
   }
   function stopMusic() {
     if (ytLoop) { clearInterval(ytLoop); ytLoop = null; }
@@ -334,9 +335,16 @@
   ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
     window.addEventListener(ev, () => { if (!gestured) { gestured = true; startMusic(); } }, { once: true, passive: true }));
 
+  // The label says WHICH music is playing, so a blocked video is visible
+  // instead of silently sounding like the old tune:
+  //   "Track on"  = the real YouTube song (docked tile visible)
+  //   "Tune on — video blocked" = YouTube refused; synth fallback playing
   function paintMusicBtn() {
     musicBtn.classList.toggle('off', !on);
-    musicBtn.innerHTML = on ? '🔊 <span>Music on</span>' : '🔇 <span>Music off</span>';
+    if (!on) { musicBtn.innerHTML = '🔇 <span>Music off</span>'; return; }
+    if (engine === 'yt') musicBtn.innerHTML = '🔊 <span>Track on</span>';
+    else if (engine === 'synth') musicBtn.innerHTML = '🔊 <span>Tune on — video blocked</span>';
+    else musicBtn.innerHTML = '🔊 <span>Music on</span>';
   }
   function toggleMusic() { on = !on; if (on) startMusic(); else stopMusic(); paintMusicBtn(); }
   musicBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMusic(); });

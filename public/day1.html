@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Day 1 — Induction Schedule · GrowthSchool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --lime: #c2ee45;
+    --lime-dim: #a8d930;
+    --bg: #070905;
+    --bg2: #0d1008;
+    --glass: rgba(194,238,69,0.06);
+    --glass-border: rgba(194,238,69,0.18);
+    --white: #f0f4e8;
+    --muted: #818f6c;
+    --danger: #ff4d6d;
+    --amber: #e8b24b;
+  }
+
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--white); overflow-x: hidden; }
+  ::selection { background: var(--lime); color: #000; }
+
+  .progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--lime); width: 0%; z-index: 200; box-shadow: 0 0 12px var(--lime); transition: width .1s linear; }
+  .keyhint { position: fixed; bottom: 18px; left: 24px; z-index: 99; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: .8; }
+  .keyhint b { color: var(--lime); font-weight: 600; }
+
+  .nav-dots { position: fixed; right: 28px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 13px; z-index: 99; }
+  .nav-dots a { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: block; transition: all .3s; position: relative; }
+  .nav-dots a.active { background: var(--lime); transform: scale(1.7); box-shadow: 0 0 12px var(--lime); }
+  .nav-dots a::after { content: attr(data-label); position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: 0; white-space: nowrap; transition: opacity .25s; }
+  .nav-dots a:hover::after { opacity: 1; }
+
+  .slide { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 84px 8vw; position: relative; overflow: hidden; }
+  .slide::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; opacity: .4; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; animation: float 14s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,-30px) scale(1.08)} }
+
+  .slide-num { position: absolute; top: 40px; right: 8vw; font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); }
+  .slide-num b { color: var(--lime); }
+  .watermark { position: absolute; bottom: 30px; right: 8vw; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  .watermark span { color: var(--lime); }
+
+  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .reveal.d1 { transition-delay: .08s; } .reveal.d2 { transition-delay: .16s; }
+  .reveal.d3 { transition-delay: .24s; } .reveal.d4 { transition-delay: .32s; }
+
+  .tag { display: inline-block; background: var(--glass); border: 1px solid var(--glass-border); color: var(--lime); font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; padding: 7px 15px; border-radius: 100px; margin-bottom: 24px; }
+
+  h1 { font-family: 'Fraunces', serif; font-size: clamp(2.3rem, 5.6vw, 5rem); font-weight: 900; line-height: 1.04; letter-spacing: -1px; margin-bottom: 18px; }
+  h1 .accent { color: var(--lime); }
+  .subtext { font-size: clamp(1rem, 1.6vw, 1.15rem); color: var(--muted); max-width: 640px; line-height: 1.7; margin-bottom: 30px; }
+  .divider { width: 64px; height: 3px; background: var(--lime); border-radius: 2px; margin-bottom: 26px; }
+
+  .dotmark { display: grid; grid-template-columns: repeat(3, 16px); gap: 7px; justify-content: center; margin-bottom: 28px; }
+  .dotmark span { width: 16px; height: 16px; border-radius: 50%; }
+  .dotmark span.on { background: var(--lime); box-shadow: 0 0 16px rgba(194,238,69,0.5); }
+  .dotmark span.off { border: 2px solid var(--muted); }
+  .kicker { font-size: clamp(11px, 2.5vw, 14px); letter-spacing: 6px; text-transform: uppercase; color: var(--lime-dim); margin-bottom: 22px; font-weight: 600; }
+  .scroll-hint { position: absolute; bottom: 38px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); animation: bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+
+  /* MUSIC PLAYER (title slide) — official YouTube embed, cued to 0:05–0:16 */
+  .tune { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .tune-btn { display: inline-flex; align-items: center; gap: 10px; background: var(--lime); color: #000; border: none; border-radius: 100px; font-family: inherit; font-weight: 700; font-size: 1rem; padding: 14px 30px; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+  .tune-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(194,238,69,0.4); }
+  .tune-note { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .tune-frame { width: min(300px, 78vw); aspect-ratio: 9/16; border-radius: 18px; overflow: hidden; border: 1px solid var(--glass-border); box-shadow: 0 18px 50px rgba(0,0,0,.5); display: none; }
+  .tune-frame.show { display: block; animation: pop .4s cubic-bezier(.2,.7,.2,1); }
+  .tune-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  @keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+
+  /* SCHEDULE TIMELINE */
+  .sched { width: 100%; max-width: 980px; display: flex; flex-direction: column; gap: 7px; }
+  .sess { display: grid; grid-template-columns: 150px 1fr auto; gap: 14px; align-items: center; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 13px; padding: 11px 18px; transition: border-color .25s, transform .25s; }
+  .sess:hover { border-color: var(--lime); transform: translateX(6px); }
+  .sess .time { font-weight: 700; font-size: .86rem; color: var(--lime); white-space: nowrap; }
+  .sess .time small { display: block; font-weight: 500; font-size: .66rem; color: var(--muted); letter-spacing: 1px; }
+  .sess .what b { display: block; font-size: .95rem; }
+  .sess .what span { font-size: .8rem; color: var(--muted); line-height: 1.4; }
+  .sess .who { font-size: .78rem; font-weight: 600; color: var(--white); background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 100px; padding: 6px 13px; white-space: nowrap; }
+  .sess.break { background: rgba(232,178,75,0.07); border-color: rgba(232,178,75,0.3); }
+  .sess.break .time { color: var(--amber); }
+  .sess.break .what b { color: var(--amber); }
+  .sess.deckwanted { position: relative; }
+  .deckchip { font-size: .62rem; letter-spacing: 1px; text-transform: uppercase; color: #000; background: var(--lime); border-radius: 100px; padding: 3px 9px; font-weight: 700; margin-left: 8px; vertical-align: 2px; }
+
+  /* THE ASK */
+  .asks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; width: 100%; max-width: 920px; margin-top: 6px; }
+  .ask { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 18px; padding: 22px; }
+  .ask .n { font-family: 'Fraunces', serif; font-size: 1.7rem; font-weight: 900; color: var(--lime); line-height: 1; margin-bottom: 10px; }
+  .ask h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+  .ask p { font-size: .86rem; color: var(--muted); line-height: 1.6; }
+  .ask b { color: var(--white); }
+  .cta { display: inline-flex; align-items: center; gap: 10px; background: var(--lime); color: #000; border: none; border-radius: 100px; font-family: inherit; font-weight: 700; font-size: 1rem; padding: 14px 30px; cursor: pointer; text-decoration: none; transition: transform .2s, box-shadow .2s; margin-top: 26px; }
+  .cta:hover { transform: translateY(-3px); box-shadow: 0 12px 34px rgba(194,238,69,0.4); }
+
+  #d0 { background: radial-gradient(ellipse at 50% 30%, #14180c, var(--bg)); align-items: center; text-align: center; }
+  #d0 .blob1 { width: 700px; height: 700px; background: rgba(194,238,69,0.09); top: -150px; left: 50%; transform: translateX(-50%); }
+  #d1 { background: var(--bg2); } #d1 .blob1 { width: 560px; height: 560px; background: rgba(194,238,69,0.06); top: -160px; right: -100px; }
+  #d2 { background: var(--bg); } #d2 .blob1 { width: 600px; height: 600px; background: rgba(194,238,69,0.07); bottom: -200px; left: 40%; }
+
+  @media (max-width: 720px) {
+    .slide { padding: 70px 5vw; }
+    .slide-num, .watermark { right: 5vw; }
+    .nav-dots { right: 10px; }
+    .keyhint { display: none; }
+    .sess { grid-template-columns: 1fr; gap: 6px; }
+    .sess .who { justify-self: start; }
+  }
+  @media print { .nav-dots, .progress, .scroll-hint, .keyhint, .tune { display: none !important; } .slide { page-break-after: always; } .reveal { opacity: 1 !important; transform: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
+
+<nav class="nav-dots">
+  <a href="#d0" class="active" data-label="Day 1"></a>
+  <a href="#d1" data-label="Schedule"></a>
+  <a href="#d2" data-label="The ask"></a>
+</nav>
+
+<!-- ═══ D0 — TITLE + MUSIC ═══ -->
+<section class="slide" id="d0">
+  <div class="blob blob1"></div>
+  <div class="dotmark reveal in">
+    <span class="on"></span><span class="on"></span><span class="off"></span>
+    <span class="on"></span><span class="on"></span><span class="on"></span>
+    <span class="on"></span><span class="on"></span><span class="off"></span>
+  </div>
+  <div class="kicker reveal d1">GrowthSchool · New-Joiner Onboarding</div>
+  <h1 class="reveal d2" style="text-align:center;">Day 1.<br/><span class="accent">The full lineup.</span></h1>
+  <p class="subtext reveal d3" style="text-align:center;margin-left:auto;margin-right:auto;">
+    One day, sixteen sessions, every team on stage — this is how a new joiner meets all of GrowthSchool. Hit play, then scroll for the schedule.
+  </p>
+  <div class="tune reveal d4">
+    <button class="tune-btn" id="tuneBtn">▶ Play the Day-1 anthem</button>
+    <div class="tune-note">plays the 0:05–0:16 cut · via YouTube</div>
+    <div class="tune-frame" id="tuneFrame"></div>
+  </div>
+  <div class="scroll-hint">scroll ↓</div>
+</section>
+
+<!-- ═══ D1 — THE SCHEDULE ═══ -->
+<section class="slide" id="d1">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>01</b> / 02</div>
+  <div class="tag reveal">🗓 Day 1 · 9:30 AM – 5:30 PM</div>
+  <h1 class="reveal d1">Who's on, <span class="accent">when.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="sched">
+    <div class="sess reveal d2"><div class="time">9:30 – 9:45<small>15 min</small></div><div class="what"><b>HR Induction — Welcome Note<span class="deckchip">deck wanted</span></b><span>Welcome note · hardware &amp; welcome-kit handover</span></div><div class="who">John</div></div>
+    <div class="sess reveal d2"><div class="time">9:45 – 10:15<small>30 min</small></div><div class="what"><b>Leadership Talk<span class="deckchip">deck wanted</span></b><span>How are we changing the world!</span></div><div class="who">Suri</div></div>
+    <div class="sess reveal d2"><div class="time">10:15 – 10:30<small>15 min</small></div><div class="what"><b>HR Induction &amp; Documentation<span class="deckchip">deck wanted</span></b><span>HR induction · Keka walkthrough</span></div><div class="who">John</div></div>
+    <div class="sess break reveal d2"><div class="time">10:30 – 11:00<small>30 min</small></div><div class="what"><b>☕ Coffee pe conversations</b><span>Meet each other — no slides, just coffee</span></div><div class="who">Spurthi &amp; Vasanth</div></div>
+    <div class="sess reveal d3"><div class="time">11:00 – 11:15<small>15 min</small></div><div class="what"><b>Policy<span class="deckchip">deck wanted</span></b><span>Leave policy · attendance policy · POSH · biometric</span></div><div class="who">Anshita</div></div>
+    <div class="sess reveal d3"><div class="time">11:15 – 11:30<small>15 min</small></div><div class="what"><b>Work Etiquette<span class="deckchip">deck wanted</span></b><span>Email etiquette · communication etiquette</span></div><div class="who">Saeed</div></div>
+    <div class="sess reveal d3"><div class="time">11:30 – 11:45<small>15 min</small></div><div class="what"><b>Finance<span class="deckchip">deck wanted</span></b><span>PF opening · account opening · reimbursements</span></div><div class="who">Chaitanya</div></div>
+    <div class="sess reveal d3"><div class="time">11:45 – 12:45<small>1 hr</small></div><div class="what"><b>From the Leader<span class="deckchip">deck wanted</span></b><span>Business overview</span></div><div class="who">PV</div></div>
+    <div class="sess break reveal d3"><div class="time">12:45 – 1:30<small>45 min</small></div><div class="what"><b>🍽 Lunch Break</b><span>Fuel up — big afternoon ahead</span></div><div class="who">Everyone</div></div>
+    <div class="sess reveal d4"><div class="time">1:30 – 2:30<small>1 hr</small></div><div class="what"><b>Acquisition<span class="deckchip">deck wanted</span></b><span>How we acquire and engage users at scale</span></div><div class="who">Ekakh &amp; Pankhuri</div></div>
+    <div class="sess reveal d4"><div class="time">2:30 – 3:00<small>30 min</small></div><div class="what"><b>Growth<span class="deckchip">deck wanted</span></b><span>What it takes to grow</span></div><div class="who">Phani Krishna</div></div>
+    <div class="sess reveal d4"><div class="time">3:00 – 4:00<small>1 hr</small></div><div class="what"><b>Sales<span class="deckchip">deck wanted</span></b><span>How do we sell</span></div><div class="who">Swadhin</div></div>
+    <div class="sess break reveal d4"><div class="time">4:00 – 4:15<small>15 min</small></div><div class="what"><b>☕ Chai pe charcha</b><span>Quick chai, quicker gossip</span></div><div class="who">Everyone</div></div>
+    <div class="sess reveal d4"><div class="time">4:15 – 4:45<small>30 min</small></div><div class="what"><b>Experience<span class="deckchip">deck wanted</span></b><span>What it takes to deliver a best-in-class learner experience</span></div><div class="who">Uthappa</div></div>
+    <div class="sess reveal d4"><div class="time">4:45 – 5:15<small>30 min</small></div><div class="what"><b>Community<span class="deckchip">deck wanted</span></b><span>What "best-in-class community" really means</span></div><div class="who">Om</div></div>
+    <div class="sess reveal d4"><div class="time">5:15 – 5:30<small>15 min</small></div><div class="what"><b>Support<span class="deckchip">deck wanted</span></b><span>Where we slip up — and how we make it right</span></div><div class="who">Praveen &amp; Vaibhav Shukla</div></div>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Day 1</div>
+</section>
+
+<!-- ═══ D2 — THE ASK ═══ -->
+<section class="slide" id="d2">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>02</b> / 02</div>
+  <div class="tag reveal">🙏 One ask from every session owner</div>
+  <h1 class="reveal d1">Your session.<br/><span class="accent">Your deck. This week.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">We're upgrading Day 1 from slideware to an experience — the HR induction is already live as an interactive deck (link below). Every session marked <span class="deckchip" style="vertical-align:1px;">deck wanted</span> needs its content from you so it gets the same treatment.</p>
+  <div class="asks">
+    <div class="ask reveal d3"><div class="n">1</div><h3>Send your existing deck</h3><p>Whatever you present today — PPT, PDF, Google Slides, even rough notes. <b>Don't polish it;</b> we'll do the design.</p></div>
+    <div class="ask reveal d3"><div class="n">2</div><h3>Keep it to the essentials</h3><p>What must a brand-new joiner <b>remember</b> from your 15–60 minutes? 5–8 key points beats 30 slides.</p></div>
+    <div class="ask reveal d4"><div class="n">3</div><h3>Flag the interactive bits</h3><p>A quiz question, a story, a number that wows, a demo — tell us the <b>moment that lands</b>, and we'll build the deck around it.</p></div>
+  </div>
+  <a class="cta reveal d4" href="https://outskill-garvit.vercel.app/induction.html" target="_blank" rel="noopener">See the HR deck — this is the standard →</a>
+  <div class="watermark">GrowthSchool <span>·</span> Day 1</div>
+</section>
+
+<script>
+  // Scroll reveal
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Nav dots + progress
+  const slides = document.querySelectorAll('.slide');
+  const dots = document.querySelectorAll('.nav-dots a');
+  const nav = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        dots.forEach(d => d.classList.remove('active'));
+        const a = document.querySelector(`.nav-dots a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.5 });
+  slides.forEach(s => nav.observe(s));
+  const prog = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100 + '%';
+  });
+
+  // Keyboard nav + fullscreen
+  const slideIds = ['d0','d1','d2'];
+  function currentSlide() {
+    const mid = window.scrollY + window.innerHeight / 2;
+    let best = 0, bestD = Infinity;
+    slideIds.forEach((id, i) => {
+      const el = document.getElementById(id);
+      const c = el.offsetTop + el.offsetHeight / 2;
+      const d = Math.abs(c - mid);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+  function goSlide(i) {
+    const c = Math.max(0, Math.min(slideIds.length - 1, i));
+    document.getElementById(slideIds[c]).scrollIntoView({ behavior: 'smooth' });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); goSlide(currentSlide() + 1); }
+    else if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); goSlide(currentSlide() - 1); }
+    else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
+
+  // Day-1 anthem — the requested YouTube short, cued to the 0:05–0:16 cut.
+  // The official embed keeps it legal and always-in-sync; created on tap so
+  // autoplay-with-sound is allowed (it's a user gesture).
+  const VIDEO_ID = 'zj9l-Sj__mU';
+  const tuneBtn = document.getElementById('tuneBtn');
+  const tuneFrame = document.getElementById('tuneFrame');
+  tuneBtn.addEventListener('click', () => {
+    tuneFrame.innerHTML = `<iframe src="https://www.youtube.com/embed/${VIDEO_ID}?start=5&end=16&autoplay=1&playsinline=1&rel=0&modestbranding=1" allow="autoplay; encrypted-media" allowfullscreen title="Day-1 anthem"></iframe>`;
+    tuneFrame.classList.add('show');
+    tuneBtn.textContent = '↻ Replay the anthem';
+  });
+</script>
+</body>
+</html>

@@ -137,7 +137,7 @@
   <p class="subtext reveal d3" style="text-align:center;margin-left:auto;margin-right:auto;">
     One day, sixteen sessions, every team on stage — this is how a new joiner meets all of GrowthSchool. Scroll for the schedule.
   </p>
-  <div class="scroll-hint">scroll ↓</div>
+  <div class="scroll-hint">scroll ↓ <span style="opacity:.45">· v5</span></div>
 </section>
 
 <!-- ═══ D1 — THE SCHEDULE ═══ -->
@@ -247,13 +247,11 @@
   let on = true, gestured = false, actx = null, again = null, asrc = null, abuf = null, decoding = false;
   const musicBtn = document.getElementById('musicBtn');
 
-  // MOBILE-SAFE unlock: iOS/Android only allow sound if the AudioContext is
-  // created AND resumed synchronously inside the touch, and iOS grants the
-  // permission on touchend/click (not touchstart). So on the first gesture we
-  // synchronously build the context, resume it, and play a silent one-sample
-  // buffer (the classic iOS unlock) — then decode the track and start it.
-  function unlockAndStart() {
-    gestured = true;
+  // MOBILE-SAFE unlock, retry-until-running: phones fire pointerdown first,
+  // which iOS does NOT accept for sound; only touchend/click count. So we
+  // attempt the unlock on EVERY gesture and only stand down once the audio
+  // engine actually reports state === 'running' and the loop has started.
+  function tryUnlock() {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     if (!actx) {
@@ -262,21 +260,33 @@
       again.gain.value = 0.9;
       again.connect(actx.destination);
     }
-    try { actx.resume(); } catch {}
-    try { // silent tick, synchronously in the gesture — unlocks iOS audio
+    gestured = true;
+    try { // silent one-sample tick, synchronously in the gesture (iOS unlock)
       const b = actx.createBuffer(1, 1, 22050);
       const t = actx.createBufferSource();
       t.buffer = b; t.connect(actx.destination); t.start(0);
     } catch {}
-    decodeTrack().then(() => { if (on) startSource(); });
+    let p;
+    try { p = actx.resume(); } catch {}
+    (p && p.then ? p : Promise.resolve()).then(() => {
+      if (actx.state === 'running') {
+        decodeTrack().then(() => {
+          if (on) startSource();
+          if (asrc) unhook(); // audio confirmed flowing — stop listening
+        });
+      }
+    });
   }
+  const GESTURES = ['touchend', 'click', 'pointerup', 'pointerdown', 'keydown'];
+  function unhook() { GESTURES.forEach((ev) => window.removeEventListener(ev, tryUnlock)); }
+  GESTURES.forEach((ev) => window.addEventListener(ev, tryUnlock, { passive: true }));
+
   function decodeTrack() {
     if (abuf) return Promise.resolve();
     if (decoding) return decoding;
     const bin = atob(ANTHEM_B64);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    // callback form: works on every Safari/Chrome/Firefox, old and new
     decoding = new Promise((resolve) => {
       try {
         actx.decodeAudioData(bytes.buffer, (buf) => { abuf = buf; resolve(); }, () => resolve());
@@ -286,7 +296,6 @@
   }
   function startSource() {
     if (!actx || !abuf || asrc) return;
-    try { if (actx.state === 'suspended') actx.resume(); } catch {}
     asrc = actx.createBufferSource();
     asrc.buffer = abuf;
     asrc.loop = true;
@@ -295,17 +304,13 @@
     paintMusicBtn();
   }
   function startMusic() {
-    if (!on || !gestured || !actx) return;
-    try { if (actx.state === 'suspended') actx.resume(); } catch {}
-    decodeTrack().then(() => { if (on) startSource(); });
+    if (!on) return;
+    tryUnlock();
   }
   function stopMusic() {
     if (asrc) { try { asrc.stop(); } catch {} asrc = null; }
     paintMusicBtn();
   }
-  // touchend + click cover iOS; pointerdown/keydown cover desktop. First one wins.
-  ['touchend', 'click', 'pointerdown', 'keydown'].forEach((ev) =>
-    window.addEventListener(ev, () => { if (!gestured) unlockAndStart(); }, { once: true, passive: true }));
   function paintMusicBtn() {
     musicBtn.classList.toggle('off', !on);
     musicBtn.innerHTML = on ? '\ud83d\udd0a <span>Music on</span>' : '\ud83d\udd07 <span>Music off</span>';

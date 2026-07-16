@@ -224,11 +224,7 @@
   <p class="subtext reveal d3" style="text-align:center;margin-left:auto;margin-right:auto;">
     You didn't just join a company — you joined a mission. The next few minutes are everything you need to know about who we are, why we exist, and how we work.
   </p>
-  <div class="namebox reveal d4">
-    <input id="joinerName" type="text" placeholder="Type your first name…" maxlength="24" autocomplete="off"/>
-    <button id="nameGo">Let's go →</button>
-  </div>
-  <div class="hello" id="hello"></div>
+  <div class="hello show reveal d4" style="opacity:1;">Great to have you here. Let's begin ↓</div>
   <div class="scroll-hint">scroll ↓</div>
 </section>
 
@@ -523,30 +519,6 @@
     const dy = (e.clientY / window.innerHeight - 0.5) * 24;
     document.querySelectorAll('.blob').forEach((b) => { b.style.translate = `${dx}px ${dy}px`; });
   });
-
-  // Name personalisation — greets the joiner and threads their name through
-  const nameInput = document.getElementById('joinerName');
-  const hello = document.getElementById('hello');
-  function applyName() {
-    const raw = (nameInput.value || '').trim();
-    if (!raw) return;
-    const n = raw.charAt(0).toUpperCase() + raw.slice(1);
-    try { localStorage.setItem('gs_induction_name', n); } catch {}
-    hello.textContent = `Hello, ${n}. Great to have you. Scroll on ↓`;
-    hello.classList.add('show');
-    document.getElementById('valuesName').textContent = `They're yours now, ${n}.`;
-    document.getElementById('closingLine').textContent = `You're in, ${n}. Now let's make you dangerous.`;
-    setTimeout(() => goSlide(1), 900);
-  }
-  document.getElementById('nameGo').addEventListener('click', applyName);
-  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyName(); });
-  try {
-    const saved = localStorage.getItem('gs_induction_name');
-    if (saved) { nameInput.value = saved; hello.textContent = `Welcome back, ${saved} 👋`; hello.classList.add('show');
-      document.getElementById('valuesName').textContent = `They're yours now, ${saved}.`;
-      document.getElementById('closingLine').textContent = `You're in, ${saved}. Now let's make you dangerous.`;
-    }
-  } catch {}
 
   // Program cards expand
   document.querySelectorAll('.prog').forEach((c) => c.addEventListener('click', () => c.classList.toggle('open')));

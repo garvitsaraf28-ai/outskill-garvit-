@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Welcome to GrowthSchool — Day-1 Induction</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --lime: #c2ee45;
+    --lime-dim: #a8d930;
+    --bg: #070905;
+    --bg2: #0d1008;
+    --bg3: #12160b;
+    --glass: rgba(194,238,69,0.06);
+    --glass-border: rgba(194,238,69,0.18);
+    --white: #f0f4e8;
+    --muted: #818f6c;
+    --danger: #ff4d6d;
+    --teal: #00987e;
+  }
+
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Space Grotesk', sans-serif; background: var(--bg); color: var(--white); overflow-x: hidden; }
+  ::selection { background: var(--lime); color: #000; }
+
+  .progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--lime); width: 0%; z-index: 200; box-shadow: 0 0 12px var(--lime); transition: width .1s linear; }
+  .spotlight { position: fixed; inset: 0; pointer-events: none; z-index: 5; background: radial-gradient(560px circle at var(--mx, 50%) var(--my, 40%), rgba(194,238,69,0.05), transparent 65%); }
+  .keyhint { position: fixed; bottom: 18px; left: 24px; z-index: 99; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: .8; }
+  .keyhint b { color: var(--lime); font-weight: 600; }
+
+  .nav-dots { position: fixed; right: 28px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 13px; z-index: 99; }
+  .nav-dots a { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); display: block; transition: all .3s; position: relative; }
+  .nav-dots a.active { background: var(--lime); transform: scale(1.7); box-shadow: 0 0 12px var(--lime); }
+  .nav-dots a::after { content: attr(data-label); position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); opacity: 0; white-space: nowrap; transition: opacity .25s; }
+  .nav-dots a:hover::after { opacity: 1; }
+
+  .slide { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 90px 9vw; position: relative; overflow: hidden; }
+  .slide::before { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; opacity: .4; }
+  .blob { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; animation: float 14s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,-30px) scale(1.08)} }
+
+  .slide-num { position: absolute; top: 44px; right: 9vw; font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); }
+  .slide-num b { color: var(--lime); }
+  .watermark { position: absolute; bottom: 34px; right: 9vw; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  .watermark span { color: var(--lime); }
+
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .reveal.d1 { transition-delay: .08s; } .reveal.d2 { transition-delay: .16s; }
+  .reveal.d3 { transition-delay: .24s; } .reveal.d4 { transition-delay: .32s; }
+  .reveal.d5 { transition-delay: .40s; } .reveal.d6 { transition-delay: .48s; }
+
+  .tag { display: inline-block; background: var(--glass); border: 1px solid var(--glass-border); color: var(--lime); font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; padding: 7px 15px; border-radius: 100px; margin-bottom: 26px; }
+
+  h1 { font-family: 'Fraunces', serif; font-size: clamp(2.4rem, 6vw, 5.4rem); font-weight: 900; line-height: 1.04; letter-spacing: -1px; margin-bottom: 20px; }
+  h1 .accent { color: var(--lime); }
+  h2 { font-family: 'Fraunces', serif; font-size: clamp(1.6rem, 3.4vw, 2.8rem); font-weight: 900; line-height: 1.12; margin-bottom: 12px; }
+  .subtext { font-size: clamp(1rem, 1.6vw, 1.18rem); color: var(--muted); max-width: 640px; line-height: 1.7; margin-bottom: 36px; }
+  .divider { width: 64px; height: 3px; background: var(--lime); border-radius: 2px; margin-bottom: 28px; }
+
+  /* WELCOME name input */
+  .namebox { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; justify-content: center; }
+  .namebox input { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 100px; color: var(--white); font-family: inherit; font-size: 1rem; padding: 13px 22px; min-width: 260px; outline: none; transition: border-color .25s, box-shadow .25s; text-align: center; }
+  .namebox input:focus { border-color: var(--lime); box-shadow: 0 0 18px rgba(194,238,69,0.25); }
+  .namebox button { background: var(--lime); color: #000; border: none; border-radius: 100px; font-family: inherit; font-weight: 700; font-size: 1rem; padding: 13px 26px; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+  .namebox button:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(194,238,69,0.35); }
+  .hello { min-height: 34px; margin-top: 18px; font-family: 'Fraunces', serif; font-size: clamp(1.1rem, 2.4vw, 1.6rem); color: var(--lime); font-weight: 700; opacity: 0; transition: opacity .5s; }
+  .hello.show { opacity: 1; }
+
+  /* PILLAR / GENERIC CARDS */
+  .cardrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; width: 100%; max-width: 900px; }
+  .pillar { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 20px; padding: 26px; transition: all .3s; position: relative; overflow: hidden; }
+  .pillar:hover { border-color: var(--lime); transform: translateY(-5px); }
+  .pillar .icon { font-size: 2rem; display: block; margin-bottom: 12px; }
+  .pillar h3 { font-size: 1.06rem; font-weight: 700; color: var(--lime); margin-bottom: 7px; }
+  .pillar p { font-size: .88rem; color: var(--muted); line-height: 1.55; }
+
+  /* GROWTH BARS */
+  .growth { display: flex; align-items: flex-end; gap: clamp(18px, 5vw, 60px); height: 300px; margin: 20px 0 8px; }
+  .gcol { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; height: 100%; }
+  .gbar { width: clamp(54px, 8vw, 96px); border-radius: 12px 12px 4px 4px; background: linear-gradient(180deg, var(--lime), #7fa32b); box-shadow: 0 0 30px rgba(194,238,69,0.25); height: 0; transition: height 1.4s cubic-bezier(.2,.7,.2,1); }
+  .gnum { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(1.1rem, 2.6vw, 1.9rem); color: var(--lime); }
+  .glbl { font-size: .72rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+
+  .stat-strip { display: flex; flex-wrap: wrap; gap: 38px; margin-top: 36px; }
+  .stat .num { font-family: 'Fraunces', serif; font-size: clamp(2rem, 4.6vw, 3.6rem); font-weight: 900; color: var(--lime); line-height: 1; }
+  .stat .lbl { font-size: .76rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-top: 9px; max-width: 180px; line-height: 1.5; }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .badge { display: flex; align-items: center; gap: 9px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 11px 16px; font-size: .86rem; }
+  .badge b { color: var(--lime); }
+
+  /* INVESTOR / ANGEL WALL */
+  .vcrow { display: flex; gap: 14px; flex-wrap: wrap; margin: 6px 0 26px; }
+  .vc { font-family: 'Fraunces', serif; font-weight: 900; font-size: clamp(1.2rem, 2.6vw, 1.9rem); background: var(--glass); border: 1px solid var(--glass-border); border-radius: 14px; padding: 14px 26px; }
+  .angels { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; width: 100%; max-width: 920px; }
+  .angel { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 14px; padding: 15px 17px; transition: all .25s; }
+  .angel:hover { border-color: var(--lime); transform: translateY(-4px); }
+  .angel b { display: block; font-size: .95rem; }
+  .angel span { font-size: .76rem; color: var(--muted); }
+
+  /* MENTOR MARQUEE */
+  .marquee { width: 100%; overflow: hidden; margin-top: 14px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+  .mtrack { display: flex; gap: 12px; width: max-content; animation: scrollx 26s linear infinite; padding: 6px 0; }
+  .marquee.reverse .mtrack { animation-direction: reverse; animation-duration: 30s; }
+  .marquee:hover .mtrack { animation-play-state: paused; }
+  @keyframes scrollx { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .brand { flex-shrink: 0; background: var(--glass); border: 1px solid var(--glass-border); color: var(--white); border-radius: 100px; padding: 11px 24px; font-weight: 600; font-size: .95rem; }
+  .brand:hover { border-color: var(--lime); color: var(--lime); }
+
+  /* PROGRAM CARDS (expandable) */
+  .progs { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; width: 100%; max-width: 940px; }
+  .prog { text-align: left; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 18px; padding: 22px; cursor: pointer; font-family: inherit; color: var(--white); transition: all .3s; }
+  .prog:hover { border-color: var(--lime); transform: translateY(-4px); }
+  .prog.open { border-color: var(--lime); background: rgba(194,238,69,0.1); }
+  .prog .dur { font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--lime); display: block; margin-bottom: 8px; }
+  .prog h3 { font-size: 1.02rem; font-weight: 700; margin-bottom: 6px; }
+  .prog p { font-size: .85rem; color: var(--muted); line-height: 1.55; max-height: 0; overflow: hidden; opacity: 0; transition: max-height .45s cubic-bezier(.2,.7,.2,1), opacity .4s, margin .3s; }
+  .prog.open p { max-height: 200px; opacity: 1; margin-top: 4px; }
+  .prog .hint { font-size: .7rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .prog.open .hint { display: none; }
+
+  /* VALUES — flip cards */
+  .values { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; width: 100%; max-width: 980px; perspective: 1400px; }
+  .vcard { position: relative; height: 250px; cursor: pointer; background: transparent; border: none; font-family: inherit; color: var(--white); text-align: left; }
+  .vinner { position: absolute; inset: 0; transition: transform .65s cubic-bezier(.2,.7,.2,1); transform-style: preserve-3d; }
+  .vcard.flipped .vinner { transform: rotateY(180deg); }
+  .vface { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; justify-content: center; }
+  .vfront { background: var(--glass); border: 1px solid var(--glass-border); align-items: center; text-align: center; }
+  .vcard:hover .vfront { border-color: var(--lime); }
+  .vfront .icon { font-size: 2.3rem; margin-bottom: 14px; }
+  .vfront h3 { font-family: 'Fraunces', serif; font-size: 1.35rem; font-weight: 900; line-height: 1.2; }
+  .vfront h3 span { color: var(--lime); }
+  .vfront .hint { margin-top: 14px; font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .vback { background: rgba(194,238,69,0.1); border: 1px solid var(--lime); transform: rotateY(180deg); }
+  .vback ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .vback li { font-size: .85rem; line-height: 1.45; padding-left: 20px; position: relative; }
+  .vback li::before { content: '➜'; position: absolute; left: 0; color: var(--lime); font-size: .75rem; }
+
+  /* TEAM GRID */
+  .team { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; width: 100%; max-width: 940px; }
+  .head { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 14px; padding: 16px; transition: all .25s; }
+  .head:hover { border-color: var(--lime); transform: translateY(-4px); }
+  .head .fn { font-size: .68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--lime); display: block; margin-bottom: 5px; }
+  .head b { font-size: 1rem; }
+
+  /* WEEK STRIP + policy cards */
+  .week { display: flex; gap: 9px; margin: 18px 0 8px; flex-wrap: wrap; }
+  .day { width: 62px; height: 62px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--glass); border: 1px solid var(--glass-border); font-weight: 700; font-size: .95rem; }
+  .day span { font-size: .58rem; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-top: 3px; }
+  .day.off { background: rgba(255,77,109,0.08); border-color: rgba(255,77,109,0.35); color: var(--danger); }
+  .policy { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; width: 100%; max-width: 900px; margin-top: 22px; }
+  .pol { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 18px; padding: 22px; }
+  .pol .icon { font-size: 1.7rem; display: block; margin-bottom: 10px; }
+  .pol h3 { font-size: 1rem; font-weight: 700; color: var(--lime); margin-bottom: 6px; }
+  .pol p { font-size: .86rem; color: var(--muted); line-height: 1.6; }
+  .pol b { color: var(--white); }
+
+  /* CTA */
+  .cta { display: inline-flex; align-items: center; gap: 10px; background: var(--lime); color: #000; border: none; border-radius: 100px; font-family: inherit; font-weight: 700; font-size: 1.05rem; padding: 16px 34px; cursor: pointer; text-decoration: none; transition: transform .2s, box-shadow .2s; margin-top: 26px; }
+  .cta:hover { transform: translateY(-3px); box-shadow: 0 12px 34px rgba(194,238,69,0.4); }
+
+  .dotmark { display: grid; grid-template-columns: repeat(3, 16px); gap: 7px; justify-content: center; margin-bottom: 30px; }
+  .dotmark span { width: 16px; height: 16px; border-radius: 50%; }
+  .dotmark span.on { background: var(--lime); box-shadow: 0 0 16px rgba(194,238,69,0.5); }
+  .dotmark span.off { border: 2px solid var(--muted); }
+  .kicker { font-size: clamp(11px, 2.5vw, 14px); letter-spacing: 6px; text-transform: uppercase; color: var(--lime-dim); margin-bottom: 22px; font-weight: 600; }
+  .scroll-hint { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); animation: bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+
+  #w0 { background: radial-gradient(ellipse at 50% 30%, #14180c, var(--bg)); align-items: center; text-align: center; }
+  #w0 .blob1 { width: 700px; height: 700px; background: rgba(194,238,69,0.09); top: -150px; left: 50%; transform: translateX(-50%); }
+  #w1 { background: var(--bg); } #w1 .blob1 { width: 560px; height: 560px; background: rgba(0,152,126,0.10); top: -160px; right: -80px; }
+  #w2 { background: var(--bg2); } #w2 .blob1 { width: 520px; height: 520px; background: rgba(194,238,69,0.07); bottom: -160px; left: -80px; }
+  #w3 { background: var(--bg); } #w3 .blob1 { width: 560px; height: 560px; background: rgba(194,238,69,0.06); top: 40%; right: -120px; }
+  #w4 { background: var(--bg3); } #w4 .blob1 { width: 640px; height: 400px; background: rgba(0,152,126,0.09); top: -120px; left: 30%; }
+  #w5 { background: var(--bg2); } #w5 .blob1 { width: 520px; height: 520px; background: rgba(194,238,69,0.07); bottom: -140px; right: -60px; }
+  #w6 { background: var(--bg); } #w6 .blob1 { width: 640px; height: 480px; background: rgba(194,238,69,0.06); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  #w7 { background: var(--bg3); } #w7 .blob1 { width: 520px; height: 520px; background: rgba(0,152,126,0.08); top: -140px; right: -60px; }
+  #w8 { background: radial-gradient(ellipse at 50% 70%, #14180c, var(--bg)); } #w8 .blob1 { width: 600px; height: 600px; background: rgba(194,238,69,0.08); bottom: -200px; left: 50%; transform: translateX(-50%); }
+
+  @media (max-width: 768px) {
+    .slide { padding: 70px 6vw; }
+    .slide-num, .watermark { right: 6vw; }
+    .nav-dots { right: 12px; }
+    .keyhint { display: none; }
+    .growth { height: 220px; }
+  }
+  @media print { .nav-dots, .progress, .scroll-hint, .spotlight, .keyhint { display: none !important; } .slide { page-break-after: always; } .reveal { opacity: 1 !important; transform: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="spotlight" id="spotlight"></div>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
+
+<nav class="nav-dots">
+  <a href="#w0" class="active" data-label="Welcome"></a>
+  <a href="#w1" data-label="Why we exist"></a>
+  <a href="#w2" data-label="The growth"></a>
+  <a href="#w3" data-label="Backed by"></a>
+  <a href="#w4" data-label="Mentors"></a>
+  <a href="#w5" data-label="What we teach"></a>
+  <a href="#w6" data-label="Our values"></a>
+  <a href="#w7" data-label="Who's who"></a>
+  <a href="#w8" data-label="Day to day"></a>
+</nav>
+
+<!-- ═══ W0 — WELCOME ═══ -->
+<section class="slide" id="w0">
+  <div class="blob blob1"></div>
+  <div class="dotmark reveal in">
+    <span class="on"></span><span class="on"></span><span class="off"></span>
+    <span class="on"></span><span class="on"></span><span class="on"></span>
+    <span class="on"></span><span class="on"></span><span class="off"></span>
+  </div>
+  <div class="kicker reveal d1">Day 1 · New-Joiner Induction</div>
+  <h1 class="reveal d2" style="text-align:center;">Welcome to<br/><span class="accent">GrowthSchool.</span></h1>
+  <p class="subtext reveal d3" style="text-align:center;margin-left:auto;margin-right:auto;">
+    You didn't just join a company — you joined a mission. The next few minutes are everything you need to know about who we are, why we exist, and how we work.
+  </p>
+  <div class="namebox reveal d4">
+    <input id="joinerName" type="text" placeholder="Type your first name…" maxlength="24" autocomplete="off"/>
+    <button id="nameGo">Let's go →</button>
+  </div>
+  <div class="hello" id="hello"></div>
+  <div class="scroll-hint">scroll ↓</div>
+</section>
+
+<!-- ═══ W1 — WHY WE EXIST ═══ -->
+<section class="slide" id="w1">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>01</b> / 08</div>
+  <div class="tag reveal">🧭 Why we exist</div>
+  <h1 class="reveal d1">To <span class="accent">decentralise</span> education —<br/>and build it the way<br/>it should have been.</h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">Education that is <b style="color:var(--white)">affordable</b> and <b style="color:var(--white)">impactful</b> — built on three pillars you'll hear about every single day here:</p>
+  <div class="cardrow">
+    <div class="pillar reveal d3"><span class="icon">🔑</span><h3>Access</h3><p>Learners get direct access to <b style="color:var(--white)">real practitioners</b> — people who do the work, not just teach it.</p></div>
+    <div class="pillar reveal d4"><span class="icon">🛠️</span><h3>Learn by Doing</h3><p>No passive lectures. <b style="color:var(--white)">Live projects</b> — learners build real things while they learn.</p></div>
+    <div class="pillar reveal d5"><span class="icon">🤝</span><h3>Powerful Community</h3><p>Learners interact and grow with <b style="color:var(--white)">like-minded peers</b> — the community is the curriculum too.</p></div>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W2 — THE GROWTH STORY ═══ -->
+<section class="slide" id="w2">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>02</b> / 08</div>
+  <div class="tag reveal">📈 The growth story</div>
+  <h1 class="reveal d1">From <span class="accent">60 learners</span><br/>to a movement.</h1>
+  <div class="divider reveal d2"></div>
+  <div class="growth reveal d3" id="growthChart">
+    <div class="gcol"><div class="gnum" data-to="60">0</div><div class="gbar" data-h="18%"></div><div class="glbl">The start</div></div>
+    <div class="gcol"><div class="gnum" data-to="1000">0</div><div class="gbar" data-h="52%"></div><div class="glbl">The climb</div></div>
+    <div class="gcol"><div class="gnum" data-to="6000">0</div><div class="gbar" data-h="100%"></div><div class="glbl">6,000+ &amp; counting</div></div>
+  </div>
+  <div class="stat-strip">
+    <div class="stat reveal d3"><div class="num"><span class="count" data-to="500">0</span>k+</div><div class="lbl">total learners</div></div>
+    <div class="stat reveal d4"><div class="num"><span class="count" data-to="60">0</span>+</div><div class="lbl">programs</div></div>
+    <div class="stat reveal d5"><div class="num"><span class="count" data-to="6">0</span>yrs+</div><div class="lbl">mentor experience</div></div>
+    <div class="stat reveal d6"><div class="num">4.1<span style="font-size:.45em;color:var(--muted)">/5</span></div><div class="lbl">CSAT</div></div>
+  </div>
+  <div class="badges">
+    <div class="badge reveal d4">💼 <span>LinkedIn <b>Top Startup India 2022</b></span></div>
+    <div class="badge reveal d5">⭐ <span>Trustpilot <b>4.7/5</b> (4,192 reviews)</span></div>
+    <div class="badge reveal d6">🔎 <span>Google <b>4.4/5</b> (188 reviews)</span></div>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W3 — BACKED BY THE BEST ═══ -->
+<section class="slide" id="w3">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>03</b> / 08</div>
+  <div class="tag reveal">💰 Backed by the best</div>
+  <h1 class="reveal d1">Raised <span class="accent">$5M</span> from people<br/>who back winners.</h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">A seed round led by Sequoia Capital India and Owl Ventures — covered by YourStory and Inc42 as the company built to solve India's skilling gap.</p>
+  <div class="vcrow reveal d3">
+    <div class="vc">SEQUOIA</div>
+    <div class="vc">Owl Ventures</div>
+  </div>
+  <p class="subtext reveal d3" style="margin-bottom:14px;">And an angel wall most startups can only dream about:</p>
+  <div class="angels">
+    <div class="angel reveal d3"><b>Kunal Shah</b><span>Founder, CRED</span></div>
+    <div class="angel reveal d3"><b>Dr Ritesh Malik</b><span>Founder, Plaksha</span></div>
+    <div class="angel reveal d4"><b>Justin Caldbeck</b><span>Investor — SpaceX, Uber</span></div>
+    <div class="angel reveal d4"><b>Aakrit Vaish</b><span>Co-founder, Haptik</span></div>
+    <div class="angel reveal d5"><b>Tanmay Bhat</b><span>Comedian & YouTuber</span></div>
+    <div class="angel reveal d5"><b>Sharan B Hegde</b><span>Finance content creator</span></div>
+    <div class="angel reveal d6"><b>Raj Shamani</b><span>Business content creator</span></div>
+    <div class="angel reveal d6"><b>Shaan Puri</b><span>Co-founder, Hustle Hard Ventures</span></div>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W4 — MENTORS ═══ -->
+<section class="slide" id="w4">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>04</b> / 08</div>
+  <div class="tag reveal">🎓 Who teaches here</div>
+  <h1 class="reveal d1">Top <span class="accent">1%</span> mentors.<br/>Not professors — practitioners.</h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">The people mentoring our learners build and ship at the world's best companies. Hover to pause and take it in:</p>
+  <div class="marquee reveal d3">
+    <div class="mtrack">
+      <span class="brand">Meta</span><span class="brand">Google</span><span class="brand">Microsoft</span><span class="brand">Netflix</span><span class="brand">Uber</span><span class="brand">Amazon</span><span class="brand">Canva</span><span class="brand">LinkedIn</span><span class="brand">Disney+ Hotstar</span>
+      <span class="brand">Meta</span><span class="brand">Google</span><span class="brand">Microsoft</span><span class="brand">Netflix</span><span class="brand">Uber</span><span class="brand">Amazon</span><span class="brand">Canva</span><span class="brand">LinkedIn</span><span class="brand">Disney+ Hotstar</span>
+    </div>
+  </div>
+  <div class="marquee reverse reveal d4">
+    <div class="mtrack">
+      <span class="brand">Swiggy</span><span class="brand">Paytm</span><span class="brand">Razorpay</span><span class="brand">Flipkart</span><span class="brand">OYO</span><span class="brand">Dunzo</span><span class="brand">Coca-Cola</span><span class="brand">Ogilvy</span><span class="brand">VWO</span>
+      <span class="brand">Swiggy</span><span class="brand">Paytm</span><span class="brand">Razorpay</span><span class="brand">Flipkart</span><span class="brand">OYO</span><span class="brand">Dunzo</span><span class="brand">Coca-Cola</span><span class="brand">Ogilvy</span><span class="brand">VWO</span>
+    </div>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W5 — WHAT WE TEACH ═══ -->
+<section class="slide" id="w5">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>05</b> / 08</div>
+  <div class="tag reveal">🚀 What we teach — Outskill</div>
+  <h1 class="reveal d1">Four programs.<br/><span class="accent">One ladder.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">This is the product you'll be talking about every day. Tap each card — know these cold:</p>
+  <div class="progs">
+    <button class="prog reveal d3"><span class="dur">16 hours · free</span><h3>Mastermind Workshop</h3><span class="hint">tap to open ▾</span><p>The front door. A comprehensive introduction to AI and its use cases — this is where our learners first meet us, and where our sales conversations begin.</p></button>
+    <button class="prog reveal d4"><span class="dur">14 days · intensive</span><h3>AI Accelerator Program</h3><span class="hint">tap to open ▾</span><p>The main offer. Fourteen days, fully practical and hands-on — learners don't watch AI, they build with it, ending with a real shipped project.</p></button>
+    <button class="prog reveal d5"><span class="dur">6 months · deep</span><h3>AI Generalist Fellowship</h3><span class="hint">tap to open ▾</span><p>The extensive, in-depth extension of the Accelerator — six months of going from AI-capable to AI-career-ready.</p></button>
+    <button class="prog reveal d6"><span class="dur">for coders</span><h3>Gen AI Engineering Fellowship</h3><span class="hint">tap to open ▾</span><p>Designed specifically for people with coding knowledge — the technical track focused on actually engineering AI solutions, not just using them.</p></button>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W6 — CULTURE & VALUES ═══ -->
+<section class="slide" id="w6">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>06</b> / 08</div>
+  <div class="tag reveal">🧬 Culture &amp; values — enabling the 1 to 10 journey</div>
+  <h1 class="reveal d1">Five values.<br/><span class="accent" id="valuesName">They're yours now.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">This is the part people forget from a PPT — so don't read them, <b style="color:var(--white)">flip them</b>. Click every card:</p>
+  <div class="values">
+    <button class="vcard reveal d3">
+      <div class="vinner">
+        <div class="vface vfront"><span class="icon">💚</span><h3>Learner <span>OBSESSION</span></h3><span class="hint">click to flip</span></div>
+        <div class="vface vback"><ul><li>Learner delight is not a feature — it's a <b>practice</b></li><li>Improve the learner's experience at every level — sales, marketing, support, content</li><li>Think and act with the learner's best interests in mind</li></ul></div>
+      </div>
+    </button>
+    <button class="vcard reveal d3">
+      <div class="vinner">
+        <div class="vface vfront"><span class="icon">🔑</span><h3>Be an <span>OWNER</span>,<br/>not a renter</h3><span class="hint">click to flip</span></div>
+        <div class="vface vback"><ul><li>We exist to create <b>long-term value</b> for GrowthSchool and the learners</li><li>Every problem is <b>MY</b> problem</li><li>We never say "that's not my job"</li></ul></div>
+      </div>
+    </button>
+    <button class="vcard reveal d4">
+      <div class="vinner">
+        <div class="vface vfront"><span class="icon">📊</span><h3>In <span>DATA</span><br/>we trust</h3><span class="hint">click to flip</span></div>
+        <div class="vface vback"><ul><li>We know our metrics — and we love data</li><li>Decisions are <b>data-driven</b>, never hunches</li></ul></div>
+      </div>
+    </button>
+    <button class="vcard reveal d4">
+      <div class="vinner">
+        <div class="vface vfront"><span class="icon">🎯</span><h3><span>THINK BIG</span>,<br/>act frugal</h3><span class="hint">click to flip</span></div>
+        <div class="vface vback"><ul><li>Accomplish <b>more with less</b></li><li>Constraints breed resourcefulness, self-sufficiency and innovation</li></ul></div>
+      </div>
+    </button>
+    <button class="vcard reveal d5">
+      <div class="vinner">
+        <div class="vface vfront"><span class="icon">🏆</span><h3>We operate like a<br/><span>SPORTS team</span></h3><span class="hint">click to flip</span></div>
+        <div class="vface vback"><ul><li>Meritocracy and <b>continuous high performance</b></li><li>The spot on the field is always <b>earned</b>, never given — regardless of tenure or seniority</li></ul></div>
+      </div>
+    </button>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W7 — WHO'S WHO ═══ -->
+<section class="slide" id="w7">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>07</b> / 08</div>
+  <div class="tag reveal">🧑‍🤝‍🧑 Who's who</div>
+  <h1 class="reveal d1">The people you'll<br/><span class="accent">hear about daily.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">Your function heads — go say hi (that's not optional 😄):</p>
+  <div class="team">
+    <div class="head reveal d3"><span class="fn">Sales</span><b>Priyatam</b></div>
+    <div class="head reveal d3"><span class="fn">Marketing</span><b>Ekakh</b></div>
+    <div class="head reveal d3"><span class="fn">Growth &amp; New Initiatives</span><b>Phani</b></div>
+    <div class="head reveal d4"><span class="fn">HR</span><b>John Mark</b></div>
+    <div class="head reveal d4"><span class="fn">Finance</span><b>Srikanth</b></div>
+    <div class="head reveal d4"><span class="fn">Programs</span><b>Dileep</b></div>
+    <div class="head reveal d5"><span class="fn">B2B</span><b>Ayaz</b></div>
+    <div class="head reveal d5"><span class="fn">Product &amp; Design</span><b>Sidharth</b></div>
+    <div class="head reveal d5"><span class="fn">Technology</span><b>Sugam</b></div>
+    <div class="head reveal d6"><span class="fn">Customer Success</span><b>Praveen</b></div>
+  </div>
+  <div class="watermark">GrowthSchool <span>·</span> Induction</div>
+</section>
+
+<!-- ═══ W8 — DAY TO DAY + NEXT ═══ -->
+<section class="slide" id="w8">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>08</b> / 08</div>
+  <div class="tag reveal">📋 Policies &amp; benefits — the practical stuff</div>
+  <h1 class="reveal d1">Your <span class="accent">day-to-day.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="week reveal d2">
+    <div class="day">M<span>work</span></div>
+    <div class="day">T<span>work</span></div>
+    <div class="day">W<span>work</span></div>
+    <div class="day">T<span>work</span></div>
+    <div class="day">F<span>work</span></div>
+    <div class="day">S<span>work</span></div>
+    <div class="day off">S<span>holiday</span></div>
+  </div>
+  <div class="policy">
+    <div class="pol reveal d3"><span class="icon">⏰</span><h3>Working hours</h3><p><b>9:30 AM – 6:30 PM</b> · 8 working hours a day (lunch and refreshment breaks excluded) — with the <b>flexibility</b> to work to the demands of the day.</p></div>
+    <div class="pol reveal d4"><span class="icon">📅</span><h3>Work week</h3><p>Six days, <b>Monday to Saturday</b>. <b>Sunday is a holiday</b> — and teams that do work Sundays get a <b>comp-off</b> on another day.</p></div>
+    <div class="pol reveal d5"><span class="icon">🎁</span><h3>Policies &amp; benefits</h3><p>The complete policies-and-benefits handbook is shared by <b>HR (John Mark's team)</b> — read it this week and ask anything, any time.</p></div>
+  </div>
+  <h2 class="reveal d4" style="margin-top:44px;" id="closingLine">You're in. Now let's make you dangerous.</h2>
+  <p class="subtext reveal d5" style="margin-bottom:0;">Induction done. Next stop on Day 1: your role training — starting with the AI-powered sales onboarding platform, where you'll learn the product and run live mock calls against AI buyers.</p>
+  <a class="cta reveal d6" href="https://outskill-garvit.vercel.app" target="_blank" rel="noopener">Start my training journey →</a>
+  <div class="watermark">GrowthSchool <span>·</span> Induction · built by <span>Garvit Saraf</span></div>
+</section>
+
+<script>
+  // Scroll reveal
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.18 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // Count-up numbers
+  const counted = new WeakSet();
+  const cio = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting || counted.has(e.target)) return;
+      counted.add(e.target);
+      const el = e.target, to = +el.dataset.to, dur = 1300, t0 = performance.now();
+      const tick = (t) => {
+        const p = Math.min((t - t0) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(to * eased).toLocaleString('en-IN');
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }, { threshold: 0.6 });
+  document.querySelectorAll('.count, .gnum').forEach(el => cio.observe(el));
+
+  // Growth bars rise when visible
+  const gio = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      e.target.querySelectorAll('.gbar').forEach((b, i) => setTimeout(() => { b.style.height = b.dataset.h; }, i * 220));
+      gio.unobserve(e.target);
+    });
+  }, { threshold: 0.4 });
+  gio.observe(document.getElementById('growthChart'));
+
+  // Active nav dot + progress
+  const slides = document.querySelectorAll('.slide');
+  const dots = document.querySelectorAll('.nav-dots a');
+  const nav = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        dots.forEach(d => d.classList.remove('active'));
+        const a = document.querySelector(`.nav-dots a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.5 });
+  slides.forEach(s => nav.observe(s));
+  const prog = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100 + '%';
+  });
+
+  // Keyboard navigation + fullscreen
+  const slideIds = ['w0','w1','w2','w3','w4','w5','w6','w7','w8'];
+  function currentSlide() {
+    const mid = window.scrollY + window.innerHeight / 2;
+    let best = 0, bestD = Infinity;
+    slideIds.forEach((id, i) => {
+      const el = document.getElementById(id);
+      const c = el.offsetTop + el.offsetHeight / 2;
+      const d = Math.abs(c - mid);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
+  }
+  function goSlide(i) {
+    const c = Math.max(0, Math.min(slideIds.length - 1, i));
+    document.getElementById(slideIds[c]).scrollIntoView({ behavior: 'smooth' });
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); goSlide(currentSlide() + 1); }
+    else if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); goSlide(currentSlide() - 1); }
+    else if (e.key === 'f' || e.key === 'F') {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
+
+  // Spotlight + blob parallax
+  const spot = document.getElementById('spotlight');
+  window.addEventListener('mousemove', (e) => {
+    spot.style.setProperty('--mx', e.clientX + 'px');
+    spot.style.setProperty('--my', e.clientY + 'px');
+    const dx = (e.clientX / window.innerWidth - 0.5) * 24;
+    const dy = (e.clientY / window.innerHeight - 0.5) * 24;
+    document.querySelectorAll('.blob').forEach((b) => { b.style.translate = `${dx}px ${dy}px`; });
+  });
+
+  // Name personalisation — greets the joiner and threads their name through
+  const nameInput = document.getElementById('joinerName');
+  const hello = document.getElementById('hello');
+  function applyName() {
+    const raw = (nameInput.value || '').trim();
+    if (!raw) return;
+    const n = raw.charAt(0).toUpperCase() + raw.slice(1);
+    try { localStorage.setItem('gs_induction_name', n); } catch {}
+    hello.textContent = `Hello, ${n}. Great to have you. Scroll on ↓`;
+    hello.classList.add('show');
+    document.getElementById('valuesName').textContent = `They're yours now, ${n}.`;
+    document.getElementById('closingLine').textContent = `You're in, ${n}. Now let's make you dangerous.`;
+    setTimeout(() => goSlide(1), 900);
+  }
+  document.getElementById('nameGo').addEventListener('click', applyName);
+  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyName(); });
+  try {
+    const saved = localStorage.getItem('gs_induction_name');
+    if (saved) { nameInput.value = saved; hello.textContent = `Welcome back, ${saved} 👋`; hello.classList.add('show');
+      document.getElementById('valuesName').textContent = `They're yours now, ${saved}.`;
+      document.getElementById('closingLine').textContent = `You're in, ${saved}. Now let's make you dangerous.`;
+    }
+  } catch {}
+
+  // Program cards expand
+  document.querySelectorAll('.prog').forEach((c) => c.addEventListener('click', () => c.classList.toggle('open')));
+
+  // Value flip cards
+  document.querySelectorAll('.vcard').forEach((c) => c.addEventListener('click', () => c.classList.toggle('flipped')));
+</script>
+</body>
+</html>

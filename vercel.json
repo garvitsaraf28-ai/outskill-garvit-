@@ -5,6 +5,6 @@
     "api/*.js": { "maxDuration": 60 }
   },
   "rewrites": [
-    { "source": "/((?!api/|saraf-ai-pitch).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|saraf-ai-pitch|induction).*)", "destination": "/index.html" }
   ]
 }

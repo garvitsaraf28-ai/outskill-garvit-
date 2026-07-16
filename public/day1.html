@@ -66,10 +66,16 @@
   .scroll-hint { position: absolute; bottom: 38px; left: 50%; transform: translateX(-50%); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); animation: bob 1.8s ease-in-out infinite; }
   @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
 
-  /* MUSIC toggle — pinned bottom right; the track is synthesized in-browser */
+  /* MUSIC toggle — pinned bottom right */
   .musicbtn { position: fixed; bottom: 16px; right: 24px; z-index: 99; display: inline-flex; align-items: center; gap: 8px; background: rgba(194,238,69,0.07); border: 1px solid rgba(194,238,69,0.38); color: var(--lime); border-radius: 30px; padding: 9px 16px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .25s; }
   .musicbtn:hover { background: rgba(194,238,69,0.14); transform: translateY(-2px); }
   .musicbtn.off { color: var(--muted); border-color: var(--glass-border); background: var(--glass); }
+  /* Docked mini player for the real track (official YouTube player) */
+  .ytdock { position: fixed; bottom: 60px; right: 24px; z-index: 98; width: 320px; height: 200px; border-radius: 14px; overflow: hidden; border: 1px solid var(--glass-border); box-shadow: 0 16px 44px rgba(0,0,0,.55); display: none; background: #000; }
+  .ytdock.show { display: block; animation: dockin .35s cubic-bezier(.2,.7,.2,1); }
+  @keyframes dockin { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .ytdock iframe { width: 100%; height: 100%; border: 0; display: block; }
+  @media (max-width: 720px) { .ytdock { width: 240px; height: 200px; } }
 
   /* SCHEDULE TIMELINE */
   .sched { width: 100%; max-width: 980px; display: flex; flex-direction: column; gap: 7px; }
@@ -116,6 +122,7 @@
 
 <div class="progress" id="progress"></div>
 <div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen · <b>M</b> music</div>
+<div class="ytdock" id="ytdock"><div id="ytplayer"></div></div>
 <button class="musicbtn" id="musicBtn" title="Background music">🔊 <span>Music on</span></button>
 
 <nav class="nav-dots">
@@ -237,78 +244,103 @@
     }
   });
 
-  // Day-1 anthem — synthesized in-browser (no file, no embeds to block, works
-  // in the shared copy too). The "Ee Sala Cup Namde" anthem melody over a
-  // soft bass, same soundtrack as the training portal. Starts automatically
-  // on the very first tap/click/keypress (browsers refuse sound before a
-  // gesture) — toggle with the bottom-right button or the M key.
-  const music = (() => {
-    let ctx = null, master = null, timer = null, idx = 0, on = true, started = false;
-    const MELODY = [
-      587.33, 659.25, 739.99, 659.25,
-      587.33, 523.25, 587.33, 659.25,
-      739.99, 830.61, 739.99, 659.25,
-      587.33, 523.25, 587.33, 493.88,
-    ];
-    const BASS = [146.83, 130.81, 123.47, 110.00]; // D3 C3 B2 A2 under each bar
+  // ── Day-1 anthem: youtu.be/7IBDa53IsvI looping 0:05 → 0:16 via the
+  // official YouTube player (docked bottom-right). It starts playing MUTED
+  // immediately (browsers allow that), then sound comes on automatically at
+  // the first tap/click/keypress — the closest to autoplay the web permits.
+  // If YouTube is unreachable or the video blocks embedding, we fall back to
+  // the synthesized anthem so the deck is never silent. Toggle: button or M.
+  const YT_ID = '7IBDa53IsvI', SEG_START = 5, SEG_END = 16;
+  let on = true, gestured = false, engine = null; // 'yt' | 'synth'
+  let ytPlayer = null, ytLoop = null;
+  const dock = document.getElementById('ytdock');
+  const musicBtn = document.getElementById('musicBtn');
+
+  // Synth fallback (the training portal's anthem melody over a soft bass).
+  const synth = (() => {
+    let ctx = null, master = null, timer = null, idx = 0;
+    const MELODY = [587.33,659.25,739.99,659.25,587.33,523.25,587.33,659.25,739.99,830.61,739.99,659.25,587.33,523.25,587.33,493.88];
+    const BASS = [146.83,130.81,123.47,110.00];
     const build = () => {
       if (ctx) return;
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
-      ctx = new AC();
-      master = ctx.createGain();
-      master.gain.value = 0.9;
-      master.connect(ctx.destination);
+      ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.9; master.connect(ctx.destination);
     };
-    const note = (freq, type, peak, len) => {
-      if (!ctx || !on) return;
-      const t = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const env = ctx.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      env.gain.setValueAtTime(0.0001, t);
-      env.gain.linearRampToValueAtTime(peak, t + 0.02);
-      env.gain.exponentialRampToValueAtTime(0.001, t + len);
-      osc.connect(env); env.connect(master);
-      osc.start(t); osc.stop(t + len + 0.05);
+    const note = (f, type, peak, len) => {
+      if (!ctx) return;
+      const t = ctx.currentTime, o = ctx.createOscillator(), e = ctx.createGain();
+      o.type = type; o.frequency.value = f;
+      e.gain.setValueAtTime(0.0001, t);
+      e.gain.linearRampToValueAtTime(peak, t + 0.02);
+      e.gain.exponentialRampToValueAtTime(0.001, t + len);
+      o.connect(e); e.connect(master); o.start(t); o.stop(t + len + 0.05);
     };
     const tick = () => {
-      note(MELODY[idx % MELODY.length], 'sine', 0.5, 0.55);
-      if (idx % 4 === 0) note(BASS[(idx / 4) % BASS.length], 'triangle', 0.22, 1.9);
+      note(MELODY[idx % 16], 'sine', 0.5, 0.55);
+      if (idx % 4 === 0) note(BASS[(idx / 4) % 4], 'triangle', 0.22, 1.9);
       idx++;
     };
-    const run = () => { if (!timer) { tick(); timer = setInterval(tick, 500); } };
-    const halt = () => { if (timer) { clearInterval(timer); timer = null; } };
     return {
-      kick() {
-        if (started) return;
-        started = true;
-        build();
-        if (!ctx) return;
-        if (ctx.state === 'suspended') ctx.resume();
-        if (on) run();
-      },
-      toggle() {
-        on = !on;
-        if (on) { build(); if (ctx && ctx.state === 'suspended') ctx.resume(); if (started) run(); }
-        else halt();
-        return on;
-      },
-      isOn: () => on,
+      run() { build(); if (ctx && ctx.state === 'suspended') ctx.resume(); if (!timer) { tick(); timer = setInterval(tick, 500); } },
+      halt() { if (timer) { clearInterval(timer); timer = null; } },
     };
   })();
-  const musicBtn = document.getElementById('musicBtn');
-  function paintMusicBtn() {
-    musicBtn.classList.toggle('off', !music.isOn());
-    musicBtn.innerHTML = music.isOn() ? '🔊 <span>Music on</span>' : '🔇 <span>Music off</span>';
+
+  function startMusic() {
+    if (!on) return;
+    if (engine === 'yt' && ytPlayer) {
+      dock.classList.add('show');
+      try {
+        if (gestured) ytPlayer.unMute();
+        ytPlayer.playVideo();
+      } catch {}
+      if (!ytLoop) ytLoop = setInterval(() => {
+        try { if (ytPlayer.getCurrentTime() >= SEG_END) ytPlayer.seekTo(SEG_START, true); } catch {}
+      }, 300);
+    } else if (engine === 'synth' && gestured) {
+      synth.run();
+    }
   }
-  musicBtn.addEventListener('click', (e) => { e.stopPropagation(); music.kick(); music.toggle(); paintMusicBtn(); });
+  function stopMusic() {
+    if (ytLoop) { clearInterval(ytLoop); ytLoop = null; }
+    try { ytPlayer && ytPlayer.pauseVideo(); } catch {}
+    dock.classList.remove('show');
+    synth.halt();
+  }
+
+  // Try the real track first: load the IFrame API with a timeout.
+  const apiTimeout = setTimeout(() => { if (!engine) { engine = 'synth'; startMusic(); } }, 6000);
+  window.onYouTubeIframeAPIReady = () => {
+    try {
+      ytPlayer = new YT.Player('ytplayer', {
+        videoId: YT_ID,
+        playerVars: { autoplay: 1, mute: 1, start: SEG_START, controls: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+        events: {
+          onReady: () => { clearTimeout(apiTimeout); engine = 'yt'; startMusic(); },
+          onError: () => { clearTimeout(apiTimeout); engine = 'synth'; stopMusic(); if (gestured) startMusic(); },
+        },
+      });
+    } catch { engine = 'synth'; }
+  };
+  (() => {
+    const s = document.createElement('script');
+    s.src = 'https://www.youtube.com/iframe_api';
+    s.onerror = () => { clearTimeout(apiTimeout); if (!engine) engine = 'synth'; };
+    document.head.appendChild(s);
+  })();
+
+  // First user gesture anywhere → sound on (unmute the video / start synth).
   ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
-    window.addEventListener(ev, () => music.kick(), { once: true, passive: true }));
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'm' || e.key === 'M') { music.toggle(); paintMusicBtn(); }
-  });
+    window.addEventListener(ev, () => { if (!gestured) { gestured = true; startMusic(); } }, { once: true, passive: true }));
+
+  function paintMusicBtn() {
+    musicBtn.classList.toggle('off', !on);
+    musicBtn.innerHTML = on ? '🔊 <span>Music on</span>' : '🔇 <span>Music off</span>';
+  }
+  function toggleMusic() { on = !on; if (on) startMusic(); else stopMusic(); paintMusicBtn(); }
+  musicBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMusic(); });
+  window.addEventListener('keydown', (e) => { if (e.key === 'm' || e.key === 'M') toggleMusic(); });
 </script>
 </body>
 </html>

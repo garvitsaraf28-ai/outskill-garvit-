@@ -201,8 +201,7 @@
 
 <div class="progress" id="progress"></div>
 <div class="spotlight" id="spotlight"></div>
-<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen · <b>M</b> music</div>
-<button class="musicbtn" id="musicBtn" title="Background music">🔊 <span>Music on</span></button>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
 
 <nav class="nav-dots">
   <a href="#w0" class="active" data-label="Welcome"></a>
@@ -523,102 +522,6 @@
     const dx = (e.clientX / window.innerWidth - 0.5) * 24;
     const dy = (e.clientY / window.innerHeight - 0.5) * 24;
     document.querySelectorAll('.blob').forEach((b) => { b.style.translate = `${dx}px ${dy}px`; });
-  });
-
-  // ── Ambient soundtrack — synthesized in-browser (no audio file, no
-  // licensing, works in the downloaded copy too). A slow four-chord pad
-  // with a soft arpeggio sparkle and a gentle sub bass, kept quiet enough
-  // to talk over. Starts on the first user gesture (browser autoplay rule);
-  // M or the button toggles it.
-  const music = (() => {
-    let ctx = null, master = null, padTimer = null, arpTimer = null, chordIdx = 0, on = true, started = false;
-    // Dmaj7 → Bm7 → Gmaj7 → Asus4 — warm, hopeful, endlessly loopable.
-    const CHORDS = [
-      [146.83, 220.00, 277.18, 329.63],  // D2·A3·C#4·E4
-      [123.47, 185.00, 246.94, 293.66],  // B2·F#3·B3·D4
-      [ 98.00, 196.00, 246.94, 293.66],  // G2·G3·B3·D4
-      [110.00, 220.00, 293.66, 329.63],  // A2·A3·D4·E4
-    ];
-    const build = () => {
-      if (ctx) return;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      ctx = new AC();
-      master = ctx.createGain();
-      master.gain.value = 0.5;
-      master.connect(ctx.destination);
-    };
-    const pad = (freqs) => {
-      if (!ctx || !on) return;
-      const t = ctx.currentTime;
-      freqs.forEach((f, i) => {
-        const osc = ctx.createOscillator();
-        const env = ctx.createGain();
-        osc.type = i === 0 ? 'sine' : 'triangle';       // sine sub, triangle body
-        osc.frequency.value = f;
-        const peak = i === 0 ? 0.055 : 0.032;           // sub slightly louder
-        env.gain.setValueAtTime(0.0001, t);
-        env.gain.exponentialRampToValueAtTime(peak, t + 2.4);   // slow bloom
-        env.gain.setValueAtTime(peak, t + 5.4);
-        env.gain.exponentialRampToValueAtTime(0.0001, t + 8.2); // slow fade
-        osc.connect(env); env.connect(master);
-        osc.start(t); osc.stop(t + 8.4);
-      });
-    };
-    const sparkle = () => {
-      if (!ctx || !on || Math.random() < 0.35) return;   // breathes — not every beat
-      const t = ctx.currentTime;
-      const base = CHORDS[chordIdx % CHORDS.length];
-      const f = base[1 + Math.floor(Math.random() * (base.length - 1))] * (Math.random() < 0.5 ? 2 : 4);
-      const osc = ctx.createOscillator();
-      const env = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = f;
-      env.gain.setValueAtTime(0.0001, t);
-      env.gain.exponentialRampToValueAtTime(0.02, t + 0.03);
-      env.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
-      osc.connect(env); env.connect(master);
-      osc.start(t); osc.stop(t + 1.7);
-    };
-    const beat = () => { pad(CHORDS[chordIdx++ % CHORDS.length]); };
-    const run = () => {
-      if (padTimer) return;
-      beat();
-      padTimer = setInterval(beat, 8000);
-      arpTimer = setInterval(sparkle, 900);
-    };
-    const halt = () => {
-      if (padTimer) { clearInterval(padTimer); padTimer = null; }
-      if (arpTimer) { clearInterval(arpTimer); arpTimer = null; }
-    };
-    return {
-      kick() { // first user gesture
-        if (started) return;
-        started = true;
-        build();
-        if (!ctx) return;
-        if (ctx.state === 'suspended') ctx.resume();
-        if (on) run();
-      },
-      toggle() {
-        on = !on;
-        if (on) { build(); if (ctx && ctx.state === 'suspended') ctx.resume(); if (started) run(); }
-        else halt();
-        return on;
-      },
-      isOn: () => on,
-    };
-  })();
-  const musicBtn = document.getElementById('musicBtn');
-  function paintMusicBtn() {
-    musicBtn.classList.toggle('off', !music.isOn());
-    musicBtn.innerHTML = music.isOn() ? '🔊 <span>Music on</span>' : '🔇 <span>Music off</span>';
-  }
-  musicBtn.addEventListener('click', (e) => { e.stopPropagation(); music.toggle(); paintMusicBtn(); });
-  ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
-    window.addEventListener(ev, () => music.kick(), { once: true, passive: true }));
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'm' || e.key === 'M') { music.toggle(); paintMusicBtn(); }
   });
 
   // Program cards expand

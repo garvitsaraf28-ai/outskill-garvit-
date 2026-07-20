@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Outskill Learning Ecosystem · Internal Onboarding</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --lime:#c2ee45; --lime-dim:#a8d930; --bg:#070905; --bg2:#0d1008;
+    --glass:rgba(194,238,69,0.06); --glass-border:rgba(194,238,69,0.18);
+    --white:#f0f4e8; --muted:#818f6c; --danger:#ff4d6d; --amber:#e8b24b; --teal:#4dd8c0;
+  }
+  html { scroll-behavior:smooth; }
+  body { font-family:'Space Grotesk',sans-serif; background:var(--bg); color:var(--white); overflow-x:hidden; }
+  ::selection { background:var(--lime); color:#000; }
+  .progress { position:fixed; top:0; left:0; height:3px; background:var(--lime); width:0%; z-index:200; box-shadow:0 0 12px var(--lime); transition:width .1s linear; }
+  .keyhint { position:fixed; bottom:18px; left:24px; z-index:99; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); opacity:.8; }
+  .keyhint b { color:var(--lime); font-weight:600; }
+  .nav-dots { position:fixed; right:26px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:11px; z-index:99; }
+  .nav-dots a { width:8px; height:8px; border-radius:50%; background:var(--muted); display:block; transition:all .3s; position:relative; }
+  .nav-dots a.active { background:var(--lime); transform:scale(1.7); box-shadow:0 0 12px var(--lime); }
+  .nav-dots a::after { content:attr(data-label); position:absolute; right:18px; top:50%; transform:translateY(-50%); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); opacity:0; white-space:nowrap; transition:opacity .25s; }
+  .nav-dots a:hover::after { opacity:1; }
+  .slide { min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; padding:84px 7vw; position:relative; overflow:hidden; }
+  .slide::before { content:''; position:absolute; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events:none; opacity:.4; }
+  .blob { position:absolute; border-radius:50%; filter:blur(120px); pointer-events:none; }
+  .slide-num { position:absolute; top:38px; right:7vw; font-size:11px; letter-spacing:5px; text-transform:uppercase; color:var(--muted); }
+  .slide-num b { color:var(--lime); }
+  .watermark { position:absolute; bottom:28px; right:7vw; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); }
+  .watermark span { color:var(--lime); }
+  .reveal { opacity:0; transform:translateY(24px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity:1; transform:none; }
+  .reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
+  .tag { display:inline-block; background:var(--glass); border:1px solid var(--glass-border); color:var(--lime); font-size:11px; font-weight:600; letter-spacing:3px; text-transform:uppercase; padding:7px 15px; border-radius:100px; margin-bottom:22px; }
+  h1 { font-family:'Fraunces',serif; font-size:clamp(2rem,4.8vw,4.2rem); font-weight:900; line-height:1.06; letter-spacing:-1px; margin-bottom:16px; }
+  h1 .accent { color:var(--lime); }
+  h2 { font-family:'Fraunces',serif; font-size:clamp(1.3rem,2.6vw,2rem); font-weight:900; margin:26px 0 10px; }
+  h2 span { color:var(--lime); }
+  .subtext { font-size:clamp(.95rem,1.5vw,1.12rem); color:var(--muted); max-width:720px; line-height:1.7; margin-bottom:24px; }
+  .subtext b, .subtext i { color:var(--white); font-style:normal; }
+  .divider { width:64px; height:3px; background:var(--lime); border-radius:2px; margin-bottom:24px; }
+  .dotmark { display:grid; grid-template-columns:repeat(3,16px); gap:7px; justify-content:center; margin-bottom:26px; }
+  .dotmark span { width:16px; height:16px; border-radius:50%; }
+  .dotmark span.on { background:var(--lime); box-shadow:0 0 16px rgba(194,238,69,.5); }
+  .dotmark span.off { border:2px solid var(--muted); }
+  .kicker { font-size:clamp(11px,2.5vw,14px); letter-spacing:6px; text-transform:uppercase; color:var(--lime-dim); margin-bottom:20px; font-weight:600; }
+  .scroll-hint { position:absolute; bottom:36px; left:50%; transform:translateX(-50%); font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); animation:bob 1.8s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+
+  /* FUNNEL */
+  .funnel { width:100%; max-width:760px; display:flex; flex-direction:column; align-items:center; gap:0; }
+  .ftier { width:100%; border:1px solid var(--glass-border); background:var(--glass); border-radius:18px; padding:18px 24px; text-align:center; transition:border-color .3s; }
+  .ftier:hover { border-color:var(--lime); }
+  .ftier .fl { font-size:.66rem; letter-spacing:2.5px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; margin-bottom:6px; }
+  .ftier .fp { font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.05rem,2.2vw,1.5rem); }
+  .ftier .fs { font-size:.8rem; color:var(--muted); margin-top:4px; }
+  .ftier.t1 { width:100%; } .ftier.t2 { width:82%; } .ftier.t3 { width:64%; }
+  .farrow { color:var(--lime); font-size:1.2rem; padding:6px 0; }
+  .paths { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; max-width:860px; }
+  .path { background:var(--glass); border:1px solid var(--glass-border); border-radius:100px; padding:8px 15px; font-size:.8rem; color:var(--white); }
+  .path b { color:var(--lime); }
+
+  /* PROGRAM CARDS (expandable) */
+  .progs { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:14px; width:100%; max-width:1050px; }
+  .prog { text-align:left; background:var(--glass); border:1px solid var(--glass-border); border-radius:18px; padding:20px 22px; cursor:pointer; font-family:inherit; color:var(--white); transition:border-color .25s, transform .25s; }
+  .prog:hover { border-color:var(--lime); transform:translateY(-3px); }
+  .prog.open { border-color:var(--lime); background:rgba(194,238,69,.09); }
+  .prog .pk { font-size:.66rem; letter-spacing:2px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; }
+  .prog h3 { font-size:1.05rem; font-weight:700; margin:6px 0 3px; }
+  .prog .pw { font-size:.78rem; color:var(--amber); }
+  .prog .more { max-height:0; overflow:hidden; opacity:0; transition:max-height .5s cubic-bezier(.2,.7,.2,1), opacity .4s, margin .3s; }
+  .prog.open .more { max-height:600px; opacity:1; margin-top:12px; }
+  .prog .more ul { list-style:none; display:flex; flex-direction:column; gap:6px; }
+  .prog .more li { font-size:.82rem; color:var(--muted); line-height:1.5; padding-left:15px; position:relative; }
+  .prog .more li::before { content:'·'; position:absolute; left:1px; color:var(--lime); font-weight:900; }
+  .prog .more li b { color:var(--white); }
+  .prog .hint { font-size:.64rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-top:9px; display:block; }
+  .prog.open .hint { display:none; }
+
+  /* stat chips / inclusion grid */
+  .chips { display:flex; flex-wrap:wrap; gap:9px; margin:10px 0 4px; max-width:940px; }
+  .chip { background:var(--glass); border:1px solid var(--glass-border); border-radius:100px; padding:9px 16px; font-size:.83rem; font-weight:600; }
+  .chip b { color:var(--lime); }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:13px; width:100%; max-width:1000px; }
+  .g3 { background:var(--glass); border:1px solid var(--glass-border); border-radius:16px; padding:18px 20px; }
+  .g3 .icon { font-size:1.4rem; display:block; margin-bottom:8px; }
+  .g3 h3 { font-size:.95rem; font-weight:700; color:var(--lime); margin-bottom:5px; }
+  .g3 p { font-size:.82rem; color:var(--muted); line-height:1.55; }
+  .g3 b { color:var(--white); }
+
+  /* journey timeline */
+  .steps { display:flex; flex-direction:column; gap:2px; max-width:760px; width:100%; margin-top:6px; }
+  .step { display:flex; gap:15px; align-items:flex-start; }
+  .step .n { flex-shrink:0; width:36px; height:36px; border-radius:50%; background:var(--glass); border:1px solid var(--lime); color:var(--lime); font-family:'Fraunces',serif; font-weight:900; font-size:.95rem; display:flex; align-items:center; justify-content:center; }
+  .step .txt { padding-bottom:16px; }
+  .step .txt b { display:block; font-size:.95rem; margin-bottom:2px; }
+  .step .txt span { font-size:.83rem; color:var(--muted); line-height:1.55; }
+  .step .txt span i { color:var(--lime); font-style:normal; font-weight:600; }
+
+  /* tables */
+  .twrap { width:100%; max-width:1020px; overflow-x:auto; border:1px solid var(--glass-border); border-radius:16px; }
+  table { width:100%; border-collapse:collapse; font-size:.84rem; min-width:640px; }
+  th { background:rgba(194,238,69,.08); color:var(--lime); font-size:.68rem; letter-spacing:1.5px; text-transform:uppercase; text-align:left; padding:12px 14px; border-bottom:1px solid var(--glass-border); white-space:nowrap; }
+  td { padding:11px 14px; border-bottom:1px solid rgba(255,255,255,.05); color:var(--muted); line-height:1.45; vertical-align:top; }
+  td b { color:var(--white); } td .lm { color:var(--lime); font-weight:700; }
+  tr:last-child td { border-bottom:none; }
+  .rowlabel { color:var(--white); font-weight:600; white-space:nowrap; }
+
+  /* faq */
+  .faqs { display:flex; flex-direction:column; gap:9px; width:100%; max-width:840px; }
+  .faq { background:var(--glass); border:1px solid var(--glass-border); border-radius:13px; cursor:pointer; font-family:inherit; color:var(--white); text-align:left; padding:14px 18px; transition:border-color .25s; }
+  .faq:hover { border-color:var(--lime); }
+  .faq .q { font-size:.93rem; font-weight:700; display:flex; justify-content:space-between; gap:10px; }
+  .faq .q::after { content:'+'; color:var(--lime); font-weight:900; }
+  .faq.open .q::after { content:'–'; }
+  .faq .a { max-height:0; overflow:hidden; opacity:0; transition:max-height .45s cubic-bezier(.2,.7,.2,1), opacity .35s, margin .3s; font-size:.85rem; color:var(--muted); line-height:1.6; }
+  .faq.open .a { max-height:260px; opacity:1; margin-top:9px; }
+  .faq .a b { color:var(--white); }
+
+  .cta { display:inline-flex; align-items:center; gap:10px; background:var(--lime); color:#000; border:none; border-radius:100px; font-family:inherit; font-weight:700; font-size:.98rem; padding:13px 28px; cursor:pointer; text-decoration:none; transition:transform .2s, box-shadow .2s; margin-top:22px; }
+  .cta:hover { transform:translateY(-3px); box-shadow:0 12px 34px rgba(194,238,69,.4); }
+  .note { font-size:.78rem; color:var(--muted); margin-top:12px; max-width:760px; line-height:1.55; }
+  .note b { color:var(--amber); }
+
+  #e0 { background:radial-gradient(ellipse at 50% 30%, #14180c, var(--bg)); align-items:center; text-align:center; }
+  #e0 .blob1 { width:700px; height:700px; background:rgba(194,238,69,.08); top:-160px; left:50%; transform:translateX(-50%); }
+  #e1 { background:var(--bg2); } #e1 .blob1 { width:520px; height:520px; background:rgba(194,238,69,.06); top:-150px; right:-80px; }
+  #e2 { background:var(--bg); } #e2 .blob1 { width:560px; height:480px; background:rgba(77,216,192,.05); bottom:-160px; left:-100px; }
+  #e3 { background:var(--bg2); } #e3 .blob1 { width:520px; height:420px; background:rgba(232,178,75,.05); top:30%; right:-100px; }
+  #e4 { background:var(--bg); } #e4 .blob1 { width:600px; height:560px; background:rgba(194,238,69,.06); top:-140px; left:30%; }
+  #e5 { background:var(--bg2); } #e5 .blob1 { width:520px; height:460px; background:rgba(194,238,69,.05); bottom:-160px; right:-80px; }
+  #e6 { background:var(--bg); } #e6 .blob1 { width:540px; height:480px; background:rgba(77,216,192,.05); top:-140px; right:-60px; }
+  #e7 { background:var(--bg2); } #e7 .blob1 { width:560px; height:480px; background:rgba(194,238,69,.06); bottom:-180px; left:20%; }
+  #e8 { background:var(--bg); } #e8 .blob1 { width:520px; height:440px; background:rgba(194,238,69,.05); top:-140px; left:-80px; }
+  #e9 { background:var(--bg2); } #e9 .blob1 { width:540px; height:460px; background:rgba(232,178,75,.05); top:30%; right:-90px; }
+  #e10 { background:var(--bg); } #e10 .blob1 { width:560px; height:480px; background:rgba(194,238,69,.06); bottom:-170px; right:-70px; }
+  #e11 { background:radial-gradient(ellipse at 50% 70%, #14180c, var(--bg)); } #e11 .blob1 { width:620px; height:520px; background:rgba(194,238,69,.08); bottom:-200px; left:50%; transform:translateX(-50%); }
+
+  @media (max-width:720px) {
+    .slide { padding:68px 5vw; }
+    .slide-num,.watermark { right:5vw; }
+    .nav-dots { right:9px; }
+    .keyhint { display:none; }
+    .ftier.t2 { width:94%; } .ftier.t3 { width:86%; }
+  }
+  @media print { .nav-dots,.progress,.scroll-hint,.keyhint{display:none!important} .slide{page-break-after:always} .reveal{opacity:1!important;transform:none!important} .prog .more,.faq .a{max-height:none!important;opacity:1!important} }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
+
+<nav class="nav-dots">
+  <a href="#e0" class="active" data-label="Ecosystem"></a>
+  <a href="#e1" data-label="The funnel"></a>
+  <a href="#e2" data-label="Masterminds"></a>
+  <a href="#e3" data-label="Bootcamps"></a>
+  <a href="#e4" data-label="Accelerator"></a>
+  <a href="#e5" data-label="Inside it"></a>
+  <a href="#e6" data-label="Fellowship"></a>
+  <a href="#e7" data-label="Catalyst"></a>
+  <a href="#e8" data-label="Pricing"></a>
+  <a href="#e9" data-label="Compare"></a>
+  <a href="#e10" data-label="Payments · FAQ"></a>
+  <a href="#e11" data-label="Takeaways"></a>
+</nav>
+
+<!-- ═══ E0 · TITLE ═══ -->
+<section class="slide" id="e0">
+  <div class="blob blob1"></div>
+  <div class="dotmark reveal in"><span class="on"></span><span class="on"></span><span class="off"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="off"></span></div>
+  <div class="kicker reveal d1">Outskill · Internal Onboarding · Programs, Pricing &amp; Journeys</div>
+  <h1 class="reveal d2" style="text-align:center;">One ecosystem.<br/><span class="accent">Five programs.</span></h1>
+  <p class="subtext reveal d3" style="text-align:center;margin-left:auto;margin-right:auto;">
+    This is the single source of truth for every Outskill team — Sales, Ops, Support, Mentors, Customer Success, Marketing. Read it once and you'll know every program we run, who it's for, what it costs, how learners move between them, and how money flows.
+  </p>
+  <div class="chips reveal d4" style="justify-content:center;">
+    <span class="chip">🧲 Mastermind — <b>free</b></span>
+    <span class="chip">⚡ Bootcamp — <b>low-ticket</b></span>
+    <span class="chip">🚀 Accelerator — <b>₹94,999</b></span>
+    <span class="chip">🎓 Fellowship — <b>₹1,95,000</b></span>
+    <span class="chip">💼 Catalyst — <b>₹1,95,000</b></span>
+  </div>
+  <div class="scroll-hint">scroll ↓</div>
+</section>
+
+<!-- ═══ E1 · FUNNEL ═══ -->
+<section class="slide" id="e1">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>01</b> / 11</div>
+  <div class="tag reveal">🔻 The funnel — how every learner flows</div>
+  <h1 class="reveal d1">TOFU. MOFU. BOFU.<br/><span class="accent">Learn these three words.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="funnel reveal d2">
+    <div class="ftier t1"><div class="fl">TOFU · Top of funnel · discover us</div><div class="fp">Mastermind (free) &nbsp;+&nbsp; Bootcamp (low-ticket)</div><div class="fs">Weekend AI workshops where learners meet Outskill — and where we pitch the paid programs</div></div>
+    <div class="farrow">▼</div>
+    <div class="ftier t2"><div class="fl">MOFU · Middle of funnel · the main offer</div><div class="fp">AI Accelerator — Generalist (Domestic / International) &amp; Engineering</div><div class="fs">The flagship 14-day program + one full year of everything</div></div>
+    <div class="farrow">▼</div>
+    <div class="ftier t3"><div class="fl">BOFU · Bottom of funnel · premium</div><div class="fp">Fellowship (AIGF / GEF) &nbsp;·&nbsp; Catalyst</div><div class="fs">6-month deep programs · Catalyst requires Accelerator or Fellowship first</div></div>
+  </div>
+  <p class="subtext reveal d3" style="margin-top:22px;margin-bottom:8px;">Learners can enter and move <b>any way except one</b> — nobody goes straight to Catalyst:</p>
+  <div class="paths">
+    <span class="path reveal d3">Mastermind <b>→</b> Accelerator</span>
+    <span class="path reveal d3">Mastermind <b>→</b> Bootcamp <b>→</b> Accelerator</span>
+    <span class="path reveal d3">Bootcamp <b>→</b> Accelerator</span>
+    <span class="path reveal d3">Mastermind <b>→</b> Fellowship</span>
+    <span class="path reveal d4">Bootcamp <b>→</b> Fellowship</span>
+    <span class="path reveal d4">Accelerator <b>→</b> Fellowship</span>
+    <span class="path reveal d4">Accelerator <b>→</b> Catalyst</span>
+    <span class="path reveal d4">Fellowship <b>→</b> Catalyst</span>
+    <span class="path reveal d4" style="border-color:rgba(255,77,109,.4);color:var(--danger);">✕ Direct to Catalyst — not allowed</span>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E2 · MASTERMINDS ═══ -->
+<section class="slide" id="e2">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>02</b> / 11</div>
+  <div class="tag reveal">🧲 TOFU · The Masterminds — 100% free</div>
+  <h1 class="reveal d1">Three weekend workshops.<br/><span class="accent">Where every journey starts.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">Free, live, webinar-style AI teaching — learners are <b>muted throughout</b> (no unmuting, no screen-share, no live doubts). That contrast is exactly what makes the Accelerator's breakout rooms so easy to pitch. Attendees earn <b>1 certificate (Outskill)</b>. Tap each card:</p>
+  <div class="progs">
+    <button class="prog reveal d2"><span class="pk">🇮🇳 Generalist Mastermind</span><h3>Sat + Sun · 10 AM – 7 PM IST</h3><div class="pw">Pitches: Bootcamp · AI Generalist Accelerator · AIGF</div><span class="hint">tap for the sessions ▾</span>
+      <div class="more"><ul>
+        <li><b>Day 1:</b> Getting Started with Generative AI + hands-on no-code web app · Building Personalised AI Agents</li>
+        <li><b>Day 2:</b> Building Products with AI (vibe coding) · Visual Storytelling — AI images &amp; video · graduation ceremony 6–7 PM</li>
+        <li>Mentors include Outskill's Gen-AI education leadership and the founder</li>
+      </ul></div>
+    </button>
+    <button class="prog reveal d3"><span class="pk">⚙️ Engineering Mastermind</span><h3>Fri 7–11 PM + Sat 10 AM – 6 PM</h3><div class="pw">Pitches: Eng Bootcamp · Eng Accelerator · GEF</div><span class="hint">tap for the sessions ▾</span>
+      <div class="more"><ul>
+        <li><b>Friday:</b> LLMs, Prompt Engineering &amp; AI-led coding — hands-on with Claude Code &amp; Cursor</li>
+        <li><b>Saturday:</b> Agentic AI workflows (CrewAI, LangChain) · Deep dive on MCPs &amp; agentic orchestration</li>
+        <li>A <b>bonus Sunday session</b> is sometimes added</li>
+        <li>For coders — Python comfort is the routing signal</li>
+      </ul></div>
+    </button>
+    <button class="prog reveal d3"><span class="pk">🌍 International Mastermind</span><h3>Sat + Sun · 10 AM – 7 PM EST</h3><div class="pw">Pitches: International Accelerator (+ Intl Bootcamp)</div><span class="hint">tap for the sessions ▾</span>
+      <div class="more"><ul>
+        <li><b>Day 1:</b> Getting Started with Generative AI · Image/Video generation with AI</li>
+        <li><b>Day 2:</b> Build your own writing bot · Product building with AI — vibe coding &amp; no-code automations</li>
+        <li>Bonus days are sometimes added (10 AM – 2 PM EST)</li>
+        <li>Generalist track only — for audiences outside India</li>
+      </ul></div>
+    </button>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E3 · BOOTCAMPS ═══ -->
+<section class="slide" id="e3">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>03</b> / 11</div>
+  <div class="tag reveal">⚡ TOFU · The Bootcamps — low-ticket</div>
+  <h1 class="reveal d1">2–3 intense days.<br/><span class="accent">A taste of the real thing.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">Paid but low-ticket — pricing varies by marketplace: roughly <b>₹1,000–₹10,000</b> in India, <b>$100–$200</b> international. Runs once, twice or more a month. <b>One-time payment only — no EMI.</b> Learners earn <b>2 certificates (Outskill + NSDC)</b>. Some learners come from a mastermind; many buy the bootcamp directly. In it, we pitch the Accelerator and Fellowship.</p>
+  <div class="progs">
+    <button class="prog reveal d2"><span class="pk">🇮🇳 Generalist Bootcamp (India)</span><h3>Fri onboarding + Sat, Sun, Mon</h3><div class="pw">Fri 7–8:30 PM · Sat/Sun 10 AM–7 PM · Mon 7–10 PM IST</div><span class="hint">tap for the arc ▾</span>
+      <div class="more"><ul>
+        <li><b>Day 0 (Fri):</b> onboarding — structure, schedule, how to get the most out of it</li>
+        <li><b>Day 1:</b> AI Generalist mindset, prompt engineering + build a web app with Claude Artifacts · vibe coding · AI workflows &amp; connectors</li>
+        <li><b>Day 2:</b> Custom AI assistants &amp; agents · building AI agents on n8n · build a full product, no code</li>
+        <li><b>Day 3 (Mon evening):</b> Visual storytelling — AI images &amp; video</li>
+      </ul></div>
+    </button>
+    <button class="prog reveal d3"><span class="pk">🌍 Generalist Bootcamp (International)</span><h3>Fri evening + Sat, Sun</h3><div class="pw">Fri 7:30–10:30 PM · Sat/Sun 10 AM–7 PM EST</div><span class="hint">tap for the arc ▾</span>
+      <div class="more"><ul>
+        <li><b>Day 1 (Fri):</b> Getting started with Generative AI + build your first Claude Artifacts web app</li>
+        <li><b>Day 2:</b> AI workflows &amp; connectors · image &amp; video generation · product building with AI + vibe-coded portfolio site</li>
+        <li><b>Day 3:</b> Custom AI assistants &amp; agents · building AI agents on n8n</li>
+      </ul></div>
+    </button>
+    <button class="prog reveal d3"><span class="pk">⚙️ Engineering Bootcamp</span><h3>2 days · Sat + Sun · 10 AM – 7 PM IST</h3><div class="pw">4 sessions + 4 hands-on breakout builds</div><span class="hint">tap for the arc ▾</span>
+      <div class="more"><ul>
+        <li><b>Day 1:</b> Developer productivity with AI (Copilot, Cursor, Claude) → <b>build DeepWiki</b> · MCP skills &amp; connectors → <b>build a research tool</b></li>
+        <li><b>Day 2:</b> AI agents &amp; multi-agent orchestration → <b>build a multi-agent workflow</b> · RAG deep dive → <b>build a NotebookLM clone</b></li>
+      </ul></div>
+    </button>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E4 · ACCELERATOR JOURNEY ═══ -->
+<section class="slide" id="e4">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>04</b> / 11</div>
+  <div class="tag reveal">🚀 MOFU · The Accelerator — our flagship</div>
+  <h1 class="reveal d1">14 days of learning.<br/><span class="accent">One year of everything.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2">Three variants, one journey. <b>Generalist Domestic</b> and <b>Generalist International</b> share the identical program — only pricing and timezone differ. <b>Engineering</b> follows the same shape but runs in sprints.</p>
+  <div class="steps">
+    <div class="step reveal d2"><div class="n">1</div><div class="txt"><b>Friday — Kickoff call</b><span>Portal walkthrough: live tools, resources, recordings, community access. Every cohort starts here.</span></div></div>
+    <div class="step reveal d2"><div class="n">2</div><div class="txt"><b>Sat–Sun — Pre-learning</b><span>Two days with provided pre-learning content, so everyone walks into Day 1 ready.</span></div></div>
+    <div class="step reveal d3"><div class="n">3</div><div class="txt"><b>Monday — the 14 days begin</b><span><i>Domestic:</i> Mon–Fri 7–11 PM + Sat/Sun 10 AM–7 PM IST. <i>International:</i> Mon–Fri 10 AM–1 PM + Sat/Sun 10 AM–7 PM EST.<br/><i>Generalist:</i> first 7 days learning → next 7 days practical building ("office hours"). <i>Engineering:</i> <b>7 sprints</b> — learn one day, build it the next, seven times over.</span></div></div>
+    <div class="step reveal d3"><div class="n">4</div><div class="txt"><b>The last 48 hours — Buildathon</b><span>Every learner ships their own AI product. Not theory — a real build.</span></div></div>
+    <div class="step reveal d4"><div class="n">5</div><div class="txt"><b>Then — one full year</b><span>One live workshop <i>every week</i> (Wednesday, sometimes Thursday — pre-informed) with the latest AI updates: 7–9 PM IST / ~10 AM–12 PM EST. Recordings of the 14 days <i>and</i> every workshop for a full year.</span></div></div>
+  </div>
+  <div class="chips reveal d4">
+    <span class="chip">🗣 Breakout rooms of <b>5–7 learners</b> — every class, every workshop: unmute, share screen, ask mentors anything</span>
+    <span class="chip">🏆 <b>3 certificates</b>: Outskill · NSDC · Kairos</span>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E5 · ACCELERATOR INCLUSIONS ═══ -->
+<section class="slide" id="e5">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>05</b> / 11</div>
+  <div class="tag reveal">🎁 Everything inside the Accelerator — all for one year</div>
+  <h1 class="reveal d1">What ₹94,999<br/><span class="accent">actually buys.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="grid3">
+    <div class="g3 reveal d2"><span class="icon">📚</span><h3>3 content libraries</h3><p><b>AI Content Library</b> — the tools of AI and how to use them for real productivity. <b>AI Monetization Mastery 101</b> — how to earn with AI beyond your day job. <b>Kairos School of Business</b> — MBA-style leadership &amp; strategy content.</p></div>
+    <div class="g3 reveal d2"><span class="icon">🧰</span><h3>Premium AI tools</h3><p><b>Domestic: 13 tools</b> (worth ₹2.49L / $2,878) · <b>International: 15 tools</b> (worth $3,543 — adds VAPI credits &amp; HeyGen) · <b>Engineering: 7 tools</b> (worth ~₹1.5L / $1,699). Emily, SuperGrow, Fireflies, Lyzr, WisprFlow, SuperJoin, GetMulti and more.</p></div>
+    <div class="g3 reveal d3"><span class="icon">🌐</span><h3>Global community + peer support</h3><p>The Outskill global community — learners worldwide. Post a doubt on the portal <b>any time, any day</b> and expert mentors reply as soon as possible. Networking, group projects, co-founder hunting.</p></div>
+    <div class="g3 reveal d3"><span class="icon">🎥</span><h3>Recordings — 1 year</h3><p>All 14 days recorded, plus every weekly workshop — available for a full year.</p></div>
+    <div class="g3 reveal d4"><span class="icon">📅</span><h3>Weekly live workshops — 1 year</h3><p>The AI world changes weekly; so does the curriculum. Update sessions every week with breakout-room doubt solving.</p></div>
+    <div class="g3 reveal d4"><span class="icon">🛠</span><h3>100+ hours + Buildathon</h3><p>100+ hours of live training over the 14 days, ending in the 48-hour buildathon where every learner ships an AI product.</p></div>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E6 · FELLOWSHIP ═══ -->
+<section class="slide" id="e6">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>06</b> / 11</div>
+  <div class="tag reveal">🎓 BOFU · The Fellowships — 6 months deep</div>
+  <h1 class="reveal d1">Weekends only.<br/><span class="accent">Mastery, not familiarity.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2"><b>₹1,95,000 / $6,000.</b> Six months, classes only on <b>Saturday and Sunday</b>, with weekly office hours, pre-reads, session resources and a capstone. <b>3 certificates</b> (Outskill · NSDC · Kairos). Tap each:</p>
+  <div class="progs" style="max-width:900px;">
+    <button class="prog reveal d2"><span class="pk">💠 AI Generalist Fellowship (AIGF)</span><h3>Sat + Sun evenings · ~7:30 PM IST (9 AM EST)</h3><div class="pw">No coding needed · 6 levels · ends in a buildathon</div><span class="hint">tap for the curriculum ▾</span>
+      <div class="more"><ul>
+        <li><b>Level 0–2:</b> AI &amp; LLM foundations · prompt engineering · RAGs &amp; MCP</li>
+        <li><b>Level 3:</b> AI image &amp; video creation (Leonardo, diffusion models, film-making with AI)</li>
+        <li><b>Level 4:</b> Automating tasks with AI agents (n8n workflows)</li>
+        <li><b>Level 5:</b> Building AI-powered applications (Cursor, Bolt, Lovable)</li>
+        <li><b>Level 6:</b> Buildathon — online demo day &amp; graduation</li>
+        <li>Weekly rhythm: pre-read unlock → weekend sessions → resources release → office hours</li>
+      </ul></div>
+    </button>
+    <button class="prog reveal d3"><span class="pk">⚙️ GenAI Engineering Fellowship (GEF)</span><h3>Sat + Sun · 7–10 PM IST (morning ET — 9:00/9:30 start by week)</h3><div class="pw">Python required · 24-week plan · production capstone</div><span class="hint">tap for the curriculum ▾</span>
+      <div class="more"><ul>
+        <li><b>Base camps:</b> environment setup · Python refresher · FastAPI app building</li>
+        <li><b>Weeks 1–9:</b> NLP &amp; LLM foundations · HuggingFace · transformers · RAG &amp; vector DBs · multimodal AI (CLIP, LanceDB)</li>
+        <li><b>Weeks 10–24:</b> Agentic AI + MCP · OpenAI Agents SDK · voice agents · Agno · LangGraph · deployment</li>
+        <li>Thursday office hours (7–8 PM IST) · capstone project throughout — goal: a <b>production-ready build</b></li>
+        <li>For software developers/engineers — Python is the prerequisite</li>
+      </ul></div>
+    </button>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E7 · CATALYST ═══ -->
+<section class="slide" id="e7">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>07</b> / 11</div>
+  <div class="tag reveal">💼 BOFU · Catalyst — the earning program</div>
+  <h1 class="reveal d1">Learning → Building →<br/><span class="accent">Earning.</span></h1>
+  <div class="divider reveal d2"></div>
+  <p class="subtext reveal d2"><b>₹1,95,000 / $6,000 · 6 months (24 weeks) · weekends.</b> Catalyst turns AI skills into income. <b>Entry rule (memorize this):</b> a learner must have completed the <b>Accelerator or a Fellowship</b> first — it's pitched at the end of those programs and can never be bought directly.</p>
+  <div class="grid3" style="max-width:920px;">
+    <div class="g3 reveal d2"><span class="icon">🧱</span><h3>Phase 1 · Weeks 1–14 · Hard skills</h3><p>Automation (Make, Zapier, n8n, APIs) · client problem mapping · lead-gen &amp; cold-email engines · voice agents (VAPI, WhatsApp bots) · AI agent building (Lindy, Gumloop) · product building (Bolt, Lovable, Cursor, Replit).</p></div>
+    <div class="g3 reveal d3"><span class="icon">🔀</span><h3>Phase 2 · Weeks 15–24 · Pick a path</h3><p><b>Track A — Product Owner (MVP):</b> validate an idea, build the backend, add AI features, launch on Product Hunt, monetize. <b>Track B — Business Owner (MVC):</b> niche down, land clients, outreach engines, retainers, productized services, paid community.</p></div>
+    <div class="g3 reveal d3"><span class="icon">🏁</span><h3>The finale · Demo Day</h3><p>Pitch to the cohort and mentors; leave with a live product or a running agency — a portfolio-worthy, revenue-ready asset. Demo Day &amp; immersion run as <b>offline events, announced ~2 months in advance</b>. 3 certificates (Outskill · NSDC · Kairos).</p></div>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E8 · PRICING ═══ -->
+<section class="slide" id="e8">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>08</b> / 11</div>
+  <div class="tag reveal">💰 Pricing — know these cold</div>
+  <h1 class="reveal d1">Two markets.<br/><span class="accent">One price sheet.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="twrap reveal d2">
+    <table>
+      <tr><th>Program</th><th>🇮🇳 Domestic (INR)</th><th>Domestic — paying in USD</th><th>🌍 International (USD)</th></tr>
+      <tr><td class="rowlabel">Mastermind</td><td><span class="lm">Free</span></td><td><span class="lm">Free</span></td><td><span class="lm">Free</span></td></tr>
+      <tr><td class="rowlabel">Bootcamp</td><td><b>₹1,000 – ₹10,000</b> (varies by marketplace)</td><td>—</td><td><b>$100 – $200</b> (varies by marketplace)</td></tr>
+      <tr><td class="rowlabel">Generalist Accelerator</td><td><b>₹94,999</b></td><td><b>$1,199</b></td><td><b>$2,995</b></td></tr>
+      <tr><td class="rowlabel">Engineering Accelerator</td><td><b>₹94,999</b></td><td><b>$1,199</b></td><td>—</td></tr>
+      <tr><td class="rowlabel">Fellowship (AIGF / GEF)</td><td><b>₹1,95,000</b></td><td colspan="2"><b>$6,000</b></td></tr>
+      <tr><td class="rowlabel">Catalyst</td><td><b>₹1,95,000</b></td><td colspan="2"><b>$6,000</b></td></tr>
+    </table>
+  </div>
+  <div class="note reveal d3"><b>The $1,199 rule:</b> a learner who attended the <b>Indian</b> mastermind/funnel but pays in USD pays $1,199 — NOT $2,995. The $2,995 price belongs only to the International Accelerator funnel.</div>
+  <div class="note reveal d3"><b>Upgrade rule:</b> price adjustment on Fellowship/Catalyst is possible for learners who have <b>not</b> attended the Accelerator. Once a learner has attended the Accelerator, the next program is <b>full price — no discount</b>. And there are never discounts on listed prices — hold the price, sell the value.</div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E9 · COMPARISON ═══ -->
+<section class="slide" id="e9">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>09</b> / 11</div>
+  <div class="tag reveal">📊 The one-glance comparison</div>
+  <h1 class="reveal d1">Five programs,<br/><span class="accent">side by side.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="twrap reveal d2">
+    <table>
+      <tr><th></th><th>Mastermind</th><th>Bootcamp</th><th>Accelerator</th><th>Fellowship</th><th>Catalyst</th></tr>
+      <tr><td class="rowlabel">Funnel stage</td><td>TOFU</td><td>TOFU</td><td>MOFU</td><td>BOFU</td><td>BOFU</td></tr>
+      <tr><td class="rowlabel">Price</td><td><span class="lm">Free</span></td><td>₹1k–10k / $100–200</td><td><b>₹94,999 / $1,199 / $2,995</b></td><td><b>₹1,95,000 / $6,000</b></td><td><b>₹1,95,000 / $6,000</b></td></tr>
+      <tr><td class="rowlabel">Duration</td><td>1 weekend</td><td>2–3 days</td><td>14 days + <b>1 year</b> of workshops</td><td>6 months</td><td>6 months (24 weeks)</td></tr>
+      <tr><td class="rowlabel">Format</td><td>Live webinar, muted</td><td>Live, muted</td><td>Live + breakout rooms (5–7)</td><td>Weekend classes + office hours</td><td>Weekend classes, 2 phases</td></tr>
+      <tr><td class="rowlabel">Interaction</td><td>✕ no mic/screen</td><td>✕ no mic/screen</td><td>✓ unmute, screen-share, mentors</td><td>✓ office hours + community</td><td>✓ office hours + community</td></tr>
+      <tr><td class="rowlabel">Projects</td><td>Guided activities</td><td>Hands-on builds</td><td>Projects + <b>48-hr buildathon</b></td><td>Capstone / demo-day build</td><td>MVP or agency + Demo Day</td></tr>
+      <tr><td class="rowlabel">Premium tools</td><td>—</td><td>—</td><td><b>13 / 15 / 7 tools</b>, 1 year</td><td>—</td><td>—</td></tr>
+      <tr><td class="rowlabel">Recordings</td><td>—</td><td>—</td><td>1 year (14 days + workshops)</td><td>Session recordings + resources</td><td>Session resources</td></tr>
+      <tr><td class="rowlabel">Certificates</td><td>1 · Outskill</td><td>2 · Outskill + NSDC</td><td>3 · Outskill + NSDC + Kairos</td><td>3 · Outskill + NSDC + Kairos</td><td>3 · Outskill + NSDC + Kairos</td></tr>
+      <tr><td class="rowlabel">Entry</td><td>Open, free</td><td>Open, direct purchase</td><td>Open (pitched in TOFU)</td><td>Open (pitched in TOFU + Accelerator)</td><td><b>Only after Accelerator or Fellowship</b></td></tr>
+      <tr><td class="rowlabel">Goal</td><td>Discover AI + Outskill</td><td>First real skills</td><td>AI-capable in 14 days, current for a year</td><td>Deep mastery + capstone</td><td>Earn with AI — product or business</td></tr>
+    </table>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E10 · PAYMENTS + FAQ ═══ -->
+<section class="slide" id="e10">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>10</b> / 11</div>
+  <div class="tag reveal">💳 Payments &amp; the questions everyone asks</div>
+  <h1 class="reveal d1">How the money moves.<br/><span class="accent">And your first FAQs.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="chips reveal d2">
+    <span class="chip">🇮🇳 Full payment → <b>Razorpay</b></span>
+    <span class="chip">💳 Credit-card EMI → <b>Pine Labs</b> · zero-cost · 3/6/9/12 mo</span>
+    <span class="chip">🏧 Debit-card EMI → <b>Shopse</b> (eligibility check first)</span>
+    <span class="chip">🏦 No card → <b>Fibe / Propel</b> NBFC via form</span>
+    <span class="chip">🌍 International → <b>XP</b> · full (no fee) or installments <b>+9%</b></span>
+  </div>
+  <p class="note reveal d2" style="margin-bottom:18px;">Indian EMI is <b>zero-cost</b> — Outskill bears the interest. These rails apply to the <b>Accelerator, Fellowship and Catalyst</b>. <b>Bootcamp is one-time payment only — no installments.</b> Full payment mechanics live in the sales training portal (Level 2 → Payments).</p>
+  <div class="faqs">
+    <button class="faq reveal d2"><div class="q">Can a learner skip the mastermind and buy directly?</div><div class="a">Yes — many buy the Bootcamp or even the Accelerator directly. The only hard gate in the whole ecosystem is <b>Catalyst</b>, which requires Accelerator or Fellowship first.</div></button>
+    <button class="faq reveal d3"><div class="q">Accelerator vs Fellowship — what's the honest difference?</div><div class="a"><b>Accelerator:</b> intensive — 14 days to become AI-capable, then a year of weekly updates, tools and community. <b>Fellowship:</b> depth — 6 months of weekend classes building toward mastery and a capstone. Same subject, different intensity and horizon.</div></button>
+    <button class="faq reveal d3"><div class="q">Who routes to Engineering vs Generalist?</div><div class="a">One question: <b>do they code (Python)?</b> Coders → Engineering track (mastermind, bootcamp, accelerator, GEF). Everyone else → Generalist. Unsure? Probe before recommending.</div></button>
+    <button class="faq reveal d3"><div class="q">A learner from India wants to pay in USD — which price?</div><div class="a"><b>$1,199</b> — the domestic-funnel USD price. $2,995 applies only to learners in the International Accelerator funnel.</div></button>
+    <button class="faq reveal d4"><div class="q">Does an Accelerator alum get a discount on Fellowship or Catalyst?</div><div class="a"><b>No — full price.</b> Price adjustment is only possible for learners who have <b>not</b> attended the Accelerator. And we never discount listed prices.</div></button>
+    <button class="faq reveal d4"><div class="q">What does "breakout rooms" mean and why do we lead with it?</div><div class="a">After each Accelerator class, learners split into rooms of <b>5–7</b> where mentors rotate in: unmute, share your screen, get every doubt solved. Masterminds and bootcamps are muted webinars — the breakout room is the single clearest upgrade moment in the pitch.</div></button>
+    <button class="faq reveal d4"><div class="q">How long do learners keep access?</div><div class="a">Accelerator: recordings, weekly workshops, tools, libraries and community — <b>one full year</b>. Fellowships and Catalyst run 6 months with session resources and recordings through the program.</div></button>
+    <button class="faq reveal d4"><div class="q">Are the workshops after the Accelerator's 14 days extra content?</div><div class="a">They're <b>update sessions</b> — AI changes weekly, so every week (Wed, sometimes Thu, pre-informed) a live workshop covers what's new, with the same breakout-room doubt solving. That's how "stay current for a year" is delivered.</div></button>
+  </div>
+  <div class="watermark">Outskill <span>·</span> Programs</div>
+</section>
+
+<!-- ═══ E11 · TAKEAWAYS ═══ -->
+<section class="slide" id="e11">
+  <div class="blob blob1"></div>
+  <div class="slide-num reveal"><b>11</b> / 11</div>
+  <div class="tag reveal">🎯 Key takeaways — if you remember only this</div>
+  <h1 class="reveal d1">The whole ecosystem<br/><span class="accent">in six lines.</span></h1>
+  <div class="divider reveal d2"></div>
+  <div class="grid3" style="max-width:940px;">
+    <div class="g3 reveal d2"><span class="icon">1️⃣</span><h3>Free → low → high</h3><p>Mastermind (free) and Bootcamp (low-ticket) fill the funnel; the <b>Accelerator</b> is the main offer; Fellowship &amp; Catalyst are premium.</p></div>
+    <div class="g3 reveal d2"><span class="icon">2️⃣</span><h3>Route by one question</h3><p><b>"Do you code?"</b> Python → Engineering everything. No → Generalist everything.</p></div>
+    <div class="g3 reveal d2"><span class="icon">3️⃣</span><h3>Three prices to memorize</h3><p><b>₹94,999 / $1,199 / $2,995</b> for Accelerator · <b>₹1,95,000 / $6,000</b> for Fellowship and Catalyst.</p></div>
+    <div class="g3 reveal d3"><span class="icon">4️⃣</span><h3>The certificate ladder</h3><p>Mastermind <b>1</b> → Bootcamp <b>2</b> → Accelerator / Fellowship / Catalyst <b>3</b> (Outskill · NSDC · Kairos).</p></div>
+    <div class="g3 reveal d3"><span class="icon">5️⃣</span><h3>One hard gate</h3><p>Every path is open — except <b>Catalyst</b>, which always requires Accelerator or Fellowship first.</p></div>
+    <div class="g3 reveal d3"><span class="icon">6️⃣</span><h3>Sell the year, not the days</h3><p>The Accelerator isn't 14 days — it's 14 days <b>plus a year</b> of weekly workshops, tools, recordings and a global community.</p></div>
+  </div>
+  <a class="cta reveal d4" href="https://outskill-garvit.vercel.app" target="_blank" rel="noopener">Practice pitching these programs — open the Mock-Call Room →</a>
+  <div class="watermark">Outskill <span>·</span> Programs · internal — do not share externally</div>
+</section>
+
+<script>
+  const io = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }); }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  const slides = document.querySelectorAll('.slide');
+  const dots = document.querySelectorAll('.nav-dots a');
+  const nav = new IntersectionObserver((es) => {
+    es.forEach(e => {
+      if (e.isIntersecting) {
+        dots.forEach(d => d.classList.remove('active'));
+        const a = document.querySelector(`.nav-dots a[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.5 });
+  slides.forEach(s => nav.observe(s));
+  const prog = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100 + '%';
+  });
+  const ids = ['e0','e1','e2','e3','e4','e5','e6','e7','e8','e9','e10','e11'];
+  function cur() {
+    const mid = window.scrollY + window.innerHeight / 2;
+    let b = 0, bd = Infinity;
+    ids.forEach((id, i) => { const el = document.getElementById(id); const c = el.offsetTop + el.offsetHeight / 2; const d = Math.abs(c - mid); if (d < bd) { bd = d; b = i; } });
+    return b;
+  }
+  function go(i) { document.getElementById(ids[Math.max(0, Math.min(ids.length - 1, i))]).scrollIntoView({ behavior: 'smooth' }); }
+  window.addEventListener('keydown', (e) => {
+    if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); go(cur() + 1); }
+    else if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); go(cur() - 1); }
+    else if (e.key === 'f' || e.key === 'F') { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }
+  });
+  document.querySelectorAll('.prog').forEach(c => c.addEventListener('click', () => c.classList.toggle('open')));
+  document.querySelectorAll('.faq').forEach(c => c.addEventListener('click', () => c.classList.toggle('open')));
+</script>
+</body>
+</html>

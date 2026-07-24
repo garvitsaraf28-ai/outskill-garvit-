@@ -1,49 +1,53 @@
 # GARVIT SARAF
 
-Bengaluru, India · +91 97921 21111 · garvitsaraf28@gmail.com · linkedin.com/in/garvit-saraf
-
-**Sales Associate → Programs  |  Learning Operations · Program Delivery · AI-Enabled Learning Design**
+Bengaluru, Karnataka  |  +91 97921 21111  |  garvitsaraf28@gmail.com  |  linkedin.com/in/garvit-saraf
 
 ---
 
 ## PROFESSIONAL SUMMARY
 
-Early-career operations and programs professional at Outskill (a GrowthSchool company). Joined in Sales and, within three months, independently designed and shipped an AI-powered learning platform now approved for company-wide adoption — while exceeding sales targets. Blends learning-experience design, curriculum research, program documentation, and operations analytics with frontline revenue delivery. Completed Outskill's flagship Accelerator as a learner, bringing first-hand insight into the exact program the Programs Team designs and runs.
-
----
+Learning and program operations professional who designs, documents, and ships internal learning experiences while carrying a full sales quota. Built and deployed an AI-powered sales onboarding platform solo, redesigned the company-wide Day-1 induction program, and delivered 129% of a monthly sales target. Combines curriculum design and program documentation with hands-on AI tooling and revenue analytics.
 
 ## PROFESSIONAL EXPERIENCE
 
-**Outskill (a GrowthSchool company) — Sales Associate**
-Bengaluru · Apr 2026 – Present
+**GrowthSchool / Outskill** — Bengaluru, India
+*Sales Associate* · Apr 2026 to Present
 
-- Identified a costly training bottleneck — senior reps, managers, and 2–3 management staff manually running mock-call drills for every new cohort — and **independently designed and built *OutSkill Training*, a live 11-level AI onboarding platform** that ramps new hires from day one to deal-ready: sequenced the curriculum, built program-knowledge assessments, and engineered escalating live voice mock-calls (peer → senior → manager → director) with AI scoring, compliance flags, and manager-facing progress reports. **Now live for the 15–20-person Hyderabad sales team and approved for company-wide rollout.**
-- **Researched and authored Outskill's single-source-of-truth Programs deck** — documenting every program, pricing journey, and learner funnel across Sales, Ops, Support, Mentors, Customer Success, and Marketing — now used as the cross-functional onboarding reference.
-- **Created and deployed five onboarding decks** (Day-1 schedule, HR induction, leave & attendance, POSH, and programs) used in live inductions for the new Hyderabad branch.
-- **Automated a previously manual revenue-reporting process** into a daily-refreshing Google Sheets dashboard tracking domestic, international, and overall performance against the prior 3–4 months — giving leadership real-time visibility for coaching, forecasting, and resource decisions.
-- Built individual- and team-level **performance analytics on Dial Nexa dialer data** (lead flow, workshop show-ups, conversions, revenue per rep), enabling the Associate Director, Growth to target coaching and reallocation decisions.
-- **Delivered ~₹9.7L against a ₹7.5L target (~129%) in first full sales month**, ranking among the top ~7 of ~30 reps; partnered with HR on the Hyderabad launch, including ~15 personalized new-hire welcome communications.
+**Learning Programs & Operations**
+- Designed and shipped an AI-powered sales onboarding platform end to end and on my own: structured scattered company, product, and pitch knowledge into a sequenced curriculum, then built live voice mock calls against AI buyers, automated pitch scoring, and post-call coaching. Self-taught the build using Claude over a 15 to 20 day cycle while carrying a quota. Now formally recognised by leadership and rolling out to the 15 to 20 person Hyderabad office, moving training off senior reps and protecting their selling hours.
+- Built a manager-facing learner dashboard tracking mock-call volume, scores, strengths, improvement areas, and next steps, giving managers full trainee visibility without running sessions themselves.
+- Redesigned Day-1 onboarding into a 16-session, full-day program, mapping each session to an owner and duration across HR, Finance, Sales, Growth, Acquisition, Community, Experience, and Support, and set the reference standard adopted across the company.
+- Authored five interactive learning modules: company induction, POSH policy, leave and attendance policy, and a five-program curriculum reference covering funnel stages, program structures, learner pathways, and enrolment rules.
 
-**Flagship project:** *OutSkill Training* — AI sales-onboarding platform (design, build, deployment) · outskill-garvit.vercel.app
+**Revenue Performance & Analytics**
+- Delivered Rs. 9.7L against a Rs. 7.5L monthly target (129% attainment), ranking in the top 7 of approximately 30 sales associates.
+- Built a sales performance dashboard on Dial Nexa dialler data in Google Sheets, replacing manual tracking with per-agent and team-level reporting used by the Senior Manager, Business Operations and the Associate Director, Growth.
+- Produced recurring revenue and funnel analysis across domestic and international teams (show-ups, leads, conversions, units sold, revenue) against a rolling three to four month baseline.
+- Supported the Hyderabad office launch with HR operations, including personalised welcome communications to every new hire.
 
----
+## SELECTED WORK
 
-## EARLIER EXPERIENCE & LEADERSHIP
+AI Sales Onboarding Platform, Day-1 Program Design, Company Induction, Policy Learning Modules, and a five-program Curriculum Reference. All built and deployed independently. Live at outskill-garvit.vercel.app.
 
-- **NoteFi — Co-founder:** Co-built a revenue-generating peer-to-peer academic-resource platform with DRM content protection; led early go-to-market and pursued incubation and mentorship.
-- **CHRIST University — Director, UDAAN E-Cell; Departmental Representative, Centre for Social Action:** Directed 15+ events including INNOWAVE 2025, a three-day national conference; secured sponsorships and speakers; authored a feature published in *The Hindu*.
+## EARLIER EXPERIENCE
 
----
+- **RSPL Limited, Documentation Intern (2025):** Built Power BI and Excel dashboards consolidating insurance policy data for senior management; coordinated across insurance, legal, and finance teams.
+- **Youth of India Foundation, Research Intern (2024):** Analysed activist and NGO data to support national award selections.
 
-## EDUCATION
+## LEADERSHIP & VENTURES
 
-**BCom (Applied Finance & Analytics)** — CHRIST (Deemed to be University), Bengaluru · 2026
+- **Director, UDAAN Entrepreneurship Cell, CHRIST University (2023 to 2026):** Ran 15+ events including INNOWAVE 2025 (speaker onboarding, sponsorships, press), authored a nationally published feature in The Hindu, and led the documentation committee for the university's three-day international conference.
+- **Co-founder, NoteFi (2025):** Built a revenue-generating peer-to-peer academic resource platform with DRM-protected content; led go-to-market and early adoption.
+- **Founding Member, IdeaFi (2025):** Secured funding and strategic support from GradCapital and engaged multiple incubation centres.
 
----
+## EDUCATION & CERTIFICATIONS
 
-## SKILLS & TOOLS
+**BCom (Applied Finance & Analytics)**, CHRIST (Deemed to be University), Bengaluru  |  2026
+Certifications: NISM Series-VIII Equity Derivatives  |  AI Essentials, CHRIST University  |  Organizational Behaviour, NPTEL
 
-**Programs & Operations:** Program Operations · Learning-Experience Design · Curriculum Research · Documentation & SOPs · Process Improvement · Project Management · Cross-Functional Collaboration · Stakeholder Management
-**Data & AI:** Data Analysis & Reporting · Google Sheets Dashboards · AI / LLM Tools · Prompt Engineering · AI-Enabled Learning Design
-**Technical:** Google Workspace · Excel · Power BI · Python · SQL
-**Certification:** NISM Series-VIII — Equity Derivatives
+## SKILLS
+
+**Program & Learning Operations:** Curriculum design, learning experience design, program documentation, SOP creation, instructor coordination, onboarding operations, stakeholder management
+**AI & Automation:** Claude, AI-assisted product development, prompt design, conversational AI training systems
+**Analytics & Reporting:** Google Sheets, Excel, Power BI, SQL, Python, revenue and funnel analysis
+**Languages:** English, Hindi, Punjabi (fluent)

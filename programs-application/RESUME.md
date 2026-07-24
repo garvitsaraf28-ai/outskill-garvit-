@@ -1,6 +1,6 @@
 # GARVIT SARAF
 
-Bengaluru, India · +91 97921 21111 · garvitsaraf28@gmail.com · linkedin.com/in/<your-handle>
+Bengaluru, India · +91 97921 21111 · garvitsaraf28@gmail.com · linkedin.com/in/garvit-saraf
 
 **Sales Associate → Programs  |  Learning Operations · Program Delivery · AI-Enabled Learning Design**
 

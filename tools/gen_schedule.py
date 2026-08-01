@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+"""Generate the joiner and trainer induction schedule pages from one data source."""
+import json, pathlib
+
+OUT = pathlib.Path('/home/user/outskill-garvit-/public')
+
+# ---------------------------------------------------------------- source data
+# Transcribed from the People Ops induction sheet. Obvious spelling errors in
+# the source are corrected; times, owners and session content are untouched.
+S = [
+    dict(d=1, t='Kick Start',              x='Welcome note — hardware handover and welcome kit',     w='John',           s='9:30 AM',  e='10:00 AM', m=30),
+    dict(d=1, t='HR Induction',            x='Conduct and culture',                                  w='Anshita',        s='10:00 AM', e='10:30 AM', m=30),
+    dict(d=1, t='HRMS &amp; Documentation',x='Documentation and Keka walkthrough',                   w='Rishikesh',      s='10:30 AM', e='11:00 AM', m=30),
+    dict(d=1, b='Coffee pe conversations',                                                                              s='11:00 AM', e='11:15 AM', m=15),
+    dict(d=1, t='Policy',                  x='Leave policy, attendance policy, POSH, biometric',     w='Anshita',        s='11:15 AM', e='11:45 AM', m=30),
+    dict(d=1, t='Finance',                 x='PF opening, account opening, reimbursements',          w='Chaitanya',      s='11:45 AM', e='12:00 PM', m=15),
+    dict(d=1, t='From the Leader',         x='Business overview',                                    w='PV',             s='12:00 PM', e='1:15 PM',  m=75),
+    dict(d=1, b='Lunch break', lunch=1,                                                                                 s='1:15 PM',  e='2:00 PM',  m=45),
+    dict(d=1, t='Icebreaker',              x='Team activity',                                        w='SKS / PV',       s='2:00 PM',  e='3:30 PM',  m=90),
+    dict(d=1, t='Slack Intro',             x='Slack groups, channels and setting up your profile',   w='SKS / PV',       s='3:30 PM',  e='4:00 PM',  m=30),
+    dict(d=1, b='Chai pe charcha',                                                                                      s='4:00 PM',  e='4:15 PM',  m=15),
+    dict(d=1, t='Work Etiquette',          x='Email etiquette and communication etiquette',          w='SKS',            s='4:15 PM',  e='5:15 PM',  m=60),
+    dict(d=1, t='Admin',                   x='Introducing Admin',                                    w='Praveen',        s='5:15 PM',  e='5:30 PM',  m=15),
+
+    dict(d=2, t='Acquisition',             x='How do we acquire users and engage users at scale',    w='Ekakh',          s='9:30 AM',  e='10:00 AM', m=30),
+    dict(d=2, t='Acquisition',             x='How do we acquire users and engage users at scale',    w='Pankhuri',       s='10:00 AM', e='10:30 AM', m=30),
+    dict(d=2, t='Growth',                  x='What does it take to grow',                            w='Phani Krishna',  s='10:30 AM', e='11:30 AM', m=60),
+    dict(d=2, b='Coffee pe conversations',                                                                              s='11:30 AM', e='11:45 AM', m=15),
+    dict(d=2, t='Sales',                   x='How do we sell',                                       w='Swadhin',        s='11:45 AM', e='1:15 PM',  m=90),
+    dict(d=2, b='Lunch break', lunch=1,                                                                                 s='1:15 PM',  e='2:00 PM',  m=45),
+    dict(d=2, t='Leadership Talk',         x='How are we changing the world',                        w='Suri',           s='2:00 PM',  e='3:00 PM',  m=60),
+    dict(d=2, t='Experience',              x='What does it take to give best-in-class experience',   w='Uthappa',        s='3:00 PM',  e='3:45 PM',  m=45),
+    dict(d=2, b='Chai pe charcha',                                                                                      s='3:45 PM',  e='4:00 PM',  m=15),
+    dict(d=2, t='Community',               x='What does it mean to build a best-in-class community', w='Om',             s='4:00 PM',  e='4:45 PM',  m=45),
+    dict(d=2, t='Support',                 x='How we support our learners',                          w='Vaibhav Shukla', s='4:45 PM',  e='5:15 PM',  m=30),
+    dict(d=2, t='Activity',                x='Research activity — competitor analysis',              w='PV',             s='5:15 PM',  e='5:45 PM',  m=30),
+]
+
+sessions = [r for r in S if 'b' not in r]
+speakers = sorted({n.strip() for r in sessions for n in r['w'].split('/')})
+total_min = sum(r['m'] for r in sessions)
+END = {1: '5:30 PM', 2: '5:45 PM'}
+
+def hm(m):
+    return f"{m//60}h {m%60}m" if m % 60 else f"{m//60}h"
+
+STATS = dict(days=2, sessions=len(sessions), speakers=len(speakers), total=hm(total_min))
+
+# ---------------------------------------------------------------- shared CSS
+CSS = """
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,900;1,9..144,600&display=swap');
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  :root{
+    --paper:#f4f1e8; --ink:#15180e; --ink2:#4a4f3c; --ink3:#8a8f78;
+    --lime:#d4f24a; --moss:#2d4a1d; --clay:#c4623a; --rule:rgba(21,24,14,.13);
+    --accent:var(--lime);
+  }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:'Space Grotesk',sans-serif; background:var(--paper); color:var(--ink);
+        -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; }
+  body::before{ content:''; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.55; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E"); }
+  ::selection{ background:var(--accent); color:var(--ink); }
+  .wrap{ position:relative; z-index:2; max-width:1080px; margin:0 auto; padding:52px 5vw 90px; }
+
+  .masthead{ border-bottom:2.5px solid var(--ink); padding-bottom:14px; margin-bottom:32px;
+             display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; }
+  .brand{ font-size:11px; font-weight:700; letter-spacing:5px; text-transform:uppercase; }
+  .issue{ font-size:11px; letter-spacing:2.4px; text-transform:uppercase; color:var(--ink2); }
+  .issue b{ background:var(--accent); padding:3px 8px; color:var(--ink); }
+
+  h1{ font-family:'Fraunces',serif; font-weight:900; line-height:.94; letter-spacing:-2.5px;
+      font-size:clamp(2.6rem,9vw,5.8rem); margin-bottom:20px; }
+  .hl{ position:relative; display:inline-block; z-index:0; padding:0 .1em; }
+  .hl::before{ content:''; position:absolute; left:0; right:0; bottom:.08em; height:.42em; background:var(--accent);
+               z-index:-1; transform:skewX(-3deg) rotate(-.7deg); border-radius:3px; }
+  .standfirst{ font-family:'Fraunces',serif; font-style:italic; font-weight:600;
+               font-size:clamp(1.02rem,2.2vw,1.42rem); line-height:1.45; color:var(--ink2); max-width:640px; margin-bottom:30px; }
+
+  .statrow{ display:flex; flex-wrap:wrap; border:2px solid var(--ink); border-radius:2px; margin-bottom:14px; overflow:hidden; }
+  .stat{ flex:1 1 118px; padding:15px 18px; border-right:1px solid var(--rule); }
+  .stat:last-child{ border-right:none; }
+  .stat b{ display:block; font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.45rem,3.8vw,2rem); line-height:1; }
+  .stat span{ display:block; font-size:9.5px; letter-spacing:2.2px; text-transform:uppercase; color:var(--ink3); margin-top:6px; font-weight:600; }
+  .note{ font-size:.8rem; color:var(--ink2); line-height:1.6; margin-bottom:34px; }
+  .note b{ color:var(--ink); }
+
+  .controls{ display:flex; flex-wrap:wrap; gap:20px; align-items:flex-end; justify-content:space-between;
+             margin-bottom:26px; padding:14px 0 16px; border-bottom:1px solid var(--rule);
+             position:sticky; top:0; background:var(--paper); z-index:20; }
+  .ctl-label{ font-size:9.5px; letter-spacing:2.4px; text-transform:uppercase; color:var(--ink3); font-weight:700; margin-bottom:7px; display:block; }
+  .seg{ display:inline-flex; border:2px solid var(--ink); border-radius:2px; overflow:hidden; }
+  .seg button{ font-family:inherit; font-size:.8rem; font-weight:600; padding:9px 17px; background:transparent;
+               color:var(--ink); border:none; cursor:pointer; border-right:1px solid var(--rule);
+               transition:background .18s,color .18s; white-space:nowrap; }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--ink); color:var(--paper); }
+  .swap{ font-size:.76rem; font-weight:600; color:var(--ink2); }
+  .swap a{ color:var(--ink); text-decoration:underline; text-underline-offset:3px; }
+
+  .daytitle{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.55rem,3.8vw,2.4rem);
+             letter-spacing:-1px; margin:8px 0 4px; }
+  .daysub{ font-size:.83rem; color:var(--ink2); margin-bottom:22px; }
+  .daysub b{ color:var(--ink); }
+
+  .row{ display:grid; grid-template-columns:82px 1fr; position:relative; }
+  .row .time{ padding:16px 14px 16px 0; text-align:right; border-right:2px solid var(--ink); position:relative; }
+  .row .time .t1{ font-family:'Fraunces',serif; font-weight:900; font-size:1rem; line-height:1.1; white-space:nowrap; }
+  .row .time .t2{ font-size:.68rem; color:var(--ink3); margin-top:2px; white-space:nowrap; }
+  .row .time::after{ content:''; position:absolute; right:-6px; top:22px; width:10px; height:10px; border-radius:50%;
+                     background:var(--paper); border:2.5px solid var(--ink); }
+  .row .card{ padding:16px 0 16px 22px; border-bottom:1px solid var(--rule); }
+  .row:last-child .card{ border-bottom:none; }
+  .row .topic{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.02rem,2.3vw,1.28rem); line-height:1.2; margin-bottom:5px; }
+  .row .detail{ font-size:.86rem; color:var(--ink2); line-height:1.5; margin-bottom:10px; max-width:560px; }
+  .meta{ display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+  .who{ display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--ink); border-radius:100px;
+        padding:3px 11px 3px 4px; font-size:.76rem; font-weight:600; background:#fff; }
+  .who i{ width:20px; height:20px; border-radius:50%; display:grid; place-items:center; font-style:normal;
+          font-size:.56rem; font-weight:700; color:#fff; letter-spacing:.3px; }
+  .dur{ font-size:.7rem; letter-spacing:1.4px; text-transform:uppercase; color:var(--ink3); font-weight:700; }
+  .bar{ height:5px; background:var(--accent); border:1.5px solid var(--ink); border-radius:2px; min-width:14px; }
+
+  .row.brk .time::after{ background:var(--clay); border-color:var(--ink); }
+  .row.brk .card{ padding-top:11px; padding-bottom:11px; }
+  .row.brk .topic{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.86rem;
+                   letter-spacing:2px; text-transform:uppercase; color:var(--clay); margin-bottom:0; }
+
+  .wrapup{ margin-top:26px; border:2px solid var(--ink); border-radius:2px; padding:20px 24px; background:var(--accent); }
+  .wrapup b{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.12rem,2.5vw,1.45rem); display:block; margin-bottom:3px; }
+  .wrapup span{ font-size:.83rem; color:var(--moss); }
+
+  .foot{ margin-top:46px; padding-top:18px; border-top:2.5px solid var(--ink);
+         display:flex; flex-wrap:wrap; gap:10px 24px; justify-content:space-between;
+         font-size:.75rem; color:var(--ink3); letter-spacing:.3px; }
+  .foot b{ color:var(--ink2); }
+  .hidden{ display:none !important; }
+
+  @media(max-width:620px){
+    .wrap{ padding:36px 5.5vw 70px; }
+    .row{ grid-template-columns:64px 1fr; }
+    .row .time{ padding-right:11px; }
+    .row .time .t1{ font-size:.86rem; }
+    .row .card{ padding-left:16px; }
+    .seg button{ padding:8px 13px; font-size:.75rem; }
+  }
+  @media print{
+    body{ background:#fff; } body::before{ display:none; }
+    .controls{ position:static; } .hidden{ display:block !important; }
+    .row,.ocard{ break-inside:avoid; }
+  }
+"""
+
+TRAINER_CSS = """
+  :root{ --accent:#f0b429; }
+  .ocard{ border:2px solid var(--ink); border-radius:2px; padding:0; background:#fdfcf7; margin-bottom:14px; }
+  .ohead{ display:flex; align-items:center; gap:11px; padding:15px 19px; border-bottom:2px solid var(--ink); background:#fff; }
+  .ohead i{ width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-style:normal;
+            font-size:.78rem; font-weight:700; color:#fff; flex-shrink:0; }
+  .ohead .on{ font-family:'Fraunces',serif; font-weight:900; font-size:1.16rem; line-height:1.1; }
+  .ohead .oc{ font-size:.67rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink3); font-weight:600; margin-top:3px; }
+  .oslot{ padding:15px 19px; border-bottom:1px dashed var(--rule); }
+  .oslot:last-child{ border-bottom:none; }
+  .oslot .oday{ display:inline-block; font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase;
+                border:1.5px solid var(--ink); padding:2px 7px; margin-bottom:8px; }
+  .oslot .os1{ font-family:'Fraunces',serif; font-weight:900; font-size:1.05rem; margin-bottom:3px; }
+  .oslot .os2{ font-size:.82rem; color:var(--ink2); line-height:1.5; margin-bottom:9px; }
+  .slotline{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .slottime{ font-family:'Fraunces',serif; font-weight:900; font-size:1.02rem; background:var(--accent); padding:3px 10px; border:2px solid var(--ink); }
+  .neigh{ font-size:.75rem; color:var(--ink3); line-height:1.55; border-left:3px solid var(--rule); padding-left:11px; }
+  .neigh b{ color:var(--ink2); }
+  .ownerjump{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:30px; }
+  .ownerjump a{ font-size:.76rem; font-weight:600; border:1.5px solid var(--ink); padding:5px 11px;
+                text-decoration:none; color:var(--ink); background:#fff; transition:background .18s,color .18s; }
+  .ownerjump a:hover{ background:var(--ink); color:var(--paper); }
+  .runrow{ display:grid; grid-template-columns:76px 1fr auto; gap:12px; align-items:baseline;
+           padding:10px 0; border-bottom:1px solid var(--rule); font-size:.85rem; }
+  .runrow .rt{ font-family:'Fraunces',serif; font-weight:900; white-space:nowrap; }
+  .runrow .rw{ font-size:.78rem; color:var(--ink2); font-weight:600; white-space:nowrap; }
+  .runrow.brk{ color:var(--clay); font-weight:700; text-transform:uppercase; font-size:.74rem; letter-spacing:1.6px; }
+  @media(max-width:560px){ .runrow{ grid-template-columns:64px 1fr; } .runrow .rw{ grid-column:2; } }
+"""
+
+PALETTE_JS = """
+const PALETTE=['#2d4a1d','#c4623a','#3d6b7d','#7a5230','#5c3a63','#1f5b4e','#8a3b3b','#3f4a7a'];
+const colorFor=n=>PALETTE[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%PALETTE.length];
+const initials=n=>n.split(/[\\s/]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const fmtDur=m=>m>=60?(m%60?`${Math.floor(m/60)}h ${m%60}m`:`${Math.floor(m/60)}h`):`${m}m`;
+"""
+
+DATA_JS = "const S = " + json.dumps(S, ensure_ascii=False) + ";"
+
+DAYMETA_JOINER = """
+const DAYMETA={
+ 1:{title:'Day 1 — Landing well.',
+    sub:'Your kit, your systems, the policies that protect you, and the first look at the business. Ends <b>5:30 PM</b>.',
+    wrap:'Day 1 done. Tomorrow, the business itself — how we acquire, grow, sell, support and build community.'},
+ 2:{title:'Day 2 — How the business runs.',
+    sub:'Nine sessions from the people who own each function, ending with your first piece of real work. Ends <b>5:45 PM</b>.',
+    wrap:'Induction complete. You now know the people, the policies and the playbook. Welcome aboard.'}};
+"""
+
+# ---------------------------------------------------------------- joiner page
+joiner = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Your First Two Days · Outskill Induction</title>
+<style>{CSS}</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <span class="brand">Outskill · People Operations</span>
+    <span class="issue">For new joiners · <b>Day 1 &amp; Day 2</b></span>
+  </div>
+
+  <h1>Two days to<br/>go from new<br/>to <span class="hl">one of us.</span></h1>
+  <p class="standfirst">Day one is who we are and how we work. Day two is how the business actually runs —
+    told by the people who run it.</p>
+
+  <div class="statrow">
+    <div class="stat"><b>2</b><span>Days</span></div>
+    <div class="stat"><b>{STATS['sessions']}</b><span>Sessions</span></div>
+    <div class="stat"><b>{STATS['speakers']}</b><span>Speakers</span></div>
+    <div class="stat"><b>{STATS['total']}</b><span>Of content</span></div>
+    <div class="stat"><b>9:30</b><span>Start, both days</span></div>
+  </div>
+  <p class="note">Every session is live and in person. <b>Arrive a few minutes early</b> — breaks are short and the days run tight.
+    You do not need to prepare anything in advance; just bring yourself.</p>
+
+  <div class="controls">
+    <div>
+      <span class="ctl-label">Which day</span>
+      <div class="seg" id="dayseg">
+        <button data-day="1" aria-pressed="true">Day 1</button>
+        <button data-day="2" aria-pressed="false">Day 2</button>
+      </div>
+    </div>
+    <span class="swap">Running a session? Use the <a href="/schedule-trainer">trainer run sheet</a>.</span>
+  </div>
+
+  <h2 class="daytitle" id="dayTitle"></h2>
+  <p class="daysub" id="daySub"></p>
+  <div id="timeline"></div>
+  <div class="wrapup"><b>That's a wrap!</b><span id="wrapNote"></span></div>
+
+  <div class="foot">
+    <span>Outskill · <b>New joiner induction</b></span>
+    <span>Questions about the schedule? <b>Ask People Operations.</b></span>
+  </div>
+</div>
+<script>
+{DATA_JS}
+{DAYMETA_JOINER}
+{PALETTE_JS}
+let day=1;
+function paint(){{
+  const meta=DAYMETA[day];
+  document.getElementById('dayTitle').innerHTML=meta.title;
+  document.getElementById('daySub').innerHTML=meta.sub;
+  document.getElementById('wrapNote').textContent=meta.wrap;
+  document.getElementById('timeline').innerHTML=S.filter(r=>r.d===day).map(r=>{{
+    if(r.b) return `<div class="row brk">
+      <div class="time"><div class="t1">${{r.s}}</div><div class="t2">${{fmtDur(r.m)}}</div></div>
+      <div class="card"><div class="topic">${{r.b}}</div></div></div>`;
+    const c=colorFor(r.w);
+    return `<div class="row">
+      <div class="time"><div class="t1">${{r.s}}</div><div class="t2">${{r.e}}</div></div>
+      <div class="card">
+        <div class="topic">${{r.t}}</div>
+        <div class="detail">${{r.x}}</div>
+        <div class="meta">
+          <span class="who"><i style="background:${{c}}">${{initials(r.w)}}</i>${{r.w}}</span>
+          <span class="bar" style="width:${{Math.round(r.m/90*104)}}px"></span>
+          <span class="dur">${{fmtDur(r.m)}}</span>
+        </div></div></div>`;
+  }}).join('');
+}}
+document.getElementById('dayseg').addEventListener('click',e=>{{
+  const b=e.target.closest('button'); if(!b) return;
+  day=+b.dataset.day;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  paint();
+}});
+paint();
+</script>
+</body>
+</html>
+"""
+
+# --------------------------------------------------------------- trainer page
+trainer = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Trainer Run Sheet · Outskill Induction</title>
+<style>{CSS}{TRAINER_CSS}</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <span class="brand">Outskill · People Operations</span>
+    <span class="issue">For session owners · <b>Trainer run sheet</b></span>
+  </div>
+
+  <h1>Find your name.<br/>Know your <span class="hl">slot.</span></h1>
+  <p class="standfirst">Every session across both induction days, grouped by the person who owns it —
+    with the slot before and after yours, so handovers are clean.</p>
+
+  <div class="statrow">
+    <div class="stat"><b>{STATS['sessions']}</b><span>Sessions to run</span></div>
+    <div class="stat"><b>{STATS['speakers']}</b><span>Session owners</span></div>
+    <div class="stat"><b>{STATS['total']}</b><span>Total airtime</span></div>
+    <div class="stat"><b>2</b><span>Days</span></div>
+  </div>
+  <p class="note">Start your session <b>on time</b> — every slot after yours depends on it. If you need to swap or move a slot,
+    raise it with <b>People Operations</b> before the day, not on the day.</p>
+
+  <div class="controls">
+    <div>
+      <span class="ctl-label">View</span>
+      <div class="seg" id="viewseg">
+        <button data-view="owner" aria-pressed="true">By owner</button>
+        <button data-view="run" aria-pressed="false">Run of show</button>
+      </div>
+    </div>
+    <span class="swap">Sharing with new joiners? Send them the <a href="/schedule-joiner">joiner schedule</a>.</span>
+  </div>
+
+  <div id="ownerView">
+    <div class="ownerjump" id="jump"></div>
+    <div id="owners"></div>
+  </div>
+
+  <div id="runView" class="hidden">
+    <h2 class="daytitle">Run of show</h2>
+    <p class="daysub">Both days end to end, including breaks — the order everything actually happens in.</p>
+    <div id="run"></div>
+  </div>
+
+  <div class="foot">
+    <span>Outskill · <b>Trainer run sheet</b> · internal</span>
+    <span>Slot changes go through <b>People Operations.</b></span>
+  </div>
+</div>
+<script>
+{DATA_JS}
+{PALETTE_JS}
+const END={{1:'5:30 PM',2:'5:45 PM'}};
+const slug=n=>n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+
+function neighbours(r,idx){{
+  const dayRows=S.filter(x=>x.d===r.d);
+  const i=(idx===undefined?dayRows.indexOf(r):idx);
+  const prev=dayRows[i-1], next=dayRows[i+1];
+  const nameOf=x=>x ? (x.b ? x.b : `${{x.t}} — ${{x.w}}`) : null;
+  let out='';
+  out += prev ? `<b>Before you:</b> ${{nameOf(prev)}} (ends ${{r.s}})` : `<b>You open the day</b> at ${{r.s}}`;
+  out += '<br/>';
+  out += next ? `<b>After you:</b> ${{nameOf(next)}} (starts ${{r.e}})` : `<b>You close the day</b> — ends ${{END[r.d]}}`;
+  return out;
+}}
+
+function renderOwners(){{
+  const map=new Map();
+  S.filter(r=>!r.b).forEach(r=>{{
+    r.w.split('/').map(n=>n.trim()).forEach(n=>{{
+      if(!map.has(n)) map.set(n,[]);
+      const dayRows=S.filter(x=>x.d===r.d);
+      map.get(n).push(Object.assign({{}},r,{{
+        _co:r.w.includes('/')?r.w.split('/').map(x=>x.trim()).filter(x=>x!==n).join(', '):null,
+        _idx:dayRows.indexOf(r)
+      }}));
+    }});
+  }});
+  const entries=[...map.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  document.getElementById('jump').innerHTML=entries.map(([w])=>`<a href="#${{slug(w)}}">${{w}}</a>`).join('');
+  document.getElementById('owners').innerHTML=entries.map(([w,rows])=>{{
+    const c=colorFor(w), total=rows.reduce((a,r)=>a+r.m,0);
+    return `<div class="ocard" id="${{slug(w)}}">
+      <div class="ohead"><i style="background:${{c}}">${{initials(w)}}</i>
+        <div><div class="on">${{w}}</div>
+        <div class="oc">${{rows.length}} session${{rows.length>1?'s':''}} · ${{fmtDur(total)}} total airtime</div></div>
+      </div>
+      ${{rows.map(r=>`<div class="oslot">
+        <span class="oday">Day ${{r.d}}</span>
+        <div class="os1">${{r.t}}</div>
+        <div class="os2">${{r.x}}${{r._co?` <b style="color:var(--ink)">· co-hosted with ${{r._co}}</b>`:''}}</div>
+        <div class="slotline">
+          <span class="slottime">${{r.s}} – ${{r.e}}</span>
+          <span class="dur">${{fmtDur(r.m)}}</span>
+        </div>
+        <div class="neigh">${{neighbours(r,r._idx)}}</div>
+      </div>`).join('')}}
+    </div>`;
+  }}).join('');
+}}
+
+function renderRun(){{
+  document.getElementById('run').innerHTML=[1,2].map(d=>{{
+    const rows=S.filter(r=>r.d===d).map(r=> r.b
+      ? `<div class="runrow brk"><span class="rt">${{r.s}}</span><span>${{r.b}}</span><span></span></div>`
+      : `<div class="runrow"><span class="rt">${{r.s}}</span><span><b>${{r.t}}</b> — ${{r.x}}</span><span class="rw">${{r.w}} · ${{fmtDur(r.m)}}</span></div>`
+    ).join('');
+    return `<h3 class="daytitle" style="font-size:1.35rem;margin-top:26px">Day ${{d}}</h3>
+            <p class="daysub">9:30 AM – ${{END[d]}}</p>${{rows}}`;
+  }}).join('');
+}}
+
+document.getElementById('viewseg').addEventListener('click',e=>{{
+  const b=e.target.closest('button'); if(!b) return;
+  const v=b.dataset.view;
+  [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  document.getElementById('ownerView').classList.toggle('hidden',v!=='owner');
+  document.getElementById('runView').classList.toggle('hidden',v!=='run');
+}});
+renderOwners(); renderRun();
+</script>
+</body>
+</html>
+"""
+
+(OUT / 'schedule-joiner.html').write_text(joiner)
+(OUT / 'schedule-trainer.html').write_text(trainer)
+
+print(f"sessions={STATS['sessions']} speakers={STATS['speakers']} total={STATS['total']}")
+print('speakers:', ', '.join(speakers))
+print('wrote schedule-joiner.html, schedule-trainer.html')

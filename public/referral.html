@@ -41,9 +41,13 @@
   .tk{ display:flex; width:max-content; animation:slide 26s linear infinite; }
   .tk span{ font-family:var(--display); font-weight:400; font-size:clamp(1rem,2.1vw,1.32rem);
             letter-spacing:.6px; text-transform:uppercase; padding:0 18px; white-space:nowrap; display:flex; align-items:center; gap:18px; }
-  .tk span::after{ content:'◆'; font-size:.5em; opacity:.55; }
+  .tk span::after{ content:'◆' / ''; font-size:.5em; opacity:.55; }
   @keyframes slide{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
-  @media(prefers-reduced-motion:reduce){ .tk{ animation:none } .a1,.a2{ animation:none } }
+  @media(prefers-reduced-motion:reduce){
+    .a1,.a2{ animation:none }
+    .tk{ animation:none; width:auto; flex-wrap:wrap; justify-content:center; }
+    .tk .dupe{ display:none; }
+  }
 
   .poster{ position:relative; z-index:3; max-width:1160px; margin:0 auto; padding:clamp(34px,6vw,64px) 5.5vw 70px; }
 
@@ -70,7 +74,7 @@
   .mark{ background:var(--lime); color:var(--ink); font-weight:700; padding:1px 6px; }
 
   /* ---------- SECTION LABEL ---------- */
-  .seclabel{ font-family:var(--mono); font-size:clamp(11px,1.4vw,12.5px); font-weight:700; letter-spacing:2.8px; text-transform:uppercase; color:#c7d3b8;
+  .seclabel{ font-family:var(--mono); font-size:inherit; font-size:clamp(11px,1.4vw,12.5px); font-weight:700; letter-spacing:2.8px; text-transform:uppercase; color:#c7d3b8;
              display:flex; align-items:center; gap:13px; margin-bottom:17px; }
   .seclabel b{ color:var(--lime); }
   .seclabel::after{ content:''; flex:1; height:1px; background:rgba(201,242,63,.25); }
@@ -102,6 +106,7 @@
   .tier.top:hover{ box-shadow:9px 9px 0 var(--gold); }
   .tier.top:active{ box-shadow:2px 2px 0 var(--gold); }
   .tier.top:focus-visible{ outline-color:var(--gold); }
+  .tier.top .tl{ padding-right:78px; }
   .crown{ font-family:var(--mono); position:absolute; top:14px; right:16px; font-size:10.5px; font-weight:700; letter-spacing:1.4px;
           text-transform:uppercase; color:var(--ink); background:var(--gold); padding:3px 8px; border-radius:100px; }
 
@@ -127,14 +132,15 @@
   .fact .fn{ font-family:var(--display); font-weight:400; letter-spacing:.5px; line-height:.9;
              font-size:clamp(2.9rem,7vw,4rem); display:block; margin-bottom:12px; color:var(--lime);
              transition:color .28s; }
-  .fact:hover .fn{ color:var(--ink); }
+  .fact:hover .fn,.fact:focus-visible .fn{ color:var(--ink); }
+  .fact:hover .fl,.fact:focus-visible .fl{ color:var(--ink); }
   .fact .fn sup{ font-size:.36em; vertical-align:.9em; letter-spacing:0; margin-left:2px; }
   .fact .fl{ font-size:clamp(.92rem,1.6vw,1.02rem); font-weight:600; letter-spacing:0; line-height:1.42; color:#eef3e6; }
   .fact .fx{ position:absolute; left:20px; bottom:18px; font-family:var(--mono); font-size:10.5px; font-weight:700;
              letter-spacing:1.4px; text-transform:uppercase; color:var(--lime);
              border:2px solid var(--lime); border-radius:100px; padding:6px 13px 6px 14px;
              display:inline-flex; align-items:center; gap:8px; transition:background .2s, color .2s, border-color .2s; }
-  .fact .fx::after{ content:'→'; font-size:1.05em; transition:transform .2s; }
+  .fact .fx::after{ content:'→' / ''; font-size:1.05em; transition:transform .2s; }
   .fact:hover .fx{ background:var(--ink); color:var(--lime); border-color:var(--ink); }
   .fact:hover .fx::after{ transform:translateX(4px); }
   .fact.word .fn{ font-size:clamp(1.5rem,3.5vw,1.95rem); letter-spacing:.4px; line-height:1.1; margin-bottom:14px; text-transform:uppercase; }
@@ -166,8 +172,8 @@
   ul{ list-style:none; display:flex; flex-direction:column; gap:9px; }
   li{ font-size:.96rem; line-height:1.58; color:#333a2c; padding-left:26px; position:relative; }
   li b{ color:var(--ink); font-weight:700; }
-  li::before{ content:'→'; position:absolute; left:0; font-weight:700; color:#5c8f1a; }
-  ul.no li::before{ content:'✕'; color:#a8332f; }
+  li::before{ content:'→' / ''; position:absolute; left:0; font-weight:700; color:#5c8f1a; }
+  ul.no li::before{ content:'✕' / ''; color:#a8332f; }
   .tl{ display:flex; flex-direction:column; }
   .tlr{ display:flex; gap:14px; align-items:flex-start; }
   .tlr .tn{ flex-shrink:0; width:30px; height:30px; background:var(--lime); border-radius:50%;
@@ -196,7 +202,10 @@
   }
   @media print{
     body{ background:#fff; color:#000; } .aura,.grain,.scrim,.ticker{ display:none !important; }
-    .fact,.tier{ break-inside:avoid; opacity:1 !important; transform:none !important; border-color:#999; }
+    .fact,.tier{ break-inside:avoid; opacity:1 !important; transform:none !important; border-color:#999; box-shadow:none !important; }
+    h1 .l2{ color:#000 !important; -webkit-text-stroke:0 !important; }
+    h1 .l3{ color:#3f6b12 !important; text-shadow:none !important; }
+    .bignum .n{ color:#3f6b12 !important; text-shadow:none !important; }
     .fact .fn,.tier .tv{ color:#3f6b12 !important; }
   }
 </style>
@@ -204,9 +213,9 @@
 <body>
 <div class="aura a1"></div><div class="aura a2"></div><div class="grain"></div>
 
-<div class="ticker top"><div class="tk" id="tk1"></div></div>
+<div class="ticker top" aria-hidden="true"><div class="tk" id="tk1"></div></div>
 
-<div class="poster">
+<main class="poster">
   <span class="eyebrow">Exceptional people know exceptional people</span>
   <h1><span class="l1">Refer.</span><br/><span class="l2">They join.</span><br/><span class="l3">You get paid.</span></h1>
 
@@ -221,14 +230,14 @@
     </div>
   </div>
 
-  <div class="seclabel">What you earn · <b>tap a tier</b></div>
+  <h2 class="seclabel">What you earn · <b>tap a tier</b></h2>
   <div class="tiers" id="tiers">
     <button class="tier" data-id="reward"><span class="tl">Individual Contributor</span><span class="tv"><span class="cur">₹</span>50,000</span><span class="tc">Per successful hire</span></button>
     <button class="tier" data-id="reward"><span class="tl">Manager → Director</span><span class="tv"><span class="cur">₹</span>1,00,000</span><span class="tc">Per successful hire</span></button>
     <button class="tier top" data-id="reward"><span class="crown">Highest</span><span class="tl">Director &amp; above</span><span class="tv"><span class="cur">₹</span>1,50,000</span><span class="tc">Per successful hire</span></button>
   </div>
 
-  <div class="seclabel">The whole policy · <b>in eight numbers</b></div>
+  <h2 class="seclabel">The whole policy · <b>in eight numbers</b></h2>
   <div class="facts" id="facts"></div>
 
   <div class="foot">
@@ -237,12 +246,12 @@
     <span>Effective · 01 Aug 2026</span>
     <span>Internal — Confidential</span>
   </div>
-</div>
+</main>
 
-<div class="ticker"><div class="tk" id="tk2"></div></div>
+<div class="ticker" aria-hidden="true"><div class="tk" id="tk2"></div></div>
 
-<div class="scrim" id="scrim">
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+<div class="scrim" id="scrim" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <button class="close" id="closeBtn" aria-label="Close">Esc ✕</button>
     <div id="sheetBody"></div>
     <div class="esc">Tap outside or press ESC to close</div>
@@ -293,10 +302,10 @@ const FACTS = [
       'If you <b>leave the organisation before becoming eligible for payout</b>, the reward <b>lapses automatically</b>']}],
     callout:{h:'Read that twice', t:'You must still be actively employed on the payout date. Leaving before the 90-day milestone completes means <b>the reward is forfeited</b>.'} },
 
-  { id:'submit', n:'5', kick:'Submission', label:'Things a valid referral must include',
+  { id:'submit', n:'5', kick:'Submission', label:'Details that make up a valid referral',
     h:'How to submit a referral',
     sub:'Referrals go through <b>the official referral channel designated by the People Operations team</b>. A valid referral includes:',
-    lists:[{head:'The five items', items:[
+    lists:[{head:'The five details (three mandatory)', items:[
       'Candidate <b>resume</b>',
       '<b>LinkedIn profile</b> (where available)',
       '<b>Contact details</b>',
@@ -337,7 +346,7 @@ const FACTS = [
         '<b>Hiring Managers</b> referring for roles reporting directly to them',
         'Employees <b>serving notice period</b>',
         '<b>Contractors, interns or consultants</b>']}],
-    callout:{h:'Why', t:'It keeps the process fair — <b>nobody is rewarded for a hiring decision they themselves control</b>.'} },
+    callout:{h:'From the policy', t:'The programme exists to <b>hire exceptional talent</b> and <b>maintain fairness in the hiring process</b>. A referral increases a candidate\'s visibility — it does not guarantee interviews or employment.'} },
 
   { id:'fine', word:'The fine<br/>print', kick:'Exceptions &amp; record', label:'Exceptions, interpretation, document control',
     h:'Exceptions and the policy record',
@@ -356,7 +365,8 @@ const FACTS = [
 
 /* ---- ticker ---- */
 const WORDS = ['Refer someone great','₹50,000','₹1,00,000','₹1,50,000','Paid through payroll','90 days to payout','Two business days to acknowledge'];
-const tkHTML = Array(2).fill(WORDS.map(w=>`<span>${w}</span>`).join('')).join('');
+const tkOnce = WORDS.map(w=>`<span>${w}</span>`).join('');
+const tkHTML = tkOnce + `<span class="dupe" style="display:contents">${tkOnce}</span>`;
 document.getElementById('tk1').innerHTML = tkHTML;
 document.getElementById('tk2').innerHTML = tkHTML;
 
@@ -370,8 +380,11 @@ document.getElementById('facts').innerHTML = FACTS.filter(f=>f.id!=='reward').ma
   </button>`).join('');
 
 /* stagger the fact tiles in */
-const io = new IntersectionObserver(es=>es.forEach((e,i)=>{
-  if(e.isIntersecting){ setTimeout(()=>e.target.classList.add('in'), i*55); io.unobserve(e.target); }
+let shown = 0;
+const io = new IntersectionObserver(es=>es.forEach(e=>{
+  if(!e.isIntersecting) return;
+  setTimeout(()=>e.target.classList.add('in'), (shown++ % 6) * 55);
+  io.unobserve(e.target);
 }), { threshold:.15 });
 document.querySelectorAll('.fact').forEach(el=>io.observe(el));
 
@@ -384,7 +397,7 @@ function open(id){
   const d = FACTS.find(f=>f.id===id); if(!d) return;
   let h = `<div class="skick">${d.kick}</div>`;
   if(!d.word) h += `<div class="snum">${d.n}${d.sup?`<sup style="font-size:.4em;vertical-align:.8em">${d.sup}</sup>`:''}</div>`;
-  h += `<h2>${d.h}</h2><p class="sub">${d.sub}</p>`;
+  h += `<h2 id="sheetTitle">${d.h}</h2><p class="sub">${d.sub}</p>`;
   if(d.timeline) h += '<div class="tl">' + d.timeline.map(t=>
     `<div class="tlr"><div class="tn">${t.n}</div><div class="tt"><b>${t.b}</b><span>${t.s}</span></div></div>`).join('') + '</div>';
   (d.lists||[]).forEach(l=>{
@@ -394,10 +407,40 @@ function open(id){
   if(d.callout) h += `<div class="callout"><span class="ch">${d.callout.h}</span>${d.callout.t}</div>`;
   body.innerHTML = h;
   document.getElementById('sheet').scrollTop = 0;
-  scrim.classList.add('on'); document.body.style.overflow='hidden';
+  scrim.hidden = false;
+  requestAnimationFrame(()=>scrim.classList.add('on'));
+  document.body.style.overflow='hidden';
+  setBackgroundInert(true);
   setTimeout(()=>document.getElementById('closeBtn').focus(), 60);
 }
-function close(){ scrim.classList.remove('on'); document.body.style.overflow=''; if(lastFocus) lastFocus.focus(); }
+function close(){
+  scrim.classList.remove('on');
+  document.body.style.overflow='';
+  setBackgroundInert(false);
+  setTimeout(()=>{ if(!scrim.classList.contains('on')) scrim.hidden = true; }, 300);
+  if(lastFocus) lastFocus.focus();
+}
+/* keep the page behind the dialog out of the tab order and the a11y tree */
+function setBackgroundInert(on){
+  /* inert keeps the background out of the tab order in both cases */
+  document.querySelectorAll('.poster, .ticker').forEach(el=>{
+    if(on) el.setAttribute('inert',''); else el.removeAttribute('inert');
+  });
+  /* only the poster's aria-hidden toggles — the tickers are permanently
+     decorative and must keep aria-hidden="true" after the modal closes */
+  const poster = document.querySelector('.poster');
+  if(on) poster.setAttribute('aria-hidden','true'); else poster.removeAttribute('aria-hidden');
+}
+/* focus trap for browsers without inert support */
+document.getElementById('sheet').addEventListener('keydown', e=>{
+  if(e.key !== 'Tab') return;
+  const f = [...e.currentTarget.querySelectorAll('button,[href],[tabindex]:not([tabindex="-1"])')]
+              .filter(el=>el.offsetParent !== null);
+  if(!f.length) return;
+  const first = f[0], last = f[f.length-1];
+  if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+  else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+});
 
 document.addEventListener('click', e=>{
   const t = e.target.closest('.fact, .tier'); if(!t) return;
@@ -409,7 +452,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape' && scrim.classList
 
 /* ---- hero count-up ---- */
 (function(){
-  const el = document.getElementById('count'), to = 150000, dur = 1400, t0 = performance.now();
+  const el = document.getElementById('count'), to = 150000, dur = 1400;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;  // leave the real figure in place
+  const t0 = performance.now();
   el.textContent = '0';
   (function tick(now){
     const p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3);

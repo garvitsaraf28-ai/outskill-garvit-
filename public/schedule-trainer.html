@@ -10,11 +10,11 @@
 <style>
   *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
   :root{
-    --paper:#f4f1e8; --ink:#15180e; --ink2:#4a4f3c; --ink3:#8a8f78;
-    --lime:#d4f24a; --moss:#2d4a1d; --clay:#c4623a; --rule:rgba(21,24,14,.13);
+    --paper:#f4f1e8; --ink:#15180e; --ink2:#4a4f3c; --ink3:#666b55;
+    --lime:#d4f24a; --moss:#2d4a1d; --clay:#a44a26; --rule:rgba(21,24,14,.13);
     --accent:var(--lime);
   }
-  html{ scroll-behavior:smooth; }
+  html{ scroll-behavior:smooth; scroll-padding-top:112px; }
   body{ font-family:'Space Grotesk',sans-serif; background:var(--paper); color:var(--ink);
         -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; }
   body::before{ content:''; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.55; mix-blend-mode:multiply;
@@ -110,7 +110,9 @@
   }
 
   :root{ --accent:#f0b429; }
-  .ocard{ border:2px solid var(--ink); border-radius:2px; padding:0; background:#fdfcf7; margin-bottom:14px; }
+  .ocard{ border:2px solid var(--ink); border-radius:2px; padding:0; background:#fdfcf7; margin-bottom:14px;
+          scroll-margin-top:112px; }
+  .ocard:focus{ outline:3px solid var(--ink); outline-offset:3px; }
   .ohead{ display:flex; align-items:center; gap:11px; padding:15px 19px; border-bottom:2px solid var(--ink); background:#fff; }
   .ohead i{ width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-style:normal;
             font-size:.78rem; font-weight:700; color:#fff; flex-shrink:0; }
@@ -151,7 +153,7 @@
 
   <div class="statrow">
     <div class="stat"><b>19</b><span>Sessions to run</span></div>
-    <div class="stat"><b>15</b><span>Session owners</span></div>
+    <div class="stat"><b>15</b><span>People presenting</span></div>
     <div class="stat"><b>13h 45m</b><span>Total airtime</span></div>
     <div class="stat"><b>2</b><span>Days</span></div>
   </div>
@@ -187,7 +189,7 @@
 <script>
 const S = [{"d": 1, "t": "Kick Start", "x": "Welcome note — hardware handover and welcome kit", "w": "John", "s": "9:30 AM", "e": "10:00 AM", "m": 30}, {"d": 1, "t": "HR Induction", "x": "Conduct and culture", "w": "Anshita", "s": "10:00 AM", "e": "10:30 AM", "m": 30}, {"d": 1, "t": "HRMS &amp; Documentation", "x": "Documentation and Keka walkthrough", "w": "Rishikesh", "s": "10:30 AM", "e": "11:00 AM", "m": 30}, {"d": 1, "b": "Coffee pe conversations", "s": "11:00 AM", "e": "11:15 AM", "m": 15}, {"d": 1, "t": "Policy", "x": "Leave policy, attendance policy, POSH, biometric", "w": "Anshita", "s": "11:15 AM", "e": "11:45 AM", "m": 30}, {"d": 1, "t": "Finance", "x": "PF opening, account opening, reimbursements", "w": "Chaitanya", "s": "11:45 AM", "e": "12:00 PM", "m": 15}, {"d": 1, "t": "From the Leader", "x": "Business overview", "w": "PV", "s": "12:00 PM", "e": "1:15 PM", "m": 75}, {"d": 1, "b": "Lunch break", "lunch": 1, "s": "1:15 PM", "e": "2:00 PM", "m": 45}, {"d": 1, "t": "Icebreaker", "x": "Team activity", "w": "SKS / PV", "s": "2:00 PM", "e": "3:30 PM", "m": 90}, {"d": 1, "t": "Slack Intro", "x": "Slack groups, channels and setting up your profile", "w": "SKS / PV", "s": "3:30 PM", "e": "4:00 PM", "m": 30}, {"d": 1, "b": "Chai pe charcha", "s": "4:00 PM", "e": "4:15 PM", "m": 15}, {"d": 1, "t": "Work Etiquette", "x": "Email etiquette and communication etiquette", "w": "SKS", "s": "4:15 PM", "e": "5:15 PM", "m": 60}, {"d": 1, "t": "Admin", "x": "Introducing Admin", "w": "Praveen", "s": "5:15 PM", "e": "5:30 PM", "m": 15}, {"d": 2, "t": "Acquisition", "x": "How do we acquire users and engage users at scale", "w": "Ekakh", "s": "9:30 AM", "e": "10:00 AM", "m": 30}, {"d": 2, "t": "Acquisition", "x": "How do we acquire users and engage users at scale", "w": "Pankhuri", "s": "10:00 AM", "e": "10:30 AM", "m": 30}, {"d": 2, "t": "Growth", "x": "What does it take to grow", "w": "Phani Krishna", "s": "10:30 AM", "e": "11:30 AM", "m": 60}, {"d": 2, "b": "Coffee pe conversations", "s": "11:30 AM", "e": "11:45 AM", "m": 15}, {"d": 2, "t": "Sales", "x": "How do we sell", "w": "Swadhin", "s": "11:45 AM", "e": "1:15 PM", "m": 90}, {"d": 2, "b": "Lunch break", "lunch": 1, "s": "1:15 PM", "e": "2:00 PM", "m": 45}, {"d": 2, "t": "Leadership Talk", "x": "How are we changing the world", "w": "Suri", "s": "2:00 PM", "e": "3:00 PM", "m": 60}, {"d": 2, "t": "Experience", "x": "What does it take to give best-in-class experience", "w": "Uthappa", "s": "3:00 PM", "e": "3:45 PM", "m": 45}, {"d": 2, "b": "Chai pe charcha", "s": "3:45 PM", "e": "4:00 PM", "m": 15}, {"d": 2, "t": "Community", "x": "What does it mean to build a best-in-class community", "w": "Om", "s": "4:00 PM", "e": "4:45 PM", "m": 45}, {"d": 2, "t": "Support", "x": "How we support our learners", "w": "Vaibhav Shukla", "s": "4:45 PM", "e": "5:15 PM", "m": 30}, {"d": 2, "t": "Activity", "x": "Research activity — competitor analysis", "w": "PV", "s": "5:15 PM", "e": "5:45 PM", "m": 30}];
 
-const PALETTE=['#2d4a1d','#c4623a','#3d6b7d','#7a5230','#5c3a63','#1f5b4e','#8a3b3b','#3f4a7a'];
+const PALETTE=['#2d4a1d','#a1502e','#3d6b7d','#7a5230','#5c3a63','#1f5b4e','#8a3b3b','#3f4a7a'];
 const colorFor=n=>PALETTE[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%PALETTE.length];
 const initials=n=>n.split(/[\s/]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const fmtDur=m=>m>=60?(m%60?`${Math.floor(m/60)}h ${m%60}m`:`${Math.floor(m/60)}h`):`${m}m`;
@@ -214,7 +216,7 @@ function renderOwners(){
   document.getElementById('jump').innerHTML=entries.map(([w])=>`<a href="#${slug(w)}">${w}</a>`).join('');
   document.getElementById('owners').innerHTML=entries.map(([w,rows])=>{
     const c=colorFor(w), total=rows.reduce((a,r)=>a+r.m,0);
-    return `<div class="ocard" id="${slug(w)}">
+    return `<div class="ocard" id="${slug(w)}" tabindex="-1">
       <div class="ohead"><i style="background:${c}">${initials(w)}</i>
         <div><div class="on">${w}</div>
         <div class="oc">${rows.length} session${rows.length>1?'s':''} · ${fmtDur(total)} total airtime${w.includes('/')?' · co-hosted':''}</div></div>
@@ -250,6 +252,7 @@ document.getElementById('viewseg').addEventListener('click',e=>{
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   document.getElementById('ownerView').classList.toggle('hidden',v!=='owner');
   document.getElementById('runView').classList.toggle('hidden',v!=='run');
+  document.querySelector('.controls').scrollIntoView({block:'start'});
 });
 renderOwners(); renderRun();
 </script>

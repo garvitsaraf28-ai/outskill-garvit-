@@ -54,11 +54,11 @@ FONTLINK = ('<link rel="preconnect" href="https://fonts.googleapis.com"/>\n'
 CSS = """
   *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
   :root{
-    --paper:#f4f1e8; --ink:#15180e; --ink2:#4a4f3c; --ink3:#8a8f78;
-    --lime:#d4f24a; --moss:#2d4a1d; --clay:#c4623a; --rule:rgba(21,24,14,.13);
+    --paper:#f4f1e8; --ink:#15180e; --ink2:#4a4f3c; --ink3:#666b55;
+    --lime:#d4f24a; --moss:#2d4a1d; --clay:#a44a26; --rule:rgba(21,24,14,.13);
     --accent:var(--lime);
   }
-  html{ scroll-behavior:smooth; }
+  html{ scroll-behavior:smooth; scroll-padding-top:112px; }
   body{ font-family:'Space Grotesk',sans-serif; background:var(--paper); color:var(--ink);
         -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; }
   body::before{ content:''; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.55; mix-blend-mode:multiply;
@@ -156,7 +156,9 @@ CSS = """
 
 TRAINER_CSS = """
   :root{ --accent:#f0b429; }
-  .ocard{ border:2px solid var(--ink); border-radius:2px; padding:0; background:#fdfcf7; margin-bottom:14px; }
+  .ocard{ border:2px solid var(--ink); border-radius:2px; padding:0; background:#fdfcf7; margin-bottom:14px;
+          scroll-margin-top:112px; }
+  .ocard:focus{ outline:3px solid var(--ink); outline-offset:3px; }
   .ohead{ display:flex; align-items:center; gap:11px; padding:15px 19px; border-bottom:2px solid var(--ink); background:#fff; }
   .ohead i{ width:38px; height:38px; border-radius:50%; display:grid; place-items:center; font-style:normal;
             font-size:.78rem; font-weight:700; color:#fff; flex-shrink:0; }
@@ -185,7 +187,7 @@ TRAINER_CSS = """
 """
 
 PALETTE_JS = """
-const PALETTE=['#2d4a1d','#c4623a','#3d6b7d','#7a5230','#5c3a63','#1f5b4e','#8a3b3b','#3f4a7a'];
+const PALETTE=['#2d4a1d','#a1502e','#3d6b7d','#7a5230','#5c3a63','#1f5b4e','#8a3b3b','#3f4a7a'];
 const colorFor=n=>PALETTE[[...n].reduce((a,c)=>a+c.charCodeAt(0),0)%PALETTE.length];
 const initials=n=>n.split(/[\\s/]+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const fmtDur=m=>m>=60?(m%60?`${Math.floor(m/60)}h ${m%60}m`:`${Math.floor(m/60)}h`):`${m}m`;
@@ -286,6 +288,7 @@ document.getElementById('dayseg').addEventListener('click',e=>{{
   day=+b.dataset.day;
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   paint();
+  document.querySelector('.controls').scrollIntoView({{block:'start'}});
 }});
 paint();
 </script>
@@ -316,7 +319,7 @@ trainer = f"""<!DOCTYPE html>
 
   <div class="statrow">
     <div class="stat"><b>{STATS['sessions']}</b><span>Sessions to run</span></div>
-    <div class="stat"><b>{STATS['speakers']}</b><span>Session owners</span></div>
+    <div class="stat"><b>{STATS['speakers']}</b><span>People presenting</span></div>
     <div class="stat"><b>{STATS['total']}</b><span>Total airtime</span></div>
     <div class="stat"><b>2</b><span>Days</span></div>
   </div>
@@ -374,7 +377,7 @@ function renderOwners(){{
   document.getElementById('jump').innerHTML=entries.map(([w])=>`<a href="#${{slug(w)}}">${{w}}</a>`).join('');
   document.getElementById('owners').innerHTML=entries.map(([w,rows])=>{{
     const c=colorFor(w), total=rows.reduce((a,r)=>a+r.m,0);
-    return `<div class="ocard" id="${{slug(w)}}">
+    return `<div class="ocard" id="${{slug(w)}}" tabindex="-1">
       <div class="ohead"><i style="background:${{c}}">${{initials(w)}}</i>
         <div><div class="on">${{w}}</div>
         <div class="oc">${{rows.length}} session${{rows.length>1?'s':''}} · ${{fmtDur(total)}} total airtime${{w.includes('/')?' · co-hosted':''}}</div></div>
@@ -410,6 +413,7 @@ document.getElementById('viewseg').addEventListener('click',e=>{{
   [...e.currentTarget.children].forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   document.getElementById('ownerView').classList.toggle('hidden',v!=='owner');
   document.getElementById('runView').classList.toggle('hidden',v!=='run');
+  document.querySelector('.controls').scrollIntoView({{block:'start'}});
 }});
 renderOwners(); renderRun();
 </script>

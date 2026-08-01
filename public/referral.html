@@ -3,212 +3,175 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Employee Referral Program · GrowthSchool</title>
+<title>Refer &amp; Earn · GrowthSchool</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900&display=swap');
-  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900&display=swap');
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
   :root{
-    --lime:#c2ee45; --lime-dim:#a8d930; --bg:#070905; --white:#f0f4e8; --muted:#818f6c;
-    --glass:rgba(194,238,69,.06); --line:rgba(194,238,69,.18);
-    --gold:#ffd76e; --teal:#4dd8c0; --rose:#ff6b8a;
+    --lime:#c8ef4a; --lime-d:#b3da34; --ink:#0b0d07; --ink2:#2d3320; --ink3:#5a6142;
+    --paper:#faf9f4; --gold:#8a6a00;
   }
+  html{ scroll-behavior:smooth; }
   body{
-    font-family:'Space Grotesk',sans-serif; background:var(--bg); color:var(--white);
-    min-height:100vh; overflow-x:hidden; position:relative;
+    font-family:'Space Grotesk',sans-serif; background:var(--lime); color:var(--ink);
+    -webkit-font-smoothing:antialiased; overflow-x:hidden; position:relative; min-height:100vh;
   }
-  ::selection{ background:var(--lime); color:#000; }
-  .noise{ position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.35;
-    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); }
-  .blob{ position:fixed; border-radius:50%; filter:blur(130px); pointer-events:none; z-index:0; }
-  .b1{ width:52vw; height:52vw; background:rgba(194,238,69,.13); top:-18vw; right:-14vw; animation:drift 18s ease-in-out infinite; }
-  .b2{ width:40vw; height:40vw; background:rgba(255,215,110,.07); bottom:-16vw; left:-12vw; animation:drift 23s ease-in-out infinite reverse; }
-  @keyframes drift{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(3vw,4vw)} }
+  body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:1; opacity:.5; mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 260 260' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  }
+  body::after{
+    content:''; position:fixed; width:70vw; height:70vw; border-radius:50%; right:-26vw; top:-30vw;
+    background:radial-gradient(circle,rgba(255,255,255,.5),transparent 62%); pointer-events:none; z-index:0;
+  }
+  ::selection{ background:var(--ink); color:var(--lime); }
+  .poster{ position:relative; z-index:2; max-width:1140px; margin:0 auto; padding:34px 5.5vw 80px; }
 
-  .wrap{ position:relative; z-index:2; max-width:1180px; margin:0 auto; padding:44px 5vw 70px; }
+  /* ---------- TOP RULE ---------- */
+  .rule{ display:flex; flex-wrap:wrap; gap:8px 18px; justify-content:space-between; align-items:baseline;
+         border-bottom:3px solid var(--ink); padding-bottom:11px; margin-bottom:clamp(30px,6vw,58px); }
+  .rule .l{ font-size:11px; font-weight:700; letter-spacing:4.5px; text-transform:uppercase; }
+  .rule .r{ font-size:10px; font-weight:600; letter-spacing:2.2px; text-transform:uppercase; color:var(--ink2); }
 
   /* ---------- HERO ---------- */
-  .top{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:26px; }
-  .tag{ display:inline-block; background:var(--glass); border:1px solid var(--line); color:var(--lime);
-        font-size:10.5px; font-weight:700; letter-spacing:2.6px; text-transform:uppercase; padding:7px 15px; border-radius:100px; }
-  .docref{ font-size:10.5px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
-  .docref b{ color:var(--lime-dim); font-weight:600; }
+  .kicker{ font-size:clamp(11px,2.4vw,13px); font-weight:700; letter-spacing:6px; text-transform:uppercase; margin-bottom:14px; }
+  h1{ font-family:'Fraunces',serif; font-weight:900; line-height:.9; letter-spacing:-3px;
+      font-size:clamp(3rem,12.5vw,8.4rem); text-transform:uppercase; margin-bottom:6px; }
+  h1 .out{ -webkit-text-stroke:2px var(--ink); color:transparent; }
+  .heroline{ display:flex; flex-wrap:wrap; align-items:flex-end; gap:clamp(14px,3vw,40px); margin:clamp(18px,4vw,34px) 0 clamp(26px,5vw,44px); }
+  .bignum{ line-height:.78; }
+  .bignum .up{ font-size:11px; font-weight:700; letter-spacing:4px; text-transform:uppercase; display:block; margin-bottom:6px; }
+  .bignum .n{ font-family:'Fraunces',serif; font-weight:900; letter-spacing:-4px;
+              font-size:clamp(3.6rem,15vw,10rem); display:block; }
+  .bignum .n .cur{ font-size:.5em; vertical-align:.2em; letter-spacing:-2px; }
+  .heroside{ max-width:340px; padding-bottom:clamp(6px,1.5vw,18px); }
+  .heroside p{ font-size:clamp(.9rem,1.8vw,1.05rem); line-height:1.55; font-weight:500; }
+  .heroside p b{ font-weight:700; }
+  .heroside .tapcue{ margin-top:14px; font-size:10px; font-weight:700; letter-spacing:2.6px; text-transform:uppercase;
+                     border:2px solid var(--ink); border-radius:100px; padding:7px 14px; display:inline-block; }
 
-  h1{ font-family:'Fraunces',serif; font-weight:900; line-height:1.02; letter-spacing:-1.5px;
-      font-size:clamp(2.3rem,7vw,4.6rem); margin-bottom:14px; }
-  h1 .accent{ color:var(--lime); }
-  h1 .strike{ position:relative; white-space:nowrap; }
-  .lede{ font-size:clamp(.98rem,1.7vw,1.2rem); color:var(--muted); line-height:1.65; max-width:660px; margin-bottom:8px; }
-  .lede b{ color:var(--white); font-weight:600; }
-  .quote{ font-family:'Fraunces',serif; font-style:italic; font-size:clamp(1rem,1.9vw,1.25rem);
-          color:var(--lime-dim); margin:18px 0 30px; padding-left:18px; border-left:3px solid var(--lime); }
+  /* ---------- TIERS ---------- */
+  .seclabel{ font-size:10px; font-weight:700; letter-spacing:4px; text-transform:uppercase;
+             display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .seclabel::after{ content:''; flex:1; height:2px; background:var(--ink); opacity:.25; }
+  .tiers{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:0;
+          border:3px solid var(--ink); margin-bottom:clamp(30px,5vw,52px); }
+  .tier{ font-family:inherit; text-align:left; color:var(--ink); cursor:pointer; background:transparent;
+         border:none; border-right:2px solid var(--ink); padding:20px 22px 18px; transition:background .2s; }
+  .tier:last-child{ border-right:none; }
+  .tier:hover,.tier:focus-visible{ background:var(--ink); color:var(--lime); outline:none; }
+  .tier .tl{ font-size:9.5px; font-weight:700; letter-spacing:2.4px; text-transform:uppercase; margin-bottom:9px; opacity:.75; }
+  .tier .tv{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.7rem,4.2vw,2.5rem); letter-spacing:-1.5px; line-height:1; }
+  .tier .tv .cur{ font-size:.6em; vertical-align:.1em; }
+  .tier.top{ background:var(--ink); color:var(--lime); }
+  .tier.top:hover{ background:var(--gold); color:#fff; }
+  @media(max-width:700px){ .tier{ border-right:none; border-bottom:2px solid var(--ink); } .tier:last-child{ border-bottom:none; } }
 
-  /* ---------- MONEY TIERS ---------- */
-  .money-label{ font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--lime);
-                font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
-  .money-label::after{ content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--line),transparent); }
-  .tiers{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:12px; }
-  .tier{ position:relative; border:1px solid var(--line); border-radius:20px; padding:24px 24px 22px;
-         background:linear-gradient(160deg,rgba(194,238,69,.10),rgba(194,238,69,.02));
-         overflow:hidden; transition:transform .3s cubic-bezier(.2,.7,.2,1), border-color .3s, box-shadow .3s; }
-  .tier::after{ content:''; position:absolute; inset:0; background:radial-gradient(circle at 100% 0%,rgba(194,238,69,.16),transparent 62%); pointer-events:none; }
-  .tier:hover{ transform:translateY(-5px); border-color:var(--lime); box-shadow:0 18px 44px -20px rgba(194,238,69,.5); }
-  .tier .lvl{ font-size:.72rem; letter-spacing:2.4px; text-transform:uppercase; color:var(--muted); font-weight:700; margin-bottom:12px; }
-  .tier .amt{ font-family:'Fraunces',serif; font-weight:900; letter-spacing:-2px; line-height:1;
-              font-size:clamp(2.4rem,5.4vw,3.5rem); color:var(--lime); text-shadow:0 0 34px rgba(194,238,69,.4); }
-  .tier .amt .r{ font-size:.55em; vertical-align:.14em; margin-right:2px; }
-  .tier .note{ font-size:.78rem; color:var(--muted); margin-top:10px; line-height:1.5; }
-  .tier.t3{ background:linear-gradient(160deg,rgba(255,215,110,.13),rgba(255,215,110,.02)); border-color:rgba(255,215,110,.3); }
-  .tier.t3 .amt{ color:var(--gold); text-shadow:0 0 34px rgba(255,215,110,.4); }
-  .tier.t3::after{ background:radial-gradient(circle at 100% 0%,rgba(255,215,110,.18),transparent 62%); }
-  .tier.t3:hover{ border-color:var(--gold); box-shadow:0 18px 44px -20px rgba(255,215,110,.5); }
-  .tier-foot{ font-size:.82rem; color:var(--muted); line-height:1.6; margin-bottom:34px; }
-  .tier-foot b{ color:var(--white); }
+  /* ---------- FACT GRID ---------- */
+  .facts{ display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:11px; margin-bottom:clamp(28px,5vw,46px); }
+  .fact{ font-family:inherit; text-align:left; color:var(--ink); cursor:pointer;
+         background:rgba(255,255,255,.42); border:2.5px solid var(--ink); border-radius:2px;
+         padding:16px 16px 13px; transition:background .2s, transform .2s, color .2s; position:relative; overflow:hidden; }
+  .fact:hover,.fact:focus-visible{ background:var(--ink); color:var(--lime); transform:translateY(-3px); outline:none; }
+  .fact .fn{ font-family:'Fraunces',serif; font-weight:900; letter-spacing:-2px; line-height:.9;
+             font-size:clamp(2.3rem,6vw,3.2rem); display:block; margin-bottom:9px; }
+  .fact .fn sup{ font-size:.38em; vertical-align:.85em; letter-spacing:0; margin-left:1px; }
+  .fact .fl{ font-size:10px; font-weight:700; letter-spacing:1.8px; text-transform:uppercase; line-height:1.45; }
+  .fact .fx{ font-size:9px; font-weight:700; letter-spacing:2px; text-transform:uppercase; opacity:.55; margin-top:9px; display:block; }
+  .fact.word .fn{ font-size:clamp(1.15rem,3vw,1.5rem); letter-spacing:-.5px; line-height:1.1; margin-bottom:11px; }
 
-  /* ---------- FLOW STRIP ---------- */
-  .flow{ display:flex; flex-wrap:wrap; align-items:stretch; gap:8px; margin-bottom:36px; }
-  .fstep{ flex:1 1 150px; background:var(--glass); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
-  .fstep .fi{ font-size:1.1rem; display:block; margin-bottom:6px; }
-  .fstep b{ display:block; font-size:.86rem; margin-bottom:3px; }
-  .fstep span{ font-size:.74rem; color:var(--muted); line-height:1.45; }
-  .farr{ align-self:center; color:var(--lime); font-size:1.1rem; }
-  @media(max-width:760px){ .farr{ display:none; } }
-
-  /* ---------- TAP TILES ---------- */
-  .tiles{ display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:12px; }
-  .tile{ position:relative; text-align:left; font-family:inherit; color:var(--white); cursor:pointer;
-         background:var(--glass); border:1px solid var(--line); border-radius:17px; padding:18px 18px 16px;
-         transition:transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s, background .25s; overflow:hidden; }
-  .tile:hover,.tile:focus-visible{ transform:translateY(-4px); border-color:var(--lime); background:rgba(194,238,69,.10); outline:none; }
-  .tile .ti{ font-size:1.3rem; display:block; margin-bottom:9px; }
-  .tile h3{ font-size:.94rem; font-weight:700; line-height:1.3; margin-bottom:5px; }
-  .tile p{ font-size:.76rem; color:var(--muted); line-height:1.45; }
-  .tile .cue{ margin-top:11px; font-size:.62rem; letter-spacing:1.8px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; display:flex; align-items:center; gap:5px; }
-  .tile .cue::after{ content:'→'; transition:transform .25s; }
-  .tile:hover .cue::after{ transform:translateX(4px); }
-  .tile.warn{ border-color:rgba(255,107,138,.26); } .tile.warn:hover{ border-color:var(--rose); background:rgba(255,107,138,.09); }
-  .tile.warn .cue{ color:var(--rose); }
-  .tile.pay{ border-color:rgba(255,215,110,.3); } .tile.pay:hover{ border-color:var(--gold); background:rgba(255,215,110,.09); }
-  .tile.pay .cue{ color:var(--gold); }
-
-  .footline{ margin-top:34px; padding-top:20px; border-top:1px solid rgba(255,255,255,.07);
-             display:flex; flex-wrap:wrap; gap:12px 26px; justify-content:space-between; align-items:center;
-             font-size:.76rem; color:var(--muted); letter-spacing:.4px; }
-  .footline b{ color:var(--lime-dim); }
+  /* ---------- FOOT ---------- */
+  .foot{ border-top:3px solid var(--ink); padding-top:14px; display:flex; flex-wrap:wrap;
+         gap:8px 22px; justify-content:space-between; font-size:10px; font-weight:600;
+         letter-spacing:2px; text-transform:uppercase; color:var(--ink2); }
 
   /* ---------- MODAL ---------- */
-  .scrim{ position:fixed; inset:0; background:rgba(3,5,2,.8); backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
-          z-index:300; opacity:0; pointer-events:none; transition:opacity .32s; display:flex; align-items:center; justify-content:center; padding:22px; }
+  .scrim{ position:fixed; inset:0; background:rgba(11,13,7,.72); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px);
+          z-index:300; opacity:0; pointer-events:none; transition:opacity .28s; display:flex; align-items:center; justify-content:center; padding:20px; }
   .scrim.on{ opacity:1; pointer-events:auto; }
-  .sheet{ width:100%; max-width:660px; max-height:86vh; overflow-y:auto; background:linear-gradient(165deg,#111607,#080a05);
-          border:1px solid var(--line); border-radius:24px; padding:30px 32px 28px; position:relative;
-          transform:translateY(26px) scale(.97); opacity:0; transition:transform .38s cubic-bezier(.2,.8,.2,1), opacity .3s; }
+  .sheet{ width:100%; max-width:610px; max-height:86vh; overflow-y:auto; background:var(--paper); color:var(--ink);
+          border:3px solid var(--ink); border-radius:2px; padding:30px 32px 26px; position:relative;
+          transform:translateY(22px) scale(.98); opacity:0; transition:transform .34s cubic-bezier(.2,.8,.2,1), opacity .28s;
+          box-shadow:14px 14px 0 rgba(11,13,7,.9); }
   .scrim.on .sheet{ transform:none; opacity:1; }
-  .sheet::-webkit-scrollbar{ width:7px; } .sheet::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
-  .sheet .sicon{ font-size:1.9rem; display:block; margin-bottom:10px; }
-  .sheet h2{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.4rem,3.4vw,2rem); line-height:1.12; margin-bottom:8px; }
-  .sheet h2 span{ color:var(--lime); }
-  .sheet .sub{ font-size:.9rem; color:var(--muted); line-height:1.6; margin-bottom:18px; }
-  .sheet .sub b{ color:var(--white); }
-  .sheet ul{ list-style:none; display:flex; flex-direction:column; gap:9px; margin-bottom:6px; }
-  .sheet li{ font-size:.88rem; color:var(--muted); line-height:1.55; padding-left:24px; position:relative; }
-  .sheet li b{ color:var(--white); font-weight:600; }
-  .sheet li::before{ content:'✓'; position:absolute; left:0; top:0; color:var(--lime); font-weight:700; font-size:.85rem; }
-  .sheet ul.no li::before{ content:'✕'; color:var(--rose); }
-  .sheet ul.dot li::before{ content:'●'; color:var(--lime-dim); font-size:.6rem; top:.32em; }
-  .callout{ margin-top:18px; background:var(--glass); border:1px solid var(--line); border-left:3px solid var(--lime);
-            border-radius:0 12px 12px 0; padding:13px 16px; font-size:.84rem; color:var(--muted); line-height:1.6; }
-  .callout b{ color:var(--white); } .callout.gold{ border-left-color:var(--gold); }
-  .callout .ch{ display:block; font-size:.64rem; letter-spacing:2px; text-transform:uppercase; color:var(--lime); font-weight:700; margin-bottom:5px; }
-  .callout.gold .ch{ color:var(--gold); }
-  .sechead{ font-size:.66rem; letter-spacing:2.4px; text-transform:uppercase; color:var(--lime); font-weight:700; margin:20px 0 9px; }
-  .sechead.rose{ color:var(--rose); }
-  .close{ position:absolute; top:16px; right:18px; width:34px; height:34px; border-radius:50%;
-          background:var(--glass); border:1px solid var(--line); color:var(--white); font-size:1.1rem; line-height:1;
-          cursor:pointer; font-family:inherit; transition:background .2s,border-color .2s; }
-  .close:hover{ background:rgba(255,107,138,.16); border-color:var(--rose); }
-  .esc{ margin-top:18px; font-size:.64rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
-
-  /* payout timeline inside sheet */
-  .tl{ display:flex; flex-direction:column; gap:0; margin:6px 0 4px; }
-  .tlrow{ display:flex; gap:14px; align-items:flex-start; }
-  .tlrow .tn{ flex-shrink:0; width:30px; height:30px; border-radius:50%; background:var(--glass);
-              border:1px solid var(--lime); color:var(--lime); font-family:'Fraunces',serif; font-weight:900;
-              font-size:.82rem; display:flex; align-items:center; justify-content:center; }
-  .tlrow .tt{ padding-bottom:14px; }
-  .tlrow .tt b{ display:block; font-size:.9rem; margin-bottom:2px; color:var(--white); }
-  .tlrow .tt span{ font-size:.8rem; color:var(--muted); line-height:1.5; }
+  .sheet::-webkit-scrollbar{ width:8px; } .sheet::-webkit-scrollbar-thumb{ background:var(--ink); }
+  .sheet .snum{ font-family:'Fraunces',serif; font-weight:900; font-size:2.4rem; line-height:.9; letter-spacing:-2px; margin-bottom:4px; }
+  .sheet .skick{ font-size:9.5px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--ink3); margin-bottom:12px; }
+  .sheet h2{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.3rem,3.2vw,1.8rem); line-height:1.14; margin-bottom:10px; }
+  .sheet .sub{ font-size:.9rem; line-height:1.62; color:var(--ink2); margin-bottom:16px; }
+  .sheet .sub b{ color:var(--ink); font-weight:700; }
+  .sechead{ font-size:9.5px; font-weight:700; letter-spacing:2.4px; text-transform:uppercase;
+            border-bottom:2px solid var(--ink); padding-bottom:5px; margin:20px 0 11px; }
+  .sechead.no{ color:#a33; border-color:#a33; }
+  ul{ list-style:none; display:flex; flex-direction:column; gap:8px; }
+  li{ font-size:.87rem; line-height:1.55; color:var(--ink2); padding-left:24px; position:relative; }
+  li b{ color:var(--ink); font-weight:700; }
+  li::before{ content:'→'; position:absolute; left:0; font-weight:700; color:var(--ink); }
+  ul.no li::before{ content:'✕'; color:#a33; }
+  .tl{ display:flex; flex-direction:column; }
+  .tlr{ display:flex; gap:13px; align-items:flex-start; }
+  .tlr .tn{ flex-shrink:0; width:27px; height:27px; border:2px solid var(--ink); border-radius:50%;
+            display:grid; place-items:center; font-family:'Fraunces',serif; font-weight:900; font-size:.78rem; }
+  .tlr .tt{ padding-bottom:13px; }
+  .tlr .tt b{ display:block; font-size:.87rem; margin-bottom:2px; }
+  .tlr .tt span{ font-size:.8rem; color:var(--ink2); line-height:1.5; }
+  .callout{ margin-top:18px; background:var(--lime); border:2.5px solid var(--ink); padding:13px 16px; font-size:.85rem; line-height:1.58; }
+  .callout b{ font-weight:700; }
+  .callout .ch{ display:block; font-size:9px; font-weight:700; letter-spacing:2.4px; text-transform:uppercase; margin-bottom:5px; }
+  .close{ position:absolute; top:14px; right:16px; width:34px; height:34px; background:transparent;
+          border:2.5px solid var(--ink); color:var(--ink); font-size:1rem; cursor:pointer; font-family:inherit;
+          transition:background .2s,color .2s; }
+  .close:hover{ background:var(--ink); color:var(--lime); }
+  .esc{ margin-top:18px; font-size:9px; font-weight:700; letter-spacing:2.4px; text-transform:uppercase; color:var(--ink3); }
 
   @media(max-width:600px){
-    .wrap{ padding:32px 5vw 56px; }
-    .sheet{ padding:26px 22px 24px; max-height:88vh; border-radius:20px; }
-    .tiles{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
-    .tile{ padding:15px 14px 13px; border-radius:14px; }
+    .poster{ padding:26px 6vw 60px; }
+    .facts{ grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:9px; }
+    .sheet{ padding:24px 20px 22px; box-shadow:8px 8px 0 rgba(11,13,7,.9); }
+    .heroside{ max-width:none; }
   }
-
   @media print{
-    body{ background:#fff; color:#000; } .blob,.noise,.scrim{ display:none!important; }
-    .tile,.tier,.fstep{ break-inside:avoid; border-color:#bbb; background:#fafafa; }
-    .tier .amt{ color:#5b7d00; text-shadow:none; } h1 .accent{ color:#5b7d00; }
+    body{ background:#fff; } body::before,body::after,.scrim{ display:none !important; }
+    .fact,.tier{ break-inside:avoid; }
   }
 </style>
 </head>
 <body>
-<div class="noise"></div><div class="blob b1"></div><div class="blob b2"></div>
+<div class="poster">
 
-<div class="wrap">
-  <div class="top">
-    <span class="tag">GrowthSchool · People Policy Manual</span>
-    <span class="docref"><b>GS-POP-POL-2602</b> · v1.0 · effective 01 Aug 2026 · Internal–Confidential</span>
+  <div class="rule">
+    <span class="l">GrowthSchool · Employee Referral Program</span>
+    <span class="r">GS-POP-POL-2602 · v1.0 · effective 01 Aug 2026 · Internal</span>
   </div>
 
-  <h1>Great people know<br/>great people.<br/><span class="accent">We pay you to introduce us.</span></h1>
+  <div class="kicker">Exceptional people know exceptional people</div>
+  <h1>Refer.<br/><span class="out">They join.</span><br/>You get paid.</h1>
 
-  <p class="lede">The Employee Referral Program turns your network into our next hire — and puts
-    <b>real money</b> in your salary account when it works out. Everything below is the actual policy.
-    <b>Tap any card</b> to open the detail.</p>
-
-  <p class="quote">"GrowthSchool believes that exceptional people know exceptional people."</p>
-
-  <div class="money-label">What you earn</div>
-  <div class="tiers">
-    <div class="tier">
-      <div class="lvl">Individual Contributor</div>
-      <div class="amt"><span class="r">₹</span><span class="count" data-to="50000">50,000</span></div>
-      <div class="note">Any IC-level permanent role you refer successfully.</div>
+  <div class="heroline">
+    <div class="bignum">
+      <span class="up">Up to</span>
+      <span class="n"><span class="cur">₹</span><span id="count">1,50,000</span></span>
     </div>
-    <div class="tier">
-      <div class="lvl">Manager → Director</div>
-      <div class="amt"><span class="r">₹</span><span class="count" data-to="100000">1,00,000</span></div>
-      <div class="note">Mid-to-senior leadership hires.</div>
-    </div>
-    <div class="tier t3">
-      <div class="lvl">Director and above</div>
-      <div class="amt"><span class="r">₹</span><span class="count" data-to="150000">1,50,000</span></div>
-      <div class="note">Senior leadership. The biggest payout in the policy.</div>
+    <div class="heroside">
+      <p>One introduction. One hire. <b>Real money in your salary account.</b> Everything on this page is the actual policy — nothing is simplified away.</p>
+      <span class="tapcue">Tap anything to open it ↓</span>
     </div>
   </div>
-  <p class="tier-foot">The reward is set by <b>the level of the position the candidate accepts at the time of joining</b> —
-    not the role they were originally referred for.</p>
 
-  <div class="money-label">How it works</div>
-  <div class="flow">
-    <div class="fstep"><span class="fi">📤</span><b>You refer</b><span>Submit through the official channel, before TA contacts them.</span></div>
-    <div class="farr">→</div>
-    <div class="fstep"><span class="fi">⚖️</span><b>They're assessed</b><span>Same process as any external candidate. Merit only.</span></div>
-    <div class="farr">→</div>
-    <div class="fstep"><span class="fi">🎉</span><b>They join</b><span>Offer accepted, candidate starts at GrowthSchool.</span></div>
-    <div class="farr">→</div>
-    <div class="fstep"><span class="fi">📆</span><b>90 days pass</b><span>Continuous employment, in good standing.</span></div>
-    <div class="farr">→</div>
-    <div class="fstep"><span class="fi">💰</span><b>You get paid</b><span>Through payroll, in the next salary cycle.</span></div>
+  <div class="seclabel">What you earn</div>
+  <div class="tiers" id="tiers">
+    <button class="tier" data-id="reward"><span class="tl">Individual Contributor</span><span class="tv"><span class="cur">₹</span>50,000</span></button>
+    <button class="tier" data-id="reward"><span class="tl">Manager → Director</span><span class="tv"><span class="cur">₹</span>1,00,000</span></button>
+    <button class="tier top" data-id="reward"><span class="tl">Director &amp; above</span><span class="tv"><span class="cur">₹</span>1,50,000</span></button>
   </div>
 
-  <div class="money-label">Tap for the details</div>
-  <div class="tiles" id="tiles"></div>
+  <div class="seclabel">The whole policy, in eight numbers</div>
+  <div class="facts" id="facts"></div>
 
-  <div class="footline">
-    <span>Policy Owner <b>People Operations (POPS)</b> · Reviewed by <b>Chief Business Officer</b> · Approved by <b>Founder &amp; CEO</b></span>
-    <span>Next review: <b>12 months from effective date</b></span>
+  <div class="foot">
+    <span>Owner · People Operations</span>
+    <span>Approved · Founder &amp; CEO</span>
+    <span>Review · Annually</span>
   </div>
 </div>
 
@@ -221,242 +184,158 @@
 </div>
 
 <script>
-const DATA = [
-  {
-    id:'who', icon:'✅', title:'Who can refer', teaser:'Confirmed full-time employees, every location, every function.',
-    h:'Who can <span>refer</span>',
-    sub:'The programme is open to confirmed full-time employees of GrowthSchool, for permanent positions approved through the workforce planning process.',
-    lists:[
-      {head:'You can refer if you are', cls:'', items:['A <b>confirmed full-time employee</b>','Based at <b>any office location</b>','Working in <b>any business function</b>']},
-      {head:'The policy does not cover', cls:'no', items:['Interns','Apprentices','Consultants','Contractors','Temporary employees','Recruitment agencies','External sourcing partners']}
-    ],
-    callout:{h:'Remember', t:'A referral increases a candidate\'s <b>visibility</b> — it does not guarantee an interview or employment.'}
-  },
-  {
-    id:'noreward', icon:'🚫', title:'Who can\'t earn a reward', teaser:'Four situations where no referral bonus is payable.', cls:'warn',
-    h:'Who cannot <span>earn the reward</span>',
-    sub:'You may still recommend someone, but a referral reward will not be paid in these cases:',
-    lists:[
-      {head:'Not eligible for the reward', cls:'no', items:[
-        '<b>Talent Acquisition team members</b> hiring for that specific position',
-        '<b>Hiring Managers</b> referring candidates for positions reporting directly to them',
-        'Employees <b>serving notice period</b>',
-        '<b>Contractors, interns or consultants</b>'
-      ]}
-    ],
-    callout:{h:'Why this exists', t:'It keeps the process fair — nobody should be rewarded for a hiring decision they themselves control.'}
-  },
-  {
-    id:'submit', icon:'📤', title:'How to submit a referral', teaser:'Official channel, five details, before TA makes contact.',
-    h:'How to <span>submit</span> a referral',
-    sub:'Referrals must be submitted through <b>the official referral channel designated by the People Operations team</b>.',
-    lists:[
-      {head:'A valid referral includes', cls:'', items:[
-        'Candidate <b>resume</b>',
-        '<b>LinkedIn profile</b> (where available)',
-        '<b>Contact details</b>',
-        'The <b>position</b> being referred for',
-        'Your <b>relationship</b> with the candidate <i>(optional)</i>'
-      ]}
-    ],
-    callout:{h:'Timing is everything', t:'Only referrals submitted <b>before the Talent Acquisition team makes first contact</b> with the candidate are considered valid. Refer early.'}
-  },
-  {
-    id:'valid', icon:'⏱', title:'What makes a referral valid', teaser:'The 6-month rule, and who wins if two people refer.',
-    h:'When is a referral <span>valid</span>?',
-    sub:'A referral counts only when <b>all four</b> of these are true:',
-    lists:[
-      {head:'All four must hold', cls:'', items:[
-        'The candidate <b>has not applied</b> to GrowthSchool in the previous <b>six (6) months</b>',
-        'The candidate <b>has not been interviewed</b> by GrowthSchool in the previous <b>six (6) months</b>',
-        'The candidate <b>was not already sourced</b> by the Talent Acquisition team before your submission',
-        'The referral is received <b>before any recruitment engagement begins</b>'
-      ]}
-    ],
-    callout:{h:'Two people referred the same candidate?', t:'The <b>first valid referral recorded in Keka</b> (our Applicant Tracking System) is recognised. The decision of the People Operations team is final.'}
-  },
-  {
-    id:'payout', icon:'💰', title:'When the money is released', teaser:'Five conditions — including 90 days of continuous employment.', cls:'pay',
-    h:'When you <span>actually get paid</span>',
-    sub:'The referral reward becomes payable only when <b>every one</b> of these conditions is satisfied:',
+const FACTS = [
+  { id:'reward', n:'3', kick:'Reward structure', label:'Reward tiers, by the role they accept',
+    h:'What you earn, and how the tier is set',
+    sub:'The referral reward is determined by <b>the level of the position the candidate accepts at the time of joining</b> — not the role you originally referred them for.',
+    lists:[{head:'The three tiers', items:[
+      'Individual Contributor — <b>₹50,000</b>',
+      'Manager to Director — <b>₹1,00,000</b>',
+      'Director and above — <b>₹1,50,000</b>']}],
+    callout:{h:'Scope', t:'Applies to <b>all confirmed full-time employees</b> and <b>all permanent positions</b> approved through the workforce planning process.'} },
+
+  { id:'payout', n:'90', kick:'The waiting period', label:'Days they must stay before you are paid',
+    h:'When the money is actually released',
+    sub:'The reward becomes payable only when <b>every one</b> of these five conditions is satisfied:',
     timeline:[
-      {n:'1', b:'The candidate joins', s:'They accept the offer and start at GrowthSchool.'},
-      {n:'2', b:'90 calendar days of continuous employment', s:'The new joiner completes ninety (90) calendar days without a break in service.'},
-      {n:'3', b:'They remain in good standing', s:'No issues affecting their employment status.'},
-      {n:'4', b:'You are still employed here', s:'The referring employee must be actively employed with GrowthSchool on the payout date.'},
-      {n:'5', b:'No disciplinary action', s:'No disciplinary action affecting employment exists against either employee.'}
-    ],
-    callout:{h:'The short version', cls:'gold', t:'They join → they stay 90 days → you\'re still here → the money is yours.'}
-  },
-  {
-    id:'howpaid', icon:'🏦', title:'How you get paid', teaser:'Through payroll, next salary cycle, taxable.', cls:'pay',
-    h:'How the money <span>reaches you</span>',
-    sub:'No separate process, no claim form chasing — it comes through your salary.',
-    lists:[
-      {head:'Payment mechanics', cls:'dot', items:[
-        'Processed <b>through payroll</b>',
-        'Paid in the <b>salary cycle immediately following</b> completion of the eligibility / probation period',
-        'Subject to <b>applicable statutory deductions, including income tax</b>'
-      ]}
-    ],
-    callout:{h:'Plan for it', cls:'gold', t:'The amounts in the policy are <b>gross</b> figures. What lands in your account is after statutory deductions.'}
-  },
-  {
-    id:'merit', icon:'⚖️', title:'The process stays merit-based', teaser:'Your referral gets visibility — never special treatment.',
-    h:'Referrals never replace <span>merit</span>',
-    sub:'All referred candidates go through <b>the same recruitment process applicable to external candidates</b>.',
-    lists:[
-      {head:'Referral status does NOT influence', cls:'no', items:[
-        'Interview standards',
-        'Assessment criteria',
-        'Hiring decisions',
-        'Compensation decisions'
-      ]}
-    ],
-    callout:{h:'Guiding principles', t:'The programme runs on four principles: <b>hire exceptional talent</b>, <b>maintain fairness</b>, <b>reward successful referrals</b>, and <b>ensure referrals never replace merit-based hiring</b>.'}
-  },
-  {
-    id:'ownership', icon:'🔒', title:'Referral ownership', teaser:'Non-transferable — and it lapses if you leave.', cls:'warn',
-    h:'Who <span>owns</span> a referral',
-    sub:'Ownership of a referral is fixed to the person who submitted it.',
-    lists:[
-      {head:'The two rules', cls:'dot', items:[
-        'Referral ownership <b>cannot be transferred</b> between employees',
-        'If the referring employee <b>leaves the organisation before becoming eligible for payout</b>, the referral reward <b>lapses automatically</b>'
-      ]}
-    ],
-    callout:{h:'Read that again', t:'You must still be actively employed on the payout date. Leaving before the 90-day milestone completes means the reward is forfeited.'}
-  },
-  {
-    id:'yours', icon:'🙋', title:'Your responsibilities', teaser:'Five things expected of every referring employee.',
-    h:'What\'s expected <span>of you</span>',
-    sub:'Employees participating in the Referral Program are expected to:',
-    lists:[
-      {head:'', cls:'', items:[
-        'Refer candidates you <b>genuinely recommend</b>',
-        'Obtain the candidate\'s <b>consent</b> before sharing their personal information',
-        'Provide <b>accurate candidate details</b>',
-        '<b>Maintain confidentiality</b> throughout the hiring process',
-        '<b>Avoid influencing</b> interview outcomes'
-      ]}
-    ],
-    callout:{h:'The spirit of it', t:'Refer people you would happily work beside. Quality of referral is what makes this programme worth running.'}
-  },
-  {
-    id:'pops', icon:'🤝', title:'What People Ops owes you', teaser:'Acknowledgement within 2 business days, and more.',
-    h:'What <span>People Operations</span> commits to',
+      {n:'1',b:'The candidate joins',s:'They accept the offer and start at GrowthSchool.'},
+      {n:'2',b:'90 calendar days of continuous employment',s:'The new joiner completes ninety calendar days without a break in service.'},
+      {n:'3',b:'They remain in good standing',s:'No issues affecting their employment status.'},
+      {n:'4',b:'You are still employed here',s:'You must be actively employed with GrowthSchool on the payout date.'},
+      {n:'5',b:'No disciplinary action',s:'None affecting employment, against either of you.'}],
+    lists:[{head:'How it reaches you', items:[
+      'Processed <b>through payroll</b>',
+      'Paid in the <b>salary cycle immediately following</b> completion of the eligibility / probation period',
+      'Subject to <b>applicable statutory deductions, including income tax</b>']}],
+    callout:{h:'The short version', t:'They join → they stay 90 days → you\'re still here → the money is yours.'} },
+
+  { id:'fresh', n:'6', kick:'Candidate freshness', label:'Months they must not have applied or interviewed',
+    h:'What makes a referral valid',
+    sub:'A referral counts only when <b>all four</b> of these are true:',
+    lists:[{head:'All four must hold', items:[
+      'The candidate <b>has not applied</b> to GrowthSchool in the previous <b>six (6) months</b>',
+      'The candidate <b>has not been interviewed</b> by GrowthSchool in the previous <b>six (6) months</b>',
+      'The candidate <b>was not already sourced</b> by Talent Acquisition before your submission',
+      'The referral is received <b>before any recruitment engagement begins</b>']}],
+    callout:{h:'Refer early', t:'Only referrals submitted <b>before Talent Acquisition makes first contact</b> with the candidate are valid.'} },
+
+  { id:'first', n:'1', sup:'st', kick:'Duplicate referrals', label:'Valid referral recorded wins the reward',
+    h:'Who owns a referral',
+    sub:'Where multiple employees refer the same candidate, the <b>first valid referral recorded in Keka</b> (our Applicant Tracking System) is recognised. The decision of the People Operations team is final.',
+    lists:[{head:'Two rules on ownership', items:[
+      'Referral ownership <b>cannot be transferred</b> between employees',
+      'If you <b>leave the organisation before becoming eligible for payout</b>, the reward <b>lapses automatically</b>']}],
+    callout:{h:'Read that twice', t:'You must still be actively employed on the payout date. Leaving before the 90-day milestone completes means the reward is forfeited.'} },
+
+  { id:'submit', n:'5', kick:'Submission', label:'Things a valid referral must include',
+    h:'How to submit a referral',
+    sub:'Referrals go through <b>the official referral channel designated by the People Operations team</b>. A valid referral includes:',
+    lists:[{head:'The five items', items:[
+      'Candidate <b>resume</b>',
+      '<b>LinkedIn profile</b> (where available)',
+      '<b>Contact details</b>',
+      'The <b>position</b> being referred for',
+      'Your <b>relationship</b> with the candidate <i>(optional)</i>']},
+      {head:'What is expected of you', items:[
+      'Refer candidates you <b>genuinely recommend</b>',
+      'Obtain the candidate\'s <b>consent</b> before sharing their personal information',
+      'Provide <b>accurate candidate details</b>',
+      '<b>Maintain confidentiality</b> throughout the hiring process',
+      '<b>Avoid influencing</b> interview outcomes']}] },
+
+  { id:'merit', n:'0', kick:'The hiring bar', label:'Effect a referral has on hiring standards',
+    h:'Referrals never replace merit',
+    sub:'All referred candidates go through <b>the same recruitment process applicable to external candidates</b>. A referral increases a candidate\'s visibility — it does not guarantee an interview or employment.',
+    lists:[{head:'Referral status does NOT influence', cls:'no', items:[
+      'Interview standards','Assessment criteria','Hiring decisions','Compensation decisions']}],
+    callout:{h:'Four guiding principles', t:'Hire exceptional talent · maintain fairness in hiring · reward employees for successful referrals · <b>ensure referrals never replace merit-based hiring</b>.'} },
+
+  { id:'ack', n:'2', kick:'Our commitment', label:'Business days to acknowledge your referral',
+    h:'What People Operations owes you',
     sub:'The programme runs both ways. The People Operations team will:',
+    lists:[{head:'Their commitments', items:[
+      '<b>Acknowledge referrals within two (2) business days</b>',
+      'Ensure <b>timely review</b> of referrals',
+      'Maintain <b>transparency in communication</b>',
+      '<b>Preserve candidate confidentiality</b>',
+      '<b>Administer referral payouts</b> in accordance with this policy']}],
+    callout:{h:'Disputes', t:'Interpretation rests solely with People Operations. Disputes on eligibility, ownership or reward payments are reviewed by the <b>Chief Business Officer</b>, whose decision is final.'} },
+
+  { id:'who', word:'Who can<br/>and can\'t', kick:'Eligibility', label:'Who may refer — and who cannot earn',
+    h:'Who can refer, who cannot earn',
+    sub:'Open to <b>confirmed full-time employees</b>, across <b>all office locations</b> and <b>every business function</b>.',
     lists:[
-      {head:'', cls:'', items:[
-        '<b>Acknowledge referrals within two (2) business days</b>',
-        'Ensure <b>timely review</b> of referrals',
-        'Maintain <b>transparency in communication</b>',
-        '<b>Preserve candidate confidentiality</b>',
-        '<b>Administer referral payouts</b> in accordance with this policy'
-      ]}
-    ],
-    callout:{h:'If something is unclear', t:'Interpretation of this policy rests solely with the People Operations team. Disputes on eligibility, ownership or reward payments are reviewed by the <b>Chief Business Officer</b>, whose decision is final.'}
-  },
-  {
-    id:'exceptions', icon:'⭐', title:'Exceptions & special cases', teaser:'When rewards can be modified — and who signs off.',
-    h:'When the reward can <span>change</span>',
-    sub:'People Operations reserves the right to <b>modify referral rewards</b> for certain hiring situations:',
+      {head:'Not covered by the policy', cls:'no', items:['Interns','Apprentices','Consultants','Contractors','Temporary employees','Recruitment agencies','External sourcing partners']},
+      {head:'Cannot receive a referral reward', cls:'no', items:[
+        '<b>Talent Acquisition</b> members hiring for that specific position',
+        '<b>Hiring Managers</b> referring for roles reporting directly to them',
+        'Employees <b>serving notice period</b>',
+        '<b>Contractors, interns or consultants</b>']}],
+    callout:{h:'Why', t:'It keeps the process fair — nobody is rewarded for a hiring decision they themselves control.'} },
+
+  { id:'fine', word:'The fine<br/>print', kick:'Exceptions &amp; record', label:'Exceptions, interpretation, document control',
+    h:'Exceptions and the policy record',
+    sub:'People Operations may <b>modify referral rewards</b> for certain hiring situations. Any exception requires <b>prior approval from the Founder &amp; CEO or the Chief Business Officer</b>.',
     lists:[
-      {head:'Eligible for modified rewards', cls:'dot', items:[
-        '<b>Critical hiring campaigns</b>',
-        '<b>Confidential leadership hiring</b>',
-        '<b>Time-sensitive hiring initiatives</b>',
-        '<b>Strategic business requirements</b>'
-      ]}
-    ],
-    callout:{h:'Approval required', t:'Any exception requires <b>prior approval from the Founder &amp; CEO or the Chief Business Officer</b>.'}
-  },
-  {
-    id:'record', icon:'📄', title:'Policy record', teaser:'Document number, version, owner, review cycle.',
-    h:'The <span>policy record</span>',
-    sub:'For reference when you cite or share this policy internally.',
-    lists:[
-      {head:'Document control', cls:'dot', items:[
+      {head:'Eligible for modified rewards', items:['<b>Critical hiring campaigns</b>','<b>Confidential leadership hiring</b>','<b>Time-sensitive hiring initiatives</b>','<b>Strategic business requirements</b>']},
+      {head:'Document control', items:[
         'Document number — <b>GS-POP-POL-2602</b>',
         'Version — <b>1.0</b> (Initial Release)',
         'Effective date — <b>01/08/2026</b>',
-        'Policy owner — <b>POPS (People Operations System)</b> / Head – People Operations',
-        'Reviewed by — <b>Chief Business Officer</b>',
-        'Approved by — <b>Founder &amp; CEO</b>',
-        'Next review — <b>12 months from the effective date</b>',
-        'Classification — <b>Internal – Confidential</b>'
-      ]}
-    ],
-    callout:{h:'Review cycle', t:'Reviewed <b>annually</b>, or earlier if business strategy, organisational structure or applicable laws change.'}
-  }
+        'Policy owner — <b>People Operations</b>',
+        'Reviewed by — <b>Chief Business Officer</b> · Approved by — <b>Founder &amp; CEO</b>',
+        'Classification — <b>Internal – Confidential</b>',
+        'Next review — <b>12 months from the effective date</b>, or earlier if business strategy, structure or law changes']}] }
 ];
 
-/* ---- render tiles ---- */
-const tilesEl = document.getElementById('tiles');
-tilesEl.innerHTML = DATA.map(d => `
-  <button class="tile ${d.cls||''}" data-id="${d.id}">
-    <span class="ti">${d.icon}</span>
-    <h3>${d.title}</h3>
-    <p>${d.teaser}</p>
-    <span class="cue">Tap for info</span>
+document.getElementById('facts').innerHTML = FACTS.filter(f=>f.id!=='reward').map(f => `
+  <button class="fact ${f.word?'word':''}" data-id="${f.id}">
+    <span class="fn">${f.word ? f.word : f.n + (f.sup?`<sup>${f.sup}</sup>`:'')}</span>
+    <span class="fl">${f.label}</span>
+    <span class="fx">Tap for detail →</span>
   </button>`).join('');
 
-/* ---- modal ---- */
 const scrim = document.getElementById('scrim');
-const sheet = document.getElementById('sheet');
 const body  = document.getElementById('sheetBody');
 let lastFocus = null;
 
 function open(id){
-  const d = DATA.find(x => x.id === id); if(!d) return;
-  let html = `<span class="sicon">${d.icon}</span><h2>${d.h}</h2><p class="sub">${d.sub}</p>`;
-  if(d.timeline){
-    html += '<div class="tl">' + d.timeline.map(t =>
-      `<div class="tlrow"><div class="tn">${t.n}</div><div class="tt"><b>${t.b}</b><span>${t.s}</span></div></div>`).join('') + '</div>';
-  }
-  (d.lists||[]).forEach(l => {
-    if(l.head) html += `<div class="sechead ${l.cls==='no'?'rose':''}">${l.head}</div>`;
-    html += `<ul class="${l.cls||''}">` + l.items.map(i => `<li>${i}</li>`).join('') + '</ul>';
+  const d = FACTS.find(f=>f.id===id); if(!d) return;
+  let h = `<div class="skick">${d.kick}</div>`;
+  if(!d.word) h += `<div class="snum">${d.n}${d.sup?`<sup style="font-size:.4em;vertical-align:.8em">${d.sup}</sup>`:''}</div>`;
+  h += `<h2>${d.h}</h2><p class="sub">${d.sub}</p>`;
+  if(d.timeline) h += '<div class="tl">' + d.timeline.map(t=>
+    `<div class="tlr"><div class="tn">${t.n}</div><div class="tt"><b>${t.b}</b><span>${t.s}</span></div></div>`).join('') + '</div>';
+  (d.lists||[]).forEach(l=>{
+    h += `<div class="sechead ${l.cls==='no'?'no':''}">${l.head}</div>`;
+    h += `<ul class="${l.cls||''}">` + l.items.map(i=>`<li>${i}</li>`).join('') + '</ul>';
   });
-  if(d.callout) html += `<div class="callout ${d.callout.cls||''}"><span class="ch">${d.callout.h}</span>${d.callout.t}</div>`;
-  body.innerHTML = html;
-  sheet.scrollTop = 0;
-  scrim.classList.add('on');
-  document.body.style.overflow = 'hidden';
+  if(d.callout) h += `<div class="callout"><span class="ch">${d.callout.h}</span>${d.callout.t}</div>`;
+  body.innerHTML = h;
+  document.getElementById('sheet').scrollTop = 0;
+  scrim.classList.add('on'); document.body.style.overflow='hidden';
   setTimeout(()=>document.getElementById('closeBtn').focus(), 60);
 }
-function close(){
-  scrim.classList.remove('on');
-  document.body.style.overflow = '';
-  if(lastFocus) lastFocus.focus();
-}
-tilesEl.addEventListener('click', e => {
-  const t = e.target.closest('.tile'); if(!t) return;
+function close(){ scrim.classList.remove('on'); document.body.style.overflow=''; if(lastFocus) lastFocus.focus(); }
+
+document.addEventListener('click', e=>{
+  const t = e.target.closest('.fact, .tier'); if(!t) return;
   lastFocus = t; open(t.dataset.id);
 });
 document.getElementById('closeBtn').addEventListener('click', close);
-scrim.addEventListener('click', e => { if(e.target === scrim) close(); });
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && scrim.classList.contains('on')) close(); });
+scrim.addEventListener('click', e=>{ if(e.target===scrim) close(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && scrim.classList.contains('on')) close(); });
 
-/* ---- count-up on the reward amounts (fail-safe: never stuck at 0) ---- */
-function fmtINR(n){ return n.toLocaleString('en-IN'); }
-function runCount(el){
-  if(el.dataset.done) return; el.dataset.done = '1';
-  const to = +el.dataset.to, dur = 1100, t0 = performance.now();
+/* count-up on the hero number */
+(function(){
+  const el = document.getElementById('count'), to = 150000, dur = 1200, t0 = performance.now();
+  el.textContent = '0';
   (function tick(now){
-    const p = Math.min(1, (now - t0) / dur);
-    const eased = 1 - Math.pow(1 - p, 3);
-    el.textContent = fmtINR(Math.round(to * eased));
-    if(p < 1) requestAnimationFrame(tick);
+    const p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3);
+    el.textContent = Math.round(to*e).toLocaleString('en-IN');
+    if(p<1) requestAnimationFrame(tick);
   })(t0);
-}
-const counts = [...document.querySelectorAll('.count')];
-const io = new IntersectionObserver(entries => {
-  entries.forEach(en => { if(en.isIntersecting){ runCount(en.target); io.unobserve(en.target); } });
-}, { threshold: .35 });
-counts.forEach(el => { el.textContent = '0'; io.observe(el); });
-// safety net: if anything hasn't animated within 2.4s (offscreen, print, no-IO), snap to final
-setTimeout(() => counts.forEach(el => { if(!el.dataset.done){ el.dataset.done='1'; el.textContent = fmtINR(+el.dataset.to); } }), 2400);
+})();
 </script>
 </body>
 </html>

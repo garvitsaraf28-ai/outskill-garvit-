@@ -6,6 +6,6 @@
     "api/*.js": { "maxDuration": 60 }
   },
   "rewrites": [
-    { "source": "/((?!api/|saraf-ai-pitch|induction|day1|leave|posh|programs|referral|accelerator-india|accelerator-international|accelerator-engineering|schedule).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|saraf-ai-pitch|induction|day1|leave|posh|programs|referral|accelerator-india|accelerator-international|accelerator-engineering|schedule|schedule-joiner|schedule-trainer).*)", "destination": "/index.html" }
   ]
 }

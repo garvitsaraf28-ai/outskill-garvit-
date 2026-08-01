@@ -47,8 +47,11 @@ def hm(m):
 STATS = dict(days=2, sessions=len(sessions), speakers=len(speakers), total=hm(total_min))
 
 # ---------------------------------------------------------------- shared CSS
+FONTLINK = ('<link rel="preconnect" href="https://fonts.googleapis.com"/>\n'
+            '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>\n'
+            '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,900;1,9..144,600&display=swap"/>')
+
 CSS = """
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,900;1,9..144,600&display=swap');
   *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
   :root{
     --paper:#f4f1e8; --ink:#15180e; --ink2:#4a4f3c; --ink3:#8a8f78;
@@ -207,6 +210,7 @@ joiner = f"""<!DOCTYPE html>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Your First Two Days · Outskill Induction</title>
+{FONTLINK}
 <style>{CSS}</style>
 </head>
 <body>
@@ -238,7 +242,6 @@ joiner = f"""<!DOCTYPE html>
         <button data-day="2" aria-pressed="false">Day 2</button>
       </div>
     </div>
-    <span class="swap">Running a session? Use the <a href="/schedule-trainer">trainer run sheet</a>.</span>
   </div>
 
   <h2 class="daytitle" id="dayTitle"></h2>
@@ -297,6 +300,7 @@ trainer = f"""<!DOCTYPE html>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Trainer Run Sheet · Outskill Induction</title>
+{FONTLINK}
 <style>{CSS}{TRAINER_CSS}</style>
 </head>
 <body>
@@ -327,7 +331,6 @@ trainer = f"""<!DOCTYPE html>
         <button data-view="run" aria-pressed="false">Run of show</button>
       </div>
     </div>
-    <span class="swap">Sharing with new joiners? Send them the <a href="/schedule-joiner">joiner schedule</a>.</span>
   </div>
 
   <div id="ownerView">
@@ -366,16 +369,7 @@ function neighbours(r,idx){{
 
 function renderOwners(){{
   const map=new Map();
-  S.filter(r=>!r.b).forEach(r=>{{
-    r.w.split('/').map(n=>n.trim()).forEach(n=>{{
-      if(!map.has(n)) map.set(n,[]);
-      const dayRows=S.filter(x=>x.d===r.d);
-      map.get(n).push(Object.assign({{}},r,{{
-        _co:r.w.includes('/')?r.w.split('/').map(x=>x.trim()).filter(x=>x!==n).join(', '):null,
-        _idx:dayRows.indexOf(r)
-      }}));
-    }});
-  }});
+  S.filter(r=>!r.b).forEach(r=>{{ if(!map.has(r.w)) map.set(r.w,[]); map.get(r.w).push(r); }});
   const entries=[...map.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
   document.getElementById('jump').innerHTML=entries.map(([w])=>`<a href="#${{slug(w)}}">${{w}}</a>`).join('');
   document.getElementById('owners').innerHTML=entries.map(([w,rows])=>{{
@@ -383,17 +377,17 @@ function renderOwners(){{
     return `<div class="ocard" id="${{slug(w)}}">
       <div class="ohead"><i style="background:${{c}}">${{initials(w)}}</i>
         <div><div class="on">${{w}}</div>
-        <div class="oc">${{rows.length}} session${{rows.length>1?'s':''}} · ${{fmtDur(total)}} total airtime</div></div>
+        <div class="oc">${{rows.length}} session${{rows.length>1?'s':''}} · ${{fmtDur(total)}} total airtime${{w.includes('/')?' · co-hosted':''}}</div></div>
       </div>
       ${{rows.map(r=>`<div class="oslot">
         <span class="oday">Day ${{r.d}}</span>
         <div class="os1">${{r.t}}</div>
-        <div class="os2">${{r.x}}${{r._co?` <b style="color:var(--ink)">· co-hosted with ${{r._co}}</b>`:''}}</div>
+        <div class="os2">${{r.x}}</div>
         <div class="slotline">
           <span class="slottime">${{r.s}} – ${{r.e}}</span>
           <span class="dur">${{fmtDur(r.m)}}</span>
         </div>
-        <div class="neigh">${{neighbours(r,r._idx)}}</div>
+        <div class="neigh">${{neighbours(r)}}</div>
       </div>`).join('')}}
     </div>`;
   }}).join('');

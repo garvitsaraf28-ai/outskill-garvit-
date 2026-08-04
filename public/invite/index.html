@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The AI Generalist Accelerator · A Personal Invitation · Outskill</title>
+<meta name="description" content="A personal invitation to the Outskill AI Generalist Accelerator — 100+ hours of live training over 14 days, a 48-hour buildathon, 14 premium tools and a full year of weekly updates. Read the full program, then book a consulting call to work out how it fits your business or profession."/>
+<meta name="theme-color" content="#070905"/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="The AI Generalist Accelerator · A Personal Invitation"/>
+<meta property="og:description" content="The full program — curriculum, schedule, tools, pricing and outcomes — plus a consulting call to work out how it maps to your role, your team or your business."/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='26' fill='%23070905'/%3E%3Ccircle cx='60' cy='60' r='52' fill='none' stroke='%2384c53a' stroke-width='4'/%3E%3Cg fill='%23c2ee45'%3E%3Ccircle cx='38' cy='60' r='9'/%3E%3Ccircle cx='60' cy='60' r='9'/%3E%3Ccircle cx='82' cy='60' r='9'/%3E%3Ccircle cx='38' cy='81' r='9'/%3E%3Ccircle cx='60' cy='81' r='9'/%3E%3C/g%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='38' cy='39' r='9'/%3E%3Ccircle cx='60' cy='39' r='9'/%3E%3Ccircle cx='82' cy='81' r='9'/%3E%3Cpath d='M82 27q2.4 9.6 12 12-9.6 2.4-12 12-2.4-9.6-12-12 9.6-2.4 12-12z'/%3E%3C/g%3E%3C/svg%3E"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<!-- fonts load async so a slow font host never blocks paint or scripts -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,700&family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,400&display=swap"/></noscript>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   1 · TOKENS & RESET
+   ═══════════════════════════════════════════════════════════════ */
+*,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+:root{
+  --lime:#c2ee45; --lime-dim:#a8d930; --lime-deep:#84c53a;
+  --bg:#070905; --ink:#0b0f07; --white:#f0f4e8; --muted:#8a9a72; --muted-dim:#6e7c5a;
+  --gold:#ffd76e; --teal:#4dd8c0; --rose:#ff6b8a; --violet:#b39bff;
+  --glass:rgba(194,238,69,.05); --glass-2:rgba(240,244,232,.035);
+  --line:rgba(194,238,69,.16); --line-soft:rgba(240,244,232,.09);
+  --display:'Fraunces',Georgia,serif;
+  --text:'Lato','Helvetica Neue',sans-serif;
+  --gutter:clamp(20px,5vw,84px);
+  --bay:clamp(84px,11vh,150px);      /* vertical rhythm between chapters */
+  --head:64px;
+}
+html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; }
+body{ font-family:var(--text); font-weight:400; background:var(--bg); color:var(--white);
+      line-height:1.6; overflow-x:hidden; padding-top:var(--head);
+      -webkit-tap-highlight-color:rgba(194,238,69,.14); -webkit-font-smoothing:antialiased; }
+::selection{ background:var(--lime); color:#07120a; }
+img,svg{ max-width:100%; display:block; }
+a{ color:inherit; }
+
+/* ═══════════════════════════════════════════════════════════════
+   2 · BACKGROUND — gradient mesh + grain, both fixed and layered
+   ═══════════════════════════════════════════════════════════════ */
+.mesh,.grain{ position:fixed; inset:0; pointer-events:none; }
+.mesh{ z-index:-2;
+  background:
+    radial-gradient(58vw 58vw at 82% -12%, rgba(194,238,69,.17), transparent 62%),
+    radial-gradient(52vw 52vw at 4% 16%,  rgba(77,216,192,.085), transparent 64%),
+    radial-gradient(60vw 60vw at 26% 96%, rgba(255,215,110,.07), transparent 60%),
+    radial-gradient(46vw 46vw at 96% 74%, rgba(179,155,255,.06), transparent 62%),
+    radial-gradient(70vw 70vw at 50% 46%, rgba(194,238,69,.035), transparent 68%);
+}
+.grain{ z-index:-1; opacity:.55; mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  background-size:220px 220px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   3 · TYPE
+   ═══════════════════════════════════════════════════════════════ */
+h1,h2,h3,.display{ font-family:var(--display); font-weight:900; letter-spacing:-.02em; line-height:1.02; }
+h1{ font-size:clamp(2.6rem,7.4vw,6.1rem); }
+h2{ font-size:clamp(1.9rem,4.6vw,3.5rem); line-height:1.06; }
+h3{ font-size:1.02rem; font-weight:700; line-height:1.3; letter-spacing:-.01em; }
+.accent{ color:var(--lime); }
+.wonk{ font-style:italic; font-weight:700; }
+.eyebrow{ display:inline-flex; align-items:center; gap:10px; font-size:.68rem; font-weight:900;
+          letter-spacing:.28em; text-transform:uppercase; color:var(--lime); margin-bottom:20px; }
+.eyebrow::before{ content:''; width:26px; height:1px; background:var(--lime); opacity:.7; }
+.eyebrow.gold{ color:var(--gold); } .eyebrow.gold::before{ background:var(--gold); }
+.lede{ font-size:clamp(1.02rem,1.55vw,1.22rem); font-weight:300; line-height:1.72; color:var(--muted);
+       max-width:60ch; }
+.lede b,.lede strong{ color:var(--white); font-weight:700; }
+.lede em{ color:var(--lime); font-style:normal; }
+.small{ font-size:.86rem; line-height:1.7; color:var(--muted); max-width:62ch; }
+.small b{ color:var(--white); font-weight:700; }
+
+/* ═══════════════════════════════════════════════════════════════
+   4 · LAYOUT — chapters, ghost numerals, diagonal rules
+   ═══════════════════════════════════════════════════════════════ */
+.wrap{ width:min(1200px,100%); margin-inline:auto; padding-inline:var(--gutter); position:relative; z-index:1; }
+.chapter{ padding-block:var(--bay); position:relative; scroll-margin-top:calc(var(--head) + 8px); }
+#inside{ scroll-margin-top:calc(var(--head) + 88px); }   /* clear the overlapping stat rail on anchor jumps */
+.ghost{ position:absolute; top:-.28em; right:0; font-family:var(--display); font-weight:900;
+        font-size:clamp(6rem,17vw,15rem); line-height:.78; color:transparent;
+        -webkit-text-stroke:1px rgba(194,238,69,.11); pointer-events:none; user-select:none; z-index:0; }
+.diag{ width:min(1200px,100%); height:1px; margin-inline:auto; transform:skewY(-1.1deg);
+       background:linear-gradient(90deg,transparent,var(--line) 16%,var(--line) 84%,transparent); }
+.head-block{ max-width:52ch; margin-bottom:clamp(34px,5vw,58px); }
+.head-block h2{ margin-bottom:18px; }
+.split{ display:grid; grid-template-columns:minmax(0,1fr); gap:clamp(28px,4vw,56px); align-items:start; }
+@media(min-width:960px){
+  .split.aside{ grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr); }
+  .split.wide-left{ grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5 · HEADER — logo left, primary CTA right
+   ═══════════════════════════════════════════════════════════════ */
+.progress{ position:fixed; top:0; left:0; height:2px; width:0%; background:var(--lime); z-index:400;
+           box-shadow:0 0 14px rgba(194,238,69,.8); transition:width .12s linear; }
+.topbar{ position:fixed; top:0; left:0; right:0; height:var(--head); z-index:300;
+         display:flex; align-items:center; justify-content:space-between; gap:14px;
+         padding-inline:clamp(14px,4vw,40px);
+         background:rgba(7,9,5,.82); backdrop-filter:blur(14px) saturate(1.3); -webkit-backdrop-filter:blur(14px) saturate(1.3);
+         border-bottom:1px solid var(--line-soft); }
+.brand{ display:flex; align-items:center; gap:11px; text-decoration:none; min-width:0; }
+.brand .mark{ width:34px; height:34px; flex-shrink:0; }
+.brand .wm{ font-family:var(--display); font-weight:900; font-size:.95rem; letter-spacing:-.01em; white-space:nowrap; }
+.brand .wm i{ display:block; font-family:var(--text); font-style:normal; font-weight:700;
+              font-size:.54rem; letter-spacing:.26em; text-transform:uppercase; color:var(--muted); margin-top:1px; }
+.brand:hover .wm{ color:var(--lime); }
+@media(max-width:430px){ .brand .wm{ display:none; } }
+
+/* ═══════════════════════════════════════════════════════════════
+   6 · BUTTONS
+   ═══════════════════════════════════════════════════════════════ */
+.btn{ display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      font-family:var(--text); font-weight:900; font-size:.9rem; letter-spacing:.01em; line-height:1.2;
+      min-height:54px; padding:15px 28px; border-radius:100px; text-decoration:none; cursor:pointer;
+      border:1px solid transparent; text-align:center;
+      transition:transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s, background .28s, border-color .28s, color .28s; }
+.btn:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
+.btn svg{ flex-shrink:0; }
+.btn-primary{ background:linear-gradient(135deg,var(--lime),var(--lime-deep)); color:#07120a;
+              box-shadow:0 14px 40px -18px rgba(194,238,69,.9), inset 0 1px 0 rgba(255,255,255,.28); }
+.btn-primary:hover{ transform:translateY(-2px); box-shadow:0 22px 54px -18px rgba(194,238,69,1), inset 0 1px 0 rgba(255,255,255,.35); }
+.btn-ghost{ background:var(--glass-2); color:var(--white); border-color:var(--line); }
+.btn-ghost:hover{ border-color:var(--lime); color:var(--lime); transform:translateY(-2px); }
+.btn-wa{ background:rgba(77,216,192,.1); color:var(--teal); border-color:rgba(77,216,192,.42); }
+.btn-wa:hover{ background:rgba(77,216,192,.18); border-color:var(--teal); transform:translateY(-2px); }
+.btn-sm{ min-height:44px; padding:11px 20px; font-size:.8rem; }
+.btn-sm .compact{ display:none; }
+@media(max-width:560px){
+  .btn-sm .full{ display:none; } .btn-sm .compact{ display:inline; }
+  .btn-sm{ padding:11px 16px; }
+}
+.cta-row{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.cta-note{ font-size:.78rem; color:var(--muted-dim); margin-top:14px; letter-spacing:.01em; }
+.cta-note b{ color:var(--muted); font-weight:700; }
+
+/* ═══════════════════════════════════════════════════════════════
+   7 · HERO
+   ═══════════════════════════════════════════════════════════════ */
+.hero{ position:relative; padding-top:clamp(58px,9vh,104px); padding-bottom:0; }
+/* the oversized mark bleeds off-canvas — clipped here so it never widens the page */
+.bleed{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+.hero .backmark{ position:absolute; top:-6vh; right:-14vw; width:min(760px,74vw); opacity:.055;
+                 filter:blur(.3px); }
+.hero .wrap{ position:relative; z-index:2; }
+.hero h1{ margin-bottom:26px; }
+.hero h1 .line2{ display:block; padding-left:clamp(0px,7vw,132px); }   /* diagonal step-in */
+.invite{ position:relative; max-width:66ch; margin:0 0 34px; padding:22px 26px 22px 30px;
+         background:linear-gradient(120deg,rgba(194,238,69,.09),rgba(194,238,69,.012) 70%);
+         border:1px solid var(--line); border-left:0; border-radius:0 20px 20px 0;
+         backdrop-filter:blur(4px); }
+.invite::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+                 background:linear-gradient(180deg,var(--lime),rgba(194,238,69,0)); }
+.invite .ih{ display:block; font-size:.62rem; font-weight:900; letter-spacing:.26em; text-transform:uppercase;
+             color:var(--lime); margin-bottom:10px; }
+.invite p{ font-size:clamp(.98rem,1.4vw,1.1rem); font-weight:300; line-height:1.75; color:var(--white); }
+.invite p + p{ margin-top:12px; }
+.statrail{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(158px,100%),1fr));
+           gap:1px; background:var(--line); border:1px solid var(--line); border-radius:20px; overflow:hidden;
+           margin-top:clamp(44px,6vw,72px); margin-bottom:calc(-1 * clamp(26px,5vh,58px)); position:relative; z-index:3;
+           box-shadow:0 40px 80px -50px rgba(0,0,0,.9); }
+.statrail div{ background:rgba(10,14,7,.82); backdrop-filter:blur(8px); padding:20px clamp(16px,2vw,24px); }
+.statrail b{ display:block; font-family:var(--display); font-weight:900; font-size:clamp(1.5rem,3.1vw,2.2rem);
+             color:var(--lime); line-height:1; margin-bottom:7px; }
+.statrail span{ font-size:.63rem; font-weight:700; letter-spacing:.19em; text-transform:uppercase; color:var(--muted); }
+
+/* on-this-page index */
+.index-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr)); gap:0 clamp(20px,3vw,44px); }
+.ix{ display:flex; align-items:baseline; gap:12px; padding:11px 0; border-bottom:1px solid var(--line-soft);
+     text-decoration:none; transition:border-color .25s, padding-left .25s; }
+.ix:hover{ border-bottom-color:var(--lime); padding-left:5px; }
+.ix .n{ font-family:var(--display); font-weight:900; font-size:.78rem; color:var(--lime-deep); letter-spacing:.02em; }
+.ix .t{ font-size:.9rem; font-weight:400; color:var(--muted); }
+.ix:hover .t{ color:var(--white); }
+
+/* ═══════════════════════════════════════════════════════════════
+   8 · CARDS & CONTENT BLOCKS
+   ═══════════════════════════════════════════════════════════════ */
+.grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr)); gap:clamp(12px,1.4vw,18px); }
+.card{ position:relative; padding:22px 24px 24px; border:1px solid var(--line); border-radius:18px;
+       background:linear-gradient(160deg,var(--glass),rgba(240,244,232,.015));
+       transition:border-color .3s, transform .3s, background .3s; }
+.card:hover{ border-color:rgba(194,238,69,.45); transform:translateY(-4px); background:linear-gradient(160deg,rgba(194,238,69,.09),rgba(240,244,232,.02)); }
+.card .n{ font-family:var(--display); font-weight:900; font-size:.8rem; color:var(--lime-deep); letter-spacing:.05em; }
+.card h3{ margin:8px 0 8px; }
+.card p{ font-size:.87rem; font-weight:300; line-height:1.62; color:var(--muted); }
+.card p b{ color:var(--white); font-weight:700; }
+.card .ic{ font-size:1.15rem; line-height:1; margin-bottom:12px; }
+/* diagonal flow — every other card drops a notch on wide screens */
+@media(min-width:1000px){ .stagger-drop > *:nth-child(even){ transform:translateY(22px); }
+                          .stagger-drop > *:nth-child(even):hover{ transform:translateY(18px); } }
+
+/* day cards */
+.days{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(228px,100%),1fr)); gap:clamp(10px,1.2vw,14px); }
+.day{ font-family:inherit; text-align:left; color:var(--white); cursor:pointer; padding:17px 18px 15px;
+      border:1px solid var(--line); border-radius:16px; background:linear-gradient(160deg,var(--glass),rgba(240,244,232,.012));
+      transition:border-color .3s, transform .3s, background .3s; }
+.day:hover,.day:focus-visible{ border-color:rgba(194,238,69,.5); transform:translateY(-4px);
+      background:linear-gradient(160deg,rgba(194,238,69,.1),rgba(240,244,232,.02)); outline:none; }
+.day .dn{ display:flex; justify-content:space-between; align-items:center; gap:8px;
+          font-size:.62rem; font-weight:900; letter-spacing:.2em; text-transform:uppercase; color:var(--lime-deep); }
+.day .live{ display:flex; align-items:center; gap:5px; font-size:.56rem; letter-spacing:.12em; color:var(--rose); }
+.day .live::before{ content:''; width:5px; height:5px; border-radius:50%; background:var(--rose); animation:pulse 1.8s infinite; }
+@keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.25} }
+.day h3{ font-size:.92rem; margin:10px 0 9px; font-family:var(--text); font-weight:700; line-height:1.35; letter-spacing:0; }
+.day .tt{ display:flex; flex-wrap:wrap; gap:5px; }
+.day .tt span{ font-size:.62rem; font-weight:700; color:var(--muted); padding:3px 7px; border-radius:6px;
+               background:rgba(240,244,232,.05); border:1px solid var(--line-soft); }
+.day .cue{ display:block; margin-top:12px; font-size:.6rem; font-weight:900; letter-spacing:.16em;
+           text-transform:uppercase; color:var(--lime-deep); }
+.day.full{ border-color:rgba(255,215,110,.34); } .day.full .dn{ color:var(--gold); }
+
+/* tables */
+.twrap{ width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:18px;
+        background:rgba(10,14,7,.5); backdrop-filter:blur(4px); }
+table{ width:100%; border-collapse:collapse; font-size:.88rem; min-width:430px; }
+th{ background:rgba(194,238,69,.07); color:var(--lime); font-size:.62rem; font-weight:900; letter-spacing:.18em;
+    text-transform:uppercase; text-align:left; padding:14px 18px; border-bottom:1px solid var(--line); white-space:nowrap; }
+td{ padding:13px 18px; border-bottom:1px solid var(--line-soft); color:var(--muted); font-weight:300; vertical-align:top; }
+td b{ color:var(--white); font-weight:700; }
+td .lm{ color:var(--lime); font-weight:700; } td .gd{ color:var(--gold); font-weight:700; }
+tr:last-child td{ border-bottom:none; }
+tr.total td{ background:rgba(194,238,69,.06); border-top:1px solid var(--line); }
+
+/* steps */
+.steps{ display:flex; flex-direction:column; }
+.step{ display:flex; gap:18px; align-items:flex-start; padding-bottom:22px; position:relative; }
+.step:not(:last-child)::before{ content:''; position:absolute; left:19px; top:40px; bottom:2px; width:1px;
+                                background:linear-gradient(180deg,var(--line),transparent); }
+.step .n{ flex-shrink:0; width:39px; height:39px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+          font-family:var(--display); font-weight:900; font-size:.95rem; color:var(--lime);
+          background:rgba(194,238,69,.08); border:1px solid rgba(194,238,69,.45); }
+.step b{ display:block; font-size:1rem; font-weight:900; margin-bottom:4px; }
+.step span{ font-size:.88rem; font-weight:300; line-height:1.62; color:var(--muted); }
+.step span i{ color:var(--lime); font-style:normal; font-weight:700; }
+
+/* value stack + price */
+.stack{ display:flex; flex-direction:column; gap:7px; }
+.row{ display:flex; justify-content:space-between; align-items:center; gap:16px;
+      padding:14px 20px; border:1px solid var(--line-soft); border-radius:13px; background:var(--glass-2); }
+.row .l{ font-size:.9rem; font-weight:400; } .row .v{ font-size:.86rem; font-weight:900; color:var(--gold); white-space:nowrap; }
+.row.tot{ background:rgba(240,244,232,.05); border-color:rgba(240,244,232,.14); margin-top:6px; }
+.row.tot .l{ color:var(--muted); } .row.tot .v{ color:var(--muted); text-decoration:line-through; }
+.pricebox{ position:relative; padding:32px clamp(22px,3vw,34px); border:1px solid rgba(194,238,69,.55); border-radius:24px;
+           background:linear-gradient(150deg,rgba(194,238,69,.17),rgba(194,238,69,.03) 62%,rgba(7,9,5,.4));
+           box-shadow:0 40px 90px -46px rgba(194,238,69,.55); backdrop-filter:blur(6px); text-align:center; }
+.pricebox .pl{ font-size:.64rem; font-weight:900; letter-spacing:.26em; text-transform:uppercase; color:var(--lime); margin-bottom:12px; }
+.pricebox .pp{ font-family:var(--display); font-weight:900; font-size:clamp(2.6rem,6.4vw,4rem); line-height:1; color:var(--lime); letter-spacing:-.03em; }
+.pricebox .ps{ font-size:.86rem; font-weight:300; color:var(--muted); margin-top:12px; }
+.pricebox .ps b{ color:var(--white); font-weight:700; }
+.pricebox .btn{ margin-top:22px; }
+
+/* proof cards */
+.tc{ padding:22px 24px; border:1px solid var(--line); border-radius:18px;
+     background:linear-gradient(160deg,var(--glass-2),rgba(194,238,69,.02)); transition:border-color .3s, transform .3s; }
+.tc:hover{ border-color:rgba(194,238,69,.4); transform:translateY(-4px); }
+.tc .who{ font-family:var(--display); font-weight:900; font-size:1.1rem; color:var(--lime); }
+.tc .cohort{ font-size:.6rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--muted-dim); margin:4px 0 14px; }
+.tc .ba{ font-size:.58rem; font-weight:900; letter-spacing:.2em; text-transform:uppercase; margin:12px 0 5px; }
+.tc .ba.b{ color:var(--rose); } .tc .ba.a{ color:var(--teal); }
+.tc p{ font-size:.86rem; font-weight:300; line-height:1.6; color:var(--muted); }
+.tc p b{ color:var(--white); font-weight:700; }
+
+/* notes */
+.note{ padding:16px 20px; border:1px solid var(--line-soft); border-left:2px solid var(--gold); border-radius:0 14px 14px 0;
+       background:var(--glass-2); font-size:.86rem; font-weight:300; line-height:1.65; color:var(--muted); }
+.note b{ color:var(--white); font-weight:700; }
+.note .nh{ display:block; font-size:.6rem; font-weight:900; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+.pillrow{ display:flex; flex-wrap:wrap; gap:9px; }
+.pill{ font-size:.8rem; font-weight:700; padding:9px 17px; border-radius:100px; border:1px solid var(--line); background:var(--glass); }
+.pill b{ color:var(--lime); font-weight:900; }
+.pill.g{ border-color:rgba(255,215,110,.32); } .pill.g b{ color:var(--gold); }
+
+/* ═══════════════════════════════════════════════════════════════
+   9 · MID-PAGE BAND + CONNECT + FOOTER
+   ═══════════════════════════════════════════════════════════════ */
+.band{ position:relative; overflow:hidden; border-block:1px solid var(--line);
+       background:linear-gradient(115deg,rgba(194,238,69,.1),rgba(7,9,5,0) 58%); }
+.band .inner{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:26px;
+              padding-block:clamp(40px,6vh,64px); }
+.band .txt{ flex:1 1 340px; }
+.band h3{ font-family:var(--display); font-size:clamp(1.5rem,3.2vw,2.2rem); font-weight:900; margin-bottom:10px; letter-spacing:-.02em; }
+.band p{ font-size:.95rem; font-weight:300; color:var(--muted); max-width:52ch; }
+
+.connect{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(285px,100%),1fr)); gap:clamp(14px,1.6vw,20px); align-items:stretch; }
+.cc{ display:flex; flex-direction:column; gap:12px; padding:28px 28px 26px; border:1px solid var(--line); border-radius:22px;
+     background:linear-gradient(160deg,var(--glass-2),rgba(194,238,69,.022)); transition:border-color .3s, transform .3s; }
+.cc:hover{ border-color:rgba(194,238,69,.42); transform:translateY(-4px); }
+.cc.feature{ border-color:rgba(194,238,69,.5); background:linear-gradient(150deg,rgba(194,238,69,.13),rgba(194,238,69,.02) 65%);
+             box-shadow:0 36px 80px -50px rgba(194,238,69,.6); }
+.cc .lbl{ font-size:.6rem; font-weight:900; letter-spacing:.22em; text-transform:uppercase; color:var(--lime-deep); }
+.cc.feature .lbl{ color:var(--lime); }
+.cc h3{ font-family:var(--display); font-size:1.35rem; font-weight:900; }
+.cc p{ font-size:.88rem; font-weight:300; line-height:1.65; color:var(--muted); flex:1 1 auto; }
+.cc .val{ font-size:.9rem; font-weight:700; color:var(--white); text-decoration:none; overflow-wrap:anywhere; }
+.cc .val:hover{ color:var(--lime); }
+.cc .btn{ width:100%; margin-top:4px; }
+
+.foot{ padding-block:clamp(40px,6vh,64px); border-top:1px solid var(--line-soft); }
+.foot .inner{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:20px; }
+.foot .mark{ width:38px; height:38px; }
+.foot .fb{ display:flex; align-items:center; gap:13px; }
+.foot .fn{ font-family:var(--display); font-weight:900; font-size:1rem; }
+.foot .fn i{ display:block; font-family:var(--text); font-style:normal; font-weight:700; font-size:.56rem;
+             letter-spacing:.22em; text-transform:uppercase; color:var(--muted-dim); margin-top:2px; }
+.foot .fine{ font-size:.74rem; font-weight:300; color:var(--muted-dim); max-width:46ch; line-height:1.6; }
+
+/* ═══════════════════════════════════════════════════════════════
+   10 · SIDE RAIL
+   ═══════════════════════════════════════════════════════════════ */
+.rail{ position:fixed; right:26px; top:50%; transform:translateY(-50%); z-index:120;
+       display:flex; flex-direction:column; gap:11px; }
+.rail a{ width:7px; height:7px; border-radius:50%; background:var(--muted-dim); opacity:.55;
+         position:relative; transition:all .3s; }
+.rail a.on{ background:var(--lime); opacity:1; transform:scale(1.75); box-shadow:0 0 12px rgba(194,238,69,.9); }
+.rail a::after{ content:attr(data-label); position:absolute; right:18px; top:50%; transform:translateY(-50%);
+                font-size:.6rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+                white-space:nowrap; opacity:0; transition:opacity .25s; }
+.rail a:hover::after{ opacity:1; }
+@media(max-width:1180px){ .rail{ display:none; } }
+
+/* ═══════════════════════════════════════════════════════════════
+   11 · MODAL
+   ═══════════════════════════════════════════════════════════════ */
+.scrim{ position:fixed; inset:0; z-index:500; display:flex; align-items:center; justify-content:center; padding:20px;
+        background:rgba(3,5,2,.84); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+        opacity:0; visibility:hidden; pointer-events:none; transition:opacity .3s, visibility .3s; }
+.scrim.on{ opacity:1; visibility:visible; pointer-events:auto; }
+.sheet{ position:relative; width:100%; max-width:640px; max-height:86vh; overflow-y:auto; padding:32px clamp(20px,3vw,34px) 28px;
+        border:1px solid var(--line); border-radius:24px; background:linear-gradient(165deg,#121a09,#080b05);
+        box-shadow:0 60px 120px -50px rgba(0,0,0,.9);
+        transform:translateY(22px) scale(.975); opacity:0; transition:transform .38s cubic-bezier(.2,.8,.2,1), opacity .3s; }
+.scrim.on .sheet{ transform:none; opacity:1; }
+.sheet::-webkit-scrollbar{ width:7px; } .sheet::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+.sheet .sd{ font-size:.62rem; font-weight:900; letter-spacing:.24em; text-transform:uppercase; color:var(--lime); margin-bottom:10px; }
+.sheet h2{ font-size:clamp(1.4rem,3.2vw,1.95rem); margin-bottom:14px; }
+.sheet .body{ font-size:.95rem; font-weight:300; line-height:1.72; color:var(--muted); }
+.sheet .body b{ color:var(--white); font-weight:700; }
+.toolrow{ display:flex; flex-wrap:wrap; gap:7px; margin-top:20px; }
+.toolrow span{ font-size:.72rem; font-weight:700; color:var(--lime); padding:5px 11px; border-radius:7px;
+               background:rgba(194,238,69,.09); border:1px solid var(--line); }
+.close{ position:absolute; top:14px; right:14px; width:44px; height:44px; border-radius:50%; cursor:pointer;
+        background:var(--glass-2); border:1px solid var(--line); color:var(--white); font-family:inherit; font-size:1rem;
+        transition:background .25s, border-color .25s; }
+.close:hover{ background:rgba(255,107,138,.16); border-color:var(--rose); }
+.esc{ margin-top:20px; font-size:.6rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--muted-dim); }
+
+/* ═══════════════════════════════════════════════════════════════
+   12 · MOTION — one orchestrated load, then quiet reveals
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes rise{ from{ opacity:0; transform:translateY(26px); } to{ opacity:1; transform:none; } }
+@keyframes fade{ from{ opacity:0 } to{ opacity:1 } }
+.stagger.pre > *{ opacity:0; }          /* only set by JS, and only below the fold — fails visible */
+.stagger.go > *{ animation:rise .82s cubic-bezier(.2,.75,.25,1) both; }
+.stagger.go > *:nth-child(1){ animation-delay:.06s } .stagger.go > *:nth-child(2){ animation-delay:.14s }
+.stagger.go > *:nth-child(3){ animation-delay:.22s } .stagger.go > *:nth-child(4){ animation-delay:.30s }
+.stagger.go > *:nth-child(5){ animation-delay:.38s } .stagger.go > *:nth-child(6){ animation-delay:.46s }
+.stagger.go > *:nth-child(7){ animation-delay:.54s } .stagger.go > *:nth-child(8){ animation-delay:.62s }
+.stagger.go > *:nth-child(n+9){ animation-delay:.70s }
+.hero .bleed{ animation:fade 1.8s ease-out .25s both; }   /* fade the wrapper — the mark keeps its own low opacity */
+.topbar{ animation:fade .8s ease-out both; }
+
+/* ═══════════════════════════════════════════════════════════════
+   13 · RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media(max-width:900px){
+  :root{ --bay:clamp(64px,9vh,96px); }
+  .ghost{ font-size:clamp(5rem,20vw,9rem); opacity:.8; }
+  .hero .backmark{ right:-26vw; top:-2vh; width:88vw; }
+}
+@media(max-width:600px){
+  .cta-row{ flex-direction:column; align-items:stretch; }
+  .cta-row .btn{ width:100%; }
+  .band .inner .btn{ width:100%; }
+  .invite{ padding:20px 20px 20px 24px; }
+  .hero h1 .line2{ padding-left:0; }
+  .row{ flex-direction:column; align-items:flex-start; gap:4px; }
+  .statrail{ border-radius:18px; }
+}
+@media(prefers-reduced-motion:reduce){
+  html{ scroll-behavior:auto; }
+  *,*::before,*::after{ animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; }
+  .stagger > *{ opacity:1!important; }
+}
+@media print{
+  body{ background:#fff; color:#000; padding-top:0; }
+  .mesh,.grain,.rail,.progress,.topbar,.scrim,.ghost,.backmark{ display:none!important; }
+  .stagger > *{ opacity:1!important; }
+  .chapter{ padding-block:24px; page-break-inside:avoid; }
+  .btn{ border:1px solid #000!important; background:none!important; color:#000!important; box-shadow:none!important; }
+}
+</style>
+<noscript><style>.stagger > *{ opacity:1!important; }</style></noscript>
+</head>
+<body id="top">
+
+<!-- ───────────────────────────────────────────────────────────────
+     EDIT ME
+       Consulting call → https://calendar.app.google/hPwzgZHktDXZkLbc7
+       Email           → tanish.atreya@growthschool.io
+       WhatsApp        → https://wa.me/918147069639
+     ─────────────────────────────────────────────────────────────── -->
+
+<div class="mesh" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div class="progress" id="prog"></div>
+
+<!-- reusable logo mark -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="52" fill="none" stroke="#84c53a" stroke-width="4"/>
+    <g fill="#c2ee45">
+      <circle cx="38" cy="60" r="9"/><circle cx="60" cy="60" r="9"/><circle cx="82" cy="60" r="9"/>
+      <circle cx="38" cy="81" r="9"/><circle cx="60" cy="81" r="9"/>
+    </g>
+    <g fill="#f0f4e8">
+      <circle cx="38" cy="39" r="9"/><circle cx="60" cy="39" r="9"/><circle cx="82" cy="81" r="9"/>
+      <path d="M82 27q2.4 9.6 12 12-9.6 2.4-12 12-2.4-9.6-12-12 9.6-2.4 12-12z"/>
+    </g>
+  </symbol>
+</svg>
+
+<!-- ═══ HEADER ═══ -->
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="Outskill — AI Generalist Accelerator">
+    <svg class="mark" viewBox="0 0 120 120" aria-hidden="true"><use href="#mark"/></svg>
+    <span class="wm">Outskill<i>AI Generalist Accelerator</i></span>
+  </a>
+  <a class="btn btn-primary btn-sm" href="https://calendar.app.google/hPwzgZHktDXZkLbc7"
+     target="_blank" rel="noopener" aria-label="Schedule my consulting call">
+    <span class="full">Schedule My Consulting Call</span><span class="compact">Schedule a Call</span>
+  </a>
+</header>
+
+<nav class="rail" id="rail" aria-label="Section navigation"></nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero" id="invitation">
+  <div class="bleed" aria-hidden="true">
+    <svg class="backmark" viewBox="0 0 120 120"><use href="#mark"/></svg>
+  </div>
+  <div class="wrap stagger go">
+    <p class="eyebrow">A personal invitation</p>
+    <h1>The AI Generalist<br/><span class="line2 accent">Accelerator.</span></h1>
+    <div class="invite">
+      <span class="ih">Why you're here</span>
+      <p>I've put the entire program on one page for you — the 14-day curriculum, the schedule, the tools,
+        the pricing and what people actually built. Read it at your own pace; nothing is held back for a sales call.</p>
+      <p>Then let's talk properly. Book a slot on my calendar and we'll go through
+        <em>how this maps to your business or your profession</em> — where AI genuinely pays off in your work,
+        whether this program is the right vehicle for it, and what your next 90 days could look like.</p>
+    </div>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="https://calendar.app.google/hPwzgZHktDXZkLbc7" target="_blank" rel="noopener">
+        Schedule My Consulting Call
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="#inside">Read the program first</a>
+    </div>
+    <p class="cta-note">A 1-on-1 conversation on my Google Calendar · <b>no pitch, no obligation</b></p>
+    <div class="statrail">
+      <div><b>14</b><span>Days live</span></div>
+      <div><b>100+</b><span>Hours of training</span></div>
+      <div><b>48h</b><span>Buildathon finale</span></div>
+      <div><b>54+</b><span>Sessions / year</span></div>
+      <div><b>$2,995</b><span>Program fee</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 01 · WHAT'S INSIDE ═══ -->
+<section class="chapter" id="inside">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">01</span>
+    <div class="split aside stagger">
+      <div class="head-block" style="margin-bottom:0">
+        <p class="eyebrow">What's inside</p>
+        <h2>Everything to keep you ahead in the AI-first world — <span class="accent wonk">for one year.</span></h2>
+        <p class="lede">The Accelerator is two weeks of live building followed by twelve months of staying current.
+          Here's the whole package before we get into the detail.</p>
+      </div>
+      <div>
+        <p class="small" style="margin-bottom:18px"><b>On this page</b> — jump to whatever you want to check first.</p>
+        <div class="index-grid">
+          <a class="ix" href="#week1"><span class="n">02</span><span class="t">Week 1 curriculum</span></a>
+          <a class="ix" href="#week2"><span class="n">03</span><span class="t">Week 2 curriculum</span></a>
+          <a class="ix" href="#schedule"><span class="n">04</span><span class="t">Dates &amp; timings</span></a>
+          <a class="ix" href="#buildathon"><span class="n">05</span><span class="t">The 48-hour buildathon</span></a>
+          <a class="ix" href="#libraries"><span class="n">06</span><span class="t">Three libraries</span></a>
+          <a class="ix" href="#year"><span class="n">07</span><span class="t">The year after</span></a>
+          <a class="ix" href="#tools"><span class="n">08</span><span class="t">14 premium tools</span></a>
+          <a class="ix" href="#pricing"><span class="n">09</span><span class="t">Value &amp; pricing</span></a>
+          <a class="ix" href="#proof"><span class="n">10</span><span class="t">What learners did</span></a>
+          <a class="ix" href="#why"><span class="n">11</span><span class="t">Why it works</span></a>
+          <a class="ix" href="#connect"><span class="n">12</span><span class="t">Ways to connect</span></a>
+        </div>
+      </div>
+    </div>
+    <div class="grid stagger stagger-drop" style="margin-top:clamp(40px,5vw,64px)">
+      <div class="card"><span class="n">01</span><h3>100+ hours of learning</h3><p>Over 14 days. Learn and build, every single day.</p></div>
+      <div class="card"><span class="n">02</span><h3>48-hour Buildathon</h3><p>Team up globally and ship a brand-new product in 48 hours.</p></div>
+      <div class="card"><span class="n">03</span><h3>AI Content Library</h3><p>Tools, workflows and deep-dives across 9 business functions.</p></div>
+      <div class="card"><span class="n">04</span><h3>Modern Business Fellowship</h3><p>Content library powered by Kairos Business Group.</p></div>
+      <div class="card"><span class="n">05</span><h3>Monetization Mastery 101</h3><p>The recorded library on turning these skills into income.</p></div>
+      <div class="card"><span class="n">06</span><h3>54+ live sessions / year</h3><p>A new AI-update session every week, for the next 12 months.</p></div>
+      <div class="card"><span class="n">07</span><h3>Monthly AI Sprints</h3><p>Learn and execute something new, every month.</p></div>
+      <div class="card"><span class="n">08</span><h3>Global AI community</h3><p>Builders from around the world, helping each other daily.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="diag" aria-hidden="true"></div>
+
+<!-- ═══ 02 · WEEK 1 ═══ -->
+<section class="chapter" id="week1">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">02</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">The curriculum · Week 1</p>
+      <h2>Days 1–7 — <span class="accent">learn the whole stack.</span></h2>
+      <p class="lede">Every session is live, and recorded afterwards. <b>Tap any day</b> for the full detail and the
+        tools you'll master in it.</p>
+    </div>
+    <div class="days stagger" id="w1"></div>
+  </div>
+</section>
+
+<!-- ═══ 03 · WEEK 2 ═══ -->
+<section class="chapter" id="week2" style="padding-top:0">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">03</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">The curriculum · Week 2</p>
+      <h2>Days 8–14 — <span class="accent">build and monetize.</span></h2>
+      <p class="lede">Week 2 goes deep on Claude, backends and coding agents — then ends with the hackathon and
+        your monetisation playbook.</p>
+    </div>
+    <div class="days stagger" id="w2"></div>
+  </div>
+</section>
+
+<div class="diag" aria-hidden="true"></div>
+
+<!-- ═══ 04 · SCHEDULE ═══ -->
+<section class="chapter" id="schedule">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">04</span>
+    <div class="split aside">
+      <div class="stagger">
+        <p class="eyebrow">Schedule</p>
+        <h2>When it runs — <span class="accent">and what if you can't.</span></h2>
+        <p class="lede" style="margin-bottom:26px">Live sessions run on <b>Eastern Time</b>, built for a global cohort —
+          learners join from across the US, Canada, the UK, Europe, the Middle East and beyond.</p>
+        <div class="twrap">
+          <table>
+            <thead><tr><th>Days</th><th>EST</th><th>IST equivalent</th></tr></thead>
+            <tbody>
+              <tr><td><b>Monday – Friday</b></td><td class="lm">10:00 AM – 1:30 PM</td><td>7:30 PM – 11:00 PM</td></tr>
+              <tr><td><b>Saturday – Sunday</b></td><td class="lm">10:00 AM – 7:00 PM</td><td>10:00 AM – 7:00 PM</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="stagger">
+        <div class="pillrow" style="margin-bottom:26px">
+          <span class="pill">Cohort 1 — <b>26 June → 12 July</b></span>
+          <span class="pill">Cohort 2 — <b>7 August → 23 August</b></span>
+          <span class="pill">Recordings after <b>every session</b></span>
+        </div>
+        <div class="card">
+          <h3 style="font-family:var(--display);font-size:1.35rem;font-weight:900;margin-top:0">Can't make these dates? Defer.</h3>
+          <p style="margin-top:10px">Pick either option and <b>defer your enrolment to a future cohort</b>. If your next
+            45 days aren't clear, join now, lock the special offer, and move to the batch that suits you.</p>
+        </div>
+        <p class="small" style="margin-top:18px">Not sure which cohort works around your calendar? That's exactly the kind of
+          thing to bring to the call.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 05 · BUILDATHON ═══ -->
+<section class="chapter" id="buildathon" style="padding-top:0">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">05</span>
+    <div class="split wide-left">
+      <div class="stagger">
+        <p class="eyebrow gold">The finale</p>
+        <h2>The <span class="accent">48-hour<br/>Buildathon.</span></h2>
+        <p class="lede">The 14 days don't end in a quiz. They end in a build — with a team, against the clock,
+          demoed to a global audience.</p>
+        <p class="small" style="margin-top:20px">Past cohort builds include travel planners, legal-writing tools and an
+          AI school advisor — real products, shipped by learners.</p>
+      </div>
+      <div class="steps stagger">
+        <div class="step"><div class="n">1</div><div><b>Complete the 14-day Accelerator</b><span>Every tool, workflow and prompting technique from the fortnight.</span></div></div>
+        <div class="step"><div class="n">2</div><div><b>Group projects</b><span>Team up with builders from across the world. <i>Hackathon teams form on Day 11.</i></span></div></div>
+        <div class="step"><div class="n">3</div><div><b>Build in 48 hours</b><span>Create a real product together — not a prototype deck, a working thing. <i>Pitch submissions close on Day 13.</i></span></div></div>
+        <div class="step"><div class="n">4</div><div><b>Demo it</b><span>In front of a global audience, at the graduation on Day 14.</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MID-PAGE BAND ═══ -->
+<section class="band">
+  <div class="wrap inner stagger">
+    <div class="txt">
+      <h3>Halfway through — <span class="accent">how does this land for you?</span></h3>
+      <p>The rest of the page covers the libraries, the tools, the numbers and the outcomes. If you'd rather
+        talk it through against your own role or business, take a slot now and keep reading later.</p>
+    </div>
+    <a class="btn btn-primary" href="https://calendar.app.google/hPwzgZHktDXZkLbc7" target="_blank" rel="noopener">
+      Schedule My Consulting Call
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+  </div>
+</section>
+
+<!-- ═══ 06 · LIBRARIES ═══ -->
+<section class="chapter" id="libraries">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">06</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">Beyond the 14 days</p>
+      <h2>Three libraries, <span class="accent">12 months of access.</span></h2>
+      <p class="lede">The live fortnight is the spine. These three libraries are what you keep working through
+        for the rest of the year.</p>
+    </div>
+    <div class="grid stagger" style="grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))">
+      <div class="card">
+        <div class="ic">📚</div>
+        <h3 style="color:var(--lime);font-family:var(--display);font-size:1.25rem;font-weight:900">AI Content Library</h3>
+        <p style="margin:10px 0 10px">Pre-recorded, available anytime, <b>12 months of access</b>. Covers AI for:</p>
+        <p>Data Analysis · Job Applications · Research · Marketing · Product Building · Design · Content Writing · Sales · Operations</p>
+        <p style="margin-top:12px;font-size:.78rem">Tool deep-dives: ChatGPT, Claude, NotebookLM, Google AI Studio, Make, Manus, Genspark, Perplexity, Gemini, Notion, Hugging Face, Zapier, Copilot, Dify, Smithery</p>
+      </div>
+      <div class="card">
+        <div class="ic">🎓</div>
+        <h3 style="color:var(--gold);font-family:var(--display);font-size:1.25rem;font-weight:900">Kairos Business Fellowship</h3>
+        <p style="margin:10px 0 10px">Partnered with <b>Kairos School of Business</b> to bring their flagship Business Fellowship — <b>worth $2,906</b>.</p>
+        <p>First Principles Thinking · Design Thinking · Operations · Product Sense · Consulting · UI/UX · Finance · Problem Solving · Logistics Management · Business Strategy</p>
+      </div>
+      <div class="card">
+        <div class="ic">💸</div>
+        <h3 style="color:var(--teal);font-family:var(--display);font-size:1.25rem;font-weight:900">Monetization Mastery 101</h3>
+        <p style="margin:10px 0 10px">The art of actually making money with these skills. On-demand recorded library.</p>
+        <p>Generating organic sales · Using LinkedIn the right way · Cold emailing · Management consulting · Foundations of Meta Ads · Foundations of Google Ads</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 07 · THE YEAR AFTER ═══ -->
+<section class="chapter" id="year" style="padding-top:0">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">07</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">The year after</p>
+      <h2>AI changes weekly.<br/><span class="accent wonk">So does the curriculum.</span></h2>
+      <p class="lede">This is the part most people underestimate: the Accelerator isn't 14 days.
+        It's 14 days <b>plus a year</b>.</p>
+    </div>
+    <div class="grid stagger stagger-drop" style="grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))">
+      <div class="card"><div class="ic">🔴</div><h3 style="color:var(--lime)">54+ live AI update sessions</h3><p>A new one <b>every week</b>, for the next year — covering exactly what changed in AI. Recordings of every session, yours for a full year.</p></div>
+      <div class="card"><div class="ic">🚀</div><h3 style="color:var(--lime)">Monthly AI Sprints</h3><p>A new sprint every month: OpenClaw · Claude + AntiGravity · Agentic building with Codex · Top Claude Skills · Multi-Agent Orchestration · Saving Claude Tokens · Claude Certification — and more coming.</p></div>
+      <div class="card"><div class="ic">🌍</div><h3 style="color:var(--lime)">Global AI community</h3><p>Learners and builders worldwide, helping each other every day — peer support, real-world problems, tool recommendations.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="diag" aria-hidden="true"></div>
+
+<!-- ═══ 08 · TOOLS ═══ -->
+<section class="chapter" id="tools">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">08</span>
+    <div class="split wide-left">
+      <div class="stagger">
+        <p class="eyebrow gold">The bonus nobody expects</p>
+        <h2>14 premium AI tools — <span class="accent">free, for a year.</span></h2>
+        <p class="lede">Handed over as a bonus alongside the program — including a full year of <b>HeyGen</b>,
+          <b>Superprompts</b> and <b>SuperGrow</b>. This is real spend you would otherwise carry yourself.</p>
+        <div class="note" style="margin-top:24px"><span class="nh">Worth knowing</span>
+          Access is handed over on your onboarding call, not drip-fed. You start the fortnight with the full kit already active.</div>
+      </div>
+      <div class="twrap stagger">
+        <table>
+          <thead><tr><th>Tool</th><th>Access</th><th>Value (USD)</th></tr></thead>
+          <tbody>
+            <tr><td><b>Emily AI</b></td><td>1 year</td><td>$228</td></tr>
+            <tr><td><b>SuperGrow</b></td><td>1 year</td><td>$360</td></tr>
+            <tr><td><b>Phot.AI</b></td><td>1 year</td><td>$110</td></tr>
+            <tr><td><b>Fireflies AI</b></td><td class="gd">6 months</td><td>$108</td></tr>
+            <tr><td><b>Humanic</b></td><td>1 year</td><td>$240</td></tr>
+            <tr><td><b>Happenstance</b></td><td>1 year</td><td>$288</td></tr>
+            <tr><td><b>Lyzr</b></td><td>1 year</td><td>$240</td></tr>
+            <tr><td><b>WisprFlow</b></td><td>1 year</td><td>$180</td></tr>
+            <tr><td><b>HeyGen</b></td><td>1 year</td><td>$288</td></tr>
+            <tr><td><b>GetMulti</b></td><td class="gd">Lifetime</td><td>$186</td></tr>
+            <tr><td><b>SuperJoin</b></td><td>1 year</td><td>$288</td></tr>
+            <tr><td><b>Numerous AI</b></td><td>1 year</td><td>$120</td></tr>
+            <tr><td><b>Superprompts</b></td><td>1 year</td><td>$299</td></tr>
+            <tr><td><b>Get Owl AI</b></td><td>1 year</td><td>$108</td></tr>
+            <tr class="total"><td><b>Total bonus value</b></td><td></td><td class="lm">$3,043 USD</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 09 · PRICING ═══ -->
+<section class="chapter" id="pricing" style="padding-top:0">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">09</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">The maths</p>
+      <h2>$21,929 of value.<br/><span class="accent">You pay $2,995.</span></h2>
+      <p class="lede">Every line below is part of the program. The price is the same whoever you come through —
+        my job is only to help you decide whether it's worth it for you.</p>
+    </div>
+    <div class="split aside">
+      <div class="stack stagger">
+        <div class="row"><span class="l">100+ hours of AI training</span><span class="v">$1,204</span></div>
+        <div class="row"><span class="l">48-hour live Buildathon</span><span class="v">$581</span></div>
+        <div class="row"><span class="l">AI Content Library</span><span class="v">$581</span></div>
+        <div class="row"><span class="l">Kairos Business Fellowship</span><span class="v">$2,906</span></div>
+        <div class="row"><span class="l">AI Monetization Mastery</span><span class="v">$581</span></div>
+        <div class="row"><span class="l">54+ live sessions for the next year</span><span class="v">$1,204</span></div>
+        <div class="row"><span class="l">Bonus AI tools</span><span class="v">$2,878</span></div>
+        <div class="row"><span class="l">Mega Sprints</span><span class="v">$3,588</span></div>
+        <div class="row"><span class="l">Global online AI community</span><span class="v">$2,388</span></div>
+        <div class="row tot"><span class="l">Total value</span><span class="v">$21,929</span></div>
+      </div>
+      <div class="stagger">
+        <div class="pricebox">
+          <div class="pl">Your price</div>
+          <div class="pp">$2,995</div>
+          <div class="ps">Block your seat with <b>$495</b> · paid via <b>XPay (9% convenience fee)</b> — pay in full or in installments</div>
+          <a class="btn btn-ghost" href="#connect">Talk it through before you decide</a>
+        </div>
+        <div class="note" style="margin-top:18px"><span class="nh">After you pay</span>
+          You are taken straight to a Calendly page to book your <b>1-on-1 onboarding call</b> — that is where the team hands
+          over LMS access, the content libraries and every one of the tools.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="diag" aria-hidden="true"></div>
+
+<!-- ═══ 10 · PROOF ═══ -->
+<section class="chapter" id="proof">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">10</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">Proof</p>
+      <h2>What learners did <span class="accent wonk">during</span> the cohort.</h2>
+      <p class="lede">Not testimonials written for a brochure — posts they made in the community themselves,
+        while the fortnight was still running.</p>
+    </div>
+    <div class="grid stagger stagger-drop" style="grid-template-columns:repeat(auto-fit,minmax(min(272px,100%),1fr))">
+      <div class="tc"><div class="who">Akshay Hiremath</div><div class="cohort">"7 days. That's all it took."</div>
+        <div class="ba b">Before</div><p>Seen at his startup as "just the SEO specialist". Ideas heard, but nothing changing.</p>
+        <div class="ba a">After</div><p>At <b>Day 7 of 14</b> he pitched his founder practical AI plays — and stepped into a <b>Growth Specialist with AI</b> role.</p></div>
+      <div class="tc"><div class="who">Angela K</div><div class="cohort">Cohort 11</div>
+        <div class="ba b">Before</div><p>Terrified of becoming irrelevant. A fund, a promotion, building for clients — "none of that felt possible".</p>
+        <div class="ba a">After</div><p><b>Promoted within a week.</b> Her CEO put her at the front of building a venture fund from scratch. Ships agents and apps daily.</p></div>
+      <div class="tc"><div class="who">Ganesh Alla</div><div class="cohort">Cohort 9</div>
+        <div class="ba b">Before</div><p>Knew the concepts, hadn't crossed into delivering. No clients, no company.</p>
+        <div class="ba a">After</div><p><b>First client the day after the cohort ended</b>, two more lined up, and launched <b>Molvex</b> — a full-stack AI solutions company.</p></div>
+      <div class="tc"><div class="who">Abhishek Sharma</div><div class="cohort">Cohort 11</div>
+        <div class="ba b">Before</div><p>No developer title. 50+ fields mapped by hand on every ingestion — 30 minutes of clicking, every time.</p>
+        <div class="ba a">After</div><p>Built a zero-cloud desktop app + Chrome extension. <b>30 minutes → 10 seconds.</b> Leadership approved; now training the team.</p></div>
+      <div class="tc"><div class="who">Isha Gupta</div><div class="cohort">Cohort 7</div>
+        <div class="ba b">Before</div><p>Local Coffee Perks was just a demo shown to the community for feedback.</p>
+        <div class="ba a">After</div><p><b>Live on the App Store and Google Play.</b> One digital loyalty pass for local cafés. UK launch running, worldwide next.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 11 · WHY IT WORKS ═══ -->
+<section class="chapter" id="why" style="padding-top:0">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">11</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">Why this works</p>
+      <h2>Fourteen days in.<br/><span class="accent">A year ahead.</span></h2>
+      <p class="lede">Six reasons this format tends to stick when a course library doesn't.</p>
+    </div>
+    <div class="grid stagger stagger-drop" style="grid-template-columns:repeat(auto-fit,minmax(min(258px,100%),1fr))">
+      <div class="card"><span class="n">01</span><h3>It isn't 14 days</h3><p>It's 14 days <b>plus a full year</b> — weekly live sessions, 14 premium tools, three libraries and a global community.</p></div>
+      <div class="card"><span class="n">02</span><h3>You leave with a product</h3><p>Not a certificate quiz — a 48-hour buildathon where you ship something real and demo it to a global audience.</p></div>
+      <div class="card"><span class="n">03</span><h3>You stay current</h3><p>AI changes weekly. So does the curriculum — a new live update session every week, for the next 12 months.</p></div>
+      <div class="card"><span class="n">04</span><h3>The dates aren't a wall</h3><p>Pick either cohort and defer to a future batch if your calendar changes. Join now, lock the offer, choose the batch later.</p></div>
+      <div class="card"><span class="n">05</span><h3>You're never learning alone</h3><p>A global community of builders, plus a 1-on-1 onboarding call before you start so nothing is unclear on Day 1.</p></div>
+      <div class="card"><span class="n">06</span><h3>Everything is recorded</h3><p>Miss a live session and catch up at your pace. All 14 days and every weekly workshop, yours for a full year.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="diag" aria-hidden="true"></div>
+
+<!-- ═══ 12 · CONNECT ═══ -->
+<section class="chapter" id="connect">
+  <div class="wrap">
+    <span class="ghost" aria-hidden="true">12</span>
+    <div class="head-block stagger">
+      <p class="eyebrow">Your next step</p>
+      <h2>Let's take this <span class="accent wonk">forward.</span></h2>
+      <p class="lede">Pick whichever suits you. A proper conversation is the fastest way to know if this is right —
+        but the community and my inbox are open either way.</p>
+    </div>
+    <div class="connect stagger">
+      <div class="cc feature">
+        <span class="lbl">Recommended</span>
+        <h3>A 1-on-1 consulting call</h3>
+        <p>Bring your role, your team or your business. We'll map where AI actually pays off in your work,
+          whether this program is the right vehicle for it, and what a realistic first 90 days looks like.
+          If it isn't a fit, I'll tell you.</p>
+        <a class="btn btn-primary" href="https://calendar.app.google/hPwzgZHktDXZkLbc7" target="_blank" rel="noopener">
+          Schedule My Consulting Call
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+        <p class="small" style="font-size:.76rem;margin-top:-2px">Opens my Google Calendar · pick any open slot</p>
+      </div>
+      <div class="cc">
+        <span class="lbl">Community</span>
+        <h3>Join our community</h3>
+        <p>Builders from the cohorts trading what's working week to week — tools, workflows, wins and dead ends.
+          Message me and I'll get you connected to the right room.</p>
+        <a class="val" href="https://wa.me/918147069639" target="_blank" rel="noopener noreferrer">+91 81470 69639</a>
+        <a class="btn btn-wa" href="https://wa.me/918147069639" target="_blank" rel="noopener noreferrer">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.12a8.23 8.23 0 0 1-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.35c0-4.54 3.7-8.23 8.25-8.23 2.2 0 4.27.86 5.83 2.42a8.19 8.19 0 0 1 2.41 5.82c0 4.54-3.7 8.2-8.24 8.2zm4.53-6.15c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.8-.79.97-.14.16-.29.18-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.44.13-.15.17-.25.25-.41.08-.17.04-.31-.02-.44-.06-.12-.56-1.35-.77-1.85-.2-.48-.4-.42-.55-.42h-.47c-.16 0-.43.06-.65.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.54c.13.17 1.73 2.65 4.2 3.72.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.67-1.18.21-.58.21-1.08.15-1.18-.06-.11-.23-.17-.47-.29z"/></svg>
+          Connect on WhatsApp</a>
+      </div>
+      <div class="cc">
+        <span class="lbl">Direct</span>
+        <h3>Ask me anything</h3>
+        <p>Curriculum, timings, pricing, deferring to a later cohort, or whether the workload is realistic
+          alongside your job — send it across and I'll answer properly.</p>
+        <a class="val" href="mailto:tanish.atreya@growthschool.io?subject=Question%20about%20the%20AI%20Generalist%20Accelerator">tanish.atreya@growthschool.io</a>
+        <a class="btn btn-ghost" href="mailto:tanish.atreya@growthschool.io?subject=Question%20about%20the%20AI%20Generalist%20Accelerator">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3.2 7.2 8.8 6 8.8-6"/></svg>
+          Send an email</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="foot">
+  <div class="wrap inner">
+    <div class="fb">
+      <svg class="mark" viewBox="0 0 120 120" aria-hidden="true"><use href="#mark"/></svg>
+      <span class="fn">Outskill<i>AI Generalist Accelerator · International</i></span>
+    </div>
+    <p class="fine">A personal invitation page. The program, pricing, curriculum and support are delivered by Outskill.
+      Live sessions run on Eastern Time.</p>
+    <a class="btn btn-ghost btn-sm" href="https://calendar.app.google/hPwzgZHktDXZkLbc7" target="_blank" rel="noopener">
+      <span class="full">Schedule My Consulting Call</span><span class="compact">Schedule a Call</span>
+    </a>
+  </div>
+</footer>
+
+<!-- ═══ DAY DETAIL MODAL ═══ -->
+<div class="scrim" id="scrim">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <button class="close" id="closeBtn" aria-label="Close">✕</button>
+    <div id="sheetBody"></div>
+    <div class="esc">Tap outside or press ESC to close</div>
+  </div>
+</div>
+
+<script>
+/* ── curriculum data ─────────────────────────────────────────── */
+const DAYS = [
+  {w:1,d:'Day 1',t:'Master AI Playgrounds, Deploy Local Models & Own Your AI',
+   b:'Local AI model deployment with <b>Ollama</b> and <b>MSTY</b>. Advanced prompting — temperature, presence and frequency penalties, plus prompt engineering and context engineering techniques.',
+   tools:['Ollama','MSTY','Claude','OpenAI']},
+  {w:1,d:'Day 2',t:'Image & Video Manipulation & Clone Generation Using AI',
+   b:'Build a <b>personal AI clone</b> — face, voice, image and video. Produce YouTube and Instagram content using AI. Everything around media generation, covered in one day.',
+   tools:['Midjourney','Krea AI','Kling AI','Higgsfield','HeyGen','RunwayML']},
+  {w:1,d:'Day 3',t:'Introduction to AI Automations with n8n',
+   b:'Replacing repetitive tasks with agents. Build a <b>website lead management system</b>. Hands-on with n8n modules across the full session — no code needed.',
+   tools:['n8n','Gmail','Airtable']},
+  {w:1,d:'Day 4',t:'Introduction to Agentic AI',
+   b:'Agentic frameworks, agent design patterns, and what it takes to <b>give an AI a job and trust it to execute</b>.',
+   tools:['n8n','Relevance AI','Lyzr AI']},
+  {w:1,d:'Day 5',t:'Setting up workflows using MCPs & Connectors',
+   b:'Claude MCP, Perplexity MCP, local file access, APIFY, KITE. Set up and orchestrate MCPs, then <b>build a micro-app inside Claude</b>.',
+   tools:['Claude','Perplexity','APIFY','KITE']},
+  {w:1,d:'Day 6',t:'Build Voice Agents & Ship Your First AI Product',full:1,
+   b:'<b>Full day.</b> Build a real-time voice agent on Retell AI. Then ideate, design, build and ship a first product <b>in 6 hours</b> — the full product development loop, in one day.',
+   tools:['Retell AI','Lovable','Bolt']},
+  {w:1,d:'Day 7',t:'Build your first AI employee — Jerry',full:1,
+   b:'<b>Full day.</b> Build <b>Jerry</b>, an AI-powered productivity assistant, from scratch. Every tool, workflow and prompting technique from the week comes together into one functional, real-world AI assistant.',
+   tools:['Slack','Gmail','Calendar','n8n','Fireflies AI']},
+  {w:2,d:'Days 8 & 9',t:'Claude Mastery — Parts 1 & 2',
+   b:'Full coverage of the Claude ecosystem — <b>Claude Code</b>, agentic coding workflows, project context management, code generation, debugging, and end-to-end app building with AI as a collaborator.',
+   tools:['Claude','Claude Code','Cursor','GitHub']},
+  {w:2,d:'Day 10',t:'Advanced MCPs and Workflows',
+   b:'Connecting multiple systems together, building micro-apps inside Claude, and dynamic data fetching at scale. This is where you <b>orchestrate MCPs across a full stack</b>.',
+   tools:['Claude','APIFY','Perplexity','Zapier']},
+  {w:2,d:'Day 11',t:'Building the backend for your AI Systems',
+   b:'Wiring automation workflows to <b>real backend systems</b> and collaborating in a structured development environment. <b>Hackathon teams also form on this day.</b>',
+   tools:['n8n','GitHub','Supabase','Railway']},
+  {w:2,d:'Day 12',t:'Codex Deepdive — build products faster',
+   b:'A coding agent built for <b>non-coders</b>. Codex lets you accelerate builds, improve output quality and ship faster — without writing the code yourself.',
+   tools:['Codex','OpenAI','Cursor']},
+  {w:2,d:'Day 13',t:'OpenClaw Deepdive + Hackathon Pitches',
+   b:'Hands-on prototyping with <b>OpenClaw</b> — the billion-dollar solo-dev story. You build with it live. <b>Hackathon pitch submissions close on this day.</b>',
+   tools:['OpenClaw','GitHub','Lovable']},
+  {w:2,d:'Day 14',t:'Monetisation 101 & Graduation',
+   b:'A concrete playbook to <b>start your monetisation journey</b> using everything built across the 14 days — then graduation.',
+   tools:['Stripe','Razorpay']}
+];
+
+const card = (x,i) => `<button class="day ${x.full?'full':''}" data-i="${i}">
+  <span class="dn">${x.d}<span class="live">Live</span></span>
+  <h3>${x.t}</h3>
+  <span class="tt">${x.tools.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</span>
+  <span class="cue">Tap for detail →</span></button>`;
+document.getElementById('w1').innerHTML = DAYS.map((x,i)=>x.w===1?card(x,i):'').join('');
+document.getElementById('w2').innerHTML = DAYS.map((x,i)=>x.w===2?card(x,i):'').join('');
+
+/* ── day detail modal ────────────────────────────────────────── */
+const scrim = document.getElementById('scrim'), sheetBody = document.getElementById('sheetBody');
+let lastFocus = null;
+function openDay(i){
+  const x = DAYS[i]; if(!x) return;
+  sheetBody.innerHTML = `<div class="sd">${x.d} · Live session</div><h2 id="sheetTitle">${x.t}</h2>
+    <div class="body">${x.b}</div>
+    <div class="toolrow">${x.tools.map(t=>`<span>${t}</span>`).join('')}</div>`;
+  document.getElementById('sheet').scrollTop = 0;
+  scrim.classList.add('on'); document.body.style.overflow = 'hidden';
+  setTimeout(()=>document.getElementById('closeBtn').focus(), 60);
+}
+function closeSheet(){
+  scrim.classList.remove('on'); document.body.style.overflow = '';
+  if(lastFocus) lastFocus.focus();
+}
+document.addEventListener('click', e => {
+  const d = e.target.closest('.day'); if(d){ lastFocus = d; openDay(+d.dataset.i); }
+});
+document.getElementById('closeBtn').addEventListener('click', closeSheet);
+scrim.addEventListener('click', e => { if(e.target === scrim) closeSheet(); });
+addEventListener('keydown', e => { if(e.key === 'Escape' && scrim.classList.contains('on')) closeSheet(); });
+
+/* ── one scroll routine: staggered reveals, rail state, progress ─ */
+const BLOCKS   = [...document.querySelectorAll('.stagger:not(.go)')];
+BLOCKS.forEach(b => b.classList.add(b.getBoundingClientRect().top > innerHeight * .9 ? 'pre' : 'go'));
+
+const SECTIONS = [...document.querySelectorAll('.hero, .chapter')];
+const LABELS   = ['Invitation','Inside','Week 1','Week 2','Schedule','Buildathon','Libraries','The year','Tools','Pricing','Proof','Why it works','Connect'];
+document.getElementById('rail').innerHTML =
+  SECTIONS.map((s,i)=>`<a href="#${s.id}" data-label="${LABELS[i]||''}" aria-label="${LABELS[i]||''}"></a>`).join('');
+const DOTS = [...document.querySelectorAll('.rail a')];
+const prog = document.getElementById('prog');
+let active = -1;
+
+function frame(){
+  for(let i = BLOCKS.length - 1; i >= 0; i--){                       // reveal what has come into view
+    if(BLOCKS[i].getBoundingClientRect().top < innerHeight * .88){
+      BLOCKS[i].classList.add('go'); BLOCKS.splice(i,1);
+    }
+  }
+  const mid = innerHeight / 2;                                        // which section owns the viewport
+  let n = SECTIONS.findIndex(s => { const r = s.getBoundingClientRect(); return r.top <= mid && r.bottom > mid; });
+  if(n < 0) n = 0;
+  if(n !== active){ active = n; DOTS.forEach((d,j)=>d.classList.toggle('on', j === n)); }
+
+  const h = document.documentElement;                                 // read progress
+  prog.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+}
+
+let ticking = false, settle = 0;
+const onScroll = () => {
+  if(!ticking){ ticking = true; requestAnimationFrame(()=>{ ticking = false; frame(); }); }
+  clearTimeout(settle); settle = setTimeout(frame, 140);      // trailing pass, in case a frame is skipped
+};
+addEventListener('scroll', onScroll, {passive:true});
+addEventListener('resize', onScroll, {passive:true});
+frame();
+</script>
+</body>
+</html>

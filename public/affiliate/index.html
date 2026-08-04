@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Generalist Accelerator · Enroll Through My Referral · Outskill</title>
+<meta name="description" content="A personal referral page for Outskill's AI Generalist Accelerator — 100+ hours of live training over 14 days, a 48-hour buildathon, and a full year of weekly updates. Explore the program, then enroll through my affiliate link."/>
+<meta name="theme-color" content="#070905"/>
+<meta property="og:type" content="website"/>
+<meta property="og:title" content="AI Generalist Accelerator · Enroll Through My Referral"/>
+<meta property="og:description" content="100+ hours of live AI training over 14 days, a 48-hour buildathon, 14 premium tools and a full year of weekly updates. Enroll through my referral, or reach out before you decide."/>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23070905'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23c2ee45'/%3E%3C/svg%3E"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900&display=swap"/>
+<style>
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  :root{
+    --lime:#c2ee45; --lime-dim:#a8d930; --bg:#070905; --white:#f0f4e8; --muted:#818f6c;
+    --glass:rgba(194,238,69,.06); --line:rgba(194,238,69,.18);
+    --gold:#ffd76e; --teal:#4dd8c0; --rose:#ff6b8a; --violet:#b39bff;
+  }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:'Space Grotesk',sans-serif; background:var(--bg); color:var(--white); overflow-x:hidden;
+        -webkit-tap-highlight-color:rgba(194,238,69,.16); }
+  ::selection{ background:var(--lime); color:#000; }
+  .progress{ position:fixed; top:0; left:0; height:3px; background:var(--lime); width:0%; z-index:200; box-shadow:0 0 12px var(--lime); transition:width .1s linear; }
+  /* sits over content on tall sections — keep it readable as a floating pill */
+  .keyhint{ position:fixed; bottom:16px; left:22px; z-index:99; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted);
+            background:rgba(7,9,5,.72); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+            border:1px solid rgba(194,238,69,.12); border-radius:100px; padding:6px 12px; }
+  .keyhint b{ color:var(--lime); font-weight:600; }
+  .nav-dots{ position:fixed; right:22px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; z-index:99; }
+  .nav-dots a{ width:8px; height:8px; border-radius:50%; background:var(--muted); display:block; transition:all .3s; position:relative; }
+  .nav-dots a.active{ background:var(--lime); transform:scale(1.7); box-shadow:0 0 12px var(--lime); }
+  .nav-dots a::after{ content:attr(data-label); position:absolute; right:18px; top:50%; transform:translateY(-50%); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); opacity:0; white-space:nowrap; transition:opacity .25s; }
+  .nav-dots a:hover::after{ opacity:1; }
+  @media(max-width:900px){ .nav-dots,.keyhint{ display:none; } }
+
+  .slide{ min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; padding:80px 6.5vw; position:relative; overflow:hidden; }
+  @supports(min-height:100svh){ .slide{ min-height:100svh; } }
+  .slide::before{ content:''; position:absolute; inset:0; opacity:.4; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); }
+  .blob{ position:absolute; border-radius:50%; filter:blur(120px); pointer-events:none; }
+  .slide-num{ position:absolute; top:34px; right:6.5vw; font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--muted); }
+  .slide-num b{ color:var(--lime); }
+  .watermark{ position:absolute; bottom:24px; right:6.5vw; max-width:62vw; text-align:right; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase; color:var(--muted); }
+  .watermark span{ color:var(--lime); }
+  .reveal{ opacity:0; transform:translateY(24px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in{ opacity:1; transform:none; }
+  .d1{transition-delay:.08s}.d2{transition-delay:.16s}.d3{transition-delay:.24s}.d4{transition-delay:.32s}.d5{transition-delay:.4s}
+
+  .tag{ display:inline-block; background:var(--glass); border:1px solid var(--line); color:var(--lime); font-size:10.5px; font-weight:700; letter-spacing:2.8px; text-transform:uppercase; padding:7px 15px; border-radius:100px; margin-bottom:20px; }
+  .tag.gold{ color:var(--gold); border-color:rgba(255,215,110,.3); background:rgba(255,215,110,.07); }
+  h1{ font-family:'Fraunces',serif; font-size:clamp(2rem,5vw,4.3rem); font-weight:900; line-height:1.04; letter-spacing:-1.4px; margin-bottom:16px; }
+  h1 .accent{ color:var(--lime); }
+  h2{ font-family:'Fraunces',serif; font-size:clamp(1.25rem,2.5vw,1.95rem); font-weight:900; margin:22px 0 10px; }
+  h2 span{ color:var(--lime); }
+  .kicker{ font-size:clamp(10.5px,2.2vw,13px); letter-spacing:5px; text-transform:uppercase; color:var(--lime-dim); margin-bottom:18px; font-weight:600; }
+  .subtext{ font-size:clamp(.92rem,1.45vw,1.08rem); color:var(--muted); max-width:740px; line-height:1.7; margin-bottom:22px; }
+  .subtext b,.subtext i{ color:var(--white); font-style:normal; }
+  .divider{ width:60px; height:3px; background:var(--lime); border-radius:2px; margin-bottom:22px; }
+  .scroll-hint{ position:absolute; bottom:32px; left:50%; transform:translateX(-50%); font-size:10.5px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); animation:bob 1.8s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+
+  /* chips */
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; max-width:960px; }
+  .chip{ background:var(--glass); border:1px solid var(--line); border-radius:100px; padding:8px 15px; font-size:.8rem; font-weight:600; }
+  .chip b{ color:var(--lime); } .chip.g{ border-color:rgba(255,215,110,.3); } .chip.g b{ color:var(--gold); }
+
+  /* pillar grid */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(238px,100%),1fr)); gap:12px; width:100%; max-width:1080px; }
+  .g{ background:var(--glass); border:1px solid var(--line); border-radius:16px; padding:17px 19px; transition:border-color .25s, transform .25s; }
+  .g:hover{ border-color:var(--lime); transform:translateY(-3px); }
+  .g .n{ font-family:'Fraunces',serif; font-weight:900; font-size:.9rem; color:var(--lime); letter-spacing:1px; }
+  .g h3{ font-size:.93rem; font-weight:700; margin:5px 0 4px; line-height:1.3; }
+  .g p{ font-size:.78rem; color:var(--muted); line-height:1.5; }
+
+  /* DAY CARDS — expandable */
+  .days{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(215px,100%),1fr)); gap:11px; width:100%; max-width:1100px; }
+  .day{ text-align:left; font-family:inherit; color:var(--white); cursor:pointer; background:var(--glass);
+        border:1px solid var(--line); border-radius:15px; padding:15px 16px 13px; transition:border-color .25s, transform .25s, background .25s; }
+  .day:hover,.day:focus-visible{ border-color:var(--lime); transform:translateY(-3px); background:rgba(194,238,69,.1); outline:none; }
+  .day .dn{ font-size:.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+  .day .live{ color:var(--rose); font-size:.55rem; letter-spacing:1px; display:flex; align-items:center; gap:4px; }
+  .day .live::before{ content:''; width:5px; height:5px; border-radius:50%; background:var(--rose); animation:pulse 1.6s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.25} }
+  .day h3{ font-size:.87rem; font-weight:700; margin:7px 0 6px; line-height:1.32; }
+  .day .tt{ display:flex; flex-wrap:wrap; gap:4px; }
+  .day .tt span{ font-size:.6rem; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:5px; padding:2px 6px; color:var(--muted); }
+  .day .cue{ margin-top:9px; font-size:.58rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; }
+  .day.full{ border-color:rgba(255,215,110,.32); } .day.full .dn{ color:var(--gold); }
+
+  /* timings table */
+  .twrap{ width:100%; max-width:900px; overflow-x:auto; border:1px solid var(--line); border-radius:16px; }
+  table{ width:100%; border-collapse:collapse; font-size:.85rem; min-width:520px; }
+  th{ background:rgba(194,238,69,.08); color:var(--lime); font-size:.66rem; letter-spacing:1.5px; text-transform:uppercase; text-align:left; padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td{ padding:11px 14px; border-bottom:1px solid rgba(255,255,255,.05); color:var(--muted); line-height:1.45; vertical-align:top; }
+  td b{ color:var(--white); } td .lm{ color:var(--lime); font-weight:700; } td .gd{ color:var(--gold); font-weight:700; }
+  tr:last-child td{ border-bottom:none; }
+  .rowlabel{ color:var(--white); font-weight:600; white-space:nowrap; }
+  tr.total td{ background:rgba(194,238,69,.07); border-top:1px solid var(--line); }
+
+  /* steps */
+  .steps{ display:flex; flex-direction:column; gap:2px; max-width:780px; width:100%; }
+  .step{ display:flex; gap:14px; align-items:flex-start; }
+  .step .n{ flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--glass); border:1px solid var(--lime); color:var(--lime); font-family:'Fraunces',serif; font-weight:900; font-size:.9rem; display:flex; align-items:center; justify-content:center; }
+  .step .txt{ padding-bottom:15px; }
+  .step .txt b{ display:block; font-size:.94rem; margin-bottom:2px; }
+  .step .txt span{ font-size:.82rem; color:var(--muted); line-height:1.55; }
+  .step .txt span i{ color:var(--lime); font-style:normal; font-weight:600; }
+
+  /* value stack */
+  .stack{ width:100%; max-width:720px; display:flex; flex-direction:column; gap:7px; }
+  .row{ display:flex; justify-content:space-between; align-items:center; gap:14px; background:var(--glass); border:1px solid var(--line); border-radius:12px; padding:12px 17px; }
+  .row .l{ font-size:.87rem; font-weight:600; } .row .v{ font-size:.83rem; color:var(--gold); font-weight:700; white-space:nowrap; }
+  .row.tot{ background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.14); margin-top:5px; }
+  .row.tot .l{ color:var(--muted); } .row.tot .v{ color:var(--muted); text-decoration:line-through; }
+  .pricebox{ margin-top:14px; width:100%; max-width:720px; background:linear-gradient(135deg,rgba(194,238,69,.18),rgba(194,238,69,.05));
+             border:1px solid var(--lime); border-radius:20px; padding:24px 26px; text-align:center; box-shadow:0 20px 60px -28px rgba(194,238,69,.6); }
+  .pricebox .pl{ font-size:.66rem; letter-spacing:3px; text-transform:uppercase; color:var(--lime); font-weight:700; margin-bottom:8px; }
+  .pricebox .pp{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(2.1rem,5.6vw,3.4rem); letter-spacing:-1.5px; line-height:1; }
+  .pricebox .pp span{ color:var(--lime); }
+  .pricebox .ps{ font-size:.82rem; color:var(--muted); margin-top:9px; }
+  .pricebox .ps b{ color:var(--white); }
+  .pricebox .btn{ margin-top:18px; }
+
+  /* testimonial cards */
+  .tcards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(255px,100%),1fr)); gap:12px; width:100%; max-width:1100px; }
+  .tc{ background:var(--glass); border:1px solid var(--line); border-radius:16px; padding:17px 19px; }
+  .tc .who{ font-size:.9rem; font-weight:700; color:var(--lime); margin-bottom:2px; }
+  .tc .cohort{ font-size:.6rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .tc .ba{ font-size:.58rem; letter-spacing:1.6px; text-transform:uppercase; font-weight:700; margin:8px 0 4px; }
+  .tc .ba.b{ color:var(--rose); } .tc .ba.a{ color:var(--teal); }
+  .tc p{ font-size:.78rem; color:var(--muted); line-height:1.5; }
+  .tc p b{ color:var(--white); }
+
+  .note{ margin-top:16px; background:var(--glass); border:1px solid var(--line); border-left:3px solid var(--gold); border-radius:0 12px 12px 0; padding:12px 16px; font-size:.8rem; color:var(--muted); line-height:1.6; max-width:840px; }
+  .note b{ color:var(--white); } .note .nh{ display:block; font-size:.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:4px; }
+
+  /* ── REFERRAL LAYER — invite, buttons, contact ───────────────── */
+  .invite{ width:100%; max-width:760px; margin-bottom:22px; padding:16px 20px;
+           background:linear-gradient(135deg,rgba(194,238,69,.11),rgba(194,238,69,.02));
+           border:1px solid var(--line); border-left:3px solid var(--lime); border-radius:0 16px 16px 0; }
+  .invite .ih{ display:block; font-size:.6rem; letter-spacing:2.4px; text-transform:uppercase; color:var(--lime); font-weight:700; margin-bottom:7px; }
+  .invite p{ font-size:clamp(.88rem,1.35vw,1rem); line-height:1.7; color:var(--white); }
+  .invite a{ color:var(--lime); text-decoration:none; border-bottom:1px solid rgba(194,238,69,.4); }
+  .invite a:hover{ border-bottom-color:var(--lime); }
+
+  .cta-row{ display:flex; flex-wrap:wrap; align-items:center; gap:11px; width:100%; max-width:760px; }
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; min-height:52px; padding:14px 26px;
+        border-radius:100px; font-family:inherit; font-size:clamp(.85rem,1.4vw,.95rem); font-weight:700; line-height:1.25;
+        text-decoration:none; cursor:pointer; text-align:center;
+        transition:transform .25s, box-shadow .25s, background .25s, border-color .25s, color .25s; }
+  .btn svg{ flex-shrink:0; }
+  .btn:focus-visible{ outline:2px solid var(--lime); outline-offset:3px; }
+  .btn-primary{ background:var(--lime); color:#0a1003; border:1px solid var(--lime); box-shadow:0 16px 42px -20px rgba(194,238,69,.85); }
+  .btn-primary:hover{ background:var(--lime-dim); border-color:var(--lime-dim); transform:translateY(-2px); box-shadow:0 22px 52px -20px rgba(194,238,69,.95); }
+  .btn-ghost{ background:var(--glass); color:var(--white); border:1px solid var(--line); }
+  .btn-ghost:hover{ border-color:var(--lime); color:var(--lime); transform:translateY(-2px); }
+  .btn-wa{ background:rgba(77,216,192,.12); color:var(--teal); border:1px solid rgba(77,216,192,.45); }
+  .btn-wa:hover{ background:rgba(77,216,192,.2); border-color:var(--teal); transform:translateY(-2px); }
+  .cta-sub{ margin-top:12px; max-width:660px; font-size:.78rem; color:var(--muted); line-height:1.6; }
+  .cta-sub b{ color:var(--white); }
+
+  .contact-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(262px,100%),1fr)); gap:12px; width:100%; max-width:820px; }
+  .cc{ display:flex; flex-direction:column; align-items:flex-start; gap:9px; background:var(--glass);
+       border:1px solid var(--line); border-radius:16px; padding:18px 20px; transition:border-color .25s; }
+  .cc:hover{ border-color:var(--lime); }
+  .cc .lbl{ font-size:.6rem; letter-spacing:2.2px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; }
+  .cc .val{ font-size:.94rem; font-weight:600; color:var(--white); text-decoration:none; overflow-wrap:anywhere; transition:color .2s; }
+  .cc .val:hover{ color:var(--lime); }
+  .cc .btn{ width:100%; margin-top:5px; }
+
+  .closer{ display:flex; flex-wrap:wrap; align-items:center; gap:16px 20px; width:100%; max-width:820px;
+           margin-top:28px; padding-top:24px; border-top:1px solid var(--line); }
+  .closer .ct{ flex:1 1 260px; font-size:.85rem; color:var(--muted); line-height:1.6; }
+  .closer .ct b{ display:block; margin-bottom:3px; font-family:'Fraunces',serif; font-weight:900; font-size:1.05rem; color:var(--white); }
+  .disclosure{ margin-top:22px; max-width:760px; font-size:.7rem; line-height:1.65; color:var(--muted); opacity:.85; }
+
+  /* MODAL */
+  .scrim{ position:fixed; inset:0; background:rgba(3,5,2,.82); backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
+          z-index:300; opacity:0; pointer-events:none; visibility:hidden; transition:opacity .3s, visibility .3s; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .scrim.on{ opacity:1; pointer-events:auto; visibility:visible; }
+  .sheet{ width:100%; max-width:620px; max-height:86vh; overflow-y:auto; background:linear-gradient(165deg,#111607,#080a05);
+          border:1px solid var(--line); border-radius:22px; padding:28px 30px 26px; position:relative;
+          transform:translateY(24px) scale(.97); opacity:0; transition:transform .36s cubic-bezier(.2,.8,.2,1), opacity .3s; }
+  .scrim.on .sheet{ transform:none; opacity:1; }
+  .sheet::-webkit-scrollbar{ width:7px; } .sheet::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  .sheet .sd{ font-size:.62rem; letter-spacing:2.6px; text-transform:uppercase; color:var(--lime); font-weight:700; margin-bottom:8px; }
+  .sheet h2{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.25rem,3vw,1.75rem); line-height:1.16; margin:0 0 12px; }
+  .sheet .body{ font-size:.9rem; color:var(--muted); line-height:1.68; }
+  .sheet .body b{ color:var(--white); }
+  .toolrow{ display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
+  .toolrow span{ font-size:.7rem; background:rgba(194,238,69,.1); border:1px solid var(--line); color:var(--lime); border-radius:6px; padding:4px 9px; font-weight:600; }
+  .close{ position:absolute; top:14px; right:16px; width:36px; height:36px; border-radius:50%; background:var(--glass); border:1px solid var(--line); color:var(--white); font-size:1rem; cursor:pointer; font-family:inherit; transition:background .2s,border-color .2s; }
+  .close:hover{ background:rgba(255,107,138,.16); border-color:var(--rose); }
+  .esc{ margin-top:16px; font-size:.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+
+  /* ── RESPONSIVE ──────────────────────────────────────────────── */
+  @media(max-width:900px){
+    .slide{ padding:74px 6vw; }
+    .slide-num,.watermark{ right:6vw; }
+  }
+  @media(max-width:600px){
+    .slide{ min-height:auto; padding:56px 6vw; }
+    /* the watermark is right-aligned; lift the hint clear of it */
+    .scroll-hint{ bottom:52px; }
+    .watermark{ bottom:20px; }
+    .days{ grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr)); gap:9px; }
+    .sheet{ padding:24px 20px 22px; border-radius:18px; }
+    .row{ flex-direction:column; align-items:flex-start; gap:3px; }
+    .cta-row{ flex-direction:column; align-items:stretch; }
+    .cta-row .btn{ width:100%; }
+    .btn{ padding:14px 20px; }
+    .invite{ padding:15px 17px; }
+    .closer{ gap:14px; }
+    .closer .btn{ width:100%; }
+  }
+  @media(prefers-reduced-motion:reduce){
+    html{ scroll-behavior:auto; }
+    *,*::before,*::after{ animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; }
+    .reveal{ opacity:1!important; transform:none!important; }
+  }
+  @media print{
+    body{ background:#fff; color:#000; } .blob,.nav-dots,.keyhint,.progress,.scroll-hint,.scrim{ display:none!important; }
+    .slide{ min-height:auto; page-break-after:always; padding:26px; } .reveal{ opacity:1!important; transform:none!important; }
+    .btn{ border:1px solid #000!important; background:none!important; color:#000!important; box-shadow:none!important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────────────────────────────────────────────────────────
+     EDIT ME — the only three things that need personalising:
+       1. Affiliate link  →  replace every  YOUR_AFFILIATE_LINK
+       2. Email           →  tanish.atreya@growthschool.io
+       3. WhatsApp        →  https://wa.me/918147069639
+     ───────────────────────────────────────────────────────────── -->
+
+<div class="progress" id="prog"></div>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
+<nav class="nav-dots" id="dots" aria-label="Section navigation"></nav>
+
+<!-- 1 COVER — referral hero -->
+<section class="slide" id="s1">
+  <div class="blob" style="width:52vw;height:52vw;background:rgba(194,238,69,.14);top:-16vw;right:-12vw"></div>
+  <div class="blob" style="width:34vw;height:34vw;background:rgba(255,215,110,.07);bottom:-14vw;left:-10vw"></div>
+  <span class="slide-num"><b>01</b> / 13</span>
+  <span class="tag reveal">Outskill · International · Global Cohort</span>
+  <h1 class="reveal d1">The AI Generalist<br/><span class="accent">Accelerator.</span></h1>
+
+  <aside class="invite reveal d2" aria-label="Referral invitation">
+    <span class="ih">You've been invited</span>
+    <p>You've been invited to enroll through my referral. Explore the program details below, and when you're ready,
+      use my affiliate link to secure your enrollment. If you'd like guidance before making a decision,
+      feel free to <a href="#contact">reach out to me directly</a>.</p>
+  </aside>
+
+  <div class="cta-row reveal d3">
+    <a class="btn btn-primary" href="YOUR_AFFILIATE_LINK" target="_blank" rel="noopener">
+      Enroll Using My Affiliate Link <span aria-hidden="true">→</span></a>
+    <a class="btn btn-ghost" href="#contact">Talk to me first</a>
+  </div>
+  <p class="cta-sub reveal d3">Takes you to the official Outskill enrollment page · <b>$495</b> blocks your seat</p>
+
+  <p class="subtext reveal d4" style="margin-top:22px">Build, ship and monetize AI products in weeks. A fast-paced program to help you become a
+    full-stack AI generalist — <b>100+ hours of live training over 14 days</b>, then a <b>full year</b> of staying current.</p>
+  <div class="chips reveal d4">
+    <span class="chip"><b>14</b> days live</span>
+    <span class="chip"><b>100+</b> hours</span>
+    <span class="chip"><b>48-hr</b> buildathon</span>
+    <span class="chip"><b>54+</b> live sessions / year</span>
+    <span class="chip"><b>14</b> premium tools</span>
+    <span class="chip"><b>EST</b> timings</span>
+    <span class="chip g"><b>$2,995</b></span>
+  </div>
+  <p class="subtext reveal d5" style="margin-top:20px;font-size:.85rem">
+    Live sessions run on <b>Eastern Time</b>, built for a global cohort — learners join from across the
+    US, Canada, the UK, Europe, the Middle East and beyond.</p>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+  <span class="scroll-hint">scroll ↓</span>
+</section>
+
+<!-- 2 WHAT'S INSIDE -->
+<section class="slide" id="s2">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(194,238,69,.09);top:10%;left:-14vw"></div>
+  <span class="slide-num"><b>02</b> / 13</span>
+  <span class="tag reveal">What's inside</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Everything to keep you ahead<br/>in the AI-first world — <span class="accent">for one year.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="grid reveal d2">
+    <div class="g"><span class="n">01</span><h3>100+ hours of learning</h3><p>Over 14 days. Learn and build, every single day.</p></div>
+    <div class="g"><span class="n">02</span><h3>48-hour Buildathon</h3><p>Team up globally and ship a brand-new product in 48 hours.</p></div>
+    <div class="g"><span class="n">03</span><h3>AI Content Library</h3><p>Tools, workflows and deep-dives across 9 business functions.</p></div>
+    <div class="g"><span class="n">04</span><h3>Modern Business Fellowship</h3><p>Content library powered by Kairos Business Group.</p></div>
+    <div class="g"><span class="n">05</span><h3>Monetization Mastery 101</h3><p>The recorded library on turning these skills into income.</p></div>
+    <div class="g"><span class="n">06</span><h3>54+ live sessions / year</h3><p>A new AI-update session every week, for the next 12 months.</p></div>
+    <div class="g"><span class="n">07</span><h3>Monthly AI Sprints</h3><p>Learn and execute something new, every month.</p></div>
+    <div class="g"><span class="n">08</span><h3>Global AI community</h3><p>Builders from around the world, helping each other daily.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 3 WEEK 1 -->
+<section class="slide" id="s3">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(194,238,69,.1);top:-12vw;right:-10vw"></div>
+  <span class="slide-num"><b>03</b> / 13</span>
+  <span class="tag reveal">The curriculum · Week 1</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Days 1–7 — <span class="accent">learn the whole stack.</span></h1>
+  <p class="subtext reveal d1">All sessions are live. Recordings provided afterwards. <b>Tap any day</b> for the full detail and the tools you'll master.</p>
+  <div class="days reveal d2" id="w1"></div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 4 WEEK 2 -->
+<section class="slide" id="s4">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(179,155,255,.08);bottom:-14vw;left:-10vw"></div>
+  <span class="slide-num"><b>04</b> / 13</span>
+  <span class="tag reveal">The curriculum · Week 2</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Days 8–14 — <span class="accent">build and monetize.</span></h1>
+  <p class="subtext reveal d1">Week 2 goes deep on Claude, backends, coding agents — and ends with the hackathon and your monetisation playbook.</p>
+  <div class="days reveal d2" id="w2"></div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 5 SCHEDULE -->
+<section class="slide" id="s5">
+  <div class="blob" style="width:38vw;height:38vw;background:rgba(194,238,69,.09);top:6%;right:-12vw"></div>
+  <span class="slide-num"><b>05</b> / 13</span>
+  <span class="tag reveal">Schedule</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">When it runs — <span class="accent">and what if you can't.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="twrap reveal d2">
+    <table>
+      <thead><tr><th>Days</th><th>EST</th><th>IST equivalent</th></tr></thead>
+      <tbody>
+        <tr><td><b>Monday – Friday</b></td><td class="lm">10:00 AM – 1:30 PM</td><td>7:30 PM – 11:00 PM</td></tr>
+        <tr><td><b>Saturday – Sunday</b></td><td class="lm">10:00 AM – 7:00 PM</td><td>10:00 AM – 7:00 PM</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="chips reveal d3" style="margin-top:18px">
+    <span class="chip">Cohort option 1 — <b>26 June → 12 July</b></span>
+    <span class="chip">Cohort option 2 — <b>7 August → 23 August</b></span>
+    <span class="chip">Recordings after <b>every session</b></span>
+  </div>
+  <h2 class="reveal d3">Can't make these dates? <span>Defer.</span></h2>
+  <p class="subtext reveal d3">Pick either option and <b>defer your enrolment to a future cohort</b>.
+    If your next 45 days aren't clear, join now, lock the special offer, and move to the batch that suits you.</p>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 6 BUILDATHON -->
+<section class="slide" id="s6">
+  <div class="blob" style="width:42vw;height:42vw;background:rgba(255,215,110,.09);top:-10vw;left:-10vw"></div>
+  <span class="slide-num"><b>06</b> / 13</span>
+  <span class="tag gold reveal">The finale</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">The <span class="accent">48-hour Buildathon.</span></h1>
+  <p class="subtext reveal d1">The 14 days don't end in a quiz. They end in a build — with a team, against the clock, demoed to a global audience.</p>
+  <div class="steps reveal d2">
+    <div class="step"><div class="n">1</div><div class="txt"><b>Complete the 14-day Accelerator</b><span>Every tool, workflow and prompting technique from the fortnight.</span></div></div>
+    <div class="step"><div class="n">2</div><div class="txt"><b>Group projects</b><span>Team up with builders from across the world. <i>Hackathon teams form on Day 11.</i></span></div></div>
+    <div class="step"><div class="n">3</div><div class="txt"><b>Build in 48 hours</b><span>Create a real product together — not a prototype deck, a working thing. <i>Pitch submissions close on Day 13.</i></span></div></div>
+    <div class="step"><div class="n">4</div><div class="txt"><b>Demo it</b><span>In front of a global audience, at the graduation on Day 14.</span></div></div>
+  </div>
+  <p class="subtext reveal d3" style="margin-top:8px;font-size:.85rem">Past cohort builds include travel planners, legal-writing tools and an AI school advisor — real products, shipped by learners.</p>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 7 LIBRARIES -->
+<section class="slide" id="s7">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(77,216,192,.07);bottom:-12vw;right:-10vw"></div>
+  <span class="slide-num"><b>07</b> / 13</span>
+  <span class="tag reveal">Beyond the 14 days</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Three libraries, <span class="accent">12 months of access.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(min(290px,100%),1fr))">
+    <div class="g">
+      <h3 style="color:var(--lime)">📚 AI Content Library</h3>
+      <p style="margin-bottom:9px">Pre-recorded, available anytime, <b style="color:#f0f4e8">12 months of access</b>. Covers AI for:</p>
+      <p>Data Analysis · Job Applications · Research · Marketing · Product Building · Design · Content Writing · Sales · Operations</p>
+      <p style="margin-top:9px;font-size:.72rem">Tool deep-dives: ChatGPT, Claude, NotebookLM, Google AI Studio, Make, Manus, Genspark, Perplexity, Gemini, Notion, Hugging Face, Zapier, Copilot, Dify, Smithery</p>
+    </div>
+    <div class="g">
+      <h3 style="color:var(--gold)">🎓 Kairos Business Fellowship</h3>
+      <p style="margin-bottom:9px">Partnered with <b style="color:#f0f4e8">Kairos School of Business</b> to bring their flagship Business Fellowship — <b style="color:#f0f4e8">worth $2,906</b>.</p>
+      <p>First Principles Thinking · Design Thinking · Operations · Product Sense · Consulting · UI/UX · Finance · Problem Solving · Logistics Management · Business Strategy</p>
+    </div>
+    <div class="g">
+      <h3 style="color:var(--teal)">💸 Monetization Mastery 101</h3>
+      <p style="margin-bottom:9px">The art of actually making money with these skills. On-demand recorded library.</p>
+      <p>Generating organic sales · Using LinkedIn the right way · Cold emailing · Management consulting · Foundations of Meta Ads · Foundations of Google Ads</p>
+    </div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 8 STAY CURRENT -->
+<section class="slide" id="s8">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(194,238,69,.1);top:-10vw;right:-12vw"></div>
+  <span class="slide-num"><b>08</b> / 13</span>
+  <span class="tag reveal">The year after</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">AI changes weekly.<br/><span class="accent">So does the curriculum.</span></h1>
+  <p class="subtext reveal d1">This is the part most people underestimate: the Accelerator isn't 14 days. It's 14 days <b>plus a year</b>.</p>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr))">
+    <div class="g"><h3 style="color:var(--lime)">🔴 54+ live AI update sessions</h3><p>A new one <b style="color:#f0f4e8">every week</b>, for the next year — covering exactly what changed in AI. Recordings of every session, yours for a full year.</p></div>
+    <div class="g"><h3 style="color:var(--lime)">🚀 Monthly AI Sprints</h3><p>A new sprint every month: OpenClaw · Claude + AntiGravity · Agentic building with Codex · Top Claude Skills · Multi-Agent Orchestration · Saving Claude Tokens · Claude Certification — and more coming.</p></div>
+    <div class="g"><h3 style="color:var(--lime)">🌍 Global AI community</h3><p>Learners and builders worldwide, helping each other every day — peer support, real-world problems, tool recommendations.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 9 TOOLS -->
+<section class="slide" id="s9">
+  <div class="blob" style="width:42vw;height:42vw;background:rgba(255,215,110,.08);bottom:-14vw;left:-12vw"></div>
+  <span class="slide-num"><b>09</b> / 13</span>
+  <span class="tag gold reveal">The bonus nobody expects</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">14 premium AI tools — <span class="accent">free, for a year.</span></h1>
+  <p class="subtext reveal d1">Handed over as a bonus alongside the program — including a full year of <b>HeyGen</b>,
+    <b>Superprompts</b> and <b>SuperGrow</b>. This is real spend you would otherwise carry yourself.</p>
+  <div class="twrap reveal d2">
+    <table>
+      <thead><tr><th>Tool</th><th>Access</th><th>Value (USD)</th></tr></thead>
+      <tbody>
+        <tr><td><b>Emily AI</b></td><td>1 year</td><td>$228</td></tr>
+        <tr><td><b>SuperGrow</b></td><td>1 year</td><td>$360</td></tr>
+        <tr><td><b>Phot.AI</b></td><td>1 year</td><td>$110</td></tr>
+        <tr><td><b>Fireflies AI</b></td><td class="gd">6 months</td><td>$108</td></tr>
+        <tr><td><b>Humanic</b></td><td>1 year</td><td>$240</td></tr>
+        <tr><td><b>Happenstance</b></td><td>1 year</td><td>$288</td></tr>
+        <tr><td><b>Lyzr</b></td><td>1 year</td><td>$240</td></tr>
+        <tr><td><b>WisprFlow</b></td><td>1 year</td><td>$180</td></tr>
+        <tr><td><b>HeyGen</b></td><td>1 year</td><td>$288</td></tr>
+        <tr><td><b>GetMulti</b></td><td class="gd">Lifetime</td><td>$186</td></tr>
+        <tr><td><b>SuperJoin</b></td><td>1 year</td><td>$288</td></tr>
+        <tr><td><b>Numerous AI</b></td><td>1 year</td><td>$120</td></tr>
+        <tr><td><b>Superprompts</b></td><td>1 year</td><td>$299</td></tr>
+        <tr><td><b>Get Owl AI</b></td><td>1 year</td><td>$108</td></tr>
+        <tr class="total"><td><b>Total bonus value</b></td><td></td><td class="lm">$3,043 USD</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 10 VALUE STACK -->
+<section class="slide" id="s10">
+  <div class="blob" style="width:46vw;height:46vw;background:rgba(194,238,69,.13);top:-12vw;right:-12vw"></div>
+  <span class="slide-num"><b>10</b> / 13</span>
+  <span class="tag reveal">The maths</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">$21,929 of value.<br/><span class="accent">You pay $2,995.</span></h1>
+  <div class="stack reveal d2" style="margin-top:8px">
+    <div class="row"><span class="l">100+ hours of AI training</span><span class="v">$1,204</span></div>
+    <div class="row"><span class="l">48-hour live Buildathon</span><span class="v">$581</span></div>
+    <div class="row"><span class="l">AI Content Library</span><span class="v">$581</span></div>
+    <div class="row"><span class="l">Kairos Business Fellowship</span><span class="v">$2,906</span></div>
+    <div class="row"><span class="l">AI Monetization Mastery</span><span class="v">$581</span></div>
+    <div class="row"><span class="l">54+ live sessions for the next year</span><span class="v">$1,204</span></div>
+    <div class="row"><span class="l">Bonus AI tools</span><span class="v">$2,878</span></div>
+    <div class="row"><span class="l">Mega Sprints</span><span class="v">$3,588</span></div>
+    <div class="row"><span class="l">Global online AI community</span><span class="v">$2,388</span></div>
+    <div class="row tot"><span class="l">Total value</span><span class="v">$21,929</span></div>
+  </div>
+  <div class="pricebox reveal d3">
+    <div class="pl">Your price</div>
+    <div class="pp"><span>$2,995</span></div>
+    <div class="ps">Block your seat with <b>$495</b> · paid via <b>XPay (9% convenience fee)</b> — pay in full or in installments</div>
+  </div>
+  <div class="note reveal d4"><span class="nh">After you pay</span>
+    You are taken straight to a Calendly page to book your <b>1-on-1 onboarding call</b> — that is where we hand over LMS access, the content libraries and every one of the tools.</div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 11 PROOF -->
+<section class="slide" id="s11">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(77,216,192,.08);bottom:-12vw;left:-10vw"></div>
+  <span class="slide-num"><b>11</b> / 13</span>
+  <span class="tag reveal">Proof</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">What learners did <span class="accent">during</span> the cohort.</h1>
+  <p class="subtext reveal d1">Not testimonials written for a brochure — posts they made in the community themselves.</p>
+  <div class="tcards reveal d2">
+    <div class="tc"><div class="who">Akshay Hiremath</div><div class="cohort">"7 days. That's all it took."</div>
+      <div class="ba b">Before</div><p>Seen at his startup as "just the SEO specialist". Ideas heard, but nothing changing.</p>
+      <div class="ba a">After</div><p>At <b>Day 7 of 14</b> he pitched his founder practical AI plays — and stepped into a <b>Growth Specialist with AI</b> role.</p></div>
+    <div class="tc"><div class="who">Angela K</div><div class="cohort">Cohort 11</div>
+      <div class="ba b">Before</div><p>Terrified of becoming irrelevant. A fund, a promotion, building for clients — "none of that felt possible".</p>
+      <div class="ba a">After</div><p><b>Promoted within a week.</b> Her CEO put her at the front of building a venture fund from scratch. Ships agents and apps daily.</p></div>
+    <div class="tc"><div class="who">Ganesh Alla</div><div class="cohort">Cohort 9</div>
+      <div class="ba b">Before</div><p>Knew the concepts, hadn't crossed into delivering. No clients, no company.</p>
+      <div class="ba a">After</div><p><b>First client the day after the cohort ended</b>, two more lined up, and launched <b>Molvex</b> — a full-stack AI solutions company.</p></div>
+    <div class="tc"><div class="who">Abhishek Sharma</div><div class="cohort">Cohort 11</div>
+      <div class="ba b">Before</div><p>No developer title. 50+ fields mapped by hand on every ingestion — 30 minutes of clicking, every time.</p>
+      <div class="ba a">After</div><p>Built a zero-cloud desktop app + Chrome extension. <b>30 minutes → 10 seconds.</b> Leadership approved; now training the team.</p></div>
+    <div class="tc"><div class="who">Isha Gupta</div><div class="cohort">Cohort 7</div>
+      <div class="ba b">Before</div><p>Local Coffee Perks was just a demo shown to the community for feedback.</p>
+      <div class="ba a">After</div><p><b>Live on the App Store and Google Play.</b> One digital loyalty pass for local cafés. UK launch running, worldwide next.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 12 CLOSE -->
+<section class="slide" id="s12">
+  <div class="blob" style="width:52vw;height:52vw;background:rgba(194,238,69,.14);top:-14vw;right:-12vw"></div>
+  <span class="slide-num"><b>12</b> / 13</span>
+  <span class="tag reveal">Why this works</span>
+  <h1 class="reveal d1">Fourteen days in.<br/><span class="accent">A year ahead.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))">
+    <div class="g"><span class="n">01</span><h3>It isn't 14 days</h3><p>It's 14 days <b style="color:#f0f4e8">plus a full year</b> — weekly live sessions, 14 premium tools, three libraries and a global community.</p></div>
+    <div class="g"><span class="n">02</span><h3>You leave with a product</h3><p>Not a certificate quiz — a 48-hour buildathon where you ship something real and demo it to a global audience.</p></div>
+    <div class="g"><span class="n">03</span><h3>You stay current</h3><p>AI changes weekly. So does the curriculum — a new live update session every week, for the next 12 months.</p></div>
+    <div class="g"><span class="n">04</span><h3>The dates aren't a wall</h3><p>Pick either cohort and defer to a future batch if your calendar changes. Join now, lock the offer, choose the batch later.</p></div>
+    <div class="g"><span class="n">05</span><h3>You're never learning alone</h3><p>A global community of builders, plus a 1-on-1 onboarding call before you start so nothing is unclear on Day 1.</p></div>
+    <div class="g"><span class="n">06</span><h3>Everything is recorded</h3><p>Miss a live session and catch up at your pace. All 14 days and every weekly workshop, yours for a full year.</p></div>
+  </div>
+  <div class="pricebox reveal d3" style="margin-top:26px">
+    <div class="pl">Ready to start?</div>
+    <div class="pp"><span>$2,995</span></div>
+    <div class="ps">Block your seat with <b>$495</b> · full payment or installments via <b>XPay (9% convenience fee)</b></div>
+    <a class="btn btn-primary" href="YOUR_AFFILIATE_LINK" target="_blank" rel="noopener">
+      Enroll Using My Affiliate Link <span aria-hidden="true">→</span></a>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<!-- 13 CONTACT -->
+<section class="slide" id="contact">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(77,216,192,.07);bottom:-14vw;right:-12vw"></div>
+  <div class="blob" style="width:32vw;height:32vw;background:rgba(194,238,69,.1);top:-10vw;left:-10vw"></div>
+  <span class="slide-num"><b>13</b> / 13</span>
+  <span class="tag reveal">Before you enroll</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Need help <span class="accent">deciding?</span></h1>
+  <div class="divider reveal d1"></div>
+  <p class="subtext reveal d1">If you have any questions about the program, pricing, curriculum, or whether it's the right fit for you,
+    feel free to reach out.</p>
+
+  <div class="contact-grid reveal d2">
+    <div class="cc">
+      <span class="lbl">Email</span>
+      <a class="val" href="mailto:tanish.atreya@growthschool.io?subject=Question%20about%20the%20AI%20Generalist%20Accelerator">tanish.atreya@growthschool.io</a>
+      <a class="btn btn-ghost" href="mailto:tanish.atreya@growthschool.io?subject=Question%20about%20the%20AI%20Generalist%20Accelerator">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3.2 7.2 8.8 6 8.8-6"/></svg>
+        Send an email</a>
+    </div>
+    <div class="cc">
+      <span class="lbl">WhatsApp</span>
+      <a class="val" href="https://wa.me/918147069639" target="_blank" rel="noopener noreferrer">+91 81470 69639</a>
+      <a class="btn btn-wa" href="https://wa.me/918147069639" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.25-1.38a9.87 9.87 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.12a8.23 8.23 0 0 1-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.35c0-4.54 3.7-8.23 8.25-8.23 2.2 0 4.27.86 5.83 2.42a8.19 8.19 0 0 1 2.41 5.82c0 4.54-3.7 8.2-8.24 8.2zm4.53-6.15c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.13-.16.24-.64.8-.79.97-.14.16-.29.18-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.15-.25-.02-.38.11-.5.11-.11.25-.29.37-.44.13-.15.17-.25.25-.41.08-.17.04-.31-.02-.44-.06-.12-.56-1.35-.77-1.85-.2-.48-.4-.42-.55-.42h-.47c-.16 0-.43.06-.65.31-.22.25-.86.84-.86 2.05s.88 2.38 1 2.54c.13.17 1.73 2.65 4.2 3.72.59.25 1.05.4 1.4.52.59.19 1.13.16 1.55.1.47-.07 1.47-.6 1.67-1.18.21-.58.21-1.08.15-1.18-.06-.11-.23-.17-.47-.29z"/></svg>
+        Chat on WhatsApp</a>
+    </div>
+  </div>
+
+  <div class="closer reveal d3">
+    <div class="ct"><b>Already decided?</b>Secure your seat through my referral link — same program, same price, straight from Outskill.</div>
+    <a class="btn btn-primary" href="YOUR_AFFILIATE_LINK" target="_blank" rel="noopener">
+      Enroll Using My Affiliate Link <span aria-hidden="true">→</span></a>
+  </div>
+
+  <p class="disclosure reveal d4">Disclosure: this is a personal referral page. Enrolling through the link above credits me as your
+    referrer at no additional cost to you. The program, pricing, curriculum and support are delivered entirely by Outskill.</p>
+  <span class="watermark">Outskill · <span>Accelerator International</span></span>
+</section>
+
+<div class="scrim" id="scrim">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <button class="close" id="closeBtn" aria-label="Close">✕</button>
+    <div id="sheetBody"></div>
+    <div class="esc">Tap outside or press ESC to close</div>
+  </div>
+</div>
+
+<script>
+const DAYS = [
+  {w:1,d:'Day 1',t:'Master AI Playgrounds, Deploy Local Models & Own Your AI',
+   b:'Local AI model deployment with <b>Ollama</b> and <b>MSTY</b>. Advanced prompting — temperature, presence and frequency penalties, plus prompt engineering and context engineering techniques.',
+   tools:['Ollama','MSTY','Claude','OpenAI']},
+  {w:1,d:'Day 2',t:'Image & Video Manipulation & Clone Generation Using AI',
+   b:'Build a <b>personal AI clone</b> — face, voice, image and video. Produce YouTube and Instagram content using AI. Everything around media generation, covered in one day.',
+   tools:['Midjourney','Krea AI','Kling AI','Higgsfield','HeyGen','RunwayML']},
+  {w:1,d:'Day 3',t:'Introduction to AI Automations with n8n',
+   b:'Replacing repetitive tasks with agents. Build a <b>website lead management system</b>. Hands-on with n8n modules across the full session — no code needed.',
+   tools:['n8n','Gmail','Airtable']},
+  {w:1,d:'Day 4',t:'Introduction to Agentic AI',
+   b:'Agentic frameworks, agent design patterns, and what it takes to <b>give an AI a job and trust it to execute</b>.',
+   tools:['n8n','Relevance AI','Lyzr AI']},
+  {w:1,d:'Day 5',t:'Setting up workflows using MCPs & Connectors',
+   b:'Claude MCP, Perplexity MCP, local file access, APIFY, KITE. Set up and orchestrate MCPs, then <b>build a micro-app inside Claude</b>.',
+   tools:['Claude','Perplexity','APIFY','KITE']},
+  {w:1,d:'Day 6',t:'Build Voice Agents & Ship Your First AI Product',full:1,
+   b:'<b>Full day.</b> Build a real-time voice agent on Retell AI. Then ideate, design, build and ship a first product <b>in 6 hours</b> — the full product development loop, in one day.',
+   tools:['Retell AI','Lovable','Bolt']},
+  {w:1,d:'Day 7',t:'Build your first AI employee — Jerry',full:1,
+   b:'<b>Full day.</b> Build <b>Jerry</b>, an AI-powered productivity assistant, from scratch. Every tool, workflow and prompting technique from the week comes together into one functional, real-world AI assistant.',
+   tools:['Slack','Gmail','Calendar','n8n','Fireflies AI']},
+  {w:2,d:'Days 8 & 9',t:'Claude Mastery — Parts 1 & 2',
+   b:'Full coverage of the Claude ecosystem — <b>Claude Code</b>, agentic coding workflows, project context management, code generation, debugging, and end-to-end app building with AI as a collaborator.',
+   tools:['Claude','Claude Code','Cursor','GitHub']},
+  {w:2,d:'Day 10',t:'Advanced MCPs and Workflows',
+   b:'Connecting multiple systems together, building micro-apps inside Claude, and dynamic data fetching at scale. This is where you <b>orchestrate MCPs across a full stack</b>.',
+   tools:['Claude','APIFY','Perplexity','Zapier']},
+  {w:2,d:'Day 11',t:'Building the backend for your AI Systems',
+   b:'Wiring automation workflows to <b>real backend systems</b> and collaborating in a structured development environment. <b>Hackathon teams also form on this day.</b>',
+   tools:['n8n','GitHub','Supabase','Railway']},
+  {w:2,d:'Day 12',t:'Codex Deepdive — build products faster',
+   b:'A coding agent built for <b>non-coders</b>. Codex lets you accelerate builds, improve output quality and ship faster — without writing the code yourself.',
+   tools:['Codex','OpenAI','Cursor']},
+  {w:2,d:'Day 13',t:'OpenClaw Deepdive + Hackathon Pitches',
+   b:'Hands-on prototyping with <b>OpenClaw</b> — the billion-dollar solo-dev story. You build with it live. <b>Hackathon pitch submissions close on this day.</b>',
+   tools:['OpenClaw','GitHub','Lovable']},
+  {w:2,d:'Day 14',t:'Monetisation 101 & Graduation',
+   b:'A concrete playbook to <b>start your monetisation journey</b> using everything built across the 14 days — then graduation.',
+   tools:['Stripe','Razorpay']}
+];
+
+function cardHTML(x,i){
+  return `<button class="day ${x.full?'full':''}" data-i="${i}">
+    <span class="dn">${x.d}<span class="live">LIVE</span></span>
+    <h3>${x.t}</h3>
+    <span class="tt">${x.tools.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</span>
+    <span class="cue">Tap for detail →</span></button>`;
+}
+document.getElementById('w1').innerHTML = DAYS.map((x,i)=>x.w===1?cardHTML(x,i):'').join('');
+document.getElementById('w2').innerHTML = DAYS.map((x,i)=>x.w===2?cardHTML(x,i):'').join('');
+
+const scrim=document.getElementById('scrim'), body=document.getElementById('sheetBody');
+let lastFocus=null;
+function openDay(i){
+  const x=DAYS[i]; if(!x) return;
+  body.innerHTML = `<div class="sd">${x.d} · Live session</div><h2 id="sheetTitle">${x.t}</h2>
+    <div class="body">${x.b}</div>
+    <div class="toolrow">${x.tools.map(t=>`<span>${t}</span>`).join('')}</div>`;
+  document.getElementById('sheet').scrollTop=0;
+  scrim.classList.add('on'); document.body.style.overflow='hidden';
+  setTimeout(()=>document.getElementById('closeBtn').focus(),60);
+}
+function closeSheet(){ scrim.classList.remove('on'); document.body.style.overflow=''; if(lastFocus) lastFocus.focus(); }
+document.addEventListener('click',e=>{
+  const d=e.target.closest('.day'); if(d){ lastFocus=d; openDay(+d.dataset.i); }
+});
+document.getElementById('closeBtn').addEventListener('click',closeSheet);
+scrim.addEventListener('click',e=>{ if(e.target===scrim) closeSheet(); });
+
+/* nav + reveal */
+const slides=[...document.querySelectorAll('.slide')];
+const labels=['Invite','Inside','Week 1','Week 2','Schedule','Buildathon','Libraries','The year','Tools','Pricing','Proof','Why it works','Contact'];
+document.getElementById('dots').innerHTML=slides.map((s,i)=>`<a href="#${s.id}" data-label="${labels[i]||''}"></a>`).join('');
+const dots=[...document.querySelectorAll('.nav-dots a')];
+const ro=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){
+  const i=slides.indexOf(e.target); dots.forEach((d,j)=>d.classList.toggle('active',i===j)); }}),{threshold:.5});
+slides.forEach(s=>ro.observe(s));
+const rv=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rv.unobserve(e.target); }}),{threshold:.15});
+document.querySelectorAll('.reveal').forEach(el=>rv.observe(el));
+addEventListener('scroll',()=>{
+  const h=document.documentElement;
+  document.getElementById('prog').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+});
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&scrim.classList.contains('on')){ closeSheet(); return; }
+  if(scrim.classList.contains('on')) return;
+  const cur=slides.findIndex(s=>{const r=s.getBoundingClientRect(); return r.top<=innerHeight/2&&r.bottom>=innerHeight/2;});
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){ e.preventDefault(); slides[Math.min(cur+1,slides.length-1)]?.scrollIntoView({behavior:'smooth'}); }
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){ e.preventDefault(); slides[Math.max(cur-1,0)]?.scrollIntoView({behavior:'smooth'}); }
+  if(e.key==='f'||e.key==='F'){ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); }
+});
+</script>
+</body>
+</html>

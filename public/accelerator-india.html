@@ -128,8 +128,8 @@
 
   /* MODAL */
   .scrim{ position:fixed; inset:0; background:rgba(3,5,2,.82); backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
-          z-index:300; opacity:0; pointer-events:none; transition:opacity .3s; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .scrim.on{ opacity:1; pointer-events:auto; }
+          z-index:300; opacity:0; pointer-events:none; visibility:hidden; transition:opacity .3s, visibility .3s; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .scrim.on{ opacity:1; pointer-events:auto; visibility:visible; }
   .sheet{ width:100%; max-width:620px; max-height:86vh; overflow-y:auto; background:linear-gradient(165deg,#111607,#080a05);
           border:1px solid var(--line); border-radius:22px; padding:28px 30px 26px; position:relative;
           transform:translateY(24px) scale(.97); opacity:0; transition:transform .36s cubic-bezier(.2,.8,.2,1), opacity .3s; }
@@ -147,6 +147,9 @@
 
   @media(max-width:600px){
     .slide{ padding:66px 6vw; min-height:auto; padding-top:56px; padding-bottom:56px; }
+    /* the watermark is right-aligned; lift the hint clear of it */
+    .scroll-hint{ bottom:52px; }
+    .watermark{ bottom:20px; }
     .days{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:9px; }
     .sheet{ padding:24px 20px 22px; border-radius:18px; }
     .row{ flex-direction:column; align-items:flex-start; gap:3px; }
@@ -250,8 +253,8 @@
     <span class="chip">Recordings after <b>every session</b></span>
   </div>
   <h2 class="reveal d3">Can't make these dates? <span>Defer.</span></h2>
-  <p class="subtext reveal d3">Learners can choose any option and <b>defer their enrolment to a future cohort during onboarding</b>.
-    If the calendar for the next 45 days isn't clear, they can still join now, lock the offer, and move to the next batch.</p>
+  <p class="subtext reveal d3">Pick either option and <b>defer your enrolment to a future cohort during onboarding</b>.
+    If your next 45 days aren't clear, join now, lock the offer, and move to the batch that suits you.</p>
   <span class="watermark">Outskill · <span>Accelerator India</span></span>
 </section>
 
@@ -321,7 +324,7 @@
   <span class="slide-num"><b>09</b> / 12</span>
   <span class="tag gold reveal">The bonus nobody expects</span>
   <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">13 premium AI tools — <span class="accent">free, for a year.</span></h1>
-  <p class="subtext reveal d1">Handed over as a bonus alongside the program. This is real spend a learner would otherwise carry themselves.</p>
+  <p class="subtext reveal d1">Handed over as a bonus alongside the program — real spend you would otherwise carry yourself.</p>
   <div class="twrap reveal d2">
     <table>
       <thead><tr><th>Tool</th><th>Access</th><th>Value (INR)</th><th>Value (USD)</th></tr></thead>
@@ -367,8 +370,8 @@
     <div class="pp"><span>₹94,999</span> &nbsp;|&nbsp; <span>$1,199</span></div>
     <div class="ps">Block your seat with <b>₹10,000</b> or <b>$249</b> · <b>3–6 month EMI</b> and part-payment options available with select banks</div>
   </div>
-  <div class="note reveal d4"><span class="nh">After payment</span>
-    The learner is redirected to a Calendly page to book a <b>1-on-1 onboarding slot</b>, where our team hands over LMS access, the content libraries and all the tools.</div>
+  <div class="note reveal d4"><span class="nh">After you pay</span>
+    You are taken straight to a Calendly page to book your <b>1-on-1 onboarding call</b> — that is where we hand over LMS access, the content libraries and every one of the tools.</div>
   <span class="watermark">Outskill · <span>Accelerator India</span></span>
 </section>
 
@@ -423,7 +426,7 @@
 </section>
 
 <div class="scrim" id="scrim">
-  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <button class="close" id="closeBtn" aria-label="Close">✕</button>
     <div id="sheetBody"></div>
     <div class="esc">Tap outside or press ESC to close</div>
@@ -487,7 +490,7 @@ const scrim=document.getElementById('scrim'), body=document.getElementById('shee
 let lastFocus=null;
 function openDay(i){
   const x=DAYS[i]; if(!x) return;
-  body.innerHTML = `<div class="sd">${x.d} · Live session</div><h2>${x.t}</h2>
+  body.innerHTML = `<div class="sd">${x.d} · Live session</div><h2 id="sheetTitle">${x.t}</h2>
     <div class="body">${x.b}</div>
     <div class="toolrow">${x.tools.map(t=>`<span>${t}</span>`).join('')}</div>`;
   document.getElementById('sheet').scrollTop=0;

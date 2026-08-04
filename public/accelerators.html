@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The three Accelerator decks · Outskill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900&display=swap"/>
+<style>
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  :root{
+    --lime:#c2ee45; --lime-dim:#a8d930; --bg:#070905; --white:#f0f4e8; --muted:#818f6c;
+    --glass:rgba(194,238,69,.06); --line:rgba(194,238,69,.18); --gold:#ffd76e;
+  }
+  body{ font-family:'Space Grotesk',sans-serif; background:var(--bg); color:var(--white); min-height:100vh;
+        display:flex; align-items:center; justify-content:center; padding:60px 6vw; position:relative; overflow-x:hidden; }
+  ::selection{ background:var(--lime); color:#000; }
+  .blob{ position:absolute; border-radius:50%; filter:blur(130px); pointer-events:none; }
+  .wrap{ width:100%; max-width:1120px; position:relative; z-index:1; }
+  .tag{ display:inline-block; background:var(--glass); border:1px solid var(--line); color:var(--lime); font-size:10.5px;
+        font-weight:700; letter-spacing:2.8px; text-transform:uppercase; padding:7px 15px; border-radius:100px; margin-bottom:20px; }
+  h1{ font-family:'Fraunces',serif; font-size:clamp(2rem,5vw,3.6rem); font-weight:900; line-height:1.05; letter-spacing:-1.3px; margin-bottom:14px; }
+  h1 span{ color:var(--lime); }
+  .sub{ font-size:clamp(.92rem,1.4vw,1.05rem); color:var(--muted); max-width:660px; line-height:1.7; margin-bottom:34px; }
+  .sub b{ color:var(--white); }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:16px; }
+  .card{ display:flex; flex-direction:column; background:var(--glass); border:1px solid var(--line); border-radius:20px;
+         overflow:hidden; text-decoration:none; color:inherit; transition:border-color .25s, transform .25s, box-shadow .25s; }
+  .card:hover{ border-color:var(--lime); transform:translateY(-4px); box-shadow:0 22px 50px -30px rgba(194,238,69,.7); }
+  .cover{ position:relative; aspect-ratio:16/9; background:#0a0c08; overflow:hidden; border-bottom:1px solid var(--line); }
+  .cover img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .cover .badge{ position:absolute; top:11px; left:11px; font-size:9.5px; letter-spacing:2px; text-transform:uppercase;
+                 font-weight:700; background:rgba(7,9,5,.82); border:1px solid var(--line); color:var(--lime); padding:4px 9px; border-radius:100px; }
+  .body{ padding:18px 20px 20px; display:flex; flex-direction:column; flex:1; }
+  .body h2{ font-family:'Fraunces',serif; font-weight:900; font-size:1.12rem; line-height:1.25; margin-bottom:6px; }
+  .body p{ font-size:.82rem; color:var(--muted); line-height:1.55; flex:1; }
+  .meta{ display:flex; flex-wrap:wrap; gap:6px; margin:13px 0 15px; }
+  .meta span{ font-size:.62rem; letter-spacing:1.3px; text-transform:uppercase; font-weight:700; color:var(--muted);
+              background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:5px; padding:3px 7px; }
+  .go{ font-size:.78rem; font-weight:700; color:var(--lime); letter-spacing:.3px; }
+  .foot{ margin-top:30px; font-size:.78rem; color:var(--muted); line-height:1.7; max-width:760px; }
+  .foot a{ color:var(--lime); }
+  .foot b{ color:var(--white); }
+</style>
+</head>
+<body>
+<div class="blob" style="width:52vw;height:52vw;background:rgba(194,238,69,.13);top:-20vw;right:-14vw"></div>
+<div class="blob" style="width:36vw;height:36vw;background:rgba(255,215,110,.06);bottom:-16vw;left:-12vw"></div>
+
+<div class="wrap">
+  <span class="tag">Outskill · Accelerator decks</span>
+  <h1>Three programs.<br/><span>Three individual decks.</span></h1>
+  <p class="sub">Each deck is a standalone, self-contained page — open it, present it full screen, or send the link on its own.
+    Use <b>← →</b> to move between slides and <b>F</b> for full screen. Every deck is learner-safe: nothing internal, nothing cross-market.</p>
+
+  <div class="cards">
+    <a class="card" href="/accelerator-india">
+      <div class="cover"><span class="badge">India</span><img src="/brochures/india/p1.jpg" alt="AI Generalist Accelerator, India — cover"/></div>
+      <div class="body">
+        <h2>AI Generalist Accelerator · India</h2>
+        <p>The 14-day generalist program for Indian learners — the full day-by-day curriculum, the buildathon, the tool stack and the year of weekly updates.</p>
+        <div class="meta"><span>12 slides</span><span>Day-by-day</span><span>INR pricing</span></div>
+        <span class="go">Open the deck →</span>
+      </div>
+    </a>
+
+    <a class="card" href="/accelerator-engineering">
+      <div class="cover"><span class="badge">Engineering</span><img src="/brochures/eng/p11.jpg" alt="AI Engineering Accelerator — cover"/></div>
+      <div class="body">
+        <h2>AI Engineering Accelerator</h2>
+        <p>The program for working engineers — seven build sprints, five flagship agent projects, the mentor bench and the Kairos fellowship.</p>
+        <div class="meta"><span>14 slides</span><span>7 sprints</span><span>5 projects</span></div>
+        <span class="go">Open the deck →</span>
+      </div>
+    </a>
+
+    <a class="card" href="/accelerator-international">
+      <div class="cover"><span class="badge">International</span><img src="/brochures/intl/p1.jpg" alt="AI Generalist Accelerator, International — cover"/></div>
+      <div class="body">
+        <h2>AI Generalist Accelerator · International</h2>
+        <p>The same generalist program for learners outside India — USD value, international cohort timings and no India-specific content.</p>
+        <div class="meta"><span>12 slides</span><span>Day-by-day</span><span>USD pricing</span></div>
+        <span class="go">Open the deck →</span>
+      </div>
+    </a>
+  </div>
+
+  <p class="foot">The source brochures are also readable page by page inside the training app.
+    Cohort dates, fees and EMI routes change between batches — <b>always confirm the live numbers with the program team</b> before quoting them to a learner.</p>
+</div>
+</body>
+</html>

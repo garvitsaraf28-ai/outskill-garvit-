@@ -933,10 +933,11 @@ function Quiz({ questions, onPass, quizKey }) {
 // The 3 Accelerator brochures, rendered as a real page-flip book (images
 // pre-rendered to /public/brochures). Order: Generalist India -> Engineering ->
 // Generalist International.
+// Each brochure also has its own standalone presentation deck in /public.
 const BROCHURES = [
-  { key:"india", label:"Generalist · India", count:70 },
-  { key:"eng",   label:"Engineering", count:39 },
-  { key:"intl",  label:"Generalist · International", count:70 },
+  { key:"india", label:"Generalist · India", count:70, deck:"/accelerator-india" },
+  { key:"eng",   label:"Engineering", count:39, deck:"/accelerator-engineering" },
+  { key:"intl",  label:"Generalist · International", count:70, deck:"/accelerator-international" },
 ];
 function Brochures() {
   const [active, setActive] = useState("india");
@@ -976,6 +977,11 @@ function Brochures() {
           <button onClick={() => go(1)} disabled={page >= b.count} style={{ ...secondaryBtn, padding:"8px 14px", fontSize:13, opacity: page >= b.count ? 0.4 : 1 }}><ArrowRight size={15} /></button>
         </div>
         <div style={{ textAlign:"center", fontSize:11.5, color:MUTE, marginTop:8 }}>Click the left or right side of the page — or use the arrows — to turn the page.</div>
+        <div style={{ textAlign:"center", marginTop:12 }}>
+          <a href={b.deck} target="_blank" rel="noopener noreferrer" style={{ ...secondaryBtn, display:"inline-flex", padding:"8px 15px", fontSize:12.5, textDecoration:"none" }}>
+            Open the {b.label} deck <ArrowRight size={14} style={{ marginLeft:7 }} />
+          </a>
+        </div>
       </div>
     </div>
   );

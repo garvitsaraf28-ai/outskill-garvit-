@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Engineering Accelerator · Outskill</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900&display=swap"/>
+<style>
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  :root{
+    --lime:#c2ee45; --lime-dim:#a8d930; --bg:#070905; --white:#f0f4e8; --muted:#818f6c;
+    --glass:rgba(194,238,69,.06); --line:rgba(194,238,69,.18);
+    --gold:#ffd76e; --teal:#4dd8c0; --rose:#ff6b8a; --violet:#b39bff;
+  }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:'Space Grotesk',sans-serif; background:var(--bg); color:var(--white); overflow-x:hidden; }
+  ::selection{ background:var(--lime); color:#000; }
+  .progress{ position:fixed; top:0; left:0; height:3px; background:var(--lime); width:0%; z-index:200; box-shadow:0 0 12px var(--lime); transition:width .1s linear; }
+  .keyhint{ position:fixed; bottom:16px; left:22px; z-index:99; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); opacity:.75; }
+  .keyhint b{ color:var(--lime); font-weight:600; }
+  .nav-dots{ position:fixed; right:22px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; z-index:99; }
+  .nav-dots a{ width:8px; height:8px; border-radius:50%; background:var(--muted); display:block; transition:all .3s; position:relative; }
+  .nav-dots a.active{ background:var(--lime); transform:scale(1.7); box-shadow:0 0 12px var(--lime); }
+  .nav-dots a::after{ content:attr(data-label); position:absolute; right:18px; top:50%; transform:translateY(-50%); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); opacity:0; white-space:nowrap; transition:opacity .25s; }
+  .nav-dots a:hover::after{ opacity:1; }
+  @media(max-width:820px){ .nav-dots,.keyhint{ display:none; } }
+
+  .slide{ min-height:100vh; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; padding:80px 6.5vw; position:relative; overflow:hidden; }
+  .slide::before{ content:''; position:absolute; inset:0; opacity:.4; pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); }
+  .blob{ position:absolute; border-radius:50%; filter:blur(120px); pointer-events:none; }
+  .slide-num{ position:absolute; top:34px; right:6.5vw; font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--muted); }
+  .slide-num b{ color:var(--lime); }
+  .watermark{ position:absolute; bottom:24px; right:6.5vw; font-size:10.5px; letter-spacing:2.5px; text-transform:uppercase; color:var(--muted); }
+  .watermark span{ color:var(--lime); }
+  .reveal{ opacity:0; transform:translateY(24px); transition:opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in{ opacity:1; transform:none; }
+  .d1{transition-delay:.08s}.d2{transition-delay:.16s}.d3{transition-delay:.24s}.d4{transition-delay:.32s}
+
+  .tag{ display:inline-block; background:var(--glass); border:1px solid var(--line); color:var(--lime); font-size:10.5px; font-weight:700; letter-spacing:2.8px; text-transform:uppercase; padding:7px 15px; border-radius:100px; margin-bottom:20px; }
+  .tag.gold{ color:var(--gold); border-color:rgba(255,215,110,.3); background:rgba(255,215,110,.07); }
+  h1{ font-family:'Fraunces',serif; font-size:clamp(2rem,5vw,4.3rem); font-weight:900; line-height:1.04; letter-spacing:-1.4px; margin-bottom:16px; }
+  h1 .accent{ color:var(--lime); }
+  h2{ font-family:'Fraunces',serif; font-size:clamp(1.25rem,2.5vw,1.95rem); font-weight:900; margin:22px 0 10px; }
+  h2 span{ color:var(--lime); }
+  .kicker{ font-size:clamp(10.5px,2.2vw,13px); letter-spacing:5px; text-transform:uppercase; color:var(--lime-dim); margin-bottom:18px; font-weight:600; }
+  .subtext{ font-size:clamp(.92rem,1.45vw,1.08rem); color:var(--muted); max-width:740px; line-height:1.7; margin-bottom:22px; }
+  .subtext b,.subtext i{ color:var(--white); font-style:normal; }
+  .divider{ width:60px; height:3px; background:var(--lime); border-radius:2px; margin-bottom:22px; }
+  .scroll-hint{ position:absolute; bottom:32px; left:50%; transform:translateX(-50%); font-size:10.5px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); animation:bob 1.8s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,8px)} }
+
+  /* chips */
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; max-width:960px; }
+  .chip{ background:var(--glass); border:1px solid var(--line); border-radius:100px; padding:8px 15px; font-size:.8rem; font-weight:600; }
+  .chip b{ color:var(--lime); } .chip.g{ border-color:rgba(255,215,110,.3); } .chip.g b{ color:var(--gold); }
+
+  /* pillar grid */
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(238px,1fr)); gap:12px; width:100%; max-width:1080px; }
+  .g{ background:var(--glass); border:1px solid var(--line); border-radius:16px; padding:17px 19px; transition:border-color .25s, transform .25s; }
+  .g:hover{ border-color:var(--lime); transform:translateY(-3px); }
+  .g .n{ font-family:'Fraunces',serif; font-weight:900; font-size:.9rem; color:var(--lime); letter-spacing:1px; }
+  .g h3{ font-size:.93rem; font-weight:700; margin:5px 0 4px; line-height:1.3; }
+  .g p{ font-size:.78rem; color:var(--muted); line-height:1.5; }
+
+  /* DAY CARDS — expandable */
+  .days{ display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:11px; width:100%; max-width:1100px; }
+  .day{ text-align:left; font-family:inherit; color:var(--white); cursor:pointer; background:var(--glass);
+        border:1px solid var(--line); border-radius:15px; padding:15px 16px 13px; transition:border-color .25s, transform .25s, background .25s; }
+  .day:hover,.day:focus-visible{ border-color:var(--lime); transform:translateY(-3px); background:rgba(194,238,69,.1); outline:none; }
+  .day .dn{ font-size:.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; display:flex; justify-content:space-between; align-items:center; }
+  .day .live{ color:var(--rose); font-size:.55rem; letter-spacing:1px; display:flex; align-items:center; gap:4px; }
+  .day .live::before{ content:''; width:5px; height:5px; border-radius:50%; background:var(--rose); animation:pulse 1.6s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.25} }
+  .day h3{ font-size:.87rem; font-weight:700; margin:7px 0 6px; line-height:1.32; }
+  .day .tt{ display:flex; flex-wrap:wrap; gap:4px; }
+  .day .tt span{ font-size:.6rem; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:5px; padding:2px 6px; color:var(--muted); }
+  .day .cue{ margin-top:9px; font-size:.58rem; letter-spacing:1.6px; text-transform:uppercase; color:var(--lime-dim); font-weight:700; }
+  .day.full{ border-color:rgba(255,215,110,.32); } .day.full .dn{ color:var(--gold); }
+
+  /* timings table */
+  .twrap{ width:100%; max-width:900px; overflow-x:auto; border:1px solid var(--line); border-radius:16px; }
+  table{ width:100%; border-collapse:collapse; font-size:.85rem; min-width:520px; }
+  th{ background:rgba(194,238,69,.08); color:var(--lime); font-size:.66rem; letter-spacing:1.5px; text-transform:uppercase; text-align:left; padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td{ padding:11px 14px; border-bottom:1px solid rgba(255,255,255,.05); color:var(--muted); line-height:1.45; vertical-align:top; }
+  td b{ color:var(--white); } td .lm{ color:var(--lime); font-weight:700; } td .gd{ color:var(--gold); font-weight:700; }
+  tr:last-child td{ border-bottom:none; }
+  .rowlabel{ color:var(--white); font-weight:600; white-space:nowrap; }
+  tr.total td{ background:rgba(194,238,69,.07); border-top:1px solid var(--line); }
+
+  /* steps */
+  .steps{ display:flex; flex-direction:column; gap:2px; max-width:780px; width:100%; }
+  .step{ display:flex; gap:14px; align-items:flex-start; }
+  .step .n{ flex-shrink:0; width:34px; height:34px; border-radius:50%; background:var(--glass); border:1px solid var(--lime); color:var(--lime); font-family:'Fraunces',serif; font-weight:900; font-size:.9rem; display:flex; align-items:center; justify-content:center; }
+  .step .txt{ padding-bottom:15px; }
+  .step .txt b{ display:block; font-size:.94rem; margin-bottom:2px; }
+  .step .txt span{ font-size:.82rem; color:var(--muted); line-height:1.55; }
+  .step .txt span i{ color:var(--lime); font-style:normal; font-weight:600; }
+
+  /* value stack */
+  .stack{ width:100%; max-width:720px; display:flex; flex-direction:column; gap:7px; }
+  .row{ display:flex; justify-content:space-between; align-items:center; gap:14px; background:var(--glass); border:1px solid var(--line); border-radius:12px; padding:12px 17px; }
+  .row .l{ font-size:.87rem; font-weight:600; } .row .v{ font-size:.83rem; color:var(--gold); font-weight:700; white-space:nowrap; }
+  .row.tot{ background:rgba(255,255,255,.04); border-color:rgba(255,255,255,.14); margin-top:5px; }
+  .row.tot .l{ color:var(--muted); } .row.tot .v{ color:var(--muted); text-decoration:line-through; }
+  .pricebox{ margin-top:14px; width:100%; max-width:720px; background:linear-gradient(135deg,rgba(194,238,69,.18),rgba(194,238,69,.05));
+             border:1px solid var(--lime); border-radius:20px; padding:24px 26px; text-align:center; box-shadow:0 20px 60px -28px rgba(194,238,69,.6); }
+  .pricebox .pl{ font-size:.66rem; letter-spacing:3px; text-transform:uppercase; color:var(--lime); font-weight:700; margin-bottom:8px; }
+  .pricebox .pp{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(2.1rem,5.6vw,3.4rem); letter-spacing:-1.5px; line-height:1; }
+  .pricebox .pp span{ color:var(--lime); }
+  .pricebox .ps{ font-size:.82rem; color:var(--muted); margin-top:9px; }
+  .pricebox .ps b{ color:var(--white); }
+
+  /* testimonial cards */
+  .tcards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(255px,1fr)); gap:12px; width:100%; max-width:1100px; }
+  .tc{ background:var(--glass); border:1px solid var(--line); border-radius:16px; padding:17px 19px; }
+  .tc .who{ font-size:.9rem; font-weight:700; color:var(--lime); margin-bottom:2px; }
+  .tc .cohort{ font-size:.6rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .tc .ba{ font-size:.58rem; letter-spacing:1.6px; text-transform:uppercase; font-weight:700; margin:8px 0 4px; }
+  .tc .ba.b{ color:var(--rose); } .tc .ba.a{ color:var(--teal); }
+  .tc p{ font-size:.78rem; color:var(--muted); line-height:1.5; }
+  .tc p b{ color:var(--white); }
+
+  .note{ margin-top:16px; background:var(--glass); border:1px solid var(--line); border-left:3px solid var(--gold); border-radius:0 12px 12px 0; padding:12px 16px; font-size:.8rem; color:var(--muted); line-height:1.6; max-width:840px; }
+  .note b{ color:var(--white); } .note .nh{ display:block; font-size:.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:4px; }
+
+  /* MODAL */
+  .scrim{ position:fixed; inset:0; background:rgba(3,5,2,.82); backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px);
+          z-index:300; opacity:0; pointer-events:none; transition:opacity .3s; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .scrim.on{ opacity:1; pointer-events:auto; }
+  .sheet{ width:100%; max-width:620px; max-height:86vh; overflow-y:auto; background:linear-gradient(165deg,#111607,#080a05);
+          border:1px solid var(--line); border-radius:22px; padding:28px 30px 26px; position:relative;
+          transform:translateY(24px) scale(.97); opacity:0; transition:transform .36s cubic-bezier(.2,.8,.2,1), opacity .3s; }
+  .scrim.on .sheet{ transform:none; opacity:1; }
+  .sheet::-webkit-scrollbar{ width:7px; } .sheet::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+  .sheet .sd{ font-size:.62rem; letter-spacing:2.6px; text-transform:uppercase; color:var(--lime); font-weight:700; margin-bottom:8px; }
+  .sheet h2{ font-family:'Fraunces',serif; font-weight:900; font-size:clamp(1.25rem,3vw,1.75rem); line-height:1.16; margin:0 0 12px; }
+  .sheet .body{ font-size:.9rem; color:var(--muted); line-height:1.68; }
+  .sheet .body b{ color:var(--white); }
+  .toolrow{ display:flex; flex-wrap:wrap; gap:6px; margin-top:16px; }
+  .toolrow span{ font-size:.7rem; background:rgba(194,238,69,.1); border:1px solid var(--line); color:var(--lime); border-radius:6px; padding:4px 9px; font-weight:600; }
+  .close{ position:absolute; top:14px; right:16px; width:32px; height:32px; border-radius:50%; background:var(--glass); border:1px solid var(--line); color:var(--white); font-size:1rem; cursor:pointer; font-family:inherit; transition:background .2s,border-color .2s; }
+  .close:hover{ background:rgba(255,107,138,.16); border-color:var(--rose); }
+  .esc{ margin-top:16px; font-size:.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+
+  @media(max-width:600px){
+    .scroll-hint{ display:none; }
+    .slide{ padding:66px 6vw; min-height:auto; padding-top:56px; padding-bottom:56px; }
+    .days{ grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:9px; }
+    .sheet{ padding:24px 20px 22px; border-radius:18px; }
+    .row{ flex-direction:column; align-items:flex-start; gap:3px; }
+  }
+  @media print{
+    body{ background:#fff; color:#000; } .blob,.nav-dots,.keyhint,.progress,.scroll-hint,.scrim{ display:none!important; }
+    .slide{ min-height:auto; page-break-after:always; padding:26px; } .reveal{ opacity:1!important; transform:none!important; }
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="prog"></div>
+<div class="keyhint"><b>←</b> <b>→</b> navigate · <b>F</b> fullscreen</div>
+<nav class="nav-dots" id="dots"></nav>
+
+<!-- 1 COVER -->
+<section class="slide" id="s1">
+  <div class="blob" style="width:52vw;height:52vw;background:rgba(194,238,69,.14);top:-16vw;right:-12vw"></div>
+  <div class="blob" style="width:34vw;height:34vw;background:rgba(255,215,110,.07);bottom:-14vw;left:-10vw"></div>
+  <span class="slide-num"><b>01</b> / 14</span>
+  <span class="tag reveal">Outskill · For engineers · NSDC Certified</span>
+  <h1 class="reveal d1">The AI Engineering<br/><span class="accent">Accelerator.</span></h1>
+  <p class="subtext reveal d2">For working engineers who already ship code — and now want to orchestrate AI agents that ship it for them.
+    <b>14 days of live training, 100+ hours</b>, structured as <b>7 build sprints</b>, then a <b>full year</b> of staying current.</p>
+  <div class="chips reveal d3">
+    <span class="chip"><b>14</b> days live</span>
+    <span class="chip"><b>100+</b> hours</span>
+    <span class="chip"><b>7</b> build sprints</span>
+    <span class="chip"><b>48-hr</b> buildathon</span>
+    <span class="chip"><b>54+</b> live sessions / year</span>
+    <span class="chip"><b>5</b> flagship agent projects</span>
+  </div>
+  <p class="subtext reveal d4" style="margin-top:20px;font-size:.85rem">
+    NSDC certified program name — <b>Program in Generative AI (Tech Professionals)</b> · Powered by Skill India</p>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+  <span class="scroll-hint">scroll ↓</span>
+</section>
+
+<!-- 2 THE SHIFT -->
+<section class="slide" id="s2">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(194,238,69,.1);top:-12vw;right:-10vw"></div>
+  <span class="slide-num"><b>02</b> / 14</span>
+  <span class="tag reveal">Why now</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.6rem,3.6vw,2.9rem)">At AI-first companies, what used to take a team of five engineers<br/><span class="accent">is now done by one — empowered by AI agents.</span></h1>
+  <div class="divider reveal d1"></div>
+  <p class="subtext reveal d2">There's a name for that engineer. <b>The AI Native Engineer</b> — someone who doesn't just write code,
+    but orchestrates AI agents to solve problems end-to-end. That is the exact role this program trains you into.</p>
+  <div class="grid reveal d3" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+    <div class="g"><span class="n">01</span><h3>You stop writing every line</h3><p>You design the system, define the tools, and let agents execute — then you review, evaluate and ship.</p></div>
+    <div class="g"><span class="n">02</span><h3>You own the whole stack</h3><p>Prompting, automations, RAG, multimodal, agents, observability, deployment — not one slice of it.</p></div>
+    <div class="g"><span class="n">03</span><h3>You ship at a different speed</h3><p>Prototypes in days instead of quarters. That speed is the whole competitive advantage.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 3 WHO IT'S FOR -->
+<section class="slide" id="s3">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(179,155,255,.08);bottom:-14vw;left:-10vw"></div>
+  <span class="slide-num"><b>03</b> / 14</span>
+  <span class="tag reveal">Who it's for</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">A working professional — <span class="accent">whatever your years.</span></h1>
+  <p class="subtext reveal d1">The program doesn't sort you by seniority. It changes what you walk out with.</p>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+    <div class="g"><span class="n">10–20+ years</span><h3>You'll architect and lead AI-first teams</h3><p>Engineering strategy, system design and AI governance — the decisions that sit above the code.</p></div>
+    <div class="g"><span class="n">3–9 years</span><h3>You'll build AI-powered workflows</h3><p>Ship agentic systems and automate the legacy engineering tasks that eat your week.</p></div>
+    <div class="g"><span class="n">1–3 years</span><h3>You'll accelerate past your peers</h3><p>Become a GenAI Native Engineer — fluent in tools, fast in automation, fearless in experimentation.</p></div>
+  </div>
+  <div class="note reveal d3"><span class="nh">A note on background</span>
+    Several learners in the cohort came in from <b>non-engineering</b> backgrounds, or hadn't written production code in over a decade.
+    The sprints are built to be picked up from where you actually are.</div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 4 WHAT'S INSIDE -->
+<section class="slide" id="s4">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(194,238,69,.09);top:10%;left:-14vw"></div>
+  <span class="slide-num"><b>04</b> / 14</span>
+  <span class="tag reveal">What's inside</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Six parts. <span class="accent">One year of access.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="grid reveal d2">
+    <div class="g"><span class="n">Part 1</span><h3>14 days of live AI training</h3><p>100+ hours to learn and build, run as 7 sprints.</p></div>
+    <div class="g"><span class="n">Part 2</span><h3>48-hour Buildathon</h3><p>You build and ship your own solution, then demo it.</p></div>
+    <div class="g"><span class="n">Part 3</span><h3>AI Content Library</h3><p>Recorded library with tool and workflow deep-dives.</p></div>
+    <div class="g"><span class="n">Part 4</span><h3>Modern Business Fellowship</h3><p>Content library powered by Kairos School of Business.</p></div>
+    <div class="g"><span class="n">Part 5</span><h3>Monetisation Mastery 101</h3><p>The recorded library on turning the skill into income.</p></div>
+    <div class="g"><span class="n">Part 6</span><h3>Community + AI updates</h3><p>A global builder community and weekly updates, for a year.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 5 THE SPRINTS -->
+<section class="slide" id="s5">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(194,238,69,.1);top:-12vw;right:-10vw"></div>
+  <span class="slide-num"><b>05</b> / 14</span>
+  <span class="tag reveal">The curriculum</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Seven sprints — <span class="accent">each one ends in something running.</span></h1>
+  <p class="subtext reveal d1">All sessions are live. Recordings provided after every one. <b>Tap any sprint</b> for the full outcomes and the stack you'll work in.</p>
+  <div class="days reveal d2" id="sprints"></div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 6 OUTCOMES -->
+<section class="slide" id="s6">
+  <div class="blob" style="width:38vw;height:38vw;background:rgba(77,216,192,.07);bottom:-12vw;right:-10vw"></div>
+  <span class="slide-num"><b>06</b> / 14</span>
+  <span class="tag reveal">Outcomes</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">What you'll have built <span class="accent">by the end of each sprint.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="twrap reveal d2">
+    <table>
+      <thead><tr><th>Sprint</th><th>You walk out having built</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlabel">Sprint 1</td><td><b>Scalable AI-powered automated workflows</b></td></tr>
+        <tr><td class="rowlabel">Sprint 2</td><td><b>AI-powered chat applications</b>, built and deployed</td></tr>
+        <tr><td class="rowlabel">Sprint 3</td><td><b>End-to-end RAG-based AI systems</b></td></tr>
+        <tr><td class="rowlabel">Sprint 4</td><td><b>Advanced agentic AI systems</b>, built and scaled</td></tr>
+        <tr><td class="rowlabel">Sprint 5</td><td><b>An agentic runtime</b></td></tr>
+        <tr><td class="rowlabel">Sprint 6</td><td><b>An autonomous AI coding agent</b></td></tr>
+        <tr class="total"><td class="rowlabel">Sprint 7</td><td><b>A production-ready GenAI product</b> — built and launched</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 7 SCHEDULE -->
+<section class="slide" id="s7">
+  <div class="blob" style="width:38vw;height:38vw;background:rgba(194,238,69,.09);top:6%;right:-12vw"></div>
+  <span class="slide-num"><b>07</b> / 14</span>
+  <span class="tag reveal">Schedule</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">When it runs — <span class="accent">and what if you can't.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="twrap reveal d2">
+    <table>
+      <thead><tr><th>Days</th><th>IST</th><th>EST</th></tr></thead>
+      <tbody>
+        <tr><td><b>Monday – Friday</b></td><td class="lm">7:00 PM – 10:00 PM</td><td>9:30 AM – 12:30 PM</td></tr>
+        <tr><td><b>Saturday – Sunday</b></td><td class="lm">10:00 AM – 7:00 PM</td><td>12:30 AM – 9:30 AM</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="chips reveal d3" style="margin-top:18px">
+    <span class="chip">Cohort option 1 — <b>3 July → 19 July 2026</b></span>
+    <span class="chip">Cohort option 2 — <b>21 Aug → 6 Sept 2026</b></span>
+    <span class="chip g"><b>Recordings</b> available after every session</span>
+  </div>
+  <h2 class="reveal d3">Can't make these dates? <span>Defer.</span></h2>
+  <p class="subtext reveal d3">Pick either cohort and <b>defer your enrolment to a future batch during onboarding</b>.
+    If the next few weeks aren't clear, you can still join now, lock your seat, and move to the following batch.</p>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 8 PROJECTS -->
+<section class="slide" id="s8">
+  <div class="blob" style="width:46vw;height:46vw;background:rgba(179,155,255,.08);top:-12vw;left:-12vw"></div>
+  <span class="slide-num"><b>08</b> / 14</span>
+  <span class="tag reveal">The AI Projects Library</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Five agents companies pay lakhs to build. <span class="accent">You build all five.</span></h1>
+  <p class="subtext reveal d1">Each one is a full project with a real reference product behind it. <b>Tap any project</b> for what it does and what you learn.</p>
+  <div class="days reveal d2" id="projects"></div>
+  <div class="note reveal d3"><span class="nh">Stated value</span>
+    The AI Projects Library carries a stated value of <b>₹1.5L</b>, and new projects keep getting added through your year of access.</div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 9 THE YEAR AFTER -->
+<section class="slide" id="s9">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(194,238,69,.11);bottom:-14vw;right:-12vw"></div>
+  <span class="slide-num"><b>09</b> / 14</span>
+  <span class="tag reveal">The year after</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">AI changes weekly.<br/><span class="accent">So does what you get sent.</span></h1>
+  <p class="subtext reveal d1">This is the part most people underestimate: it isn't 14 days. It's 14 days <b>plus a year</b>.</p>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(250px,1fr))">
+    <div class="g"><h3 style="color:var(--lime)">🔴 54+ live weekly update sessions</h3><p>A new one <b style="color:#f0f4e8">every week</b> for the next 12 months, covering exactly what changed in AI — recordings included.</p></div>
+    <div class="g"><h3 style="color:var(--lime)">📚 AI Content Library</h3><p>Pre-recorded courses with tool and workflow deep-dives, available any time after the 14 days. 12 months of access.</p></div>
+    <div class="g"><h3 style="color:var(--lime)">💰 Monetisation Mastery 101</h3><p>Organic sales, using LinkedIn properly, cold emailing, management consulting, and the foundations of Meta and Google Ads.</p></div>
+    <div class="g"><h3 style="color:var(--lime)">🌍 Global builder community</h3><p>Engineers from around the world shipping alongside you — the part that keeps you building after the cohort ends.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 10 KAIROS -->
+<section class="slide" id="s10">
+  <div class="blob" style="width:42vw;height:42vw;background:rgba(77,216,192,.08);top:-10vw;right:-12vw"></div>
+  <span class="slide-num"><b>10</b> / 14</span>
+  <span class="tag reveal">Partnership</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Kairos School of Business — <span class="accent">their flagship fellowship, included.</span></h1>
+  <p class="subtext reveal d1">The Modern Business Fellowship content library, brought to you as part of the program. <b>Stated value $2,906 USD.</b></p>
+  <div class="chips reveal d2">
+    <span class="chip">First principles thinking</span>
+    <span class="chip">Design thinking</span>
+    <span class="chip">Problem solving</span>
+    <span class="chip">Product sense</span>
+    <span class="chip">Consulting</span>
+    <span class="chip">UI/UX skills</span>
+    <span class="chip">Finance</span>
+    <span class="chip">Operations</span>
+    <span class="chip">Logistics management</span>
+    <span class="chip">Business strategy</span>
+  </div>
+  <p class="subtext reveal d3" style="margin-top:22px">This is the layer that turns a strong engineer into someone who can lead the build —
+    the commercial and product reasoning that sits around the code.</p>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 11 BONUS TOOLS -->
+<section class="slide" id="s11">
+  <div class="blob" style="width:44vw;height:44vw;background:rgba(255,215,110,.08);bottom:-14vw;left:-12vw"></div>
+  <span class="slide-num"><b>11</b> / 14</span>
+  <span class="tag gold reveal">Bonus stack</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Seven premium tools, <span class="accent">bundled in.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="stack reveal d2">
+    <div class="row"><span class="l">Emily AI — 1 year</span><span class="v">₹19,133 · $228</span></div>
+    <div class="row"><span class="l">SuperGrow — 1 year</span><span class="v">₹29,207 · $360</span></div>
+    <div class="row"><span class="l">Superjoin — 1 year</span><span class="v">₹25,056 · $288</span></div>
+    <div class="row"><span class="l">Fireflies AI — 6 months</span><span class="v">₹9,200 · $108</span></div>
+    <div class="row"><span class="l">Lyzr — 1 year</span><span class="v">₹20,880 · $240</span></div>
+    <div class="row"><span class="l">GetMulti — 1 year</span><span class="v">₹16,000 · $186</span></div>
+    <div class="row"><span class="l">Wispr Flow — 1 year</span><span class="v">₹15,480 · $180</span></div>
+    <div class="row tot"><span class="l">Total stated value</span><span class="v">₹1.5 Lakhs · $1,699</span></div>
+  </div>
+  <p class="subtext reveal d3" style="margin-top:18px;font-size:.84rem">Tool access is unlocked on completion terms shared during onboarding — ask your program advisor for the current conditions.</p>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 12 MENTORS -->
+<section class="slide" id="s12">
+  <div class="blob" style="width:40vw;height:40vw;background:rgba(194,238,69,.1);top:8%;right:-12vw"></div>
+  <span class="slide-num"><b>12</b> / 14</span>
+  <span class="tag reveal">Who teaches</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Practising engineers — <span class="accent">not career trainers.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(215px,1fr))">
+    <div class="g"><h3>Ishan Dutta</h3><p>ML Engineer II, Adobe · <b style="color:#f0f4e8">Ex-NVIDIA</b></p></div>
+    <div class="g"><h3>Dileep Karri</h3><p>Head of AI Initiatives, Outskill</p></div>
+    <div class="g"><h3>Paras Madan</h3><p>AI Engineer, Athena AI</p></div>
+    <div class="g"><h3>Srishti Gureja</h3><p>Machine Learning Researcher</p></div>
+    <div class="g"><h3>Sidharth</h3><p>AI Agent Consultant &amp; Educator</p></div>
+    <div class="g"><h3>Antaripa Saha</h3><p>Machine Learning Engineer II</p></div>
+    <div class="g"><h3>Divij Bajaj</h3><p>Data &amp; Applied Scientist II</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 13 PROOF -->
+<section class="slide" id="s13">
+  <div class="blob" style="width:46vw;height:46vw;background:rgba(77,216,192,.07);bottom:-14vw;right:-12vw"></div>
+  <span class="slide-num"><b>13</b> / 14</span>
+  <span class="tag reveal">Proof</span>
+  <h1 class="reveal d1" style="font-size:clamp(1.7rem,3.8vw,3rem)">Senior engineers — <span class="accent">before, and after.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="tcards reveal d2">
+    <div class="tc"><div class="who">Girish Hiremath</div><div class="cohort">Principal Software Engineer · 15 yrs</div>
+      <div class="ba b">Before</div><p>Struggling to build POCs. Losing time to manual systems. Had the knowledge, lacked the implementation.</p>
+      <div class="ba a">After</div><p>Built automations in <b>2 days instead of 2 weeks</b>, cut bandwidth by 60%, and got recognised internally for the AI systems he shipped.</p></div>
+    <div class="tc"><div class="who">Ravi Prabhakar</div><div class="cohort">Associate Director, IQVIA · 18 yrs</div>
+      <div class="ba b">Before</div><p>Hadn't coded since 2013. Had AI ideas but no way to execute them, and no confidence pitching them internally.</p>
+      <div class="ba a">After</div><p><b>Restarted coding after 12–13 years</b>, built and proposed 3 AI POCs, and now works with internal AI teams — from a clinical-research background.</p></div>
+    <div class="tc"><div class="who">Farhad Wahid</div><div class="cohort">Delivery Director, Convergent-IS · 26 yrs</div>
+      <div class="ba b">Before</div><p>PhD learning was theory-heavy with little practical output. Startup progress was slow and unclear in execution.</p>
+      <div class="ba a">After</div><p>Built <b>3 working prototypes within a week</b>, engaged customers, entered contract talks and accelerated the startup launch.</p></div>
+    <div class="tc"><div class="who">Sushil Kumar</div><div class="cohort">Sr. Engineering Manager, HackerRank · 15 yrs</div>
+      <div class="ba b">Before</div><p>Limited understanding of AI concepts, and wanted to learn it in a structured way rather than in fragments.</p>
+      <div class="ba a">After</div><p>Hands-on with AI and its frameworks, and <b>delivered an AI solution inside his organisation</b>.</p></div>
+    <div class="tc"><div class="who">Shaibi Shamsudeen</div><div class="cohort">Head of Engineering, Proceedit Trading · 21 yrs</div>
+      <div class="ba b">Before</div><p>Came into tech from a non-engineering background with very limited coding experience and only basic GenAI exposure.</p>
+      <div class="ba a">After</div><p>Built a <b>full-scale AI solution in under 14 days</b> and lifted productivity by over 30%.</p></div>
+  </div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<!-- 14 WHY IT WORKS -->
+<section class="slide" id="s14">
+  <div class="blob" style="width:52vw;height:52vw;background:rgba(194,238,69,.14);top:-14vw;right:-12vw"></div>
+  <span class="slide-num"><b>14</b> / 14</span>
+  <span class="tag reveal">Why this works</span>
+  <h1 class="reveal d1">Fourteen days in.<br/><span class="accent">A year ahead.</span></h1>
+  <div class="divider reveal d1"></div>
+  <div class="grid reveal d2" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+    <div class="g"><span class="n">01</span><h3>It isn't 14 days</h3><p>It's 14 days <b style="color:#f0f4e8">plus a full year</b> — 54+ weekly live sessions, the content libraries, seven premium tools and a global community.</p></div>
+    <div class="g"><span class="n">02</span><h3>Every sprint ends in a build</h3><p>Seven sprints, seven working systems — ending in a production-ready GenAI product you launch yourself.</p></div>
+    <div class="g"><span class="n">03</span><h3>You leave with a portfolio</h3><p>Five flagship agent projects plus a 48-hour buildathon product you demo to a global audience.</p></div>
+    <div class="g"><span class="n">04</span><h3>The dates aren't a wall</h3><p>Pick either cohort and defer to a future batch if your calendar changes. Every session is recorded either way.</p></div>
+    <div class="g"><span class="n">05</span><h3>NSDC certified</h3><p>The certified program name is <b style="color:#f0f4e8">Program in Generative AI (Tech Professionals)</b>, powered by Skill India.</p></div>
+    <div class="g"><span class="n">06</span><h3>Built for working engineers</h3><p>Weeknights and weekends, so it fits around a full-time job — and everything is recorded if you miss a night.</p></div>
+  </div>
+  <div class="note reveal d3"><span class="nh">On fees</span>
+    Pricing, EMI routes and cohort dates are confirmed by your program advisor for the live batch —
+    <b>always take the current numbers from them</b> rather than from a deck.</div>
+  <span class="watermark">Outskill · <span>Accelerator Engineering</span></span>
+</section>
+
+<div class="scrim" id="scrim">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true">
+    <button class="close" id="closeBtn" aria-label="Close">✕</button>
+    <div id="sheetBody"></div>
+    <div class="esc">Tap outside or press ESC to close</div>
+  </div>
+</div>
+
+<script>
+const SPRINTS = [
+  {n:'Sprint 1',t:'Advanced Prompt Engineering & AI Automations',
+   ship:'Scalable AI-powered automated workflows',
+   b:'Build end-to-end AI-powered applications by combining prompt engineering, chat APIs and n8n-based workflow automation. Design intelligent, user-driven systems with <b>dynamic prompting (JSON/XML)</b> and reliable input handling. Integrate and orchestrate AI models, APIs and tools into context-aware, multi-step decision systems — then harden them into production-ready pipelines with proper error handling, debugging, performance optimisation and informed model selection.',
+   tools:['OpenAI','n8n','Ollama','Google AI Studio','OpenRouter']},
+  {n:'Sprint 2',t:'Full Stack Open Source AI Applications',
+   ship:'AI-powered chat applications, built and deployed',
+   b:'Build a <b>ChatGPT-like application using Gradio</b> with real-time interaction. Work with Hugging Face models and pipelines across NLP, vision and basic multimodal use cases, and learn when to run local/open-source models versus API-based ones. Handle input processing, context management and model inference end to end — then deploy and optimise, trading off latency, cost, performance and scalability.',
+   tools:['Gradio','Hugging Face','NLP pipelines']},
+  {n:'Sprint 3',t:'Customising AI & RAG',
+   ship:'End-to-end RAG-based AI systems',
+   b:'Build RAG applications from simple to end-to-end using <b>LlamaIndex</b>. Customise AI with personal or external data — documents, images and voice — using vector databases. Integrate external APIs (Google, YouTube) to automate assignment creation and workflows. The sprint project is <b>Atlas</b>: a "second brain" — an advanced RAG system that organises and recalls information automatically.',
+   tools:['LlamaIndex','OpenAI','LanceDB','Vector DBs']},
+  {n:'Sprint 4',t:'AI Coding Agents — Code Generation & Evaluation',
+   ship:'Advanced agentic AI systems, built and scaled',
+   b:'Understand how <b>evals</b> fit into AI product and engineering workflows to measure model and application performance. Learn AI-assisted coding, automation, security review and productivity workflows for engineering use cases. Explore how coding agents interact with tools, systems and <b>MCP-powered integrations</b> to enable reusable, orchestrated workflows — with hands-on browser automation and practical coding use cases.',
+   tools:['Codex','Claude','MCP']},
+  {n:'Sprint 5',t:'AI Agents — Observability & Agent Building',
+   ship:'An agentic runtime',
+   b:'Build and orchestrate AI applications using <b>LangChain</b> with chains, prompts, memory and agents. Develop stateful, multi-step agentic workflows in <b>LangGraph</b> with complex logic and control flow. Design and implement multi-agent systems that collaborate and execute tasks autonomously — then debug, monitor and optimise them with <b>LangSmith</b> while understanding end-to-end agent architecture.',
+   tools:['LangChain','LangGraph','LangSmith']},
+  {n:'Sprint 6',t:'Building an AI Coding Agent',
+   ship:'An autonomous AI coding agent',
+   b:'Build an AI engineering agent capable of understanding tasks, making code changes and executing workflows autonomously. Create a <b>Discord-based interface</b> to interact with the agent and trigger actions like updates and PR creation. Leverage OpenAI Codex and parallel agents to automate real-world software engineering tasks, orchestrating multi-tool workflows across LangChain, LangGraph and LangSmith.',
+   tools:['LangChain','LangGraph','LangSmith','Discord','Codex']},
+  {n:'Sprint 7',t:'Hackathon',full:1,
+   ship:'A production-ready GenAI product, built and launched',
+   b:'<b>The buildathon.</b> Apply every skill from the previous six sprints to design, build and ship an original AI-powered tool or solution. Take on an open-ended, real-world engineering challenge, then collaborate, present and compete in a fast-paced hackathon environment — and graduate with a <b>portfolio-ready project</b> that shows your AI engineering ability rather than describing it.',
+   tools:['Your full stack']}
+];
+
+const PROJECTS = [
+  {n:'Project 1',t:'Deep Research Agent',ref:'Perplexity · ChatGPT',
+   b:'<b>What it does:</b> an autonomous research system that searches the web, evaluates sources, retrieves facts and synthesises long, multi-step answers. It produces reports, comparisons, summaries and citations the way a human researcher would.<br/><br/><b>You learn:</b> multi-agent orchestration, search + RAG pipelines, structured reasoning and long-context synthesis — mastering Perplexity-like research workflows end to end.',
+   tools:['Multi-agent orchestration','RAG','Long-context synthesis']},
+  {n:'Project 2',t:'Browser Automation Agent',ref:'Comet · Atlas',
+   b:'<b>What it does:</b> a browser agent that navigates websites, clicks buttons, fills forms, scrapes data and performs user workflows. It understands the DOM, reads visual elements and executes complex multi-step tasks autonomously.<br/><br/><b>You learn:</b> browser automation, DOM vision, StageHand agent tooling and secure agent sandboxing — how to build agents that interact with real web applications.',
+   tools:['Browser automation','DOM vision','StageHand','Sandboxing']},
+  {n:'Project 3',t:'Customer Support Agent',ref:'Zendesk · Forethought',
+   b:'<b>What it does:</b> an AI support agent that reads knowledge bases, past tickets and product docs, then responds with accurate, contextual answers. It classifies issues, drafts responses, escalates complex cases and suggests auto-resolutions.<br/><br/><b>You learn:</b> production-grade RAG, multi-turn memory, ticket classification and automated triage pipelines — enterprise-ready support automation.',
+   tools:['Production RAG','Multi-turn memory','Triage pipelines']},
+  {n:'Project 4',t:'AI Ops Incident Response Agent',ref:'Datadog Watchdog',
+   b:'<b>What it does:</b> an always-on agent that monitors logs, metrics, alerts and traces, and detects anomalies or potential system failures in real time. It performs root-cause analysis, correlates signals across microservices and proposes — or executes — fixes.<br/><br/><b>You learn:</b> observability ingestion, anomaly detection, RCA workflows and agentic remediation patterns for self-healing infrastructure.',
+   tools:['Observability','Anomaly detection','RCA','Auto-remediation']},
+  {n:'Project 5',t:'Cybersecurity Threat Detection Agent',ref:'CrowdStrike Falcon · MS Sentinel',
+   b:'<b>What it does:</b> an autonomous SOC analyst that detects suspicious logins, privilege escalations, API misuse, malware traces and cloud security risks. It correlates events, assigns threat scores, drafts incident reports and can auto-trigger containment workflows.<br/><br/><b>You learn:</b> SIEM-style ingestion, threat modelling, correlation graphs and real-time alerting pipelines for security-grade agents.',
+   tools:['SIEM ingestion','Threat modelling','Correlation graphs','Alerting']}
+];
+
+function cardHTML(x,i,kind){
+  return `<button class="day ${x.full?'full':''}" data-kind="${kind}" data-i="${i}">
+    <span class="dn">${x.n}${kind==='sprint'?'<span class="live">LIVE</span>':''}</span>
+    <h3>${x.t}</h3>
+    <span class="tt">${x.tools.slice(0,4).map(t=>`<span>${t}</span>`).join('')}</span>
+    <span class="cue">Tap for detail →</span></button>`;
+}
+document.getElementById('sprints').innerHTML = SPRINTS.map((x,i)=>cardHTML(x,i,'sprint')).join('');
+document.getElementById('projects').innerHTML = PROJECTS.map((x,i)=>cardHTML(x,i,'project')).join('');
+
+const scrim=document.getElementById('scrim'), body=document.getElementById('sheetBody');
+let lastFocus=null;
+function openCard(kind,i){
+  const x = (kind==='sprint'?SPRINTS:PROJECTS)[i]; if(!x) return;
+  const head = kind==='sprint' ? `${x.n} · Live sessions` : `${x.n} · Reference: ${x.ref}`;
+  const foot = kind==='sprint' ? `<div class="note" style="margin-top:16px"><span class="nh">You walk out having built</span>${x.ship}</div>` : '';
+  body.innerHTML = `<div class="sd">${head}</div><h2>${x.t}</h2>
+    <div class="body">${x.b}</div>
+    <div class="toolrow">${x.tools.map(t=>`<span>${t}</span>`).join('')}</div>${foot}`;
+  document.getElementById('sheet').scrollTop=0;
+  scrim.classList.add('on'); document.body.style.overflow='hidden';
+  setTimeout(()=>document.getElementById('closeBtn').focus(),60);
+}
+function closeSheet(){ scrim.classList.remove('on'); document.body.style.overflow=''; if(lastFocus) lastFocus.focus(); }
+document.addEventListener('click',e=>{
+  const d=e.target.closest('.day'); if(d){ lastFocus=d; openCard(d.dataset.kind,+d.dataset.i); }
+});
+document.getElementById('closeBtn').addEventListener('click',closeSheet);
+scrim.addEventListener('click',e=>{ if(e.target===scrim) closeSheet(); });
+
+/* nav + reveal */
+const slides=[...document.querySelectorAll('.slide')];
+const labels=['Cover','The shift',"Who it's for",'Inside','Sprints','Outcomes','Schedule','Projects','The year','Kairos','Tools','Mentors','Proof','Why it works'];
+document.getElementById('dots').innerHTML=slides.map((s,i)=>`<a href="#${s.id}" data-label="${labels[i]}"></a>`).join('');
+const dots=[...document.querySelectorAll('.nav-dots a')];
+const ro=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){
+  const i=slides.indexOf(e.target); dots.forEach((d,j)=>d.classList.toggle('active',i===j)); }}),{threshold:.5});
+slides.forEach(s=>ro.observe(s));
+const rv=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rv.unobserve(e.target); }}),{threshold:.15});
+document.querySelectorAll('.reveal').forEach(el=>rv.observe(el));
+addEventListener('scroll',()=>{
+  const h=document.documentElement;
+  document.getElementById('prog').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+});
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&scrim.classList.contains('on')){ closeSheet(); return; }
+  if(scrim.classList.contains('on')) return;
+  const cur=slides.findIndex(s=>{const r=s.getBoundingClientRect(); return r.top<=innerHeight/2&&r.bottom>=innerHeight/2;});
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){ e.preventDefault(); slides[Math.min(cur+1,slides.length-1)]?.scrollIntoView({behavior:'smooth'}); }
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){ e.preventDefault(); slides[Math.max(cur-1,0)]?.scrollIntoView({behavior:'smooth'}); }
+  if(e.key==='f'||e.key==='F'){ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); }
+});
+</script>
+</body>
+</html>

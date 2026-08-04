@@ -1,0 +1,15 @@
+# Render Blueprint — deploys ONLY the qa-agent (Outskill AI Mentor).
+# The sales onboarding app at the repo root is untouched (it deploys via Vercel).
+services:
+  - type: web
+    name: outskill-ai-mentor
+    runtime: node
+    rootDir: qa-agent
+    branch: claude/outskill-qa-agent-design-3r6w6j
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false # Render will prompt you to paste your key during setup

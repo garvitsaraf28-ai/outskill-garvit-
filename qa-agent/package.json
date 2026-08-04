@@ -1,0 +1,22 @@
+{
+  "name": "outskill-qa-agent",
+  "version": "2.1.0",
+  "description": "Outskill AI Mentor — live-event question-answering agent (Claude-powered)",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "ingest": "node scripts/ingest.js",
+    "test": "node --test",
+    "eval": "node scripts/eval.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "express": "^4.21.2",
+    "pdf-parse": "^2.4.5"
+  }
+}

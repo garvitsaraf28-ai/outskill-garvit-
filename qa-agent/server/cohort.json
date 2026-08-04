@@ -1,0 +1,31 @@
+{
+  "_note": "Cohort composition shown in the left panel. REPLACE the percentages with your real enrollment data before public events — only 'verifiedStats' values are sourced from official Outskill material. Percentages must sum to 100.",
+  "headline": "Who learns with Outskill",
+  "subline": "Professionals across our paid programs",
+  "verifiedStats": [
+    { "value": "76%", "label": "have 10+ years of work experience" },
+    { "value": "300+", "label": "professionals through our programs" }
+  ],
+  "seniorSpotlight": {
+    "title": "Senior leadership learns here",
+    "roles": [
+      "Product Managers",
+      "Program Leads",
+      "Team Leads · 20+ yrs",
+      "Investment Banking",
+      "Operations Managers"
+    ]
+  },
+  "mix": [
+    { "label": "Product & Program Management", "pct": 16, "senior": true },
+    { "label": "Software & Data", "pct": 18 },
+    { "label": "Finance & Investment Banking", "pct": 12, "senior": true },
+    { "label": "Marketing & Sales", "pct": 13 },
+    { "label": "Founders & Business Owners", "pct": 12 },
+    { "label": "Operations & Supply Chain", "pct": 11, "senior": true },
+    { "label": "HR & People", "pct": 7 },
+    { "label": "Consulting & Freelance", "pct": 6 },
+    { "label": "Healthcare & Medicine", "pct": 5 }
+  ],
+  "disclaimer": "Representative mix across recent paid cohorts"
+}

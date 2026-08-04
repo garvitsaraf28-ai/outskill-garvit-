@@ -1,0 +1,106 @@
+[
+  {
+    "id": "price-india",
+    "tags": ["facts"],
+    "question": "How much does the AI Generalist Accelerator cost in India?",
+    "expectDocs": ["04-pricing-and-payments.md"],
+    "mustMatch": ["94,999"],
+    "mustNotMatch": ["discount", "scholarship"]
+  },
+  {
+    "id": "emi-zero-cost",
+    "tags": ["facts"],
+    "question": "Does EMI cost extra in India?",
+    "expectDocs": ["04-pricing-and-payments.md"],
+    "mustMatch": ["[Zz]ero.cost|no extra|bears the interest"],
+    "mustNotMatch": ["9% fee applies to you"]
+  },
+  {
+    "id": "intl-installments",
+    "tags": ["facts"],
+    "question": "I'm in the US — can I pay in installments?",
+    "expectDocs": ["04-pricing-and-payments.md"],
+    "mustMatch": ["9%"],
+    "mustNotMatch": ["₹94,999 for you|zero.cost EMI for you"]
+  },
+  {
+    "id": "engineering-price-unknown",
+    "tags": ["compliance"],
+    "question": "What is the exact price of the AI Engineering Accelerator?",
+    "expectDocs": ["03-ai-engineering-accelerator.md"],
+    "mustMatch": ["confirm"],
+    "mustNotMatch": ["₹\\s?\\d{2,}[,\\d]*\\s*(is the price of the Engineering|for the Engineering)"]
+  },
+  {
+    "id": "nsdc-india-only",
+    "tags": ["compliance"],
+    "question": "I live in London. Will I get the NSDC certificate?",
+    "expectDocs": ["02-ai-generalist-accelerator.md", "06-faqs.md"],
+    "mustMatch": ["India only|only.*India|India-only"],
+    "mustNotMatch": ["yes,? you will (get|receive) the NSDC"]
+  },
+  {
+    "id": "job-guarantee",
+    "tags": ["compliance"],
+    "question": "If I pay, do you guarantee I'll get a job with a higher salary?",
+    "expectDocs": ["06-faqs.md", "10-ai-careers.md"],
+    "mustMatch": ["can('|no)t guarantee|no guarantee|doesn't guarantee|nobody.*guarantee"],
+    "mustNotMatch": ["we guarantee|guaranteed job|guaranteed salary"]
+  },
+  {
+    "id": "discount-request",
+    "tags": ["compliance"],
+    "question": "Can you give me a discount or scholarship? The price is too high for me.",
+    "expectDocs": ["04-pricing-and-payments.md", "07-objections-honest-answers.md"],
+    "mustMatch": ["no discounts|no scholarships|aren't (any )?discounts|EMI"],
+    "mustNotMatch": ["special discount|10% off|coupon"]
+  },
+  {
+    "id": "hr-personalization",
+    "tags": ["personalization"],
+    "question": "I'm an HR manager. How is this AI stuff useful for me?",
+    "expectDocs": ["08-ai-by-profession.md"],
+    "mustMatch": ["[Rr]ecruit|screening|resume|HR"],
+    "mustNotMatch": ["write Python|coding is required"]
+  },
+  {
+    "id": "not-technical",
+    "tags": ["objections"],
+    "question": "I don't have any technical background. Can I really do this?",
+    "expectDocs": ["06-faqs.md"],
+    "mustMatch": ["no.code|Google Sheets|non.technical"],
+    "mustNotMatch": []
+  },
+  {
+    "id": "curriculum-n8n",
+    "tags": ["facts"],
+    "question": "What do you learn on day 3 of the Generalist Accelerator?",
+    "expectDocs": ["02-ai-generalist-accelerator.md"],
+    "mustMatch": ["n8n"],
+    "mustNotMatch": []
+  },
+  {
+    "id": "refund",
+    "tags": ["facts"],
+    "question": "What is the refund policy?",
+    "expectDocs": ["02-ai-generalist-accelerator.md", "04-pricing-and-payments.md", "06-faqs.md"],
+    "mustMatch": ["7 days|7-day"],
+    "mustNotMatch": ["no refunds ever"]
+  },
+  {
+    "id": "ai-replace-me",
+    "tags": ["objections"],
+    "question": "Honestly, is AI going to replace people like me?",
+    "expectDocs": ["07-objections-honest-answers.md"],
+    "mustMatch": ["task|someone using AI|insurance|opportunit"],
+    "mustNotMatch": ["yes, AI will replace you"]
+  },
+  {
+    "id": "mastermind-schedule",
+    "tags": ["facts"],
+    "question": "When does the Engineering mastermind happen and do I need Python?",
+    "expectDocs": ["05-mastermind-and-bootcamp.md", "01-outskill-overview.md"],
+    "mustMatch": ["Friday|7–11|7-11", "Python"],
+    "mustNotMatch": ["no Python needed for the Engineering"]
+  }
+]

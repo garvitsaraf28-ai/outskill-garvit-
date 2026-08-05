@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Automation / User Journey · Outskill</title>
+<style>
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  :root{
+    --bg:#fbfbfd; --surface:#ffffff; --sunk:#f4f5f7;
+    --ink:#14161a; --ink2:#4a5058; --ink3:#767d87;
+    --line:#e2e5ea; --line2:#cfd4db;
+    --accent:#4338ca;      /* automation / CRM */
+    --human:#a1520b;       /* team-owned step */
+    --money:#046b4e;       /* payment */
+    --stop:#b4123a;        /* failure, rejection */
+    --accent-bg:rgba(67,56,202,.07); --human-bg:rgba(161,82,11,.08);
+    --money-bg:rgba(4,107,78,.08); --stop-bg:rgba(180,18,58,.07);
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0c0d10; --surface:#141619; --sunk:#191c20;
+      --ink:#eceef1; --ink2:#a8aeb8; --ink3:#7d848f;
+      --line:#272b31; --line2:#363b43;
+      --accent:#a5a0f5; --human:#e0a565; --money:#5fc9a3; --stop:#f2849c;
+      --accent-bg:rgba(165,160,245,.11); --human-bg:rgba(224,165,101,.11);
+      --money-bg:rgba(95,201,163,.11); --stop-bg:rgba(242,132,156,.10);
+    }
+  }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:var(--sans); background:var(--bg); color:var(--ink); overflow-x:hidden;
+        -webkit-font-smoothing:antialiased; font-size:16px; line-height:1.55; }
+  ::selection{ background:var(--accent); color:#fff; }
+
+  .progress{ position:fixed; top:0; left:0; height:2px; background:var(--accent); width:0%; z-index:200; transition:width .1s linear; }
+  .keyhint{ position:fixed; bottom:18px; left:26px; z-index:99; font-family:var(--mono); font-size:10px;
+            letter-spacing:.06em; color:var(--ink3); }
+  .keyhint b{ color:var(--ink2); font-weight:600; }
+  .nav-dots{ position:fixed; right:24px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:11px; z-index:99; }
+  .nav-dots a{ width:6px; height:6px; border-radius:50%; background:var(--line2); display:block; transition:all .25s; position:relative; }
+  .nav-dots a.active{ background:var(--accent); transform:scale(1.5); }
+  .nav-dots a::after{ content:attr(data-label); position:absolute; right:15px; top:50%; transform:translateY(-50%);
+    font-family:var(--mono); font-size:10px; letter-spacing:.04em; color:var(--ink3); opacity:0; white-space:nowrap; transition:opacity .2s; }
+  .nav-dots a:hover::after{ opacity:1; }
+  @media(max-width:900px){ .nav-dots,.keyhint{ display:none; } }
+
+  /* ---------- slide shell ---------- */
+  .slide{ min-height:100vh; display:flex; flex-direction:column; justify-content:center;
+          padding:60px 5vw; position:relative; border-bottom:1px solid var(--line); }
+  .slide-inner{ width:100%; max-width:1180px; margin:0 auto; }
+  .eyebrow{ display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:11px;
+            letter-spacing:.1em; text-transform:uppercase; color:var(--ink3); margin-bottom:14px; }
+  .eyebrow .step{ color:var(--accent); font-weight:600; }
+  h1{ font-size:clamp(1.6rem,3.1vw,2.5rem); font-weight:640; letter-spacing:-.022em; line-height:1.14; margin-bottom:10px; }
+  .lede{ font-size:clamp(.94rem,1.25vw,1.06rem); color:var(--ink2); max-width:760px; line-height:1.62; margin-bottom:22px; }
+  .lede b{ color:var(--ink); font-weight:600; }
+  .slide-num{ position:absolute; top:30px; right:5vw; font-family:var(--mono); font-size:11px; color:var(--ink3); letter-spacing:.05em; }
+  .reveal{ opacity:0; transform:translateY(14px); transition:opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in{ opacity:1; transform:none; }
+  .d1{transition-delay:.06s}.d2{transition-delay:.13s}.d3{transition-delay:.2s}
+
+  /* ---------- primitives ---------- */
+  .node{ background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:10px 13px;
+         min-width:0; box-shadow:0 1px 2px rgba(10,12,16,.04); }
+  .node .nl{ font-family:var(--mono); font-size:9.5px; letter-spacing:.09em; text-transform:uppercase;
+             color:var(--ink3); display:block; margin-bottom:4px; }
+  .node .nt{ font-size:.86rem; font-weight:580; letter-spacing:-.008em; line-height:1.3; display:block; }
+  .node .ns{ font-size:.74rem; color:var(--ink3); line-height:1.42; margin-top:4px; display:block; }
+  .node.auto{ border-color:color-mix(in srgb,var(--accent) 34%,var(--line)); background:var(--accent-bg); }
+  .node.auto .nl{ color:var(--accent); }
+  .node.human{ border-color:color-mix(in srgb,var(--human) 34%,var(--line)); background:var(--human-bg); }
+  .node.human .nl{ color:var(--human); }
+  .node.money{ border-color:color-mix(in srgb,var(--money) 34%,var(--line)); background:var(--money-bg); }
+  .node.money .nl{ color:var(--money); }
+  .node.stop{ border-color:color-mix(in srgb,var(--stop) 34%,var(--line)); background:var(--stop-bg); }
+  .node.stop .nl{ color:var(--stop); }
+  .node.ghost{ background:transparent; border-style:dashed; box-shadow:none; }
+
+  .dia{ background:var(--sunk); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .dia + .dia{ margin-top:14px; }
+
+  /* horizontal chain */
+  .flow{ display:flex; align-items:stretch; gap:0; flex-wrap:wrap; }
+  .flow > .node{ flex:1 1 0; }
+  .arr{ flex:0 0 26px; align-self:center; height:1px; background:var(--line2); position:relative; margin:0 7px; }
+  .arr::after{ content:''; position:absolute; right:-1px; top:-3.5px; border-left:6px solid var(--line2);
+               border-top:3.5px solid transparent; border-bottom:3.5px solid transparent; }
+  .arr.lbl{ flex:0 0 118px; }
+  .arr.lbl::before{ content:attr(data-l); position:absolute; left:50%; transform:translate(-50%,-13px);
+    font-family:var(--mono); font-size:9px; letter-spacing:.06em; color:var(--ink3); white-space:nowrap;
+    background:var(--sunk); padding:0 5px; }
+
+  /* vertical chain */
+  .vflow{ display:flex; flex-direction:column; gap:0; }
+  .varr{ height:16px; width:1px; background:var(--line2); margin:0 auto; position:relative; flex:0 0 auto; }
+  .varr::after{ content:''; position:absolute; bottom:-1px; left:-3.5px; border-top:6px solid var(--line2);
+                border-left:3.5px solid transparent; border-right:3.5px solid transparent; }
+  .varr.lbl::before{ content:attr(data-l); position:absolute; top:50%; left:9px; transform:translateY(-50%);
+    font-family:var(--mono); font-size:9px; letter-spacing:.06em; color:var(--ink3); white-space:nowrap; }
+
+  /* decision diamond */
+  .dec{ display:inline-flex; align-items:center; gap:8px; align-self:center; background:var(--surface);
+        border:1px solid var(--line2); border-radius:100px; padding:8px 15px; font-size:.8rem; font-weight:600; }
+  .dec svg{ flex:0 0 auto; }
+
+  /* branch pair */
+  .branch{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .brcol{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .brcol > .bh{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;
+                padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .brcol .bt{ font-size:.92rem; font-weight:640; letter-spacing:-.01em; }
+  .pill{ font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase;
+         padding:3px 8px; border-radius:100px; border:1px solid var(--line2); color:var(--ink3); white-space:nowrap; }
+  .pill.yes{ color:var(--money); border-color:color-mix(in srgb,var(--money) 40%,var(--line)); }
+  .pill.no{ color:var(--stop); border-color:color-mix(in srgb,var(--stop) 40%,var(--line)); }
+
+  /* swimlane */
+  .swim{ overflow-x:auto; }
+  .swimgrid{ display:grid; grid-template-columns:96px repeat(8,minmax(112px,1fr)); gap:0; min-width:940px; }
+  .lh{ font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3);
+       display:flex; align-items:center; padding-right:12px; border-right:1px solid var(--line); }
+  .cell{ padding:7px 5px; display:flex; align-items:center; position:relative; }
+  .swimgrid > .cell{ border-bottom:1px solid var(--line); }
+  .swimgrid > .lh{ border-bottom:1px solid var(--line); }
+  .swimgrid > .lh:last-of-type, .swimgrid > .cell.lastrow{ border-bottom:none; }
+  .cell .node{ width:100%; padding:8px 10px; }
+  .cell .node .nt{ font-size:.78rem; }
+  .rail{ position:absolute; left:0; right:0; top:50%; height:1px; background:var(--line); }
+  .colhead{ font-family:var(--mono); font-size:9px; letter-spacing:.07em; text-transform:uppercase;
+            color:var(--ink3); padding:0 5px 8px; text-align:center; }
+
+  /* legend / grids */
+  .cols2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .cols3{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .cols4{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .stackc{ display:flex; flex-direction:column; gap:8px; }
+  .lgi{ display:flex; align-items:flex-start; gap:10px; padding:9px 12px; background:var(--surface);
+        border:1px solid var(--line); border-radius:8px; }
+  .dot{ width:9px; height:9px; border-radius:3px; flex:0 0 auto; margin-top:5px; }
+  .lgi .lt{ font-size:.83rem; font-weight:580; letter-spacing:-.005em; }
+  .lgi .ld{ font-size:.75rem; color:var(--ink3); line-height:1.45; }
+  .lgi code{ font-family:var(--mono); font-size:.7rem; color:var(--ink3); }
+
+  /* master map */
+  .map{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+  .stage{ background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:14px 13px; position:relative; }
+  .stage .sn{ font-family:var(--mono); font-size:9px; letter-spacing:.1em; color:var(--accent); font-weight:600; }
+  .stage .st{ font-size:.9rem; font-weight:640; margin:5px 0 8px; letter-spacing:-.01em; }
+  .stage ul{ list-style:none; display:flex; flex-direction:column; gap:5px; }
+  .stage li{ font-size:.755rem; color:var(--ink2); line-height:1.4; padding-left:11px; position:relative; }
+  .stage li::before{ content:''; position:absolute; left:0; top:7px; width:4px; height:4px; border-radius:50%; background:var(--line2); }
+  .band{ margin-top:10px; border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));
+         background:var(--accent-bg); border-radius:11px; padding:12px 15px;
+         display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .band .bl{ font-family:var(--mono); font-size:9.5px; letter-spacing:.09em; text-transform:uppercase;
+             color:var(--accent); font-weight:600; white-space:nowrap; }
+  .band .bd{ font-size:.79rem; color:var(--ink2); }
+  .rail-sys{ margin-top:10px; display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+  .sys{ font-family:var(--mono); font-size:10px; letter-spacing:.03em; padding:5px 10px; border-radius:6px;
+        background:var(--surface); border:1px solid var(--line); color:var(--ink2); }
+  .rail-sys .rl{ font-family:var(--mono); font-size:9.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink3); margin-right:4px; }
+
+  /* timeline */
+  .tl{ position:relative; padding-top:26px; }
+  .tl::before{ content:''; position:absolute; left:0; right:0; top:9px; height:1px; background:var(--line2); }
+  .tlrow{ display:grid; grid-template-columns:repeat(9,1fr); gap:6px; }
+  .tick{ position:relative; }
+  .tick::before{ content:''; position:absolute; left:50%; top:-21px; width:7px; height:7px; margin-left:-3.5px;
+                 border-radius:50%; background:var(--accent); border:2px solid var(--bg); }
+  .tick .tt{ font-family:var(--mono); font-size:9px; letter-spacing:.05em; color:var(--accent); text-align:center; display:block; margin-bottom:5px; }
+  .tick .tb{ background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px 7px; text-align:center; height:100%; }
+  .tick .tn{ font-size:.73rem; font-weight:580; line-height:1.32; display:block; }
+  .tick .tc{ font-family:var(--mono); font-size:8.5px; letter-spacing:.06em; color:var(--ink3); margin-top:4px; display:block; }
+
+  /* notes */
+  .note{ margin-top:14px; border-left:2px solid var(--line2); padding:2px 0 2px 13px; font-size:.79rem; color:var(--ink3); line-height:1.55; }
+  .note b{ color:var(--ink2); font-weight:600; }
+  .note.open{ border-left-color:var(--human); }
+  .note.open b{ color:var(--human); }
+
+  /* cover */
+  #s1{ justify-content:center; }
+  .cover-mark{ display:flex; align-items:center; gap:9px; margin-bottom:38px; }
+  .cover-mark .sq{ width:22px; height:22px; border-radius:6px; background:var(--accent); }
+  .cover-mark span{ font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); }
+  .cover-h{ font-size:clamp(2.4rem,7vw,5.4rem); font-weight:600; letter-spacing:-.04em; line-height:1.02; }
+  .cover-h .sl{ color:var(--ink3); font-weight:300; }
+  .cover-sub{ font-size:clamp(.95rem,1.5vw,1.15rem); color:var(--ink2); max-width:600px; margin-top:20px; line-height:1.6; }
+  .cover-meta{ margin-top:52px; padding-top:20px; border-top:1px solid var(--line);
+               display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap; }
+  .cover-meta .cm{ font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink3); }
+  .cover-meta .cm b{ color:var(--ink2); font-weight:600; }
+  .credit{ font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; color:var(--ink3); }
+
+
+  /* short viewports (projectors, laptops) — every section still fits one screen */
+  @media (min-width:841px) and (max-height:860px){
+    .slide{ padding:40px 5vw; }
+    h1{ font-size:clamp(1.35rem,2.5vw,1.95rem); margin-bottom:7px; }
+    .lede{ font-size:.88rem; margin-bottom:15px; line-height:1.55; }
+    .eyebrow{ margin-bottom:10px; }
+    .dia{ padding:14px; } .dia + .dia{ margin-top:10px; }
+    .node{ padding:7px 11px; }
+    .node .ns{ margin-top:2px; }
+    .varr{ height:9px; }
+    .brcol{ padding:10px; }
+    .brcol > .bh{ margin-bottom:9px; padding-bottom:8px; }
+    .lgi{ padding:6px 10px; }
+    .tick .tb{ padding:6px; }
+    .band{ padding:9px 13px; margin-top:8px; }
+    .branch{ gap:12px; } .cols2,.cols3,.cols4{ gap:10px; }
+    .dec{ padding:6px 13px; font-size:.77rem; }
+    .rail-sys{ margin-top:8px; }
+    .note{ margin-top:10px; }
+    .cover-meta{ margin-top:36px; }
+  }
+  @media(max-width:840px){
+    .slide{ padding:56px 6vw; min-height:auto; padding-top:48px; padding-bottom:48px; }
+    .map{ grid-template-columns:1fr 1fr; }
+    .cols2,.cols3,.cols4,.branch{ grid-template-columns:1fr; }
+    .tlrow{ grid-template-columns:1fr 1fr 1fr; gap:10px; }
+    .tl::before{ display:none; } .tick::before{ display:none; }
+    .flow{ flex-direction:column; align-items:stretch; }
+    .flow > .node{ flex:0 0 auto; }
+    .arr,.arr.lbl{ width:1px; height:20px; margin:5px auto; flex:0 0 auto; align-self:center; }
+    .arr::after{ right:-3.5px; top:auto; bottom:-1px; border-left:3.5px solid transparent;
+                 border-right:3.5px solid transparent; border-top:6px solid var(--line2); border-bottom:none; }
+    .arr.lbl::before{ left:12px; transform:translateY(-50%); top:50%; }
+    .dia{ padding:16px; }
+  }
+  @media print{
+    .nav-dots,.keyhint,.progress{ display:none!important; }
+    .slide{ min-height:auto; page-break-after:always; border:none; padding:24px; }
+    .reveal{ opacity:1!important; transform:none!important; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    .reveal{ transition:none; opacity:1; transform:none; }
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="prog"></div>
+<nav class="nav-dots" id="dots" aria-label="Slides"></nav>
+<div class="keyhint">← → <b>navigate</b></div>
+<main>
+
+<!-- 01 COVER -->
+<section class="slide" id="s1">
+  <div class="slide-inner">
+    <div class="cover-mark reveal"><span class="sq"></span><span>Outskill · Internal</span></div>
+    <h1 class="cover-h reveal d1">Automation <span class="sl">/</span><br/>User Journey</h1>
+    <p class="cover-sub reveal d2">How a stranger becomes a learner, which team owns each step,
+      and which system does the work — the whole operation, end to end.</p>
+    <div class="cover-meta reveal d3">
+      <div class="cm">Onboarding guide · <b>15–20 minutes</b> · 10 sections</div>
+      <div class="credit">Built by Garvit</div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 THE MAP -->
+<section class="slide" id="s2">
+  <span class="slide-num">02 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Orientation</span> · the whole company on one page</div>
+    <h1 class="reveal">Five stages. One learner.</h1>
+    <p class="lede reveal d1">Every slide after this one is a zoom into a single stage below. The band underneath is
+      <b>WebEngage</b> — it is not a stage, it runs across all of them.</p>
+
+    <div class="map reveal d2">
+      <div class="stage"><span class="sn">01</span><div class="st">Acquire</div>
+        <ul><li>Performance &amp; Influencer</li><li>Website, Founder / Brand</li><li>Registration</li></ul></div>
+      <div class="stage"><span class="sn">02</span><div class="st">Attend</div>
+        <ul><li>WhatsApp group</li><li>Workshop — daily</li><li>Mastermind — Sat &amp; Sun</li></ul></div>
+      <div class="stage"><span class="sn">03</span><div class="st">Convert</div>
+        <ul><li>The pitch</li><li>Payment, or application</li><li>Bootcamp → Accelerator</li></ul></div>
+      <div class="stage"><span class="sn">04</span><div class="st">Deliver</div>
+        <ul><li>Community, LMS, Zoom</li><li>Program Team</li><li>Post Operations Team</li></ul></div>
+      <div class="stage"><span class="sn">05</span><div class="st">Recover</div>
+        <ul><li>Reach-out to non-attendees</li><li>Re-engagement</li><li>Refunds &amp; disputes</li></ul></div>
+    </div>
+
+    <div class="band reveal d3">
+      <span class="bl">Automation layer</span>
+      <span class="bd">WebEngage sends the welcome, the reminder ladder, the live nudge, the follow-up and the
+        reach-out sequence — at every stage above, without anyone pressing a button.</span>
+    </div>
+    <div class="rail-sys reveal d3">
+      <span class="rl">Systems</span>
+      <span class="sys">WebEngage</span><span class="sys">Optimus</span><span class="sys">Payment gateway</span>
+      <span class="sys">WhatsApp</span><span class="sys">Zoom</span><span class="sys">LMS</span>
+      <span class="sys">Calendly</span><span class="sys">Email</span>
+    </div>
+  </div>
+</section>
+
+<!-- 03 LEGEND -->
+<section class="slide" id="s3">
+  <span class="slide-num">03 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Notation</span> · read this once</div>
+    <h1 class="reveal">Who does what. What runs what.</h1>
+    <p class="lede reveal d1">Every box in this deck is colour-coded by <b>who or what performs the step</b>.
+      Nothing else is colour-coded, so colour always means the same thing.</p>
+
+    <div class="cols2 reveal d2">
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Box types</div>
+        <div class="stackc">
+          <div class="lgi"><span class="dot" style="background:var(--line2)"></span>
+            <span><span class="lt">Learner action</span><span class="ld">Something the learner does — registers, attends, decides, pays.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--human)"></span>
+            <span><span class="lt">Team-owned</span><span class="ld">A person does this. The team's name is printed on the box.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--accent)"></span>
+            <span><span class="lt">Automated</span><span class="ld">A system does this with no human in the loop. Usually WebEngage.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--money)"></span>
+            <span><span class="lt">Money moves</span><span class="ld">A payment, an invoice, or a refund is issued here.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--stop)"></span>
+            <span><span class="lt">Dead end</span><span class="ld">The journey stops — no access, rejection, or a failed payment.</span></span></div>
+        </div>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:10px">Teams &amp; systems</div>
+        <div class="stackc">
+          <div class="lgi"><span class="dot" style="background:var(--human)"></span>
+            <span><span class="lt">Marketing</span><span class="ld">Performance, Influencer, Website, Founder / Brand — everything that fills the top of the funnel.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--human)"></span>
+            <span><span class="lt">Program Team</span><span class="ld">Owns the learner after an Accelerator purchase.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--human)"></span>
+            <span><span class="lt">Post Operations Team</span><span class="ld">Owns Fellowship candidates once they are selected.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--human)"></span>
+            <span><span class="lt">Refund Review Team</span><span class="ld">Decides eligibility on every refund request.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--accent)"></span>
+            <span><span class="lt">WebEngage <code>· CRM</code></span><span class="ld">Every automated message, across the whole funnel.</span></span></div>
+          <div class="lgi"><span class="dot" style="background:var(--money)"></span>
+            <span><span class="lt">Optimus <code>· payments</code></span><span class="ld">Generates payment links, issues invoices, holds the record of truth for money.</span></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note reveal d3"><b>Open:</b> the pitch itself has no named owner in the source material.
+      It is drawn as team-owned throughout; confirm which team so the boxes can be labelled.</div>
+  </div>
+</section>
+
+<!-- 04 TOFU -->
+<section class="slide" id="s4">
+  <span class="slide-num">04 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Stage 01</span> · acquire</div>
+    <h1 class="reveal">Four engines, one front door.</h1>
+    <p class="lede reveal d1">However someone arrives, they land on the same Registration form — and that form is what
+      puts them into a WhatsApp group and onto a live event. The <b>format they land in is the branch that
+      decides everything downstream</b>.</p>
+
+    <div class="dia reveal d2">
+      <div class="cols4" style="margin-bottom:18px">
+        <div class="node human"><span class="nl">Marketing</span><span class="nt">Performance Marketing</span><span class="ns">Paid ads → landing page</span></div>
+        <div class="node human"><span class="nl">Marketing</span><span class="nt">Influencer Marketing</span><span class="ns">Creator-led, paid + organic</span></div>
+        <div class="node human"><span class="nl">Marketing</span><span class="nt">Website</span><span class="ns">Organic and direct traffic</span></div>
+        <div class="node human"><span class="nl">Brand</span><span class="nt">Founder / Brand</span><span class="ns">Owned audience</span></div>
+      </div>
+      <div class="vflow" style="max-width:520px;margin:0 auto">
+        <div class="varr lbl" data-l="all four converge"></div>
+        <div class="node"><span class="nl">Learner action</span><span class="nt">Registration</span><span class="ns">Name, email, phone captured — the learner now exists in CRM</span></div>
+        <div class="varr lbl" data-l="WebEngage fires the welcome"></div>
+        <div class="node auto"><span class="nl">WhatsApp · automated</span><span class="nt">Added to the WhatsApp group</span><span class="ns">The holding pen until the live event starts</span></div>
+        <div class="varr"></div>
+        <div class="dec" style="align-self:center">
+          <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M5.5.8 10.2 5.5 5.5 10.2.8 5.5z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          Which format did they register for?
+        </div>
+      </div>
+      <div class="branch" style="margin-top:18px">
+        <div class="brcol">
+          <div class="bh"><span class="bt">Workshop</span><span class="pill">Daily</span></div>
+          <div class="node ghost"><span class="nt">Runs every day</span><span class="ns">Higher volume, shorter cycle. Pitches the <b>Bootcamp</b>.</span></div>
+        </div>
+        <div class="brcol">
+          <div class="bh"><span class="bt">Mastermind</span><span class="pill">Sat &amp; Sun</span></div>
+          <div class="node ghost"><span class="nt">Runs at the weekend</span><span class="ns">Pitches the <b>Accelerator</b> or the <b>Fellowship</b>.</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="note reveal d3"><b>Note:</b> only Performance and Influencer traffic passes through paid Ads.
+      Website and Founder / Brand traffic reaches Registration directly.</div>
+  </div>
+</section>
+
+<!-- 05 WORKSHOP -->
+<section class="slide" id="s5">
+  <span class="slide-num">05 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Stage 02</span> · the workshop path</div>
+    <h1 class="reveal">Two pitches, not one.</h1>
+    <p class="lede reveal d1">The Workshop sells the Bootcamp. Then the <b>Bootcamp sells the Accelerator</b> — to someone
+      who is already a paying customer. Missing that second conversion is the most common mistake new joiners make.</p>
+
+    <div class="dia reveal d2 swim">
+      <div class="swimgrid">
+        <div class="lh" style="border-bottom:none"></div>
+        <div class="colhead">Attend</div><div class="colhead">Pitch</div><div class="colhead">Decide</div>
+        <div class="colhead">Pay</div><div class="colhead">Onboard</div><div class="colhead">Learn</div>
+        <div class="colhead">Pitch 2</div><div class="colhead">Handoff</div>
+
+        <div class="lh">Learner</div>
+        <div class="cell"><div class="node"><span class="nt">Workshop</span></div></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><div class="node"><span class="nl">Decision</span><span class="nt">Interested?</span></div></div>
+        <div class="cell"><div class="node money"><span class="nl">Yes</span><span class="nt">Payment</span></div></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><div class="node"><span class="nt">Bootcamp</span></div></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><div class="node money"><span class="nt">Accelerator purchase</span></div></div>
+
+        <div class="lh">Team</div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><div class="node human"><span class="nt">Bootcamp pitch</span></div></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><span class="rail"></span></div>
+        <div class="cell"><div class="node human"><span class="nt">Accelerator pitch</span></div></div>
+        <div class="cell"><div class="node human"><span class="nl">Owner</span><span class="nt">Program Team</span></div></div>
+
+        <div class="lh" style="border-bottom:none">System</div>
+        <div class="cell lastrow"><span class="rail"></span></div>
+        <div class="cell lastrow"><span class="rail"></span></div>
+        <div class="cell lastrow"><span class="rail"></span></div>
+        <div class="cell lastrow"><div class="node money"><span class="nl">Optimus</span><span class="nt">Invoice</span></div></div>
+        <div class="cell lastrow"><div class="node auto"><span class="nl">Automated</span><span class="nt">WhatsApp group</span></div></div>
+        <div class="cell lastrow"><div class="node auto"><span class="nl">Zoom</span><span class="nt">Live delivery</span></div></div>
+        <div class="cell lastrow"><span class="rail"></span></div>
+        <div class="cell lastrow"><span class="rail"></span></div>
+      </div>
+    </div>
+    <div class="note reveal d3"><b>If the answer is no</b> — the learner is not lost. They become a non-buyer
+      and enter the reach-out loop on the next slide but one.</div>
+  </div>
+</section>
+
+<!-- 06 MASTERMIND -->
+<section class="slide" id="s6">
+  <span class="slide-num">06 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Stage 03</span> · the mastermind path</div>
+    <h1 class="reveal">One pitch, two very different outcomes.</h1>
+    <p class="lede reveal d1">The Mastermind offers a <b>purchase</b> and an <b>application</b> side by side.
+      One is money-then-access. The other is assessment first — <b>nothing is paid to book the call</b>.</p>
+
+    <div class="dia reveal d2">
+      <div class="vflow" style="max-width:460px;margin:0 auto 14px">
+        <div class="node"><span class="nl">Learner action</span><span class="nt">Mastermind · Sat &amp; Sun</span></div>
+        <div class="varr"></div>
+        <div class="node human"><span class="nl">Team-owned</span><span class="nt">The pitch</span></div>
+        <div class="varr"></div>
+        <div class="dec" style="align-self:center">
+          <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M5.5.8 10.2 5.5 5.5 10.2.8 5.5z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          Accelerator, or Fellowship?
+        </div>
+      </div>
+
+      <div class="branch">
+        <div class="brcol">
+          <div class="bh"><span class="bt">Accelerator</span><span class="pill">Purchase</span></div>
+          <div class="vflow">
+            <div class="node money"><span class="nl">Optimus · gateway</span><span class="nt">Payment</span></div>
+            <div class="varr"></div>
+            <div class="node auto"><span class="nl">Automated</span><span class="nt">Community access</span></div>
+            <div class="varr"></div>
+            <div class="node auto"><span class="nl">System</span><span class="nt">LMS access</span></div>
+            <div class="varr"></div>
+            <div class="node human"><span class="nl">Owner</span><span class="nt">Program Team</span><span class="ns">Owns the learner from here on</span></div>
+          </div>
+        </div>
+        <div class="brcol">
+          <div class="bh"><span class="bt">Fellowship</span><span class="pill">Application</span></div>
+          <div class="vflow">
+            <div class="node"><span class="nl">Calendly · no payment</span><span class="nt">Books a call directly</span><span class="ns">Nothing is charged at this point</span></div>
+            <div class="varr"></div>
+            <div class="node human"><span class="nl">Team-owned</span><span class="nt">Interview</span></div>
+            <div class="varr"></div>
+            <div class="dec" style="align-self:stretch;justify-content:center">
+              <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M5.5.8 10.2 5.5 5.5 10.2.8 5.5z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+              Selected?
+            </div>
+            <div class="varr"></div>
+            <div class="cols2" style="gap:8px">
+              <div class="node human"><span class="nl">Yes · owner</span><span class="nt">Post Operations Team</span></div>
+              <div class="node stop"><span class="nl">No · automated</span><span class="nt">Rejection email</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note reveal d3"><b>Why this matters:</b> an Accelerator buyer is a customer the moment they pay.
+      A Fellowship applicant is not a customer until a human says yes — so they are never routed to the Program Team.</div>
+  </div>
+</section>
+
+<!-- 07 REACH-OUT -->
+<section class="slide" id="s7">
+  <span class="slide-num">07 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Stage 04</span> · recover</div>
+    <h1 class="reveal">Nobody is dropped.</h1>
+    <p class="lede reveal d1">Three ways to fall off the path — and all three land in the same place.
+      Reach-out is <b>not an exception process</b>; it is a designed loop that returns people to the funnel.</p>
+
+    <div class="dia reveal d2">
+      <div class="cols3" style="margin-bottom:18px">
+        <div class="node"><span class="nl">Condition 01</span><span class="nt">Registered, did not attend</span><span class="ns">Never showed up to the live session</span></div>
+        <div class="node"><span class="nl">Condition 02</span><span class="nt">Attended under 120 minutes</span><span class="ns">Left before the pitch landed</span></div>
+        <div class="node"><span class="nl">Condition 03</span><span class="nt">Attended, did not buy</span><span class="ns">Saw the whole thing, said no</span></div>
+      </div>
+      <div class="vflow" style="max-width:560px;margin:0 auto">
+        <div class="varr lbl" data-l="any one of the three"></div>
+        <div class="node auto"><span class="nl">WebEngage · automated</span><span class="nt">CRM reach-out triggered</span><span class="ns">The learner is segmented by which condition they hit</span></div>
+      </div>
+      <div class="flow" style="margin-top:18px">
+        <div class="node auto"><span class="nl">Channel 01</span><span class="nt">WhatsApp</span></div>
+        <div class="arr"></div>
+        <div class="node auto"><span class="nl">Channel 02</span><span class="nt">Email</span></div>
+        <div class="arr"></div>
+        <div class="node"><span class="nl">Outcome</span><span class="nt">Re-engagement</span><span class="ns">Back into a future Workshop or Mastermind</span></div>
+      </div>
+    </div>
+    <div class="note reveal d3 open"><b>Open:</b> confirm whether re-engagement returns the learner to the same format
+      they registered for, or deliberately cross-sells them into the other one.</div>
+  </div>
+</section>
+
+<!-- 08 CRM -->
+<section class="slide" id="s8">
+  <span class="slide-num">08 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">The layer</span> · WebEngage</div>
+    <h1 class="reveal">CRM is not a department. It is the floor.</h1>
+    <p class="lede reveal d1">Everything on this timeline fires automatically. No one schedules it per cohort.
+      This is the same ladder that runs underneath every stage you have just seen.</p>
+
+    <div class="dia reveal d2">
+      <div class="tl">
+        <div class="tlrow">
+          <div class="tick"><span class="tt">T-0</span><div class="tb"><span class="tn">Welcome message</span><span class="tc">On registration</span></div></div>
+          <div class="tick"><span class="tt">WED</span><div class="tb"><span class="tn">Reminder</span><span class="tc">Email + WhatsApp</span></div></div>
+          <div class="tick"><span class="tt">THU</span><div class="tb"><span class="tn">Reminder</span><span class="tc">Email + WhatsApp</span></div></div>
+          <div class="tick"><span class="tt">FRI</span><div class="tb"><span class="tn">Reminder</span><span class="tc">Email + WhatsApp</span></div></div>
+          <div class="tick"><span class="tt">-2H</span><div class="tb"><span class="tn">Two hours before</span><span class="tc">WhatsApp</span></div></div>
+          <div class="tick"><span class="tt">-1H</span><div class="tb"><span class="tn">One hour before</span><span class="tc">WhatsApp</span></div></div>
+          <div class="tick"><span class="tt">LIVE</span><div class="tb"><span class="tn">Session is live</span><span class="tc">Join nudge</span></div></div>
+          <div class="tick"><span class="tt">POST</span><div class="tb"><span class="tn">Follow-up</span><span class="tc">Email + WhatsApp</span></div></div>
+          <div class="tick"><span class="tt">+N</span><div class="tb"><span class="tn">Reach-out sequence</span><span class="tc">Non-attendee / non-buyer</span></div></div>
+        </div>
+      </div>
+      <div class="band" style="margin-top:20px">
+        <span class="bl">Read it this way</span>
+        <span class="bd">The ladder gets denser as the event approaches, then switches from
+          <i>reminding</i> to <i>recovering</i> the moment the session ends.</span>
+      </div>
+    </div>
+    <div class="note reveal d3 open"><b>Open:</b> the Wed / Thu / Fri rungs are the cadence for the
+      weekend <b>Mastermind</b>. The daily <b>Workshop</b> cannot use the same ladder — its reminder schedule
+      still needs to be documented.</div>
+  </div>
+</section>
+
+<!-- 09 PAYMENTS -->
+<section class="slide" id="s9">
+  <span class="slide-num">09 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Money in</span> · Optimus</div>
+    <h1 class="reveal">Three outcomes, three levels of access.</h1>
+    <p class="lede reveal d1">Optimus is the record of truth. It generates the link, and what comes back from the
+      gateway decides <b>exactly how much of the program the learner can open</b>.</p>
+
+    <div class="dia reveal d2">
+      <div class="flow" style="margin-bottom:20px">
+        <div class="node money"><span class="nl">Optimus</span><span class="nt">Payment link generated</span></div>
+        <div class="arr"></div>
+        <div class="node"><span class="nl">Captured</span><span class="nt">Name · Email · Phone</span></div>
+        <div class="arr"></div>
+        <div class="node money"><span class="nl">System</span><span class="nt">Payment gateway</span></div>
+      </div>
+      <div class="cols3">
+        <div class="brcol">
+          <div class="bh"><span class="bt">Full payment</span><span class="pill yes">Full access</span></div>
+          <div class="vflow">
+            <div class="node money"><span class="nt">Invoice issued</span></div>
+            <div class="varr"></div>
+            <div class="node auto"><span class="nt">LMS access granted</span></div>
+          </div>
+        </div>
+        <div class="brcol">
+          <div class="bh"><span class="bt">Booking amount</span><span class="pill">Partial</span></div>
+          <div class="vflow">
+            <div class="node money"><span class="nt">Advance invoice</span></div>
+            <div class="varr"></div>
+            <div class="node auto"><span class="nt">Partial program access</span></div>
+          </div>
+        </div>
+        <div class="brcol">
+          <div class="bh"><span class="bt">Payment failure</span><span class="pill no">Nothing</span></div>
+          <div class="vflow">
+            <div class="node stop"><span class="nt">No invoice</span></div>
+            <div class="varr"></div>
+            <div class="node stop"><span class="nt">No access</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dia reveal d3">
+      <div class="eyebrow" style="margin-bottom:12px">The parallel rail · financing partners</div>
+      <div class="flow">
+        <div class="node"><span class="nl">Collected outside</span><span class="nt">PineLabs · ShopSe · Propel · Fibe</span><span class="ns">The learner pays the partner, not our gateway</span></div>
+        <div class="arr lbl" data-l="reconciled later"></div>
+        <div class="node money"><span class="nl">Optimus</span><span class="nt">Reconciliation</span><span class="ns">Until this happens, Optimus does not yet know the money arrived</span></div>
+      </div>
+      <div class="note"><b>This is the gap that causes support tickets:</b> a learner has genuinely paid,
+        but access has not opened because reconciliation has not run yet.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 REFUNDS -->
+<section class="slide" id="s10">
+  <span class="slide-num">10 / 10</span>
+  <div class="slide-inner">
+    <div class="eyebrow reveal"><span class="step">Money out</span> · refunds &amp; disputes</div>
+    <h1 class="reveal">One gate. Two conditions. One escalation.</h1>
+    <p class="lede reveal d1">Every refund is decided by the same eligibility gate. If the customer goes to their
+      <b>bank</b> instead of coming to us, a second path opens — and the bank's answer overrides ours.</p>
+
+    <div class="dia reveal d2">
+      <div class="flow" style="margin-bottom:18px">
+        <div class="node"><span class="nl">Learner action</span><span class="nt">Refund request</span></div>
+        <div class="arr"></div>
+        <div class="node"><span class="nl">Inbox</span><span class="nt">refund@outskill.com</span></div>
+        <div class="arr"></div>
+        <div class="node"><span class="nt">Refund form</span></div>
+        <div class="arr"></div>
+        <div class="node auto"><span class="nt">Tracker</span></div>
+        <div class="arr"></div>
+        <div class="node human"><span class="nl">Owner</span><span class="nt">Refund Review Team</span></div>
+      </div>
+
+      <div class="vflow" style="max-width:520px;margin:0 auto">
+        <div class="varr"></div>
+        <div class="dec" style="align-self:center">
+          <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true"><path d="M5.5.8 10.2 5.5 5.5 10.2.8 5.5z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          Eligible? &nbsp;<span style="font-weight:400;color:var(--ink3)">within 7 days &nbsp;·&nbsp; services not used</span>
+        </div>
+        <div class="varr"></div>
+      </div>
+      <div class="cols2">
+        <div class="node money"><span class="nl">Approved</span><span class="nt">Gateway refund</span><span class="ns">Money returns by the original route</span></div>
+        <div class="node stop"><span class="nl">Rejected</span><span class="nt">Rejection email</span></div>
+      </div>
+    </div>
+
+    <div class="dia reveal d3">
+      <div class="eyebrow" style="margin-bottom:12px">Escalation · the customer goes to their bank</div>
+      <div class="flow">
+        <div class="node stop"><span class="nl">Chargeback</span><span class="nt">Bank dispute raised</span></div>
+        <div class="arr"></div>
+        <div class="node"><span class="nl">External</span><span class="nt">Bank investigation</span></div>
+        <div class="arr"></div>
+        <div class="node human"><span class="nl">Ours to supply</span><span class="nt">Evidence submission</span></div>
+        <div class="arr"></div>
+        <div class="node"><span class="nl">Final</span><span class="nt">Bank decision</span><span class="ns">Refund approved, or refund rejected</span></div>
+      </div>
+      <div class="note"><b>The difference that matters:</b> a refund is our decision against our policy.
+        A dispute is the bank's decision — our eligibility gate no longer applies.</div>
+    </div>
+    <div class="note reveal d3 open"><b>Open:</b> define the test for &ldquo;services not used&rdquo;, and confirm
+      whether the Refund Review Team or Finance submits dispute evidence.</div>
+  </div>
+</section>
+
+</main>
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+const labels=['Cover','The map','Notation','Acquire','Workshop','Mastermind','Reach-out','CRM layer','Payments','Refunds'];
+document.getElementById('dots').innerHTML=slides.map((s,i)=>`<a href="#${s.id}" data-label="${labels[i]}" aria-label="${labels[i]}"></a>`).join('');
+const dots=[...document.querySelectorAll('.nav-dots a')];
+const ro=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){
+  const i=slides.indexOf(e.target); dots.forEach((d,j)=>d.classList.toggle('active',i===j)); }}),{threshold:.5});
+slides.forEach(s=>ro.observe(s));
+const rv=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rv.unobserve(e.target); }}),{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>rv.observe(el));
+addEventListener('scroll',()=>{
+  const h=document.documentElement;
+  document.getElementById('prog').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+});
+addEventListener('keydown',e=>{
+  const cur=slides.findIndex(s=>{const r=s.getBoundingClientRect(); return r.top<=innerHeight/2&&r.bottom>=innerHeight/2;});
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){ e.preventDefault(); slides[Math.min(cur+1,slides.length-1)]?.scrollIntoView({behavior:'smooth'}); }
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){ e.preventDefault(); slides[Math.max(cur-1,0)]?.scrollIntoView({behavior:'smooth'}); }
+  if(e.key==='f'||e.key==='F'){ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); }
+});
+</script>
+</body>
+</html>

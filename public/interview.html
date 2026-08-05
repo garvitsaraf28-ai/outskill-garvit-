@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Your interview with Outskill · A guide</title>
+<meta name="description" content="Everything that happens, what we're looking for, and what you're allowed to do. Written to make this easier."/>
+<style>
+  *,*::before,*::after{ box-sizing:border-box; margin:0; padding:0; }
+  :root{
+    /* warm, light and calm by default — the original deck's near-black reads
+       high-stakes, which is the opposite of what an anxious reader needs */
+    --bg:#fbfaf7; --surface:#ffffff; --sunk:#f4f2ec; --raise:#ffffff;
+    --ink:#16180f; --ink2:#4b4f42; --ink3:#6b6f60;
+    --line:#e6e3da; --line2:#d2cec2;
+    --lime:#c2ee45;            /* brand fill */
+    --lime-deep:#4d6b0a;       /* brand, readable as text on light */
+    --lime-soft:#f0f8db;
+    --warm:#b8461f; --warm-soft:#fdf0ea;   /* human / comfort */
+    --calm:#2f6d5f; --calm-soft:#e9f4f0;   /* breathing, steadiness */
+    --shadow:0 1px 2px rgba(22,24,15,.05), 0 8px 24px -12px rgba(22,24,15,.14);
+    --shadow-lg:0 2px 6px rgba(22,24,15,.06), 0 18px 40px -18px rgba(22,24,15,.24);
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --r:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d100a; --surface:#161a11; --sunk:#1b2015; --raise:#1f2518;
+      --ink:#f0f4e8; --ink2:#b3baa4; --ink3:#8b9280;
+      --line:#2a3020; --line2:#3b432e;
+      --lime-deep:#c2ee45; --lime-soft:#1f2a10;
+      --warm:#f0a184; --warm-soft:#2a1a13;
+      --calm:#6fc9b4; --calm-soft:#122520;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+      --shadow-lg:0 2px 6px rgba(0,0,0,.5), 0 18px 40px -18px rgba(0,0,0,.7);
+    }
+  }
+  html{ scroll-behavior:smooth; scroll-padding-top:74px; }
+  body{ font-family:var(--sans); background:var(--bg); color:var(--ink); overflow-x:hidden;
+        -webkit-font-smoothing:antialiased; font-size:17px; line-height:1.6; }
+  ::selection{ background:var(--lime); color:#16180f; }
+  @media (prefers-reduced-motion: reduce){ html{ scroll-behavior:auto; } *{ animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+
+  /* ---------------- top bar ---------------- */
+  .bar{ position:fixed; inset:0 0 auto 0; z-index:200; height:60px; display:flex; align-items:center;
+        gap:14px; padding:0 max(16px,4vw); background:color-mix(in srgb,var(--bg) 88%,transparent);
+        backdrop-filter:blur(16px); border-bottom:1px solid var(--line); }
+  .bar .logo{ display:flex; align-items:center; gap:9px; font-weight:700; letter-spacing:-.02em; font-size:15px; }
+  .bar .logo i{ width:22px; height:22px; border-radius:7px; background:var(--lime); display:grid;
+                place-items:center; font-style:normal; font-size:11px; color:#16180f; font-weight:800; }
+  .bar .sp{ flex:1; }
+  .prog{ position:absolute; left:0; bottom:-1px; height:2px; background:var(--lime-deep); width:0%; transition:width .12s linear; }
+  .jump{ position:relative; }
+  .jumpmenu{ position:absolute; right:0; top:calc(100% + 10px); width:min(300px,86vw); background:var(--surface);
+    border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow-lg); padding:7px;
+    max-height:min(66vh,520px); overflow-y:auto; opacity:0; visibility:hidden; transform:translateY(-6px);
+    transition:opacity .18s, transform .2s, visibility .18s; }
+  .jumpmenu.on{ opacity:1; visibility:visible; transform:none; }
+  .jumpmenu a{ display:flex; gap:11px; align-items:baseline; padding:9px 11px; border-radius:9px;
+    text-decoration:none; color:var(--ink2); font-size:14.5px; }
+  .jumpmenu a:hover,.jumpmenu a:focus-visible{ background:var(--sunk); color:var(--ink); outline:none; }
+  .jumpmenu a b{ font-family:var(--mono); font-size:11px; color:var(--ink3); font-weight:500; min-width:18px; }
+  .jumpmenu a.here{ background:var(--lime-soft); color:var(--ink); font-weight:600; }
+
+  /* ---------------- buttons ---------------- */
+  .btn{ --bg-b:var(--lime); --fg-b:#16180f; --bd:transparent;
+    display:inline-flex; align-items:center; justify-content:center; gap:9px; min-height:46px;
+    padding:12px 20px; border-radius:11px; border:1.5px solid var(--bd); background:var(--bg-b); color:var(--fg-b);
+    font:inherit; font-size:15px; font-weight:640; letter-spacing:-.008em; cursor:pointer; text-decoration:none;
+    transition:transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .18s, background .18s, border-color .18s, opacity .18s;
+    box-shadow:0 1px 2px rgba(22,24,15,.08); }
+  .btn:hover{ transform:translateY(-1.5px); box-shadow:0 4px 14px -4px rgba(22,24,15,.28); }
+  .btn:active{ transform:translateY(0); box-shadow:0 1px 2px rgba(22,24,15,.12); }
+  .btn:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 55%,transparent); outline-offset:2px; }
+  .btn[disabled]{ opacity:.45; pointer-events:none; }
+  .btn.ghost{ --bg-b:transparent; --fg-b:var(--ink); --bd:var(--line2); box-shadow:none; }
+  .btn.ghost:hover{ --bg-b:var(--sunk); border-color:var(--ink3); }
+  .btn.quiet{ --bg-b:transparent; --fg-b:var(--ink2); --bd:transparent; box-shadow:none; min-height:40px; padding:9px 14px; }
+  .btn.quiet:hover{ --bg-b:var(--sunk); --fg-b:var(--ink); transform:none; box-shadow:none; }
+  .btn.calm{ --bg-b:var(--calm); --fg-b:#fff; }
+  @media (prefers-color-scheme: dark){ .btn.calm{ --fg-b:#08120f; } }
+  .btn.sm{ min-height:38px; padding:8px 14px; font-size:13.5px; border-radius:9px; }
+  .btn .k{ font-family:var(--mono); font-size:11px; opacity:.7; }
+  .btnrow{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+  /* ---------------- layout ---------------- */
+  section{ padding:76px max(20px,6vw) 76px; position:relative; }
+  .wrap{ max-width:1060px; margin:0 auto; }
+  .narrow{ max-width:730px; }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--lime-deep); font-weight:600; margin-bottom:14px; }
+  .eyebrow::before{ content:''; width:7px; height:7px; border-radius:2px; background:var(--lime-deep); }
+  h1{ font-family:var(--serif); font-size:clamp(2.1rem,5.4vw,3.5rem); font-weight:700; line-height:1.08;
+      letter-spacing:-.02em; margin-bottom:16px; }
+  h2{ font-family:var(--serif); font-size:clamp(1.55rem,3.4vw,2.35rem); font-weight:700; line-height:1.14;
+      letter-spacing:-.018em; margin-bottom:12px; }
+  h3{ font-size:1.02rem; font-weight:650; letter-spacing:-.012em; line-height:1.3; }
+  .lede{ font-size:clamp(1.02rem,1.6vw,1.16rem); color:var(--ink2); line-height:1.66; max-width:660px; }
+  .lede b{ color:var(--ink); font-weight:650; }
+  p+p{ margin-top:14px; }
+  .sec-n{ position:absolute; top:34px; right:max(20px,6vw); font-family:var(--mono); font-size:11px;
+    color:var(--ink3); letter-spacing:.08em; }
+  .rv{ opacity:0; transform:translateY(18px); transition:opacity .6s cubic-bezier(.2,.7,.2,1), transform .6s cubic-bezier(.2,.7,.2,1); }
+  .rv.in{ opacity:1; transform:none; }
+  .rv.d1{transition-delay:.07s}.rv.d2{transition-delay:.14s}.rv.d3{transition-delay:.21s}
+
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:22px 24px; box-shadow:var(--shadow); }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .stackv{ display:flex; flex-direction:column; gap:12px; }
+  .tint{ background:var(--lime-soft); border-color:color-mix(in srgb,var(--lime-deep) 24%,var(--line)); }
+  .tint-warm{ background:var(--warm-soft); border-color:color-mix(in srgb,var(--warm) 26%,var(--line)); }
+  .tint-calm{ background:var(--calm-soft); border-color:color-mix(in srgb,var(--calm) 26%,var(--line)); }
+  .muted{ color:var(--ink3); font-size:.88rem; line-height:1.55; }
+  .pill{ display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10.5px;
+    letter-spacing:.1em; text-transform:uppercase; padding:5px 10px; border-radius:100px;
+    border:1px solid var(--line2); color:var(--ink3); font-weight:600; }
+  .pill.lime{ color:var(--lime-deep); border-color:color-mix(in srgb,var(--lime-deep) 40%,var(--line)); background:var(--lime-soft); }
+  .pill.warm{ color:var(--warm); border-color:color-mix(in srgb,var(--warm) 40%,var(--line)); background:var(--warm-soft); }
+  .todo{ border-left:3px solid var(--warm); background:var(--warm-soft); border-radius:0 11px 11px 0;
+    padding:13px 16px; font-size:.86rem; color:var(--ink2); line-height:1.55; }
+  .todo b{ color:var(--warm); }
+
+  /* ---------------- hero ---------------- */
+  #s1{ min-height:100svh; display:flex; flex-direction:column; justify-content:center; padding-top:110px;
+       background:radial-gradient(120% 80% at 8% 0%, var(--lime-soft) 0%, transparent 58%); }
+  .hero-h{ font-family:var(--serif); font-size:clamp(2.5rem,7.4vw,5.1rem); font-weight:700; line-height:1.02;
+    letter-spacing:-.03em; }
+  .hero-h em{ font-style:normal; color:var(--lime-deep); }
+  .hero-sub{ font-size:clamp(1.05rem,2vw,1.32rem); color:var(--ink2); max-width:600px; margin-top:22px; line-height:1.6; }
+  .hero-meta{ display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; }
+  .scrollcue{ margin-top:44px; display:inline-flex; align-items:center; gap:9px; font-family:var(--mono);
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink3); }
+  .scrollcue span{ animation:bob 1.9s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(5px)} }
+
+  /* ---------------- timeline ---------------- */
+  .tl{ display:flex; flex-direction:column; gap:10px; }
+  .tstep{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:hidden;
+    box-shadow:var(--shadow); transition:border-color .2s; }
+  .tstep:has(.thead[aria-expanded="true"]){ border-color:color-mix(in srgb,var(--lime-deep) 34%,var(--line)); }
+  .thead{ width:100%; display:flex; align-items:center; gap:16px; padding:18px 22px; background:transparent;
+    border:none; font:inherit; text-align:left; cursor:pointer; color:var(--ink); }
+  .thead:hover{ background:var(--sunk); }
+  .thead:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:-3px; }
+  .thead .num{ flex:0 0 auto; width:34px; height:34px; border-radius:50%; background:var(--lime-soft);
+    color:var(--lime-deep); display:grid; place-items:center; font-family:var(--mono); font-size:12px; font-weight:700; }
+  .thead .tt{ flex:1; min-width:0; }
+  .thead .tt b{ display:block; font-size:1.02rem; font-weight:650; letter-spacing:-.012em; }
+  .thead .tt span{ display:block; font-size:.86rem; color:var(--ink3); margin-top:2px; }
+  .thead .chev{ flex:0 0 auto; color:var(--ink3); transition:transform .28s cubic-bezier(.2,.8,.2,1); font-size:14px; }
+  .thead[aria-expanded="true"] .chev{ transform:rotate(180deg); }
+  .tbody{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .32s cubic-bezier(.2,.8,.2,1); }
+  .tstep.open .tbody{ grid-template-rows:1fr; }
+  .tbody > div{ overflow:hidden; }
+  .tinner{ padding:2px 22px 22px 72px; font-size:.94rem; color:var(--ink2); line-height:1.68; }
+  .tinner ul{ list-style:none; margin-top:10px; display:flex; flex-direction:column; gap:7px; }
+  .tinner li{ padding-left:18px; position:relative; }
+  .tinner li::before{ content:''; position:absolute; left:0; top:9px; width:6px; height:6px; border-radius:50%; background:var(--lime); }
+  @media(max-width:640px){ .tinner{ padding-left:22px; } }
+
+  /* ---------------- value cards ---------------- */
+  .vcard{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:20px 22px;
+    box-shadow:var(--shadow); cursor:pointer; text-align:left; font:inherit; color:var(--ink);
+    transition:transform .18s, border-color .18s, box-shadow .18s; width:100%; }
+  .vcard:hover{ transform:translateY(-2px); border-color:color-mix(in srgb,var(--lime-deep) 36%,var(--line)); box-shadow:var(--shadow-lg); }
+  .vcard:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:2px; }
+  .vcard .vt{ font-size:1.04rem; font-weight:650; letter-spacing:-.014em; margin:11px 0 6px; }
+  .vcard .vd{ font-size:.89rem; color:var(--ink2); line-height:1.55; }
+  .vcard .vmore{ margin-top:12px; font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--lime-deep); font-weight:600; }
+
+  /* ---------------- myth flip ---------------- */
+  .myth{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:0;
+    box-shadow:var(--shadow); overflow:hidden; }
+  .mbtn{ width:100%; text-align:left; font:inherit; color:var(--ink); background:transparent; border:none;
+    cursor:pointer; padding:18px 22px; display:flex; gap:14px; align-items:flex-start; }
+  .mbtn:hover{ background:var(--sunk); }
+  .mbtn:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:-3px; }
+  .mbtn .x{ flex:0 0 auto; width:26px; height:26px; border-radius:50%; background:var(--warm-soft);
+    color:var(--warm); display:grid; place-items:center; font-size:13px; font-weight:700; margin-top:1px; }
+  .mbtn .mt{ flex:1; }
+  .mbtn .mt s{ text-decoration:none; font-size:1rem; font-weight:620; letter-spacing:-.012em; }
+  .mbtn .mt em{ display:block; font-style:normal; font-family:var(--mono); font-size:10.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--ink3); margin-top:5px; font-weight:600; }
+  .myth.on .mbtn .mt s{ text-decoration:line-through; color:var(--ink3); text-decoration-thickness:1.5px; }
+  .mreveal{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .3s cubic-bezier(.2,.8,.2,1); }
+  .myth.on .mreveal{ grid-template-rows:1fr; }
+  .mreveal > div{ overflow:hidden; }
+  .mtruth{ margin:0 22px 20px 62px; padding:14px 17px; background:var(--lime-soft); border-radius:11px;
+    font-size:.94rem; color:var(--ink); line-height:1.6; }
+  .mtruth b{ color:var(--lime-deep); }
+  @media(max-width:640px){ .mtruth{ margin-left:22px; } }
+
+  /* ---------------- permission chips ---------------- */
+  .perm{ background:var(--surface); border:1.5px solid var(--line); border-radius:var(--r); padding:17px 19px;
+    text-align:left; font:inherit; color:var(--ink); cursor:pointer; box-shadow:var(--shadow);
+    transition:all .2s cubic-bezier(.2,.8,.2,1); position:relative; }
+  .perm:hover{ transform:translateY(-2px); border-color:var(--line2); }
+  .perm:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:2px; }
+  .perm.on{ background:var(--lime-soft); border-color:var(--lime-deep); }
+  .perm .pt{ font-size:.99rem; font-weight:640; letter-spacing:-.012em; padding-right:28px; }
+  .perm .pd{ font-size:.85rem; color:var(--ink2); margin-top:5px; line-height:1.5; }
+  .perm .tick{ position:absolute; top:16px; right:17px; width:21px; height:21px; border-radius:50%;
+    border:1.5px solid var(--line2); display:grid; place-items:center; font-size:11px; color:transparent;
+    transition:all .2s; }
+  .perm.on .tick{ background:var(--lime-deep); border-color:var(--lime-deep); color:var(--bg); }
+
+  /* ---------------- breathing ---------------- */
+  .breathe{ display:grid; grid-template-columns:260px 1fr; gap:34px; align-items:center; }
+  .bstage{ position:relative; width:260px; height:260px; display:grid; place-items:center; }
+  .bring{ position:absolute; inset:22px; border-radius:50%; border:1.5px solid color-mix(in srgb,var(--calm) 32%,transparent); }
+  .bball{ width:118px; height:118px; border-radius:50%; background:var(--calm);
+    display:grid; place-items:center; transition:transform 4s cubic-bezier(.4,0,.4,1); will-change:transform; }
+  .bball.big{ transform:scale(1.62); }
+  .bphase{ position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; }
+  .bphase b{ font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:#fff; font-weight:700; }
+  @media (prefers-color-scheme: dark){ .bphase b{ color:#08120f; } }
+  .bcount{ font-family:var(--mono); font-size:12px; letter-spacing:.1em; color:var(--ink3); margin-top:14px; }
+  @media(max-width:760px){ .breathe{ grid-template-columns:1fr; justify-items:center; text-align:center; }
+    .breathe .btnrow{ justify-content:center; } .breathe .bcopy{ text-align:center; } }
+
+  /* ---------------- checklist ---------------- */
+  .chk{ display:flex; gap:15px; align-items:flex-start; width:100%; text-align:left; font:inherit;
+    color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:15px 18px; cursor:pointer; box-shadow:var(--shadow); transition:all .18s; }
+  .chk:hover{ border-color:var(--line2); }
+  .chk:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:2px; }
+  .chk .box{ flex:0 0 auto; width:23px; height:23px; border-radius:7px; border:1.5px solid var(--line2);
+    display:grid; place-items:center; font-size:12px; color:transparent; margin-top:1px; transition:all .18s; }
+  .chk.on .box{ background:var(--lime-deep); border-color:var(--lime-deep); color:var(--bg); }
+  .chk.on .ct{ color:var(--ink3); text-decoration:line-through; text-decoration-thickness:1.5px; }
+  .chk .ct{ font-size:.98rem; font-weight:620; letter-spacing:-.01em; transition:color .18s; }
+  .chk .cd{ font-size:.85rem; color:var(--ink3); margin-top:3px; line-height:1.5; }
+  .ring{ display:grid; place-items:center; position:relative; }
+  .ring svg{ transform:rotate(-90deg); }
+  .ring .rt{ position:absolute; font-family:var(--mono); font-size:15px; font-weight:700; color:var(--ink); }
+
+  /* ---------------- story builder ---------------- */
+  .sb-tabs{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .tab{ font:inherit; font-size:13.5px; font-weight:600; cursor:pointer; background:var(--surface);
+    border:1.5px solid var(--line); color:var(--ink2); padding:9px 15px; border-radius:100px; min-height:40px;
+    transition:all .18s; display:inline-flex; align-items:center; gap:7px; }
+  .tab:hover{ border-color:var(--line2); color:var(--ink); }
+  .tab:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:2px; }
+  .tab.on{ background:var(--ink); border-color:var(--ink); color:var(--bg); }
+  .tab .dot{ width:7px; height:7px; border-radius:50%; background:var(--lime-deep); opacity:0; transition:opacity .18s; }
+  .tab.filled .dot{ opacity:1; }
+  .tab.on .dot{ background:var(--lime); }
+  .sbq{ font-size:1.02rem; line-height:1.6; color:var(--ink); font-weight:520; margin-bottom:18px;
+    padding:16px 19px; background:var(--lime-soft); border-radius:12px; }
+  .fld{ margin-bottom:14px; }
+  .fld label{ display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
+    text-transform:uppercase; color:var(--ink3); font-weight:600; margin-bottom:6px; }
+  .fld label i{ font-style:normal; text-transform:none; letter-spacing:0; font-family:var(--sans);
+    font-size:12.5px; color:var(--ink3); font-weight:400; margin-left:8px; }
+  .fld textarea{ width:100%; font:inherit; font-size:15px; line-height:1.6; color:var(--ink);
+    background:var(--surface); border:1.5px solid var(--line); border-radius:11px; padding:12px 14px;
+    resize:vertical; min-height:74px; transition:border-color .18s, box-shadow .18s; }
+  .fld textarea::placeholder{ color:var(--ink3); opacity:.8; }
+  .fld textarea:focus{ outline:none; border-color:var(--lime-deep);
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--lime-deep) 22%,transparent); }
+
+  /* ---------------- practice ---------------- */
+  .qcard{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:30px 32px;
+    box-shadow:var(--shadow-lg); min-height:184px; display:flex; flex-direction:column; justify-content:center; }
+  .qcard .qv{ font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--lime-deep); font-weight:700; margin-bottom:12px; }
+  .qcard .qq{ font-family:var(--serif); font-size:clamp(1.2rem,2.6vw,1.62rem); line-height:1.32;
+    letter-spacing:-.014em; }
+  .qcard.flip{ animation:flip .42s cubic-bezier(.2,.8,.2,1); }
+  @keyframes flip{ from{ opacity:0; transform:translateY(14px) scale(.985) } to{ opacity:1; transform:none } }
+  .timer{ font-family:var(--mono); font-size:30px; font-weight:700; letter-spacing:-.01em; color:var(--ink);
+    font-variant-numeric:tabular-nums; }
+  .timer.low{ color:var(--warm); }
+  .tbar{ height:5px; border-radius:100px; background:var(--sunk); overflow:hidden; margin-top:12px; }
+  .tbar i{ display:block; height:100%; background:var(--calm); width:100%; transition:width 1s linear; }
+
+  /* ---------------- ask-us picker ---------------- */
+  .ask{ text-align:left; font:inherit; color:var(--ink); background:var(--surface); border:1.5px solid var(--line);
+    border-radius:12px; padding:14px 17px; cursor:pointer; display:flex; gap:12px; align-items:flex-start;
+    box-shadow:var(--shadow); transition:all .18s; width:100%; }
+  .ask:hover{ border-color:var(--line2); }
+  .ask:focus-visible{ outline:3px solid color-mix(in srgb,var(--lime-deep) 50%,transparent); outline-offset:2px; }
+  .ask.on{ background:var(--lime-soft); border-color:var(--lime-deep); }
+  .ask .plus{ flex:0 0 auto; width:22px; height:22px; border-radius:7px; border:1.5px solid var(--line2);
+    display:grid; place-items:center; font-size:13px; color:var(--ink3); margin-top:1px; transition:all .18s; }
+  .ask.on .plus{ background:var(--lime-deep); border-color:var(--lime-deep); color:var(--bg); }
+  .ask span{ font-size:.94rem; line-height:1.5; }
+
+  .toast{ position:fixed; left:50%; bottom:26px; transform:translate(-50%,14px); z-index:400;
+    background:var(--ink); color:var(--bg); padding:11px 20px; border-radius:100px; font-size:14px;
+    font-weight:600; box-shadow:var(--shadow-lg); opacity:0; visibility:hidden;
+    transition:opacity .22s, transform .28s cubic-bezier(.2,.8,.2,1), visibility .22s; }
+  .toast.on{ opacity:1; visibility:visible; transform:translate(-50%,0); }
+
+  footer{ padding:60px max(20px,6vw) 80px; border-top:1px solid var(--line); background:var(--sunk); }
+
+  @media(max-width:560px){
+    .bar .pill{ display:none; }
+    .bar{ gap:10px; padding:0 16px; }
+  }
+  @media(max-width:820px){
+    body{ font-size:16px; }
+    .bar .logo{ font-size:14.5px; }
+    .jumpmenu{ position:fixed; right:16px; left:16px; width:auto; top:70px; }
+    section{ padding:56px max(20px,6vw) 56px; }
+    .grid2,.grid3{ grid-template-columns:1fr; }
+    .sec-n{ top:22px; }
+    html{ scroll-padding-top:68px; }
+  }
+  @media print{
+    .bar,.jumpmenu,.toast,.scrollcue{ display:none!important; }
+    section{ padding:20px 0; page-break-inside:avoid; }
+    .rv{ opacity:1!important; transform:none!important; }
+    .tbody{ grid-template-rows:1fr!important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <span class="logo"><i>O</i> Outskill</span>
+  <span class="pill lime" style="margin-left:2px">Interview guide</span>
+  <span class="sp"></span>
+  <div class="jump">
+    <button class="btn ghost sm" id="jumpBtn" aria-expanded="false" aria-controls="jumpMenu">Contents &#9662;</button>
+    <nav class="jumpmenu" id="jumpMenu" aria-label="Sections"></nav>
+  </div>
+  <div class="prog" id="prog"></div>
+</header>
+
+<main>
+
+<!-- 01 WELCOME -->
+<section id="s1">
+  <div class="wrap">
+    <div class="eyebrow rv">Welcome</div>
+    <h1 class="hero-h rv d1">Someone here already<br/>thinks you could be<br/><em>brilliant.</em></h1>
+    <p class="hero-sub rv d2">That is why you are reading this. This guide exists to take the guesswork
+      out of your interview — what happens, what we are actually listening for, and what you are
+      completely allowed to do.</p>
+    <div class="hero-meta rv d3">
+      <span class="pill">10 minutes to read</span>
+      <span class="pill">Nothing here is a test</span>
+      <span class="pill">Yours to keep</span>
+    </div>
+    <div class="btnrow rv d3" style="margin-top:28px">
+      <a class="btn" href="#s3">Show me what happens</a>
+      <a class="btn ghost" href="#s7">I'm nervous right now</a>
+    </div>
+    <div class="scrollcue rv d3">Take your time <span>&#8595;</span></div>
+  </div>
+</section>
+
+<!-- 02 WHAT THIS IS -->
+<section id="s2">
+  <span class="sec-n">02</span>
+  <div class="wrap narrow">
+    <div class="eyebrow rv">Before anything else</div>
+    <h2 class="rv">You do not have to earn the right to be here.</h2>
+    <p class="lede rv d1">You already have it. Someone read your work and decided they wanted to spend
+      an hour with you. Whatever happens next, that part has already happened.</p>
+    <div class="grid2 rv d2" style="margin-top:30px">
+      <div class="card tint">
+        <span class="pill lime">What this is</span>
+        <p style="margin-top:12px;font-size:.96rem;line-height:1.62;color:var(--ink2)">
+          A look behind the curtain. The questions we ask, the reasons we ask them, and a few tools
+          to help you think out loud before the day.</p>
+      </div>
+      <div class="card">
+        <span class="pill">What this isn't</span>
+        <p style="margin-top:12px;font-size:.96rem;line-height:1.62;color:var(--ink2)">
+          Homework. Nobody will check whether you read it. Skip anything that does not help you —
+          you will not be marked down for it.</p>
+      </div>
+    </div>
+    <p class="lede rv d3" style="margin-top:28px">If you read one section, make it
+      <a href="#s6" style="color:var(--lime-deep);font-weight:650">what you are allowed to do</a>.
+      It is the part most people wish they had known.</p>
+  </div>
+</section>
+
+<!-- 03 WHAT HAPPENS -->
+<section id="s3" style="background:var(--sunk)">
+  <span class="sec-n">03</span>
+  <div class="wrap">
+    <div class="eyebrow rv">The shape of the day</div>
+    <h2 class="rv">No surprises. Here is exactly what happens.</h2>
+    <p class="lede rv d1" style="margin-bottom:28px">Most interview anxiety is really just uncertainty.
+      So — open any step and read what is behind it.</p>
+    <div class="tl rv d2" id="timeline"></div>
+    <div class="todo rv d3" style="margin-top:20px"><b>Outskill to confirm before sending:</b>
+      the number of rounds, how long each one runs, the names and roles of who the candidate will meet,
+      and how many days until they hear back. Those specifics are the single biggest anxiety reducer
+      in this whole guide, and they are the one thing this deck cannot invent.</div>
+  </div>
+</section>
+
+<!-- 04 WHAT WE LOOK FOR -->
+<section id="s4">
+  <span class="sec-n">04</span>
+  <div class="wrap">
+    <div class="eyebrow rv">What we listen for</div>
+    <h2 class="rv">Five things — and none of them is a right answer.</h2>
+    <p class="lede rv d1" style="margin-bottom:26px">These are our values, but more usefully they are
+      the five lenses your conversation will move through. Tap any one to see the question behind it
+      and what a good answer actually sounds like.</p>
+    <div class="grid3 rv d2" id="values"></div>
+    <div class="card tint rv d3" style="margin-top:20px">
+      <p style="font-size:1.02rem;line-height:1.62">
+        <b>Read that again:</b> we are interested in your reasoning, not the final answer. A messy,
+        honest walk through how you actually thought about something beats a polished story every time.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 05 MYTHS -->
+<section id="s5" style="background:var(--sunk)">
+  <span class="sec-n">05</span>
+  <div class="wrap narrow">
+    <div class="eyebrow rv">Let's clear these up</div>
+    <h2 class="rv">Six things people believe that simply are not true.</h2>
+    <p class="lede rv d1" style="margin-bottom:26px">Tap each one to cross it out.</p>
+    <div class="stackv rv d2" id="myths"></div>
+  </div>
+</section>
+
+<!-- 06 PERMISSION -->
+<section id="s6">
+  <span class="sec-n">06</span>
+  <div class="wrap">
+    <div class="eyebrow rv">Permission</div>
+    <h2 class="rv">Things you are completely allowed to do.</h2>
+    <p class="lede rv d1" style="margin-bottom:26px">None of these count against you. Not one.
+      Tick the ones you want to remember — it makes them easier to actually do.</p>
+    <div class="grid2 rv d2" id="perms"></div>
+    <p class="muted rv d3" style="margin-top:18px">Ticks are saved on this device only.</p>
+  </div>
+</section>
+
+<!-- 07 NERVES -->
+<section id="s7" style="background:var(--calm-soft)">
+  <span class="sec-n">07</span>
+  <div class="wrap">
+    <div class="eyebrow rv" style="color:var(--calm)">Two minutes before</div>
+    <h2 class="rv">If your heart is going, start here.</h2>
+    <p class="lede rv d1" style="margin-bottom:32px">Nerves are not a sign you are unprepared. They are
+      a sign you care. Four seconds in, four hold, four out, four hold — three rounds is usually enough.</p>
+    <div class="breathe rv d2">
+      <div class="bstage">
+        <div class="bring"></div>
+        <div class="bball" id="bball"></div>
+        <div class="bphase"><b id="bphase">Ready</b></div>
+      </div>
+      <div class="bcopy">
+        <div class="btnrow">
+          <button class="btn calm" id="bStart">Start breathing</button>
+          <button class="btn ghost" id="bStop" disabled>Stop</button>
+        </div>
+        <div class="bcount" id="bcount">Three rounds, about 48 seconds</div>
+        <div class="stackv" style="margin-top:24px;gap:9px">
+          <div class="card" style="padding:14px 17px"><h3>Say it out loud once</h3>
+            <p class="muted" style="margin-top:4px">"I am allowed to take my time." Hearing your own
+              voice before the call settles it.</p></div>
+          <div class="card" style="padding:14px 17px"><h3>Feet flat, shoulders down</h3>
+            <p class="muted" style="margin-top:4px">Your body reaches calm before your head does.
+              Give it something to do.</p></div>
+          <div class="card" style="padding:14px 17px"><h3>Water within reach</h3>
+            <p class="muted" style="margin-top:4px">A sip is the most socially acceptable way to buy
+              yourself five seconds of thinking time.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 CHECKLIST -->
+<section id="s8">
+  <span class="sec-n">08</span>
+  <div class="wrap">
+    <div class="eyebrow rv">If you have 20 minutes</div>
+    <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:space-between">
+      <div style="flex:1;min-width:260px">
+        <h2 class="rv">A short list. Not a long one.</h2>
+        <p class="lede rv d1">Twenty minutes is genuinely enough. Do what you can, ignore the rest.</p>
+      </div>
+      <div class="ring rv d1" aria-hidden="true">
+        <svg width="86" height="86" viewBox="0 0 86 86">
+          <circle cx="43" cy="43" r="37" fill="none" stroke="var(--line)" stroke-width="7"/>
+          <circle cx="43" cy="43" r="37" fill="none" stroke="var(--lime-deep)" stroke-width="7"
+            stroke-linecap="round" id="ringArc" stroke-dasharray="232.5" stroke-dashoffset="232.5"/>
+        </svg>
+        <span class="rt" id="ringTxt">0/5</span>
+      </div>
+    </div>
+    <div class="stackv rv d2" id="checklist" style="margin-top:26px"></div>
+    <div class="btnrow rv d3" style="margin-top:18px">
+      <button class="btn quiet sm" id="chkReset">Clear my ticks</button>
+    </div>
+  </div>
+</section>
+
+<!-- 09 STORY BUILDER -->
+<section id="s9" style="background:var(--sunk)">
+  <span class="sec-n">09</span>
+  <div class="wrap">
+    <div class="eyebrow rv">Bring stories, not theories</div>
+    <h2 class="rv">Draft one real example. That is the whole trick.</h2>
+    <p class="lede rv d1" style="margin-bottom:24px">Pick a lens, jot down a real moment in four lines.
+      You are not writing a script — you are just making sure the story is findable when you need it.</p>
+    <div class="sb-tabs rv d2" id="sbTabs"></div>
+    <div class="card rv d2" style="padding:24px">
+      <div class="sbq" id="sbQ"></div>
+      <div class="fld"><label for="f0">Situation <i>where were you, and what was going on?</i></label>
+        <textarea id="f0" placeholder="Two lines is plenty."></textarea></div>
+      <div class="fld"><label for="f1">What you did <i>your part specifically, not the team's</i></label>
+        <textarea id="f1" placeholder="The bit only you can tell."></textarea></div>
+      <div class="fld"><label for="f2">What changed <i>numbers if you have them, honesty if you don't</i></label>
+        <textarea id="f2" placeholder="&quot;I don't have the exact figure&quot; is a fine answer."></textarea></div>
+      <div class="fld"><label for="f3">What you'd do differently <i>this one earns more credit than you think</i></label>
+        <textarea id="f3" placeholder="Reflection reads as seniority."></textarea></div>
+      <div class="btnrow" style="margin-top:6px">
+        <button class="btn" id="sbCopy">Copy all my notes</button>
+        <button class="btn quiet sm" id="sbClear">Clear this one</button>
+        <span class="muted" style="margin-left:auto">Saved on this device only — we never see it.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 PRACTICE -->
+<section id="s10">
+  <span class="sec-n">10</span>
+  <div class="wrap">
+    <div class="eyebrow rv">Optional practice</div>
+    <h2 class="rv">Say one out loud. Just one.</h2>
+    <p class="lede rv d1" style="margin-bottom:26px">Talking through an answer once, to an empty room,
+      does more than reading twenty of them. The timer is there if you want it — ignore it if it makes
+      things worse.</p>
+    <div class="grid2 rv d2" style="grid-template-columns:1.55fr 1fr;align-items:start">
+      <div>
+        <div class="qcard" id="qcard">
+          <div class="qv" id="qv">Tap draw to begin</div>
+          <div class="qq" id="qq">Ready when you are.</div>
+        </div>
+        <div class="btnrow" style="margin-top:14px">
+          <button class="btn" id="qDraw">Draw a question</button>
+          <button class="btn ghost" id="qTime">Start 90 seconds</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="timer" id="timer">1:30</div>
+        <div class="tbar"><i id="tbar"></i></div>
+        <p class="muted" style="margin-top:14px">Ninety seconds is roughly the length of a strong answer.
+          Not a limit — a shape.</p>
+        <p class="muted" style="margin-top:10px">If the timer raises your pulse rather than settling it,
+          do not use it. That is not a weakness, that is self-knowledge.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 ASK US -->
+<section id="s11" style="background:var(--sunk)">
+  <span class="sec-n">11</span>
+  <div class="wrap">
+    <div class="eyebrow rv">Your turn</div>
+    <h2 class="rv">This runs both ways.</h2>
+    <p class="lede rv d1" style="margin-bottom:24px">You are also deciding whether you want to work here.
+      Pick the questions you would like answered — we will build you a list you can copy and keep open
+      during the call.</p>
+    <div class="grid2 rv d2" id="asks"></div>
+    <div class="card rv d3" style="margin-top:18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <h3>Your list</h3>
+        <p class="muted" id="askCount" style="margin-top:3px">Nothing picked yet.</p>
+      </div>
+      <div class="btnrow">
+        <button class="btn" id="askCopy" disabled>Copy my questions</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 ACCESS -->
+<section id="s12">
+  <span class="sec-n">12</span>
+  <div class="wrap">
+    <div class="eyebrow rv" style="color:var(--warm)">Access</div>
+    <h2 class="rv">Ask for what you need. It changes nothing about how you are assessed.</h2>
+    <p class="lede rv d1" style="margin-bottom:26px">Interviews are an artificial format, and they suit
+      some brains far better than others. If a small adjustment would let you show us your actual
+      thinking, that adjustment is not a favour — it is the point.</p>
+    <div class="grid3 rv d2">
+      <div class="card"><h3>Questions in advance</h3>
+        <p class="muted" style="margin-top:6px">If processing on the spot is hard for you, ask and we
+          will send the areas we plan to cover.</p></div>
+      <div class="card"><h3>Extra time, or breaks</h3>
+        <p class="muted" style="margin-top:6px">Longer to think, a pause partway through, or the
+          conversation split across two shorter calls.</p></div>
+      <div class="card"><h3>Camera off</h3>
+        <p class="muted" style="margin-top:6px">Say the word. Plenty of people think better without
+          watching their own face.</p></div>
+      <div class="card"><h3>A different time of day</h3>
+        <p class="muted" style="margin-top:6px">Medication, energy, childcare, a different time zone —
+          no explanation needed.</p></div>
+      <div class="card"><h3>Captions or a written follow-up</h3>
+        <p class="muted" style="margin-top:6px">Live captions on the call, or key points in writing afterwards.</p></div>
+      <div class="card"><h3>Something not on this list</h3>
+        <p class="muted" style="margin-top:6px">Ask anyway. The list is not the limit — it is just a
+          starting point.</p></div>
+    </div>
+    <div class="card tint-warm rv d3" style="margin-top:20px">
+      <h3 style="margin-bottom:8px">Not sure how to word it?</h3>
+      <p style="font-size:.95rem;line-height:1.62;color:var(--ink2)">Copy this. You do not owe anyone a
+        diagnosis, a reason, or an apology.</p>
+      <div class="card" style="margin-top:14px;background:var(--surface);font-family:var(--mono);
+        font-size:13px;line-height:1.7;color:var(--ink2);white-space:pre-line" id="tmpl">Hi — looking forward to the conversation.
+One small thing that would help me: [what you need].
+Thanks for making that possible.</div>
+      <div class="btnrow" style="margin-top:14px">
+        <button class="btn" id="tmplCopy">Copy this message</button>
+      </div>
+      <div class="todo" style="margin-top:16px"><b>Outskill to confirm:</b> who this request should be
+        sent to, and the promise that it never reaches the assessing interviewer as a note on the candidate.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 13 AFTER -->
+<section id="s13" style="background:var(--sunk)">
+  <span class="sec-n">13</span>
+  <div class="wrap narrow">
+    <div class="eyebrow rv">Afterwards</div>
+    <h2 class="rv">What happens once you log off.</h2>
+    <div class="stackv rv d1" style="margin-top:24px">
+      <div class="card"><h3>You will hear from us either way</h3>
+        <p class="muted" style="margin-top:6px">A no is still an answer, and silence is not one. If the
+          date we gave you passes, chasing us is completely reasonable.</p></div>
+      <div class="card"><h3>You can ask for feedback</h3>
+        <p class="muted" style="margin-top:6px">Ask, and we will tell you what we saw. It is more useful
+          than replaying the conversation in your head at 2am.</p></div>
+      <div class="card"><h3>A no now is not a no forever</h3>
+        <p class="muted" style="margin-top:6px">Roles change, teams grow, timing shifts. People we said
+          no to have come back and been right the second time.</p></div>
+    </div>
+    <div class="todo rv d2" style="margin-top:18px"><b>Outskill to confirm:</b> the actual number of
+      working days until a decision, and whether written feedback is offered at every stage or only
+      after a final round.</div>
+  </div>
+</section>
+
+<!-- 14 CLOSE -->
+<section id="s14">
+  <div class="wrap narrow" style="text-align:center">
+    <h2 class="rv" style="font-size:clamp(1.9rem,4.6vw,3rem)">See you soon.</h2>
+    <p class="lede rv d1" style="margin:0 auto 26px">Come as you actually are. Think out loud, use real
+      examples, ask us hard questions — and let the nerves be there without letting them drive.</p>
+    <div class="card tint rv d2" style="text-align:left">
+      <p style="font-family:var(--serif);font-size:1.22rem;line-height:1.5;letter-spacing:-.012em">
+        “Great interviews aren't about perfect answers. They're about authentic thinking.”</p>
+    </div>
+    <div class="btnrow rv d3" style="margin-top:28px;justify-content:center">
+      <a class="btn" href="https://outskill.com" target="_blank" rel="noopener">Explore outskill.com</a>
+      <button class="btn ghost" id="wipe">Clear everything I typed</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap" style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;justify-content:space-between">
+    <div>
+      <span class="logo" style="display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px">
+        <i style="width:22px;height:22px;border-radius:7px;background:var(--lime);display:grid;place-items:center;
+        font-style:normal;font-size:11px;color:#16180f;font-weight:800">O</i> Outskill</span>
+      <p class="muted" style="margin-top:8px">A GrowthSchool Company · Learn today. Apply tomorrow.</p>
+    </div>
+    <p class="muted" style="max-width:420px">Everything you typed in this guide is stored in your own
+      browser and never sent anywhere. Closing the tab keeps it; clearing it removes it for good.</p>
+  </div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ================= data ================= */
+const STAGES = [
+  { t:'Before the day', s:'A calendar invite and a name', b:
+    'You will get an invite with a joining link and the name of who you are meeting. If anything about it is unclear — the timing, the format, the tool — ask. Nobody has ever been marked down for asking a logistics question.',
+    l:['Check the link works the day before, not five minutes before','Have your notes open — using them is allowed','If something breaks, message us. We will wait.'] },
+  { t:'The first few minutes', s:'Genuinely just hello', b:
+    'Small talk, a bit about the role, a bit about us. This part is not scored. It exists so that both of us stop being strangers before the real conversation starts.',
+    l:['You do not need an elevator pitch ready','It is fine to say "sorry, I am a bit nervous" — it lands better than pretending'] },
+  { t:'The conversation', s:'Five lenses, real examples', b:
+    'We move through the areas in section 04. Each one starts with a question about something you have actually done. We will follow up, dig in, and ask why — that is interest, not doubt.',
+    l:['Take a breath before answering. Silence is thinking, not failure.','"Can I come back to that?" is a completely normal sentence','If a question is unclear, ask us to put it another way'] },
+  { t:'Your questions', s:'Usually the last 10 minutes', b:
+    'We hand the conversation over to you. Section 11 will build you a list if you want one. Asking nothing is the only answer that tells us very little.',
+    l:['Practical questions are good questions','It is fine to read them off a screen'] },
+  { t:'After', s:'You hear from us either way', b:
+    'We compare notes, make a decision, and come back to you — including if the answer is no. You can ask for feedback and we will give it.',
+    l:['If the date passes, chase us. That is not rude.'] },
+];
+
+const VALUES = [
+  { n:'Learner obsession', c:'lime',
+    q:'Tell us about a time you deeply understood a customer\'s or user\'s problem — and changed your approach because of it.',
+    w:'We are listening for a moment you were wrong about something and found out. The changing-your-mind part is the whole answer.' },
+  { n:'Be an owner, not a renter', c:'lime',
+    q:'Share an example where you took responsibility beyond your defined role and drove an outcome from start to finish.',
+    w:'Not heroics. Just a time you saw something nobody had asked you to fix, and fixed it anyway.' },
+  { n:'In data we trust', c:'lime',
+    q:'How do you use data to make decisions? Walk us through a real example where data shaped your thinking.',
+    w:'A small honest number beats a big vague one. "We only had 40 responses, but" is a strong opening.' },
+  { n:'Think big, act frugal', c:'lime',
+    q:'Describe a situation where you achieved significant results with limited resources or constraints.',
+    w:'Constraints are the interesting part. What did you deliberately not do?' },
+  { n:'We operate like a sports team', c:'lime',
+    q:'Tell us about a high-performing team you\'ve been part of. What made it work — and what was your role?',
+    w:'Be specific about your part. Claiming the whole win reads worse than naming your slice of it.' },
+  { n:'And a quiet sixth', c:'warm',
+    q:'How are you already using AI in your own work?',
+    w:'There is no expected level here. "I tried it and it did not help me yet, here is why" is a real answer, and an interesting one.' },
+];
+
+const MYTHS = [
+  ['You need a perfect, polished answer','Rehearsed answers are the easiest thing in the world to spot, and they tell us almost nothing. A real story told slightly messily wins every time.'],
+  ['Saying "I don\'t know" loses you the job','It does the opposite. Bluffing is obvious and costly. "I don\'t know, but here is how I would find out" is one of the strongest answers you can give.'],
+  ['Long silences count against you','Thinking time is not dead air. If you need a moment, say "let me think about that for a second" and take it. We will wait.'],
+  ['You have to sound confident the whole time','We are not scoring your voice. Nerves are not a data point about your ability, and everyone on the other side of the call has been where you are.'],
+  ['You need to already be an AI expert','We are building in an area where nobody is finished learning. Curiosity travels further here than expertise.'],
+  ['Disagreeing with the interviewer is risky','Push back if you think we are wrong. Watching someone reason under mild pressure is genuinely useful — and agreeing with everything tells us nothing.'],
+];
+
+const PERMS = [
+  ['Ask for the question again','Even twice. It is better than answering the wrong one.'],
+  ['Take a moment before you answer','Out loud: "give me a second on that." Completely normal.'],
+  ['Say you do not know','Then say how you would find out. That is the good part.'],
+  ['Use your notes','Have them open. Read from them. Nobody is testing your memory.'],
+  ['Ask what we are getting at','If a question feels vague, it probably was. Ask us to sharpen it.'],
+  ['Come back to something later','"Can I return to your earlier question?" always lands well.'],
+  ['Disagree with us','Politely, with a reason. It is a plus, not a risk.'],
+  ['Have a bad moment and recover','One wobbly answer does not decide anything. Keep going.'],
+];
+
+const CHECK = [
+  ['Have a look at outskill.com','Our story, product and voice. Fifteen minutes is plenty.'],
+  ['Get why continuous learning matters now','Not the buzzword version — the version you actually believe.'],
+  ['Think about AI in your own industry','How is it already changing the work you do day to day?'],
+  ['Find one example with a real number in it','Any number. Approximate is fine. Honest beats impressive.'],
+  ['Remember one time you went beyond your role','Small counts. It does not have to be a company-saving story.'],
+];
+
+const ASKS = [
+  'What does the first 90 days look like in this role?',
+  'What is the hardest problem this team is working on right now?',
+  'How do decisions actually get made here?',
+  'What does support look like when someone is struggling?',
+  'How has this role changed in the last year?',
+  'What would make you say, a year from now, that hiring me went brilliantly?',
+  'What is something about working here that surprised you?',
+  'How does the team use AI in its own work day to day?',
+  'What happens next in this process, and when will I hear?',
+];
+
+/* ================= tiny helpers ================= */
+const $ = s => document.querySelector(s);
+const KEY = k => 'osk.iv.' + k;
+const load = (k, d) => { try { const v = localStorage.getItem(KEY(k)); return v === null ? d : JSON.parse(v); } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(KEY(k), JSON.stringify(v)); } catch {} };
+let toastT;
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200);
+}
+async function copy(text, msg){
+  try { await navigator.clipboard.writeText(text); toast(msg || 'Copied'); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed';
+    ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast(msg || 'Copied'); } catch { toast('Select and copy manually'); }
+    ta.remove();
+  }
+}
+
+/* ================= contents + progress ================= */
+const SECS = [...document.querySelectorAll('main section')];
+const NAMES = ['Welcome','Before anything else','What actually happens','What we listen for',
+  'Myths, cleared up','What you are allowed to do','If you are nervous now','A short prep list',
+  'Draft one story','Practice out loud','Questions to ask us','Access and adjustments',
+  'Afterwards','See you soon'];
+$('#jumpMenu').innerHTML = SECS.map((s, i) =>
+  `<a href="#${s.id}" data-i="${i}"><b>${String(i + 1).padStart(2, '0')}</b>${NAMES[i]}</a>`).join('');
+const jumpLinks = [...document.querySelectorAll('.jumpmenu a')];
+const jumpBtn = $('#jumpBtn'), jumpMenu = $('#jumpMenu');
+function setJump(on){ jumpMenu.classList.toggle('on', on); jumpBtn.setAttribute('aria-expanded', on); }
+jumpBtn.addEventListener('click', e => { e.stopPropagation(); setJump(!jumpMenu.classList.contains('on')); });
+document.addEventListener('click', e => { if (!e.target.closest('.jump')) setJump(false); });
+jumpMenu.addEventListener('click', () => setJump(false));
+addEventListener('keydown', e => { if (e.key === 'Escape') setJump(false); });
+
+addEventListener('scroll', () => {
+  const h = document.documentElement;
+  $('#prog').style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+});
+const secObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) {
+  const i = SECS.indexOf(e.target);
+  jumpLinks.forEach((l, j) => l.classList.toggle('here', i === j));
+}}), { threshold: .35 });
+SECS.forEach(s => secObs.observe(s));
+
+const rvObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) {
+  e.target.classList.add('in'); rvObs.unobserve(e.target); }}), { threshold: .12 });
+// observed at the very end of this file, once every container has its content —
+// a zero-height element never reaches the threshold and would stay invisible
+
+/* ================= 03 timeline ================= */
+$('#timeline').innerHTML = STAGES.map((s, i) => `
+  <div class="tstep">
+    <button class="thead" aria-expanded="false" data-i="${i}">
+      <span class="num">${i + 1}</span>
+      <span class="tt"><b>${s.t}</b><span>${s.s}</span></span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="tbody"><div><div class="tinner">${s.b}
+      <ul>${s.l.map(x => `<li>${x}</li>`).join('')}</ul></div></div></div>
+  </div>`).join('');
+$('#timeline').addEventListener('click', e => {
+  const h = e.target.closest('.thead'); if (!h) return;
+  const step = h.closest('.tstep'), open = !step.classList.contains('open');
+  step.classList.toggle('open', open); h.setAttribute('aria-expanded', open);
+});
+
+/* ================= 04 values ================= */
+$('#values').innerHTML = VALUES.map((v, i) => `
+  <button class="vcard" data-i="${i}" aria-expanded="false">
+    <span class="pill ${v.c === 'warm' ? 'warm' : 'lime'}">${v.c === 'warm' ? 'Bonus' : 'Value 0' + (i + 1)}</span>
+    <div class="vt">${v.n}</div>
+    <div class="vd" data-role="q">${v.q}</div>
+    <div class="vmore" data-role="cue">Why we ask &#8594;</div>
+  </button>`).join('');
+$('#values').addEventListener('click', e => {
+  const c = e.target.closest('.vcard'); if (!c) return;
+  const i = +c.dataset.i, open = c.getAttribute('aria-expanded') === 'false';
+  c.querySelector('[data-role="q"]').textContent = open ? VALUES[i].w : VALUES[i].q;
+  c.querySelector('[data-role="cue"]').innerHTML = open ? '&#8592; Back to the question' : 'Why we ask &#8594;';
+  c.setAttribute('aria-expanded', open);
+});
+
+/* ================= 05 myths ================= */
+$('#myths').innerHTML = MYTHS.map((m, i) => `
+  <div class="myth">
+    <button class="mbtn" aria-expanded="false" data-i="${i}">
+      <span class="x" aria-hidden="true">&#10005;</span>
+      <span class="mt"><s>${m[0]}</s><em>Tap to see what is actually true</em></span>
+    </button>
+    <div class="mreveal"><div><div class="mtruth"><b>Actually —</b> ${m[1]}</div></div></div>
+  </div>`).join('');
+$('#myths').addEventListener('click', e => {
+  const b = e.target.closest('.mbtn'); if (!b) return;
+  const m = b.closest('.myth'), on = !m.classList.contains('on');
+  m.classList.toggle('on', on); b.setAttribute('aria-expanded', on);
+  b.querySelector('em').textContent = on ? 'Not true' : 'Tap to see what is actually true';
+});
+
+/* ================= 06 permissions ================= */
+let permOn = load('perms', []);
+$('#perms').innerHTML = PERMS.map((p, i) => `
+  <button class="perm ${permOn.includes(i) ? 'on' : ''}" data-i="${i}" aria-pressed="${permOn.includes(i)}">
+    <span class="tick" aria-hidden="true">&#10003;</span>
+    <div class="pt">${p[0]}</div><div class="pd">${p[1]}</div>
+  </button>`).join('');
+$('#perms').addEventListener('click', e => {
+  const b = e.target.closest('.perm'); if (!b) return;
+  const i = +b.dataset.i, on = !b.classList.contains('on');
+  b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+  permOn = on ? [...new Set([...permOn, i])] : permOn.filter(x => x !== i);
+  save('perms', permOn);
+});
+
+/* ================= 07 breathing ================= */
+const PHASES = [['Breathe in', true], ['Hold', true], ['Breathe out', false], ['Hold', false]];
+let bTimer = null, bPhase = 0, bRound = 0;
+function bTick(){
+  const [label, big] = PHASES[bPhase];
+  $('#bphase').textContent = label;
+  $('#bball').classList.toggle('big', big);
+  $('#bcount').textContent = `Round ${bRound + 1} of 3 · ${label.toLowerCase()}`;
+  bPhase++;
+  if (bPhase === PHASES.length){ bPhase = 0; bRound++; }
+  if (bRound === 3){ bStop(true); return; }
+  bTimer = setTimeout(bTick, 4000);
+}
+function bStart(){
+  bPhase = 0; bRound = 0;
+  $('#bStart').disabled = true; $('#bStop').disabled = false;
+  bTick();
+}
+function bStop(done){
+  clearTimeout(bTimer); bTimer = null;
+  $('#bStart').disabled = false; $('#bStop').disabled = true;
+  $('#bball').classList.remove('big');
+  $('#bphase').textContent = done ? 'Better?' : 'Ready';
+  $('#bcount').textContent = done ? 'That is it. Go and be yourself.' : 'Three rounds, about 48 seconds';
+}
+$('#bStart').addEventListener('click', bStart);
+$('#bStop').addEventListener('click', () => bStop(false));
+
+/* ================= 08 checklist ================= */
+let chkOn = load('check', []);
+$('#checklist').innerHTML = CHECK.map((c, i) => `
+  <button class="chk ${chkOn.includes(i) ? 'on' : ''}" data-i="${i}" aria-pressed="${chkOn.includes(i)}">
+    <span class="box" aria-hidden="true">&#10003;</span>
+    <span><span class="ct">${c[0]}</span><span class="cd">${c[1]}</span></span>
+  </button>`).join('');
+function ring(){
+  const n = chkOn.length, C = 232.5;
+  $('#ringArc').style.strokeDashoffset = C - (C * n / CHECK.length);
+  $('#ringTxt').textContent = `${n}/${CHECK.length}`;
+}
+ring();
+$('#checklist').addEventListener('click', e => {
+  const b = e.target.closest('.chk'); if (!b) return;
+  const i = +b.dataset.i, on = !b.classList.contains('on');
+  b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+  chkOn = on ? [...new Set([...chkOn, i])] : chkOn.filter(x => x !== i);
+  save('check', chkOn); ring();
+  if (chkOn.length === CHECK.length) toast('That is the whole list. You are ready.');
+});
+$('#chkReset').addEventListener('click', () => {
+  chkOn = []; save('check', chkOn); ring();
+  document.querySelectorAll('.chk').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-pressed', false); });
+});
+
+/* ================= 09 story builder ================= */
+const FIELDS = ['Situation', 'What you did', 'What changed', 'What you\'d do differently'];
+let sbI = 0, stories = load('stories', {});
+$('#sbTabs').innerHTML = VALUES.map((v, i) =>
+  `<button class="tab" data-i="${i}"><span class="dot"></span>${v.n}</button>`).join('');
+function sbFilled(i){ return (stories[i] || []).some(x => (x || '').trim()); }
+function sbRender(){
+  $('#sbQ').textContent = VALUES[sbI].q;
+  const vals = stories[sbI] || [];
+  FIELDS.forEach((_, j) => { $('#f' + j).value = vals[j] || ''; });
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('on', i === sbI);
+    t.classList.toggle('filled', sbFilled(i));
+  });
+}
+$('#sbTabs').addEventListener('click', e => {
+  const t = e.target.closest('.tab'); if (!t) return; sbI = +t.dataset.i; sbRender();
+});
+FIELDS.forEach((_, j) => $('#f' + j).addEventListener('input', () => {
+  const v = stories[sbI] || ['', '', '', ''];
+  v[j] = $('#f' + j).value; stories[sbI] = v; save('stories', stories);
+  document.querySelectorAll('.tab')[sbI].classList.toggle('filled', sbFilled(sbI));
+}));
+$('#sbClear').addEventListener('click', () => {
+  delete stories[sbI]; save('stories', stories); sbRender(); toast('Cleared');
+});
+$('#sbCopy').addEventListener('click', () => {
+  const out = VALUES.map((v, i) => {
+    const vals = stories[i]; if (!vals || !vals.some(x => (x || '').trim())) return null;
+    return `${v.n.toUpperCase()}\n${v.q}\n` + FIELDS.map((f, j) => `  ${f}: ${vals[j] || '—'}`).join('\n');
+  }).filter(Boolean).join('\n\n');
+  if (!out) { toast('Nothing written down yet'); return; }
+  copy('MY INTERVIEW NOTES\n\n' + out, 'Notes copied');
+});
+sbRender();
+
+/* ================= 10 practice ================= */
+let lastQ = -1;
+$('#qDraw').addEventListener('click', () => {
+  let i; do { i = Math.floor(Math.random() * VALUES.length); } while (VALUES.length > 1 && i === lastQ);
+  lastQ = i;
+  $('#qv').textContent = VALUES[i].n;
+  $('#qq').textContent = VALUES[i].q;
+  const c = $('#qcard'); c.classList.remove('flip'); void c.offsetWidth; c.classList.add('flip');
+});
+let tLeft = 90, tInt = null;
+function tShow(){
+  const m = Math.floor(tLeft / 60), s = String(tLeft % 60).padStart(2, '0');
+  $('#timer').textContent = `${m}:${s}`;
+  $('#timer').classList.toggle('low', tLeft <= 15);
+  $('#tbar').style.width = (tLeft / 90 * 100) + '%';
+}
+$('#qTime').addEventListener('click', () => {
+  if (tInt) { clearInterval(tInt); tInt = null; tLeft = 90; tShow(); $('#qTime').textContent = 'Start 90 seconds'; return; }
+  tLeft = 90; tShow(); $('#qTime').textContent = 'Stop';
+  tInt = setInterval(() => {
+    tLeft--; tShow();
+    if (tLeft <= 0) { clearInterval(tInt); tInt = null; $('#qTime').textContent = 'Start 90 seconds';
+      toast('That is about the length of a strong answer'); tLeft = 90; tShow(); }
+  }, 1000);
+});
+tShow();
+
+/* ================= 11 ask us ================= */
+let askOn = load('asks', []);
+$('#asks').innerHTML = ASKS.map((a, i) => `
+  <button class="ask ${askOn.includes(i) ? 'on' : ''}" data-i="${i}" aria-pressed="${askOn.includes(i)}">
+    <span class="plus" aria-hidden="true">+</span><span>${a}</span>
+  </button>`).join('');
+function askRender(){
+  const n = askOn.length;
+  $('#askCount').textContent = n ? `${n} question${n > 1 ? 's' : ''} picked — copy them and keep the list open during the call.`
+    : 'Nothing picked yet.';
+  $('#askCopy').disabled = !n;
+}
+askRender();
+$('#asks').addEventListener('click', e => {
+  const b = e.target.closest('.ask'); if (!b) return;
+  const i = +b.dataset.i, on = !b.classList.contains('on');
+  b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+  askOn = on ? [...new Set([...askOn, i])] : askOn.filter(x => x !== i);
+  save('asks', askOn); askRender();
+});
+$('#askCopy').addEventListener('click', () =>
+  copy('QUESTIONS I WANT TO ASK\n\n' + askOn.map(i => '· ' + ASKS[i]).join('\n'), 'Your questions are copied'));
+
+/* ================= 12 template ================= */
+$('#tmplCopy').addEventListener('click', () => copy($('#tmpl').textContent.trim(), 'Message copied'));
+
+/* ================= reveal (last — everything is now populated) ================= */
+document.querySelectorAll('.rv').forEach(el => rvObs.observe(el));
+
+/* ================= wipe ================= */
+$('#wipe').addEventListener('click', () => {
+  ['perms', 'check', 'stories', 'asks'].forEach(k => { try { localStorage.removeItem(KEY(k)); } catch {} });
+  toast('All cleared. Reloading.');
+  setTimeout(() => location.reload(), 700);
+});
+</script>
+</body>
+</html>

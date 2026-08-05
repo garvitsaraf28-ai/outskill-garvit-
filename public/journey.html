@@ -295,8 +295,98 @@
     color:var(--ink3); opacity:0; transition:opacity .18s; }
   a.stage:hover .go,a.stage:focus-visible .go{ opacity:1; }
 
+  /* =========================================================
+     DECK MODE — one fixed 1280x720 slide at a time, scaled to
+     whatever screen it is presented on. Phones fall through to
+     the scrolling layout below.
+     ========================================================= */
+  @media (min-width:841px){
+    html,body{ height:100%; overflow:hidden; }
+    main{ position:fixed; left:50%; top:50%; width:1280px; height:720px;
+          transform:translate(-50%,-50%) scale(var(--s,1)); transform-origin:center center; }
+    .slide{ position:absolute; inset:0; width:1280px; height:720px; min-height:0;
+            padding:42px 58px; border-bottom:none; justify-content:center;
+            opacity:0; visibility:hidden; transform:translateX(46px);
+            transition:opacity .3s ease, transform .42s cubic-bezier(.2,.8,.2,1), visibility .42s; }
+    .slide.active{ opacity:1; visibility:visible; transform:none; }
+    .slide.past{ transform:translateX(-46px); }
+    .slide-inner{ max-width:1156px; }
+    .slide-num{ top:24px; right:58px; }
+    h1{ font-size:31px; margin-bottom:7px; }
+    .lede{ font-size:14px; margin-bottom:15px; line-height:1.55; max-width:900px; }
+    .cover-h{ font-size:66px; }
+    .cover-sub{ font-size:16.5px; }
+    #s1{ justify-content:center; }
+
+    /* click-builds — the diagram and the callout land on the next press */
+    .slide .reveal.held{ opacity:0 !important; transform:translateY(16px) !important; }
+
+    /* presenter chrome */
+    .edge{ position:fixed; top:0; bottom:0; width:78px; z-index:110; border:none; cursor:pointer;
+           background:transparent; display:grid; place-items:center; color:var(--ink3);
+           font-size:26px; opacity:0; transition:opacity .2s, background .2s; font-family:var(--sans); }
+    .edge:hover{ opacity:1; background:linear-gradient(to right,rgba(120,125,135,.09),transparent); }
+    .edge.next{ right:0; background:none; }
+    .edge.next:hover{ background:linear-gradient(to left,rgba(120,125,135,.09),transparent); }
+    .edge.prev{ left:0; }
+    .ctl{ position:fixed; left:22px; bottom:16px; z-index:120; display:flex; align-items:center; gap:3px;
+          padding:5px 6px; border-radius:100px; background:color-mix(in srgb,var(--surface) 90%,transparent);
+          backdrop-filter:blur(14px); border:1px solid var(--line); box-shadow:0 6px 26px rgba(10,12,16,.13); }
+    .ctl button{ font:inherit; font-size:14px; line-height:1; cursor:pointer; border:none; background:transparent;
+                 color:var(--ink2); padding:6px 9px; border-radius:100px; transition:background .16s,color .16s; }
+    .ctl button:hover{ background:var(--sunk); color:var(--ink); }
+    .ctl .cnt{ font-family:var(--mono); font-size:11px; letter-spacing:.06em; color:var(--ink3);
+               padding:0 8px; min-width:56px; text-align:center; }
+    .ctl .cnt b{ color:var(--ink); font-weight:600; }
+    /* the control pill owns the bottom-left corner now */
+    .keyhint{ left:50%; transform:translateX(-50%); bottom:22px; opacity:0; transition:opacity .25s; }
+    body:hover .keyhint{ opacity:.85; }
+
+    /* the stage is fixed, so the type and spacing are tuned to it once */
+    .eyebrow{ margin-bottom:9px; }
+    .dia{ padding:13px; } .dia + .dia{ margin-top:9px; }
+    .node{ padding:6px 10px; } .node .ns{ margin-top:2px; line-height:1.36; }
+    .node .nt{ line-height:1.24; }
+    .node .nl{ margin-bottom:3px; }
+    .varr{ height:7px; }
+    .brcol{ padding:8px 11px; }
+    .brcol > .bh{ margin-bottom:7px; padding-bottom:6px; }
+    .lgi{ padding:5px 10px; }
+    .tick .tb{ padding:5px; }
+    .band{ padding:8px 12px; margin-top:7px; }
+    .rail-sys{ margin-top:7px; }
+    .note{ margin-top:9px; }
+    .branch{ gap:11px; } .cols2,.cols3,.cols4{ gap:9px; }
+    .dec{ padding:5px 12px; font-size:.76rem; }
+    .stackc{ gap:5px; }
+    .quiz{ grid-template-columns:repeat(3,1fr); gap:9px; }
+    .q{ padding:10px 12px; } .q .qq{ margin:3px 0 7px; font-size:.81rem; }
+    .qo button{ padding:5px 9px; font-size:.74rem; }
+    .qx{ font-size:.72rem; } .qx.show{ max-height:96px; margin-top:7px; }
+    .scorebar{ margin-top:9px; padding:9px 14px; }
+    .cover-meta{ margin-top:34px; padding-top:16px; }
+  }
+  @media (max-width:840px){ .edge,.ctl{ display:none; } }
+
+  /* slide overview */
+  .ov{ position:fixed; inset:0; z-index:290; background:var(--bg); padding:40px 5vw; overflow-y:auto;
+       opacity:0; visibility:hidden; transition:opacity .22s, visibility .22s; }
+  .ov.on{ opacity:1; visibility:visible; }
+  .ov h3{ font-size:15px; font-weight:640; letter-spacing:-.01em; margin-bottom:4px; }
+  .ovhead{ display:flex; align-items:baseline; justify-content:space-between; gap:16px;
+           margin:0 auto 20px; max-width:1100px; }
+  .ovhead .oh{ font-family:var(--mono); font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink3); }
+  .ovgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px;
+           max-width:1100px; margin:0 auto; }
+  .ovc{ text-align:left; font:inherit; cursor:pointer; background:var(--surface); border:1px solid var(--line);
+        border-radius:11px; padding:14px 15px; transition:border-color .18s, transform .18s; }
+  .ovc:hover,.ovc:focus-visible{ border-color:var(--accent); transform:translateY(-2px); outline:none; }
+  .ovc.now{ border-color:var(--accent); background:var(--accent-bg); }
+  .ovc .on1{ font-family:var(--mono); font-size:10px; letter-spacing:.09em; color:var(--accent); display:block; margin-bottom:6px; }
+  .ovc .os{ font-size:11.5px; color:var(--ink3); line-height:1.4; display:block; }
+
   /* short viewports (projectors, laptops) — every section still fits one screen */
-  @media (min-width:841px) and (max-height:860px){
+  @media (min-width:841px) and (max-height:860px) and (max-width:840px){
     .slide{ padding:40px 5vw; }
     h1{ font-size:clamp(1.35rem,2.5vw,1.95rem); margin-bottom:7px; }
     .lede{ font-size:.88rem; margin-bottom:15px; line-height:1.55; }
@@ -346,7 +436,7 @@
 <body>
 <div class="progress" id="prog"></div>
 <nav class="nav-dots" id="dots" aria-label="Slides"></nav>
-<div class="keyhint">← → <b>navigate</b></div>
+<div class="keyhint">← → <b>build</b> · <b>O</b> all slides · <b>F</b> full screen</div>
 <main>
 
 <!-- 01 COVER -->
@@ -813,6 +903,20 @@
   <button class="lb" data-f="stop"><span class="sw" style="background:var(--stop)"></span>Dead ends</button>
 </div>
 
+<button class="edge prev" id="ePrev" aria-label="Previous">&#8249;</button>
+<button class="edge next" id="eNext" aria-label="Next">&#8250;</button>
+<div class="ctl" id="ctl">
+  <button id="cPrev" aria-label="Previous slide">&#8249;</button>
+  <span class="cnt" id="cnt"><b>01</b> / 11</span>
+  <button id="cNext" aria-label="Next slide">&#8250;</button>
+  <button id="cOv" aria-label="All slides" title="All slides (O)">&#9783;</button>
+  <button id="cFs" aria-label="Fullscreen" title="Fullscreen (F)">&#9974;</button>
+</div>
+<div class="ov" id="ov" role="dialog" aria-label="All slides">
+  <div class="ovhead"><span class="oh">All slides</span><span class="oh">Esc or O to close</span></div>
+  <div class="ovgrid" id="ovgrid"></div>
+</div>
+
 <div class="scrim" id="scrim"></div>
 <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
   <button class="pclose" id="pclose" aria-label="Close">&#10005;</button>
@@ -900,34 +1004,101 @@ const Q = [
   x:'A dispute is the bank’s decision. We submit evidence, but our eligibility gate no longer applies.'}
 ];
 
-/* ---------------- slides + nav ---------------- */
+/* ---------------- slides, builds, presenter nav ---------------- */
 const slides=[...document.querySelectorAll('.slide')];
 const labels=['Cover','The map','Notation','Acquire','Workshop','Mastermind','Reach-out','CRM layer','Payments','Refunds','Checkpoint'];
+const subs=['Automation / User Journey','Five stages, one learner','Colour tells you who acts',
+  'Four engines, one front door','Two pitches, not one','Purchase vs application',
+  'The three drop-off conditions','What WebEngage sends, and when','Optimus and three outcomes',
+  'The gate, and the bank','Six questions'];
+const deckMQ=matchMedia('(min-width:841px)');
+const deck=()=>deckMQ.matches;
+const lens=document.getElementById('lens'), cnt=document.getElementById('cnt'),
+      ov=document.getElementById('ov'), prog=document.getElementById('prog');
+
 document.getElementById('dots').innerHTML=slides.map((s,i)=>`<a href="#${s.id}" data-label="${labels[i]}" aria-label="${labels[i]}"></a>`).join('');
 const dots=[...document.querySelectorAll('.nav-dots a')];
-const lens=document.getElementById('lens');
-const ro=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){
-  const i=slides.indexOf(e.target);
-  dots.forEach((d,j)=>d.classList.toggle('active',i===j));
-  lens.classList.toggle('show', i>0 && i<10);
-}}),{threshold:.5});
-slides.forEach(s=>ro.observe(s));
+document.getElementById('ovgrid').innerHTML=slides.map((s,i)=>
+  `<button class="ovc" data-i="${i}"><span class="on1">${String(i+1).padStart(2,'0')}</span>
+   <h3>${labels[i]}</h3><span class="os">${subs[i]}</span></button>`).join('');
+const ovcards=[...document.querySelectorAll('.ovc')];
 
+// stagger the nodes inside each block, in reading order
 document.querySelectorAll('.reveal').forEach(el=>{
   [...el.querySelectorAll('.node')].forEach((n,i)=>n.style.setProperty('--i',i));
 });
 // the entrance animation uses fill-mode:both, which would otherwise pin each
 // node's opacity and stop the lens from dimming it. Release it once it's done.
-document.addEventListener('animationend',e=>{
-  if(e.animationName==='pop') e.target.style.animation='none';
-});
-const rv=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rv.unobserve(e.target); }}),{threshold:.12});
-document.querySelectorAll('.reveal').forEach(el=>rv.observe(el));
+document.addEventListener('animationend',e=>{ if(e.animationName==='pop') e.target.style.animation='none'; });
 
-addEventListener('scroll',()=>{
-  const h=document.documentElement;
-  document.getElementById('prog').style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+// a slide's build steps: the diagram, then the callout under it
+const stepsOf = s => s.id==='s1' ? [] : [...s.querySelectorAll('.reveal.d2, .reveal.d3')];
+let cur=0, step=0;
+
+function fit(){
+  if(!deck()){ document.documentElement.style.removeProperty('--s'); return; }
+  document.documentElement.style.setProperty('--s', Math.min(innerWidth/1280, innerHeight/720));
+}
+addEventListener('resize',fit);
+
+function render(){
+  cnt.innerHTML=`<b>${String(cur+1).padStart(2,'0')}</b> / ${slides.length}`;
+  dots.forEach((d,i)=>d.classList.toggle('active',i===cur));
+  ovcards.forEach((c,i)=>c.classList.toggle('now',i===cur));
+  lens.classList.toggle('show', cur>0 && cur<10);
+  if(!deck()) return;
+  prog.style.width=(cur/(slides.length-1)*100)+'%';
+  slides.forEach((s,i)=>{ s.classList.toggle('active',i===cur); s.classList.toggle('past',i<cur); });
+  const s=slides[cur];
+  s.querySelectorAll('.reveal').forEach(e=>e.classList.add('in'));
+  stepsOf(s).forEach((e,i)=>e.classList.toggle('held', i>=step));
+}
+function next(){
+  const st=stepsOf(slides[cur]);
+  if(deck() && step<st.length){ step++; render(); return; }
+  if(cur<slides.length-1){ cur++; step=0; render(); if(!deck()) slides[cur].scrollIntoView({behavior:'smooth'}); }
+}
+function prevStep(){
+  if(deck() && step>0){ step--; render(); return; }
+  if(cur>0){ cur--; step=deck()?stepsOf(slides[cur]).length:0; render(); if(!deck()) slides[cur].scrollIntoView({behavior:'smooth'}); }
+}
+function go(i){
+  cur=Math.max(0,Math.min(slides.length-1,i));
+  step=deck()?stepsOf(slides[cur]).length:0;
+  render();
+  if(!deck()) slides[cur].scrollIntoView({behavior:'smooth'});
+}
+['eNext','cNext'].forEach(id=>document.getElementById(id).addEventListener('click',next));
+['ePrev','cPrev'].forEach(id=>document.getElementById(id).addEventListener('click',prevStep));
+document.getElementById('cFs').addEventListener('click',()=>{
+  document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); });
+const toggleOv=on=>{ ov.classList.toggle('on', on ?? !ov.classList.contains('on')); };
+document.getElementById('cOv').addEventListener('click',()=>toggleOv());
+ov.addEventListener('click',e=>{ const c=e.target.closest('.ovc'); if(c){ go(+c.dataset.i); toggleOv(false); } });
+// in-deck links (the nav dots, and the five stages on the map) jump, they don't scroll
+document.addEventListener('click',e=>{
+  const a=e.target.closest('a[href^="#s"]'); if(!a) return;
+  const i=slides.findIndex(s=>'#'+s.id===a.getAttribute('href'));
+  if(i<0) return; e.preventDefault(); go(i);
 });
+
+// phones keep the scrolling layout
+const rv=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); rv.unobserve(e.target); }}),{threshold:.12});
+const ro=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting && !deck()){
+  cur=slides.indexOf(e.target); render(); }}),{threshold:.5});
+function mode(){
+  fit();
+  if(deck()){ step=0; render(); }
+  else {
+    slides.forEach(s=>s.classList.remove('active','past'));
+    document.querySelectorAll('.reveal').forEach(el=>{ el.classList.remove('held'); rv.observe(el); });
+    slides.forEach(s=>ro.observe(s));
+    addEventListener('scroll',()=>{ const h=document.documentElement;
+      prog.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%'; });
+  }
+}
+deckMQ.addEventListener('change',()=>location.reload());
+mode();
 
 /* ---------------- detail panel ---------------- */
 const scrim=document.getElementById('scrim'), panel=document.getElementById('panel'),
@@ -995,12 +1166,19 @@ quiz.addEventListener('click',e=>{
 
 /* ---------------- keyboard ---------------- */
 addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&panel.classList.contains('on')){ closePanel(); return; }
+  if(e.key==='Escape'){
+    if(panel.classList.contains('on')){ closePanel(); return; }
+    if(ov.classList.contains('on')){ toggleOv(false); return; }
+  }
   if(panel.classList.contains('on')) return;
-  if(/^(INPUT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)&&e.key===' ') return;
-  const cur=slides.findIndex(s=>{const r=s.getBoundingClientRect(); return r.top<=innerHeight/2&&r.bottom>=innerHeight/2;});
-  if(e.key==='ArrowRight'||e.key==='ArrowDown'){ e.preventDefault(); slides[Math.min(cur+1,slides.length-1)]?.scrollIntoView({behavior:'smooth'}); }
-  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){ e.preventDefault(); slides[Math.max(cur-1,0)]?.scrollIntoView({behavior:'smooth'}); }
+  const t=document.activeElement.tagName;
+  if(e.key===' ' && /^(INPUT|TEXTAREA)$/.test(t)) return;
+  if((e.key==='o'||e.key==='O')){ e.preventDefault(); toggleOv(); return; }
+  if(ov.classList.contains('on')) return;
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key==='PageDown'||(e.key===' '&&t!=='BUTTON')){ e.preventDefault(); next(); }
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){ e.preventDefault(); prevStep(); }
+  if(e.key==='Home'){ e.preventDefault(); go(0); }
+  if(e.key==='End'){ e.preventDefault(); go(slides.length-1); }
   if(e.key==='f'||e.key==='F'){ document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen(); }
 });
 </script>

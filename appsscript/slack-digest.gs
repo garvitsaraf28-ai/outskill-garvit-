@@ -149,6 +149,20 @@ function slackAddress_() {
   return to;
 }
 
+/**
+ * Post an arbitrary subject and body to the channel.
+ *
+ * This is the only place that actually talks to Slack. Everything else that
+ * wants to post goes through here, so the address handling and the plain-text
+ * rule live in one spot.
+ */
+function postToSlack_(subject, body) {
+  var to = slackAddress_();
+  MailApp.sendEmail({ to: to, subject: subject, body: body });
+  Logger.log('Posted to %s\nSubject: %s\n\n%s', to, subject, body);
+  return to;
+}
+
 function sendSlackDigest_() {
   var to = slackAddress_();
 

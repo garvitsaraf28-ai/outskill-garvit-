@@ -1,62 +1,180 @@
 /**
- * Refresh schedule for the Inside Sales sheet.
+ * Scheduled Slack reports for the Inside Sales sheet.
  *
- * Runs the refresh every 2.5 hours through the working day, starting 11:30 IST:
+ * Two independent windows, each stepping 2.5 hours:
  *
- *     11:30   14:00   16:30   19:00   21:30
+ *   Day    11:30  14:00  16:30  19:00  21:30
+ *   Night  19:30  22:00  00:30  03:00  05:30
+ *
+ * CURRENT STATE: each firing posts a test message naming the window and the
+ * time it fired. That is deliberate — it proves the schedule and the Slack
+ * path work before any real content depends on them. See buildReport_ below
+ * for the single place to swap in the actual report, and runSchedule_ for
+ * where to re-enable the sheet refresh.
  *
  * Why fixed clock times rather than an interval
  * ---------------------------------------------
- * Apps Script's everyHours() only accepts 1, 2, 4, 6, 8 or 12 — there is no
- * way to express 2.5 hours with it, which is why the schedule had settled at
- * 2 hours. Fixed daily triggers give the exact spacing instead.
- *
- * A self-rescheduling one-shot chain could hold 150-minute spacing around the
- * clock, but 24 hours is not divisible by 2.5, so it would walk off 11:30
- * within a day and start refreshing at 02:30. Fixed times stay anchored, and
- * a failed run cannot break the chain because each trigger is independent.
+ * Apps Script's everyHours() only accepts 1, 2, 4, 6, 8 or 12, so a 2.5-hour
+ * interval cannot be expressed with it — which is why the schedule had
+ * settled at 2 hours. Fixed daily triggers give the exact spacing, stay
+ * anchored to their start time, and one failed run cannot break the sequence
+ * because each trigger is independent.
  *
  * Google fires time triggers within roughly 15 minutes of the stated time,
- * so treat these as "around 11:30", not to the second.
+ * so read these as "around 11:30", not to the second.
  *
  * Setup:
- *   1. Confirm REFRESH_FUNCTION below matches your refresh entry point.
- *   2. Run installRefreshTriggers() once.
- *   3. Run showRefreshSchedule() to confirm what is now installed.
+ *   1. Make sure slack-digest.gs is in this project and SLACK_CHANNEL_EMAIL
+ *      is set, then run testSlack() once to confirm delivery works.
+ *   2. Run installAllSchedules().
+ *   3. Run showAllSchedules() to confirm what is installed.
  */
 
-/** The function each trigger calls. Change this if your entry point differs. */
-var REFRESH_FUNCTION = 'refreshEverything';
-
-/** First run of the day, in the script's time zone. */
-var FIRST_RUN = { hour: 11, minute: 30 };
-
-/** Spacing between runs. 150 minutes = 2.5 hours. */
+/** Spacing between runs within a window. 150 minutes = 2.5 hours. */
 var INTERVAL_MINUTES = 150;
 
-/** How many runs per day. 5 covers 11:30 through 21:30. */
-var RUNS_PER_DAY = 5;
-
-/* ------------------------------------------------------------------ */
+/**
+ * The existing function that rebuilds the sheet.
+ *
+ * Not called yet — the schedules post a test message only. Confirm this name
+ * matches your real entry point before re-enabling the refresh in
+ * runSchedule_, because a wrong name there fails at fire time, not now.
+ */
+var REFRESH_FUNCTION = 'refreshEverything';
 
 /**
- * Install the schedule. Safe to re-run — it clears its own triggers first,
- * including the old 2-hour one, so you never end up with two schedules
- * refreshing on top of each other.
+ * The two windows. `first` is the opening run, `runs` is how many firings
+ * follow at INTERVAL_MINUTES spacing. Times past midnight wrap around, which
+ * is what carries the night window through to 05:30.
  */
-function installRefreshTriggers() {
-  if (typeof this[REFRESH_FUNCTION] !== 'function') {
+var SCHEDULES = {
+  DAY: {
+    label: 'Day',
+    handler: 'runDaySchedule',
+    first: { hour: 11, minute: 30 },
+    runs: 5
+  },
+  NIGHT: {
+    label: 'Night',
+    handler: 'runNightSchedule',
+    first: { hour: 19, minute: 30 },
+    runs: 5
+  }
+};
+
+/* ------------------------------------------------------------------ *
+ * What each firing sends
+ * ------------------------------------------------------------------ */
+
+/**
+ * Placeholder report.
+ *
+ * Replace the body of this function when the real report is defined. Both
+ * windows call it, so whatever it returns is what lands in Slack. To give
+ * the two windows different content, branch on `label` — it is 'Day' or
+ * 'Night'.
+ */
+function buildReport_(label, firedAt) {
+  return [
+    label + ' schedule fired at ' + firedAt + ' IST.',
+    '',
+    'This is a test message. Report content is not wired up yet.',
+    '',
+    'Window: ' + scheduleTimes_(scheduleByLabel_(label)).map(formatTime_).join('  '),
+    SpreadsheetApp.getActive().getUrl()
+  ].join('\n');
+}
+
+/* ------------------------------------------------------------------ *
+ * Trigger entry points
+ *
+ * One per window, so the two schedules can be installed, inspected and
+ * removed independently.
+ * ------------------------------------------------------------------ */
+
+function runDaySchedule() {
+  runSchedule_('DAY');
+}
+
+function runNightSchedule() {
+  runSchedule_('NIGHT');
+}
+
+function runSchedule_(key) {
+  var schedule = SCHEDULES[key];
+  var firedAt = Utilities.formatDate(
+    new Date(),
+    Session.getScriptTimeZone(),
+    'dd-MMM-yyyy HH:mm'
+  );
+
+  // To refresh the sheet before reporting, uncomment the block below once
+  // REFRESH_FUNCTION above is confirmed correct. A refresh failure is caught
+  // deliberately so the Slack post still goes out with the failure named,
+  // rather than the schedule dying silently in the execution log.
+  //
+  // try {
+  //   callRefresh_();
+  // } catch (err) {
+  //   Logger.log('%s — refresh failed: %s', schedule.label, err.message);
+  // }
+
+  postToSlack_(
+    '[' + schedule.label + '] Schedule test — ' + firedAt,
+    buildReport_(schedule.label, firedAt)
+  );
+}
+
+/** Resolve and call the refresh function by name, at global scope. */
+function callRefresh_() {
+  var g = typeof globalThis !== 'undefined' ? globalThis : this;
+  var fn = g[REFRESH_FUNCTION];
+  if (typeof fn !== 'function') {
     throw new Error(
       'No function named "' + REFRESH_FUNCTION + '" exists in this project. ' +
-        'Set REFRESH_FUNCTION to your actual refresh entry point first.'
+        'Set REFRESH_FUNCTION to your actual refresh entry point.'
     );
   }
+  fn();
+}
 
-  var removed = clearRefreshTriggers_();
+/* ------------------------------------------------------------------ *
+ * Install / inspect / remove
+ * ------------------------------------------------------------------ */
 
-  var times = refreshTimes_();
+/** Fire both windows once, right now, without waiting for a trigger. */
+function testBothSchedules() {
+  runDaySchedule();
+  runNightSchedule();
+  Logger.log('Both test messages sent. Check the channel.');
+}
+
+/** Install both windows. Safe to re-run — clears its own triggers first. */
+function installAllSchedules() {
+  var total = 0;
+  Object.keys(SCHEDULES).forEach(function (key) {
+    total += installSchedule_(key);
+  });
+  Logger.log('');
+  Logger.log('%s trigger(s) installed. Time zone: %s', total, Session.getScriptTimeZone());
+  Logger.log('Confirm the time zone is India Standard Time, or every time above is wrong.');
+}
+
+function installDaySchedule() {
+  installSchedule_('DAY');
+}
+
+function installNightSchedule() {
+  installSchedule_('NIGHT');
+}
+
+function installSchedule_(key) {
+  var schedule = SCHEDULES[key];
+  var removed = clearHandler_(schedule.handler);
+  var times = scheduleTimes_(schedule);
+
   times.forEach(function (t) {
-    ScriptApp.newTrigger(REFRESH_FUNCTION)
+    ScriptApp.newTrigger(schedule.handler)
       .timeBased()
       .atHour(t.hour)
       .nearMinute(t.minute)
@@ -65,46 +183,67 @@ function installRefreshTriggers() {
   });
 
   Logger.log(
-    'Removed %s old trigger(s) for %s, installed %s new one(s): %s (time zone %s).',
+    '%s — removed %s, installed %s: %s',
+    schedule.label,
     removed,
-    REFRESH_FUNCTION,
     times.length,
-    times.map(formatTime_).join(', '),
-    Session.getScriptTimeZone()
+    times.map(formatTime_).join('  ')
+  );
+  return times.length;
+}
+
+/**
+ * Remove every trigger this file installs, plus any left pointing directly
+ * at the refresh function — that last part clears the old 2-hour trigger,
+ * which would otherwise keep firing alongside the new schedules.
+ */
+function removeAllSchedules() {
+  var n = 0;
+  Object.keys(SCHEDULES).forEach(function (key) {
+    n += clearHandler_(SCHEDULES[key].handler);
+  });
+  var legacy = clearHandler_(REFRESH_FUNCTION);
+  Logger.log(
+    'Removed %s schedule trigger(s) and %s legacy %s trigger(s).',
+    n, legacy, REFRESH_FUNCTION
   );
 }
 
-/** Remove every trigger pointing at the refresh function. */
-function removeRefreshTriggers() {
-  Logger.log('Removed %s trigger(s) for %s.', clearRefreshTriggers_(), REFRESH_FUNCTION);
-}
-
-/** Print every trigger on the project, so you can see the real state. */
-function showRefreshSchedule() {
-  var triggers = ScriptApp.getProjectTriggers();
-  if (!triggers.length) {
-    Logger.log('No triggers installed on this project.');
-    return;
-  }
+/** Print the real installed state alongside what this file intends. */
+function showAllSchedules() {
   Logger.log('Time zone: %s', Session.getScriptTimeZone());
-  Logger.log('%s trigger(s) installed:', triggers.length);
-  triggers.forEach(function (t) {
-    Logger.log('  %s  (%s)', t.getHandlerFunction(), String(t.getEventType()));
+  Logger.log('');
+
+  Logger.log('Intended:');
+  Object.keys(SCHEDULES).forEach(function (key) {
+    var s = SCHEDULES[key];
+    Logger.log('  %s — %s', s.label, scheduleTimes_(s).map(formatTime_).join('  '));
   });
   Logger.log('');
-  Logger.log(
-    'Intended refresh times for %s: %s',
-    REFRESH_FUNCTION,
-    refreshTimes_().map(formatTime_).join(', ')
-  );
+
+  var triggers = ScriptApp.getProjectTriggers();
+  if (!triggers.length) {
+    Logger.log('Installed: none. Run installAllSchedules().');
+    return;
+  }
+
+  var counts = {};
+  triggers.forEach(function (t) {
+    var h = t.getHandlerFunction();
+    counts[h] = (counts[h] || 0) + 1;
+  });
+
+  Logger.log('Installed (%s total):', triggers.length);
+  Object.keys(counts).forEach(function (h) {
+    var note = h === REFRESH_FUNCTION ? '   <-- legacy 2-hour trigger, remove this' : '';
+    Logger.log('  %s x%s%s', h, counts[h], note);
+  });
 }
 
-/* ------------------------------------------------------------------ */
-
-function clearRefreshTriggers_() {
+function clearHandler_(name) {
   var n = 0;
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === REFRESH_FUNCTION) {
+    if (t.getHandlerFunction() === name) {
       ScriptApp.deleteTrigger(t);
       n++;
     }
@@ -112,20 +251,26 @@ function clearRefreshTriggers_() {
   return n;
 }
 
-/**
- * Build the run times by stepping INTERVAL_MINUTES from FIRST_RUN.
- * Any run that would spill past midnight is dropped rather than wrapping
- * into the small hours.
- */
-function refreshTimes_() {
+/* ------------------------------------------------------------------ */
+
+/** Step INTERVAL_MINUTES from the window's first run, wrapping past midnight. */
+function scheduleTimes_(schedule) {
   var out = [];
-  var minutes = FIRST_RUN.hour * 60 + FIRST_RUN.minute;
-  for (var i = 0; i < RUNS_PER_DAY; i++) {
-    if (minutes >= 24 * 60) break;
-    out.push({ hour: Math.floor(minutes / 60), minute: minutes % 60 });
+  var minutes = schedule.first.hour * 60 + schedule.first.minute;
+  for (var i = 0; i < schedule.runs; i++) {
+    var m = ((minutes % 1440) + 1440) % 1440;
+    out.push({ hour: Math.floor(m / 60), minute: m % 60 });
     minutes += INTERVAL_MINUTES;
   }
   return out;
+}
+
+function scheduleByLabel_(label) {
+  var keys = Object.keys(SCHEDULES);
+  for (var i = 0; i < keys.length; i++) {
+    if (SCHEDULES[keys[i]].label === label) return SCHEDULES[keys[i]];
+  }
+  return SCHEDULES.DAY;
 }
 
 function formatTime_(t) {

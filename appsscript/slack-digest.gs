@@ -20,6 +20,15 @@
 
 var SLACK_PROP_KEY = 'SLACK_CHANNEL_EMAIL';
 
+/**
+ * Optional. An Incoming Webhook URL for the same channel.
+ *
+ * Set this and messages become native Slack posts with the text visible in
+ * the channel. Leave it unset and messages go by email, which works but
+ * always renders as a collapsed card that has to be clicked open.
+ */
+var SLACK_WEBHOOK_PROP = 'SLACK_WEBHOOK_URL';
+
 /* ------------------------------------------------------------------ *
  * Entry points
  * ------------------------------------------------------------------ */
@@ -204,17 +213,83 @@ function slackAddress_() {
 }
 
 /**
- * Post an arbitrary subject and body to the channel.
+ * Post to the channel, preferring a webhook and falling back to email.
  *
- * This is the only place that actually talks to Slack. Everything else that
- * wants to post goes through here, so the address handling and the plain-text
- * rule live in one spot.
+ * Two routes, and the difference is visible in the channel:
+ *
+ *   Webhook  posts a native Slack message. The text is visible inline and
+ *            Slack mrkdwn works, so a code block holds column alignment.
+ *   Email    posts a collapsed email card. Slack always renders inbound mail
+ *            this way — subject showing, body behind a click — and no header
+ *            or formatting changes that.
+ *
+ * The webhook is used whenever SLACK_WEBHOOK_URL is set, so adding that one
+ * property upgrades every message without touching any other code.
  */
 function postToSlack_(subject, body) {
+  var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
+  if (hook) return postViaWebhook_(hook, subject, body);
+  return postViaEmail_(subject, body);
+}
+
+/**
+ * Native Slack message. Body goes inside a code block so the alignment
+ * survives — Slack collapses ordinary runs of spaces, which would otherwise
+ * turn a tidy column of numbers into a ragged one.
+ */
+function postViaWebhook_(url, subject, body) {
+  if (url.indexOf('https://hooks.slack.com/') !== 0) {
+    throw new Error(
+      'SLACK_WEBHOOK_URL should start with https://hooks.slack.com/ — got [' + url + ']'
+    );
+  }
+
+  var payload = {
+    text: subject,
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: '*' + subject + '*' }
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: '```\n' + body + '\n```' }
+      }
+    ]
+  };
+
+  var res = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var code = res.getResponseCode();
+  if (code !== 200) {
+    throw new Error('Slack webhook returned ' + code + ': ' + res.getContentText());
+  }
+
+  Logger.log('Posted via webhook.\n%s\n\n%s', subject, body);
+  return 'webhook';
+}
+
+/** Fallback route. Delivers reliably, but renders as a collapsed card. */
+function postViaEmail_(subject, body) {
   var to = slackAddress_();
   MailApp.sendEmail({ to: to, subject: subject, body: body });
-  Logger.log('Posted to %s\nSubject: %s\n\n%s', to, subject, body);
+  Logger.log('Posted via email to %s\nSubject: %s\n\n%s', to, subject, body);
   return to;
+}
+
+/** Which route is live right now. */
+function whichSlackRoute() {
+  var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
+  if (hook) {
+    Logger.log('Webhook — native messages, text visible inline.');
+  } else {
+    Logger.log('Email — collapsed cards. Set SLACK_WEBHOOK_URL to upgrade.');
+  }
 }
 
 function sendSlackDigest_() {

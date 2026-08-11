@@ -371,19 +371,61 @@ function sendSlackDigest_(label, warning) {
  * Locate the Command Centre tab by its title text rather than by tab name,
  * so renaming the tab does not break this.
  */
+/**
+ * Locate the Command Centre tab, by name first.
+ *
+ * Searching every tab for the text "COMMAND CENTRE" is not safe here: the
+ * Sales Monitoring tab carries the line "cross-check vs Command Centre" and
+ * sits earlier in the workbook, so a content scan locks onto it, finds none
+ * of the KPI labels, and reports a dash for every figure.
+ *
+ * The tab name is the reliable signal. Content matching stays as a fallback
+ * for a renamed tab, but only where the text begins the cell, which is true
+ * of the title and not of a passing mention in a note.
+ */
 function findCommandCentre_() {
   var sheets = SpreadsheetApp.getActive().getSheets();
+
   for (var i = 0; i < sheets.length; i++) {
-    var hit = sheets[i]
-      .createTextFinder('COMMAND CENTRE')
-      .matchCase(false)
-      .matchEntireCell(false)
-      .findNext();
-    if (hit) {
-      return { sheet: sheets[i], titleCell: hit, grid: readGrid_(sheets[i]) };
+    if (/^\s*command\s*centre\s*$/i.test(sheets[i].getName())) {
+      return wrapCommandCentre_(sheets[i]);
     }
   }
-  throw new Error('No tab contains the text "COMMAND CENTRE".');
+
+  for (var j = 0; j < sheets.length; j++) {
+    var grid = readGrid_(sheets[j]);
+    for (var r = 0; r < grid.length; r++) {
+      for (var c = 0; c < grid[r].length; c++) {
+        if (/^\s*command\s+centre\b/i.test(String(grid[r][c]))) {
+          return {
+            sheet: sheets[j],
+            titleCell: sheets[j].getRange(r + 1, c + 1),
+            grid: grid
+          };
+        }
+      }
+    }
+  }
+
+  throw new Error(
+    'Could not find the Command Centre tab. No tab is named "Command Centre" ' +
+      'and no cell begins with that text.'
+  );
+}
+
+function wrapCommandCentre_(sheet) {
+  var grid = readGrid_(sheet);
+  var titleCell = sheet.getRange(1, 1);
+  for (var r = 0; r < grid.length && r < 10; r++) {
+    for (var c = 0; c < grid[r].length; c++) {
+      if (/^\s*command\s+centre\b/i.test(String(grid[r][c]))) {
+        titleCell = sheet.getRange(r + 1, c + 1);
+        r = grid.length;
+        break;
+      }
+    }
+  }
+  return { sheet: sheet, titleCell: titleCell, grid: grid };
 }
 
 /** Read the whole used range once, as displayed strings. */

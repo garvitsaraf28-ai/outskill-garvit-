@@ -93,6 +93,16 @@ function buildReport_(label, firedAt) {
 
   var lines = [];
   lines.push('As at ' + firedAt + ' IST   (' + label + ')');
+
+  // A report of dashes looks like real data at a glance. If the headline
+  // figure did not resolve, say so and name the tab that was read, rather
+  // than posting something that reads as a genuine zero.
+  if (revenue === '—' || revenue === '') {
+    lines.push('');
+    lines.push('!! Could not read the figures. Tab read was "' +
+      cc.sheet.getName() + '". Numbers below are not reliable.');
+  }
+
   lines.push('');
 
   lines.push('Revenue        ' + revenue);

@@ -8,7 +8,8 @@
  *
  * CURRENT STATE: each firing posts a test message naming the window and the
  * time it fired. That is deliberate — it proves the schedule and the Slack
- * path work before any real content depends on them. See buildReport_ below
+ * Each firing refreshes the sheet, then posts the Command Centre report. See
+ * buildReport_ below
  * for the single place to swap in the actual report, and runSchedule_ for
  * where to re-enable the sheet refresh.
  *
@@ -126,7 +127,16 @@ function buildReport_(label, firedAt) {
 
   lines.push('Units ' + get_(cc, 'Units') + '   avg ticket ' + get_(cc, 'Average ticket'));
 
-  return lines.join('\n');
+  // The subject is the only part visible without opening the message in a
+  // notification or channel list, so it carries the headline rather than
+  // describing the mechanism that sent it.
+  var subject = '[' + label + '] Inside Sales  ' + revenue +
+    '   ' + get_(cc, 'Attainment') + ' of target';
+  if (delta !== 'no change' && delta.charAt(0) === '+') {
+    subject += '   ' + delta;
+  }
+
+  return { subject: subject, body: lines.join('\n') };
 }
 
 /**
@@ -218,10 +228,8 @@ function runSchedule_(key) {
     Logger.log('%s — %s', schedule.label, failures.join(' | '));
   }
 
-  postToSlack_(
-    '[' + schedule.label + '] Schedule test — ' + firedAt,
-    buildReport_(schedule.label, firedAt)
-  );
+  var report = buildReport_(schedule.label, firedAt);
+  postToSlack_(report.subject, report.body);
 }
 
 /**

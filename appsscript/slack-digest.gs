@@ -35,6 +35,44 @@ function slackDigest() {
   sendSlackDigest_();
 }
 
+/**
+ * Run this when the digest reports success but nothing reaches the channel.
+ *
+ * It sends the same short message twice — once to the Slack channel address,
+ * once to the account running the script — which splits the two failure modes
+ * apart. If the copy to yourself arrives and the channel stays empty, Google
+ * is sending fine and the problem is the address or the Slack side. If neither
+ * arrives, the problem is on the Google side and the quota and scope readings
+ * below will say which.
+ */
+function diagnoseSlack() {
+  var raw = PropertiesService.getScriptProperties().getProperty(SLACK_PROP_KEY);
+  var clean = normalizeAddress_(raw);
+  var me = Session.getEffectiveUser().getEmail();
+
+  Logger.log('stored value : [%s]', raw);
+  Logger.log('after cleanup: [%s]', clean);
+  Logger.log('email shaped : %s', isEmailShaped_(clean));
+  Logger.log('sending as   : %s', me);
+  Logger.log('quota left   : %s', MailApp.getRemainingDailyQuota());
+
+  if (!isEmailShaped_(clean)) {
+    Logger.log('STOP — the address is malformed. Fix the property, then re-run.');
+    return;
+  }
+
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss');
+  var body = 'Slack delivery probe sent at ' + stamp + ' IST from ' + me + '.';
+
+  MailApp.sendEmail({ to: clean, subject: 'Slack probe ' + stamp, body: body });
+  Logger.log('-> sent to channel address %s', clean);
+
+  MailApp.sendEmail({ to: me, subject: 'Slack probe (copy to self) ' + stamp, body: body });
+  Logger.log('-> sent copy to %s', me);
+
+  Logger.log('Give it 2 minutes, then compare: channel vs your own inbox.');
+}
+
 /** Create the 09:30 and 18:30 IST triggers. Safe to re-run; clears its own first. */
 function installSlackTriggers() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -70,15 +108,49 @@ function removeSlackTriggers() {
  * Core
  * ------------------------------------------------------------------ */
 
-function sendSlackDigest_() {
-  var to = PropertiesService.getScriptProperties().getProperty(SLACK_PROP_KEY);
-  if (!to) {
+/**
+ * Accept the address in any of the forms a mail client will hand you:
+ *
+ *   team-pv-xxxx@growthschoolio.slack.com
+ *   <team-pv-xxxx@growthschoolio.slack.com>
+ *   "team-pv (Slack)" <team-pv-xxxx@growthschoolio.slack.com>
+ *
+ * MailApp will take the display form without complaining and then fail to
+ * deliver, so the bare address is extracted before sending.
+ */
+function normalizeAddress_(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  var angled = s.match(/<([^>]+)>/);
+  if (angled) s = angled[1];
+  s = s.replace(/^["']|["']$/g, '').trim();
+  return s;
+}
+
+function isEmailShaped_(s) {
+  return /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(s);
+}
+
+function slackAddress_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(SLACK_PROP_KEY);
+  if (!raw) {
     throw new Error(
       'Script property ' +
         SLACK_PROP_KEY +
         ' is not set. Add it under Project Settings > Script properties.'
     );
   }
+  var to = normalizeAddress_(raw);
+  if (!isEmailShaped_(to)) {
+    throw new Error(
+      'SLACK_CHANNEL_EMAIL does not look like an address after cleanup. ' +
+        'Stored value was [' + raw + '], which reduced to [' + to + '].'
+    );
+  }
+  return to;
+}
+
+function sendSlackDigest_() {
+  var to = slackAddress_();
 
   var cc = findCommandCentre_();
   var body = buildDigest_(cc);

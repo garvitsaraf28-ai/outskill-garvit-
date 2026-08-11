@@ -33,10 +33,23 @@ var SLACK_WEBHOOK_PROP = 'SLACK_WEBHOOK_URL';
  * Entry points
  * ------------------------------------------------------------------ */
 
-/** Send one digest right now. Use this to verify the wiring. */
+/**
+ * Send one digest right now, and say which route carried it.
+ *
+ * The route is the thing to check: 'webhook' is a native message with the
+ * text visible in the channel, anything else is the email fallback and its
+ * collapsed card.
+ */
 function testSlack() {
   var result = sendSlackDigest_();
-  Logger.log('Sent to %s\n\n%s', result.to, result.body);
+  Logger.log('Route: %s', result.route);
+  if (result.route !== 'webhook') {
+    Logger.log(
+      'This went by email, so it will appear as a collapsed card. ' +
+        'Set SLACK_WEBHOOK_URL in Script properties for a native message.'
+    );
+  }
+  Logger.log('\n%s\n\n%s', result.subject, result.body);
 }
 
 /** Scheduled entry point. Point triggers at this. */
@@ -282,6 +295,31 @@ function postViaEmail_(subject, body) {
   return to;
 }
 
+/**
+ * Post a short message through the webhook only, and report what Slack said.
+ *
+ * Use this to test the webhook on its own. It never falls back to email, so
+ * a failure here is unambiguously a webhook problem and Slack's own response
+ * body names the reason — no_service for a revoked URL, channel_not_found if
+ * the app was removed from the channel.
+ */
+function testWebhook() {
+  var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
+  if (!hook) {
+    Logger.log(
+      'SLACK_WEBHOOK_URL is not set. Add it under Project Settings > Script ' +
+        'properties, then run this again.'
+    );
+    return;
+  }
+
+  Logger.log('URL starts: %s...', hook.slice(0, 40));
+
+  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm:ss');
+  postViaWebhook_(hook, 'Webhook test ' + stamp, 'If you can read this in the channel\nwithout clicking anything, the webhook works.');
+  Logger.log('Slack accepted it. Check the channel.');
+}
+
 /** Which route is live right now. */
 function whichSlackRoute() {
   var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
@@ -292,15 +330,24 @@ function whichSlackRoute() {
   }
 }
 
-function sendSlackDigest_() {
-  var to = slackAddress_();
-
+/**
+ * Build the digest and hand it to postToSlack_, which picks the route.
+ *
+ * Everything that posts goes through postToSlack_. Calling MailApp here
+ * instead is what pinned the digest to email regardless of whether a
+ * webhook was configured.
+ */
+function sendSlackDigest_(label, warning) {
   var cc = findCommandCentre_();
-  var body = buildDigest_(cc);
-  var subject = 'Inside Sales — ' + monthLabel_(cc) + ' — ' + get_(cc, 'Revenue');
 
-  MailApp.sendEmail({ to: to, subject: subject, body: body, noReply: false });
-  return { to: to, body: body, subject: subject };
+  var body = buildDigest_(cc);
+  if (warning) body = warning + '\n\n' + body;
+
+  var subject = 'Inside Sales — ' + monthLabel_(cc) + ' — ' + get_(cc, 'Revenue');
+  if (label) subject = '[' + label + '] ' + subject;
+
+  var route = postToSlack_(subject, body);
+  return { route: route, body: body, subject: subject };
 }
 
 /**

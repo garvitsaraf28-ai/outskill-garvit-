@@ -250,10 +250,27 @@ function postToSlack_(subject, body) {
  * survives — Slack collapses ordinary runs of spaces, which would otherwise
  * turn a tidy column of numbers into a ragged one.
  */
+/**
+ * Pull the webhook URL out of whatever was pasted.
+ *
+ * Slack presents the URL inside a sample curl command, so that whole line is
+ * the most natural thing to copy. Rather than requiring a clean paste,
+ * extract the first hooks.slack.com URL found in the value. The character
+ * class stops at the quote that closes the curl argument.
+ */
+function normalizeWebhook_(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  var m = s.match(/https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9_\/-]+/);
+  return m ? m[0] : s;
+}
+
 function postViaWebhook_(url, subject, body) {
-  if (url.indexOf('https://hooks.slack.com/') !== 0) {
+  url = normalizeWebhook_(url);
+
+  if (url.indexOf('https://hooks.slack.com/services/') !== 0) {
     throw new Error(
-      'SLACK_WEBHOOK_URL should start with https://hooks.slack.com/ — got [' + url + ']'
+      'No Slack webhook URL found in SLACK_WEBHOOK_URL. Expected something ' +
+        'containing https://hooks.slack.com/services/... — got [' + url + ']'
     );
   }
 

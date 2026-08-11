@@ -126,8 +126,60 @@ function normalizeAddress_(raw) {
   return s;
 }
 
+/**
+ * Explain what is wrong with an address, or return null if it is usable.
+ *
+ * A plain shape check is not enough here. An address copied out of a UI that
+ * abbreviates long strings comes back as team-pv-…@growthschoolio.slack.com —
+ * one U+2026 ellipsis standing in for the 25-character token. That still
+ * satisfies "something@something.something", so MailApp accepts it, reports
+ * success, decrements the quota, and the mail bounces because the mailbox
+ * does not exist. Nothing surfaces as an error. Hence the two extra checks.
+ */
+function addressProblem_(s) {
+  if (!s) return 'it is empty';
+
+  var nonAscii = String(s).match(/[^\x20-\x7E]/g);
+  if (nonAscii) {
+    var described = nonAscii
+      .map(function (ch) {
+        return (
+          JSON.stringify(ch) +
+          ' (U+' + ('000' + ch.charCodeAt(0).toString(16).toUpperCase()).slice(-4) + ')'
+        );
+      })
+      .join(', ');
+    return (
+      'it contains ' + described + '. An ellipsis or other non-ASCII character ' +
+      'almost always means the address was copied from a display that ' +
+      'abbreviated it. Use the copy button in Slack rather than selecting the ' +
+      'visible text.'
+    );
+  }
+
+  if (!/^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(s)) {
+    return 'it is not shaped like an email address';
+  }
+
+  // Slack channel addresses are channel-name + '-' + a long random token.
+  // A short tail means the token was cut off.
+  if (/\.slack\.com$/i.test(s)) {
+    var local = s.slice(0, s.indexOf('@'));
+    var token = local.slice(local.lastIndexOf('-') + 1);
+    if (token.length < 16) {
+      return (
+        'the Slack token looks truncated — the part after the last hyphen is "' +
+        token + '" (' + token.length + ' characters), where a real one runs to ' +
+        'roughly 24 or more.'
+      );
+    }
+  }
+
+  return null;
+}
+
 function isEmailShaped_(s) {
-  return /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(s);
+  return addressProblem_(s) === null;
 }
 
 function slackAddress_() {
@@ -140,10 +192,12 @@ function slackAddress_() {
     );
   }
   var to = normalizeAddress_(raw);
-  if (!isEmailShaped_(to)) {
+  var problem = addressProblem_(to);
+  if (problem) {
     throw new Error(
-      'SLACK_CHANNEL_EMAIL does not look like an address after cleanup. ' +
-        'Stored value was [' + raw + '], which reduced to [' + to + '].'
+      'SLACK_CHANNEL_EMAIL is unusable: ' + problem +
+        '\nStored value: [' + raw + ']' +
+        '\nAfter cleanup: [' + to + ']'
     );
   }
   return to;

@@ -60,8 +60,20 @@ function diagnoseToDrive() {
     clean = normalizeAddress_(raw);
     return '[' + clean + ']';
   });
-  probe_(out, 'email shaped', function () {
-    return isEmailShaped_(clean) ? 'yes' : 'NO — this will never deliver';
+  probe_(out, 'character codes', function () {
+    return clean
+      .split('')
+      .map(function (ch) {
+        var c = ch.charCodeAt(0);
+        return c > 126 || c < 32
+          ? ch + '=U+' + ('000' + c.toString(16).toUpperCase()).slice(-4) + '(BAD)'
+          : ch;
+      })
+      .join('');
+  });
+  probe_(out, 'usable', function () {
+    var problem = addressProblem_(clean);
+    return problem ? 'NO — ' + problem : 'yes';
   });
   probe_(out, 'domain', function () {
     var at = clean.lastIndexOf('@');

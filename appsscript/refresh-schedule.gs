@@ -116,16 +116,22 @@ function runSchedule_(key) {
     'dd-MMM-yyyy HH:mm'
   );
 
-  // To refresh the sheet before reporting, uncomment the block below once
-  // REFRESH_FUNCTION above is confirmed correct. A refresh failure is caught
-  // deliberately so the Slack post still goes out with the failure named,
-  // rather than the schedule dying silently in the execution log.
-  //
-  // try {
-  //   callRefresh_();
-  // } catch (err) {
-  //   Logger.log('%s — refresh failed: %s', schedule.label, err.message);
-  // }
+  // Refresh first, report second. This is what keeps exec_Snapshot current:
+  // the pre-existing trigger calls refreshAndVerify alone, which updates the
+  // Command Centre and leaves the snapshot behind, so the sequence has to run
+  // from here. Failures are captured rather than thrown, so a broken step
+  // still gets reported to Slack instead of dying in the execution log.
+  var failures = [];
+  try {
+    callRefresh_().forEach(function (r) {
+      if (r.status !== 'ok') failures.push(r.name + ': ' + r.status);
+    });
+  } catch (err) {
+    failures.push('refresh sequence: ' + (err && err.message ? err.message : String(err)));
+  }
+  if (failures.length) {
+    Logger.log('%s — %s', schedule.label, failures.join(' | '));
+  }
 
   postToSlack_(
     '[' + schedule.label + '] Schedule test — ' + firedAt,
@@ -195,6 +201,98 @@ function callRefresh_() {
 /* ------------------------------------------------------------------ *
  * Install / inspect / remove
  * ------------------------------------------------------------------ */
+
+/**
+ * Install the schedules and write the outcome to Drive.
+ *
+ * installAllSchedules() has run twice without any trigger appearing, and its
+ * only output is the execution log, which cannot be read from outside the
+ * project. This does the same install, captures whatever it throws, and
+ * writes the before and after trigger lists to schedule_install.txt in the
+ * SuperLeap Feed folder, so the failure can be seen rather than inferred.
+ */
+function installAllSchedulesToDrive() {
+  var out = [];
+  var stamp;
+  try {
+    stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd-MMM-yyyy HH:mm:ss');
+  } catch (e) {
+    stamp = new Date().toISOString();
+  }
+
+  out.push('SCHEDULE INSTALL');
+  out.push('Generated ' + stamp);
+  out.push('');
+
+  out.push('BEFORE');
+  out.push('  ' + triggerSummary_());
+  out.push('');
+
+  out.push('ATTEMPT');
+  try {
+    Object.keys(SCHEDULES).forEach(function (key) {
+      var s = SCHEDULES[key];
+      try {
+        var removed = clearHandler_(s.handler);
+        var times = scheduleTimes_(s);
+        times.forEach(function (t) {
+          ScriptApp.newTrigger(s.handler)
+            .timeBased()
+            .atHour(t.hour)
+            .nearMinute(t.minute)
+            .everyDays(1)
+            .create();
+        });
+        out.push('  ' + s.label + ': removed ' + removed + ', created ' + times.length +
+          ' at ' + times.map(formatTime_).join(' '));
+      } catch (err) {
+        out.push('  ' + s.label + ': FAILED — ' + (err && err.message ? err.message : String(err)));
+      }
+    });
+  } catch (err) {
+    out.push('  OUTER FAILURE — ' + (err && err.message ? err.message : String(err)));
+  }
+  out.push('');
+
+  out.push('AFTER');
+  out.push('  ' + triggerSummary_());
+  out.push('');
+  out.push('Time zone: ' + Session.getScriptTimeZone());
+
+  var text = out.join('\n');
+  Logger.log(text);
+
+  var folder = null;
+  try {
+    folder = DriveApp.getFolderById(DIAG_FOLDER_ID);
+  } catch (e) {}
+  var name = 'schedule_install.txt';
+  if (folder) {
+    var old = folder.getFilesByName(name);
+    while (old.hasNext()) old.next().setTrashed(true);
+    folder.createFile(name, text, MimeType.PLAIN_TEXT);
+  } else {
+    DriveApp.createFile(name, text, MimeType.PLAIN_TEXT);
+  }
+  Logger.log('\nWritten to %s', name);
+}
+
+function triggerSummary_() {
+  try {
+    var ts = ScriptApp.getProjectTriggers();
+    if (!ts.length) return 'none';
+    var counts = {};
+    ts.forEach(function (t) {
+      var h = t.getHandlerFunction();
+      counts[h] = (counts[h] || 0) + 1;
+    });
+    return Object.keys(counts).sort().map(function (h) {
+      return h + ' x' + counts[h];
+    }).join(', ');
+  } catch (err) {
+    return 'ERROR — ' + err.message;
+  }
+}
 
 /** Fire both windows once, right now, without waiting for a trigger. */
 function testBothSchedules() {

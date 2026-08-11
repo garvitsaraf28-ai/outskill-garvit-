@@ -34,13 +34,21 @@
 var INTERVAL_MINUTES = 150;
 
 /**
- * The existing function that rebuilds the sheet.
+ * The refresh sequence, run in order.
  *
- * Not called yet — the schedules post a test message only. Confirm this name
- * matches your real entry point before re-enabling the refresh in
- * runSchedule_, because a wrong name there fails at fire time, not now.
+ * refreshAndVerify is what the existing trigger calls and it demonstrably
+ * updates the Command Centre. It does not rebuild exec_Snapshot: on 11 Aug a
+ * refresh stamped the Command Centre at 18:26 while exec_Snapshot stayed at
+ * 15:59, which is why the Executive page reads stale while every other page
+ * looks current.
+ *
+ * buildExecSnapshot is therefore called after it, explicitly, rather than
+ * trusting any one entry point to cover both.
  */
-var REFRESH_FUNCTION = 'refreshEverything';
+var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot'];
+
+/** Kept for the older trigger-cleanup helpers. */
+var REFRESH_FUNCTION = 'refreshAndVerify';
 
 /**
  * The two windows. `first` is the opening run, `runs` is how many firings
@@ -125,17 +133,63 @@ function runSchedule_(key) {
   );
 }
 
-/** Resolve and call the refresh function by name, at global scope. */
+/**
+ * Refresh now, and report what each step did.
+ *
+ * Run this to bring exec_Snapshot back in line with the Command Centre
+ * without waiting for a schedule. Each step is timed and its outcome
+ * recorded, so a step that fails names itself instead of stopping the rest.
+ */
+function runRefreshNow() {
+  var results = callRefresh_();
+  Logger.log('REFRESH SEQUENCE');
+  results.forEach(function (r) {
+    Logger.log('  %s — %s (%ss)', r.name, r.status, r.seconds);
+  });
+  var failed = results.filter(function (r) { return r.status !== 'ok'; });
+  Logger.log('');
+  Logger.log(failed.length ? '%s step(s) failed.' : 'All steps completed.', failed.length);
+  Logger.log('Check exec_Snapshot — generatedAt should now match the Command Centre.');
+  return results;
+}
+
+/**
+ * Run every function in REFRESH_SEQUENCE, in order.
+ *
+ * A failing step is recorded and the sequence continues, because the steps
+ * are independent — a broken verify should not stop the snapshot rebuild
+ * that the Executive page depends on.
+ */
 function callRefresh_() {
   var g = typeof globalThis !== 'undefined' ? globalThis : this;
-  var fn = g[REFRESH_FUNCTION];
-  if (typeof fn !== 'function') {
-    throw new Error(
-      'No function named "' + REFRESH_FUNCTION + '" exists in this project. ' +
-        'Set REFRESH_FUNCTION to your actual refresh entry point.'
-    );
-  }
-  fn();
+  var results = [];
+
+  REFRESH_SEQUENCE.forEach(function (name) {
+    var started = new Date().getTime();
+    var fn = g[name];
+
+    if (typeof fn !== 'function') {
+      results.push({ name: name, status: 'MISSING — no such function', seconds: 0 });
+      return;
+    }
+
+    try {
+      fn();
+      results.push({
+        name: name,
+        status: 'ok',
+        seconds: ((new Date().getTime() - started) / 1000).toFixed(1)
+      });
+    } catch (err) {
+      results.push({
+        name: name,
+        status: 'FAILED — ' + (err && err.message ? err.message : String(err)),
+        seconds: ((new Date().getTime() - started) / 1000).toFixed(1)
+      });
+    }
+  });
+
+  return results;
 }
 
 /* ------------------------------------------------------------------ *

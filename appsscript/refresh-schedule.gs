@@ -6,12 +6,9 @@
  *   Day    11:30  14:00  16:30  19:00  21:30
  *   Night  19:30  22:00  00:30  03:00  05:30
  *
- * CURRENT STATE: each firing posts a test message naming the window and the
- * time it fired. That is deliberate — it proves the schedule and the Slack
- * Each firing refreshes the sheet, then posts the Command Centre report. See
- * buildReport_ below
- * for the single place to swap in the actual report, and runSchedule_ for
- * where to re-enable the sheet refresh.
+ * Each firing runs the refresh sequence, then posts the Command Centre
+ * report to Slack. buildReport_ is the single place that decides what the
+ * message says; runSchedule_ is where the refresh happens first.
  *
  * Why fixed clock times rather than an interval
  * ---------------------------------------------
@@ -25,8 +22,8 @@
  * so read these as "around 11:30", not to the second.
  *
  * Setup:
- *   1. Make sure slack-digest.gs is in this project and SLACK_CHANNEL_EMAIL
- *      is set, then run testSlack() once to confirm delivery works.
+ *   1. Make sure slack-digest.gs is in this project and SLACK_WEBHOOK_URL is
+ *      set, then run testWebhook() once to confirm delivery works.
  *   2. Run installAllSchedules().
  *   3. Run showAllSchedules() to confirm what is installed.
  */

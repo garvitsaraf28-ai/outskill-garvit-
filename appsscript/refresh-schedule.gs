@@ -74,23 +74,98 @@ var SCHEDULES = {
  * What each firing sends
  * ------------------------------------------------------------------ */
 
+/** Where the previous run's revenue is kept, to compute the delta. */
+var LAST_REVENUE_PROP = 'LAST_REPORTED_REVENUE';
+
 /**
- * Placeholder report.
+ * The report.
  *
- * Replace the body of this function when the real report is defined. Both
- * windows call it, so whatever it returns is what lands in Slack. To give
- * the two windows different content, branch on `label` — it is 'Day' or
- * 'Night'.
+ * Ten posts a day means a static snapshot becomes wallpaper, so the first
+ * line after the headline is what changed since the previous post. The
+ * previous figure is kept in Script Properties; the first run has nothing to
+ * compare against and says so rather than showing a misleading +0.
  */
 function buildReport_(label, firedAt) {
-  return [
-    label + ' schedule fired at ' + firedAt + ' IST.',
-    '',
-    'This is a test message. Report content is not wired up yet.',
-    '',
-    'Window: ' + scheduleTimes_(scheduleByLabel_(label)).map(formatTime_).join('  '),
-    SpreadsheetApp.getActive().getUrl()
-  ].join('\n');
+  var cc = findCommandCentre_();
+
+  var revenue = get_(cc, 'Revenue');
+  var delta = revenueDelta_(revenue);
+
+  var lines = [];
+  lines.push('As at ' + firedAt + ' IST   (' + label + ')');
+  lines.push('');
+
+  lines.push('Revenue        ' + revenue);
+  lines.push('Since last     ' + delta);
+  lines.push('Target         ' + get_(cc, 'Target'));
+  lines.push('Attainment     ' + get_(cc, 'Attainment'));
+  lines.push('Gap            ' + get_(cc, 'Gap to target'));
+  lines.push('');
+
+  lines.push('Day ' + get_(cc, 'Days elapsed') + ' of ' + get_(cc, 'Days in month') +
+    '   (' + get_(cc, 'Days remaining') + ' left)');
+  lines.push('Running at     ' + get_(cc, 'Daily rate achieved') + ' / day');
+  lines.push('Needs          ' + get_(cc, 'Daily rate needed') + ' / day');
+  lines.push('On track for   ' + get_(cc, 'Projected month end'));
+  lines.push('');
+
+  lines.push('Domestic       ' + get_(cc, 'Domestic'));
+  lines.push('International  ' + get_(cc, 'International'));
+  lines.push('Others         ' + get_(cc, 'Others'));
+  lines.push('');
+
+  lines.push('Units ' + get_(cc, 'Units') + '   avg ticket ' + get_(cc, 'Average ticket'));
+
+  return lines.join('\n');
+}
+
+/**
+ * Change in revenue since the previous post, and remember the new figure.
+ *
+ * Display strings carry commas and may carry a currency symbol, so the
+ * comparison is done on digits only. Anything unparseable is reported as
+ * such rather than silently becoming zero.
+ */
+function revenueDelta_(displayValue) {
+  var props = PropertiesService.getScriptProperties();
+  var previousRaw = props.getProperty(LAST_REVENUE_PROP);
+  var current = toNumber_(displayValue);
+
+  if (current === null) {
+    return '(could not read revenue)';
+  }
+
+  props.setProperty(LAST_REVENUE_PROP, String(current));
+
+  if (previousRaw === null) {
+    return '(first report — no baseline yet)';
+  }
+
+  var previous = toNumber_(previousRaw);
+  if (previous === null) return '(previous figure unreadable)';
+
+  var diff = current - previous;
+  if (diff === 0) return 'no change';
+
+  var sign = diff > 0 ? '+' : '-';
+  return sign + withCommas_(Math.abs(diff));
+}
+
+function toNumber_(v) {
+  var digits = String(v).replace(/[^0-9.\-]/g, '');
+  if (digits === '' || digits === '-' || digits === '.') return null;
+  var n = Number(digits);
+  return isNaN(n) ? null : n;
+}
+
+function withCommas_(n) {
+  var s = String(Math.round(n));
+  var out = '';
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 === 0) out += ',';
+    out += s.charAt(i);
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ *

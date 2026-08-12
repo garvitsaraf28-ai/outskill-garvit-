@@ -39,6 +39,18 @@ var AGENT_COLS = {
 };
 
 /**
+ * Which months an agent appears on the CBC roster for, e.g. "Jul, Aug".
+ *
+ * Optional on purpose. Without it the report cannot tell a leaver from a
+ * current agent, and the right answer then is to show everyone and say so -
+ * not to filter on something that is not there.
+ */
+var AGENT_ROSTER_COL = 'On roster';
+
+var AGENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
  * The dispositions to show per agent, and the short label each gets.
  *
  * Not all nine: a Slack section caps at 3000 characters and 66 agents have to
@@ -92,13 +104,29 @@ function buildAgentLeadReport_(label, firedAt) {
   var snapshot = agentSnapshotTime_(sheet);
   if (snapshot) lines.push('Source snapshot: ' + snapshot);
 
-  var agents = readAgentRows_(sheet);
+  var everyone = readAgentRows_(sheet);
 
-  if (!agents.length) {
+  if (!everyone.length) {
     lines.push('');
     lines.push('!! No agent rows found below the BY AGENT header. The block may ' +
       'have moved. Numbers are not reliable.');
     return { subject: '[' + label + '] no agent rows', body: lines.join('\n') };
+  }
+
+  // Someone who has left keeps their last month's manager, so a departed
+  // manager stays visible for as long as their departed team does - which is
+  // why Rohit R Pawaskar and PRIYATAM VUSALA appeared with six and one agent,
+  // every one of them gone. Report on who is on the roster now.
+  var split = agentSplitLeavers_(everyone);
+  var agents = split.current;
+  var left = split.left;
+
+  if (!agents.length) {
+    agents = everyone;
+    left = [];
+    lines.push('');
+    lines.push('!! Could not tell current agents from leavers - showing all ' +
+      everyone.length + '. ' + split.why);
   }
 
   var all = agentSummarise_(agents);
@@ -152,6 +180,17 @@ function buildAgentLeadReport_(label, firedAt) {
       '. Fix Manager Override on Agent Directory.');
   }
 
+  // Their leads did not leave with them, and nothing above counts these -
+  // so say it here rather than let the total quietly shrink.
+  if (left.length) {
+    var goneLeads = agentSummarise_(left).leads;
+    lines.push('');
+    lines.push('Not counted above — ' + left.length + ' agent(s) off the ' +
+      split.newest + ' roster still hold ' + withCommas_(goneLeads) + ' leads:');
+    lines.push('  ' + left.sort(function (x, y) { return y.leads - x.leads; })
+      .map(function (a) { return a.agent + ' ' + withCommas_(a.leads); }).join(', '));
+  }
+
   var subject = '[' + label + ']  ' + agents.length + ' agents   ' +
     withCommas_(all.leads) + ' leads   ' +
     withCommas_(all.pending) + ' not dispositioned';
@@ -193,6 +232,8 @@ function readAgentRows_(sheet) {
     dispAt[d.header] = header.indexOf(d.header);
   });
 
+  var rosterAt = header.indexOf(AGENT_ROSTER_COL);
+
   var first = headerRow + 1;
   var rows = sheet.getRange(first, 1, lastRow - first + 1, width).getDisplayValues();
   var out = [];
@@ -216,6 +257,7 @@ function readAgentRows_(sheet) {
       manager: manager || '(no manager)',
       team: String(rows[i][at.team]).trim(),
       status: String(rows[i][at.status]).trim(),
+      months: rosterAt < 0 ? [] : agentMonths_(rows[i][rosterAt]),
       leads: agentNumber_(rows[i][at.leads]),
       pending: agentNumber_(rows[i][at.pending]),
       dispositioned: agentNumber_(rows[i][at.dispositioned]),
@@ -291,6 +333,56 @@ function agentIsPlaceholder_(name) {
   return AGENT_PLACEHOLDER_MGRS.indexOf(String(name).trim().toLowerCase()) > -1;
 }
 
+/**
+ * Split agents into those on the newest CBC roster and those who have left.
+ *
+ * The rule is the workbook's own: syncAgentDirectory marks an agent Active
+ * when their latest month is the newest month and Left otherwise, so the
+ * newest month present in the "On roster" column is the current one and
+ * anybody missing it has gone.
+ *
+ * Returns everyone as current, with a reason, whenever that cannot be
+ * established - a report showing a few too many agents is recoverable, one
+ * that quietly drops working agents is not.
+ */
+function agentSplitLeavers_(agents) {
+  var seen = {};
+  agents.forEach(function (a) {
+    a.months.forEach(function (m) { seen[m] = true; });
+  });
+  var present = Object.keys(seen);
+
+  if (!present.length) {
+    return { current: [], left: [], newest: '',
+             why: 'The "' + AGENT_ROSTER_COL + '" column is empty or missing.' };
+  }
+
+  // Month names carry no year, so Dec and Jan together cannot be ordered -
+  // December 2026 and January 2027 look like the eleventh and the first.
+  if (seen.Dec && seen.Jan) {
+    return { current: [], left: [], newest: '',
+             why: 'Roster months span a year boundary (Dec and Jan), which ' +
+                  'cannot be ordered without a year.' };
+  }
+
+  var newest = present.reduce(function (best, m) {
+    return AGENT_MONTHS.indexOf(m) > AGENT_MONTHS.indexOf(best) ? m : best;
+  }, present[0]);
+
+  if (AGENT_MONTHS.indexOf(newest) < 0) {
+    return { current: [], left: [], newest: '',
+             why: 'Roster months are not recognisable month names.' };
+  }
+
+  var current = [], left = [];
+  agents.forEach(function (a) {
+    if (a.months.indexOf(newest) > -1) current.push(a);
+    else left.push(a);
+  });
+
+  return { current: current, left: left, newest: newest, why: '' };
+}
+
 /** Group rows by one field, heaviest group first. */
 function agentGroup_(agents, field, blank) {
   var groups = {}, order = [];
@@ -310,6 +402,13 @@ function agentSnapshotTime_(sheet) {
   var text = String(sheet.getRange(2, 1).getDisplayValue());
   var m = text.match(/snapshot\s+([^|]+)/i);
   return m ? m[1].trim() : '';
+}
+
+/** "Jul, Aug" -> ["Jul","Aug"]. slp_roster_ writes the abbreviation only. */
+function agentMonths_(v) {
+  return String(v == null ? '' : v).split(',')
+    .map(function (m) { return m.trim(); })
+    .filter(function (m) { return m.length > 0; });
 }
 
 /** Display values arrive with commas and percent signs. */

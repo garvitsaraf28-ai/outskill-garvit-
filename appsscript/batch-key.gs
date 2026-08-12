@@ -188,6 +188,61 @@ function previewBatchKeys() {
   Logger.log(out.join('\n'));
 }
 
+/**
+ * Every key in mdl_Batches, with the family, region and source tab it came
+ * from.
+ *
+ * The GEF and bootcamp codes in mdl_Payments resolve to nothing, and there
+ * are two possible reasons: the batches are absent from mdl_Batches, or they
+ * are present under a different spelling. Listing all 81 keys distinguishes
+ * them, and the Data column shows which src_ tab feeds the master list -
+ * which is where a whole missing family would have to be added.
+ */
+function listBatchKeys() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName(BATCH_TAB);
+  var out = [];
+  out.push('MDL_BATCHES CONTENTS');
+  out.push('');
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('  ' + BATCH_TAB + ' is empty or missing.');
+    return;
+  }
+
+  var n = sheet.getLastRow() - 1;
+  var rows = sheet.getRange(2, 1, n, 16).getDisplayValues();
+  var families = {}, sources = {}, listed = 0;
+
+  rows.forEach(function (r) {
+    var key = String(r[0]).trim();
+    if (!key) return;
+    listed++;
+
+    var family = String(r[3]).trim() || '-';
+    var source = String(r[15]).trim() || '-';
+    families[family] = (families[family] || 0) + 1;
+    sources[source] = (sources[source] || 0) + 1;
+
+    out.push('  ' + batchPad_(key, 12) + batchPad_(family, 14) +
+      batchPad_(String(r[4]).trim(), 15) + source);
+  });
+
+  out.push('');
+  out.push('  ' + listed + ' keys');
+  out.push('');
+  out.push('  BY FAMILY');
+  Object.keys(families).forEach(function (f) {
+    out.push('      ' + batchPad_(f, 16) + families[f]);
+  });
+  out.push('');
+  out.push('  BY SOURCE TAB');
+  Object.keys(sources).forEach(function (s) {
+    out.push('      ' + batchPad_(s, 16) + sources[s]);
+  });
+
+  Logger.log(out.join('\n'));
+}
+
 var BATCH_KEY_HEADER = 'Batch Key';
 
 /**

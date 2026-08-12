@@ -41,6 +41,74 @@ var SCAN_MAX_ROWS = 2000;
 var SCAN_MAX_COLS = 40;
 
 /**
+ * Can the SuperLeap data be filtered by workshop?
+ *
+ * A workshop dropdown over the SuperLeap tabs needs the underlying leads to
+ * say which workshop each one belongs to. The BY AGENT block does not carry
+ * that - it is one row per agent - so the field has to exist on the raw
+ * export, and if it does not, no dropdown over these tabs can work and the
+ * leads have to be joined to a batch some other way first.
+ *
+ * Profile every column of _slp_raw: header, how many distinct values, and a
+ * few samples. A workshop column shows up as a small number of distinct
+ * values that look like batch codes or workshop names.
+ */
+function checkWorkshopDimension() {
+  var ss = SpreadsheetApp.getActive();
+  var out = [];
+  out.push('WORKSHOP DIMENSION CHECK');
+  out.push('');
+
+  ['_slp_raw', 'SuperLeap Stage'].forEach(function (name) {
+    var sheet = ss.getSheetByName(name);
+    out.push('=== ' + name + ' ===');
+
+    if (!sheet || !sheet.getLastRow()) {
+      out.push('  not found or empty');
+      out.push('');
+      return;
+    }
+
+    var rows = Math.min(sheet.getLastRow(), SCAN_MAX_ROWS);
+    var cols = Math.min(sheet.getLastColumn(), SCAN_MAX_COLS);
+    out.push('  ' + sheet.getLastRow() + ' rows x ' + sheet.getLastColumn() + ' cols' +
+      (sheet.getLastRow() > rows ? '   (profiling first ' + rows + ')' : ''));
+    out.push('');
+
+    var values = sheet.getRange(1, 1, rows, cols).getDisplayValues();
+
+    for (var c = 0; c < cols; c++) {
+      var header = String(values[0][c]).trim();
+      var seen = {}, samples = [], count = 0, filled = 0;
+
+      for (var r = 1; r < rows; r++) {
+        var v = String(values[r][c]).trim();
+        if (!v) continue;
+        filled++;
+        if (seen[v]) continue;
+        seen[v] = true;
+        count++;
+        if (samples.length < 4) samples.push(v);
+      }
+
+      if (!filled) continue;
+
+      // A workshop column is low-cardinality; a name or email column is not.
+      var flag = (count > 1 && count <= 200 && samples.some(function (s) {
+        return BATCH_CODE_RE.test(s) && !MONTH_RE.test(s);
+      })) ? '   <-- looks like batch codes' : '';
+
+      out.push('  ' + columnLetter(c + 1) + '  ' + (header || '(no header)'));
+      out.push('      ' + count + ' distinct, ' + filled + ' filled' + flag);
+      out.push('      ' + samples.join(' | '));
+    }
+    out.push('');
+  });
+
+  Logger.log(out.join('\n'));
+}
+
+/**
  * Find what inflates the payment totals.
  *
  * Summing Amount Paid across mdl_Payments gives about 990M, where Workshop

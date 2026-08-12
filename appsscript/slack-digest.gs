@@ -274,19 +274,15 @@ function postViaWebhook_(url, subject, body) {
     );
   }
 
-  var payload = {
-    text: subject,
-    blocks: [
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: '*' + subject + '*' }
-      },
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: '```\n' + body + '\n```' }
-      }
-    ]
-  };
+  // A Slack section caps at 3000 characters and the whole message at 50
+  // blocks. The per-agent report runs to roughly 9000, so a single section
+  // would be rejected outright as invalid_blocks and nothing would post.
+  var blocks = [{ type: 'section', text: { type: 'mrkdwn', text: '*' + subject + '*' } }];
+  chunkForSlack_(body).forEach(function (part) {
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: '```\n' + part + '\n```' } });
+  });
+
+  var payload = { text: subject, blocks: blocks };
 
   var res = UrlFetchApp.fetch(url, {
     method: 'post',
@@ -302,6 +298,34 @@ function postViaWebhook_(url, subject, body) {
 
   Logger.log('Posted via webhook.\n%s\n\n%s', subject, body);
   return 'webhook';
+}
+
+/**
+ * Split a body across Slack sections, breaking on line boundaries.
+ *
+ * The limit is 3000 characters per section; 2800 leaves room for the code
+ * fence this gets wrapped in. Breaking mid-line would split a number away
+ * from the agent it belongs to, so a line longer than the budget is emitted
+ * on its own rather than cut.
+ */
+var SLACK_SECTION_BUDGET = 2800;
+
+function chunkForSlack_(body) {
+  var lines = String(body).split('\n');
+  var parts = [], current = '';
+
+  lines.forEach(function (line) {
+    var candidate = current ? current + '\n' + line : line;
+    if (candidate.length <= SLACK_SECTION_BUDGET) {
+      current = candidate;
+      return;
+    }
+    if (current) parts.push(current);
+    current = line;
+  });
+
+  if (current) parts.push(current);
+  return parts.length ? parts : [''];
 }
 
 /** Fallback route. Delivers reliably, but renders as a collapsed card. */

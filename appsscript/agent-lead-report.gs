@@ -3,8 +3,8 @@
  *
  * Posted at 11:00, 19:00, 20:00 and 04:00 IST, alongside the 2.5-hourly
  * Disposition Update. Where that one reports money from the Command Centre,
- * this one reports where the leads are sitting per agent, read from the BY
- * AGENT block of the SuperLeap Churn tab.
+ * this one lists every agent by name with their disposition counts, read from
+ * the BY AGENT block of the SuperLeap Churn tab.
  *
  * That tab already reconciles agent names between the CBC roster and
  * SuperLeap ("Niraj" against "Niraj Paul") and already carries the
@@ -27,13 +27,7 @@ var AGENT_HEADER_ROW = 13;
 /** How far down to search before giving up on the header. */
 var AGENT_HEADER_SEARCH = 40;
 
-/** How many of the least-dispositioned agents to name. */
-var AGENT_ATTENTION_COUNT = 5;
-
-/**
- * Columns read from the block, by header text rather than by position, so
- * that a column inserted upstream shifts nothing silently.
- */
+/** Identity columns, by header text rather than by position. */
 var AGENT_COLS = {
   manager: 'Manager',
   team: 'Team',
@@ -43,6 +37,22 @@ var AGENT_COLS = {
   pending: 'Not dispositioned yet',
   dispositioned: 'Dispositioned %'
 };
+
+/**
+ * The dispositions to show per agent, and the short label each gets.
+ *
+ * Not all nine: a Slack section caps at 3000 characters and 66 agents have to
+ * fit. These five are the ones that describe what an agent actually did -
+ * reached nobody, is working someone, was turned down, or closed. Invalid,
+ * Disqualified, Lead, Already Paid and Financial Issue are on the tab for
+ * anyone who needs them and are summarised in the totals line below.
+ */
+var AGENT_DISPOSITIONS = [
+  { header: 'Non Contact', label: 'NC' },
+  { header: 'Prospect', label: 'Pros' },
+  { header: 'Not Interested', label: 'NI' },
+  { header: 'Sales Won', label: 'Won' }
+];
 
 function buildAgentLeadReport_(label, firedAt) {
   var sheet = SpreadsheetApp.getActive().getSheetByName(AGENT_TAB);
@@ -66,52 +76,50 @@ function buildAgentLeadReport_(label, firedAt) {
 
   if (!agents.length) {
     lines.push('');
-    lines.push('!! No agent rows found below r' + AGENT_HEADER_ROW +
-      '. The block may have moved. Numbers are not reliable.');
+    lines.push('!! No agent rows found below the BY AGENT header. The block may ' +
+      'have moved. Numbers are not reliable.');
     return { subject: '[' + label + '] no agent rows', body: lines.join('\n') };
   }
 
   var all = agentSummarise_(agents);
   lines.push('');
-  lines.push(all.count + ' agents        ' + withCommas_(all.leads) + ' leads');
+  lines.push(all.count + ' agents        ' + withCommas_(all.leads) + ' leads        ' +
+    withCommas_(all.pending) + ' not dispositioned (' +
+    agentPercent_(all.pending, all.leads) + ')');
   lines.push('');
 
   // India and International separately: the split is the reason this report
   // reads SuperLeap Churn rather than counting rows anywhere else.
   agentByTeam_(agents).forEach(function (t) {
-    lines.push(agentPad_(t.name, 15) + agentPad_(t.count + ' agents', 12) +
-      withCommas_(t.leads) + ' leads');
+    lines.push(agentPad_(t.name, 16) + agentPad_(t.count + ' agents', 12) +
+      agentLead_(withCommas_(t.leads) + ' leads', 14) +
+      withCommas_(t.pending) + ' pending');
   });
-  lines.push('');
 
-  lines.push('Not dispositioned  ' + withCommas_(all.pending) +
-    '   (' + agentPercent_(all.pending, all.leads) + ' of leads)');
-  lines.push('Dispositioned      ' + agentPercent_(all.leads - all.pending, all.leads) +
-    '   across all agents');
-  lines.push('');
+  // Every agent by name, under the manager they report to - the same grouping
+  // the tab uses, so a line here can be found there without translation.
+  agentByManager_(agents).forEach(function (group) {
+    lines.push('');
+    lines.push(group.name + '   (' + group.rows.length + ')');
+    group.rows.forEach(function (a) {
+      lines.push('  ' + agentPad_(a.agent, 24) +
+        agentLead_(withCommas_(a.leads), 7) +
+        AGENT_DISPOSITIONS.map(function (d) {
+          return agentPad_(d.label + ' ' + a.disp[d.header], 9);
+        }).join('') +
+        'pend ' + a.pending);
+    });
+  });
 
   var idle = agents.filter(function (a) { return a.leads > 0 && a.pending === a.leads; });
   if (idle.length) {
-    lines.push(idle.length + ' agent(s) have dispositioned nothing at all:');
-    idle.slice(0, AGENT_ATTENTION_COUNT).forEach(function (a) {
-      lines.push('  ' + agentPad_(a.agent, 26) + withCommas_(a.leads) + ' leads');
-    });
-    if (idle.length > AGENT_ATTENTION_COUNT) {
-      lines.push('  ... and ' + (idle.length - AGENT_ATTENTION_COUNT) + ' more');
-    }
     lines.push('');
+    lines.push(idle.length + ' agent(s) have dispositioned nothing at all: ' +
+      idle.map(function (a) { return a.agent; }).join(', '));
   }
 
-  var worst = agentLowestDispositioned_(agents);
-  if (worst.length) {
-    lines.push('Lowest dispositioned %:');
-    worst.forEach(function (a) {
-      lines.push('  ' + agentPad_(a.agent, 26) + agentPad_(a.dispositioned + '%', 9) +
-        withCommas_(a.pending) + ' pending');
-    });
-  }
-
-  var subject = '[' + label + ']  ' + withCommas_(all.leads) + ' leads   ' +
+  var subject = '[' + label + ']  ' + agents.length + ' agents   ' +
+    withCommas_(all.leads) + ' leads   ' +
     withCommas_(all.pending) + ' not dispositioned';
 
   return { subject: subject, body: lines.join('\n') };
@@ -143,6 +151,14 @@ function readAgentRows_(sheet) {
       missing.map(function (k) { return AGENT_COLS[k]; }).join(', '));
   }
 
+  // A disposition column that is not on the tab reports as 0 rather than
+  // taking the report down - the identity columns above are what it cannot
+  // do without.
+  var dispAt = {};
+  AGENT_DISPOSITIONS.forEach(function (d) {
+    dispAt[d.header] = header.indexOf(d.header);
+  });
+
   var first = headerRow + 1;
   var rows = sheet.getRange(first, 1, lastRow - first + 1, width).getDisplayValues();
   var out = [];
@@ -155,13 +171,21 @@ function readAgentRows_(sheet) {
     if (manager.toUpperCase() === 'TOTAL') break;
     if (agent.indexOf('@') > -1) break;
 
+    var disp = {};
+    AGENT_DISPOSITIONS.forEach(function (d) {
+      var c = dispAt[d.header];
+      disp[d.header] = c < 0 ? 0 : agentNumber_(rows[i][c]);
+    });
+
     out.push({
       agent: agent,
+      manager: manager || '(no manager)',
       team: String(rows[i][at.team]).trim(),
       status: String(rows[i][at.status]).trim(),
       leads: agentNumber_(rows[i][at.leads]),
       pending: agentNumber_(rows[i][at.pending]),
-      dispositioned: agentNumber_(rows[i][at.dispositioned])
+      dispositioned: agentNumber_(rows[i][at.dispositioned]),
+      disp: disp
     });
   }
   return out;
@@ -205,25 +229,33 @@ function agentSummarise_(agents) {
  * exactly the failure this report exists to make visible.
  */
 function agentByTeam_(agents) {
-  var groups = {};
+  return agentGroup_(agents, 'team', '(no team)').map(function (g) {
+    var s = agentSummarise_(g.rows);
+    return { name: g.name, count: s.count, leads: s.leads, pending: s.pending };
+  });
+}
+
+/** Agents under each manager, busiest manager first, busiest agent first. */
+function agentByManager_(agents) {
+  var groups = agentGroup_(agents, 'manager', '(no manager)');
+  groups.forEach(function (g) {
+    g.rows.sort(function (x, y) { return y.leads - x.leads; });
+  });
+  return groups;
+}
+
+/** Group rows by one field, heaviest group first. */
+function agentGroup_(agents, field, blank) {
+  var groups = {}, order = [];
   agents.forEach(function (a) {
-    var key = a.team || '(no team)';
-    if (!groups[key]) groups[key] = [];
+    var key = a[field] || blank;
+    if (!groups[key]) { groups[key] = []; order.push(key); }
     groups[key].push(a);
   });
 
-  return Object.keys(groups).map(function (name) {
-    var s = agentSummarise_(groups[name]);
-    return { name: name, count: s.count, leads: s.leads, pending: s.pending };
+  return order.map(function (name) {
+    return { name: name, rows: groups[name], leads: agentSummarise_(groups[name]).leads };
   }).sort(function (x, y) { return y.leads - x.leads; });
-}
-
-/** The least-dispositioned agents that still have leads to work. */
-function agentLowestDispositioned_(agents) {
-  return agents
-    .filter(function (a) { return a.pending > 0 && a.leads > 0; })
-    .sort(function (x, y) { return x.dispositioned - y.dispositioned; })
-    .slice(0, AGENT_ATTENTION_COUNT);
 }
 
 /** The "snapshot ..." part of the subtitle, which carries the data's age. */
@@ -248,4 +280,11 @@ function agentPad_(s, width) {
   s = String(s);
   while (s.length < width) s += ' ';
   return s;
+}
+
+/** Right-aligned, so a column of counts reads down the page. */
+function agentLead_(s, width) {
+  s = String(s);
+  while (s.length < width) s = ' ' + s;
+  return s + '  ';
 }

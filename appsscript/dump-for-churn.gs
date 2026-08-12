@@ -21,14 +21,20 @@ var CHURN_DUMP_TABS = [
 ];
 
 /**
- * Batch codes look like C160 / C155. Workshop Months turned out to hold
- * revenue by month rather than codes, so rather than guessing which tab
- * carries them, scan every tab and report where they actually live.
+ * Batch codes are not all one shape. C160 and C155 were the expected form,
+ * but Workshop Months also carries BC5, MC5, BC4 and GEF - 18967, so match
+ * any short letter prefix followed by digits rather than one fixed pattern.
  */
-var BATCH_CODE_RE = /^C\s?\d{2,4}$/i;
+var BATCH_CODE_RE = /^[A-Z]{1,4}[\s-]{0,3}\d{1,5}$/i;
 
-/** Same code, but anywhere inside a longer label. Used only as a fallback. */
-var BATCH_CODE_EMBEDDED_RE = /\bC\s?\d{2,4}\b/i;
+/** Same shape, anywhere inside a longer label. Used only as a fallback. */
+var BATCH_CODE_EMBEDDED_RE = /\b[A-Z]{1,4}[\s-]?\d{1,5}\b/i;
+
+/**
+ * "Aug 2026" fits the code shape exactly and appears all over this workbook,
+ * so month labels are the one false positive worth excluding by name.
+ */
+var MONTH_RE = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
 
 /** Bound the scan so a large tab cannot time the script out. */
 var SCAN_MAX_ROWS = 2000;
@@ -39,6 +45,20 @@ var SCAN_MAX_COLS = 40;
  * with a few sample codes and a distinct count. The column holding the most
  * distinct codes is the join key the churn report needs.
  */
+/**
+ * Locator only, as its own entry point. The full dump overruns the execution
+ * log every time, and the batch codes are the one open question - run this
+ * when that is all you need and the whole result fits in the log.
+ */
+function findBatchCodes() {
+  var out = [];
+  out.push('Generated ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(),
+    'dd-MMM-yyyy HH:mm:ss'));
+  out.push('');
+  findBatchCodeColumns(SpreadsheetApp.getActive(), out);
+  Logger.log(out.join('\n'));
+}
+
 function findBatchCodeColumns(ss, out) {
   out.push('================================================');
   out.push('BATCH CODE LOCATIONS');
@@ -85,7 +105,7 @@ function scanColumnsFor(ss, out, re, label) {
 
       for (var r = 0; r < lastRow; r++) {
         var cell = String(values[r][c]).trim();
-        if (!re.test(cell)) continue;
+        if (!re.test(cell) || MONTH_RE.test(cell)) continue;
         if (!firstRow) firstRow = r + 1;
         if (!distinct[cell.toUpperCase()]) {
           distinct[cell.toUpperCase()] = true;

@@ -1,14 +1,20 @@
 /**
  * Scheduled Slack reports for the Inside Sales sheet.
  *
- * Two independent windows, each stepping 2.5 hours:
+ * Two reports, on three independent windows:
  *
- *   Day    11:30  14:00  16:30  19:00  21:30
- *   Night  19:30  22:00  00:30  03:00  05:30
+ *   Disposition Update   Day    11:30  14:00  16:30  19:00  21:30
+ *                        Night  19:30  22:00  00:30  03:00  05:30
+ *   Agent Lead Status           11:00  19:00  20:00  04:00
  *
- * Each firing runs the refresh sequence, then posts the Command Centre
- * report to Slack. buildReport_ is the single place that decides what the
- * message says; runSchedule_ is where the refresh happens first.
+ * Disposition Update reports money from the Command Centre and refreshes
+ * first; buildReport_ writes it, below. Agent Lead Status reports where the
+ * leads sit per agent and is written by buildAgentLeadReport_ in
+ * agent-lead-report.gs.
+ *
+ * Which builder runs, and whether the refresh sequence runs before it, are
+ * both properties of the window in SCHEDULES — runSchedule_ reads them rather
+ * than knowing about either report.
  *
  * Why fixed clock times rather than an interval
  * ---------------------------------------------
@@ -49,22 +55,53 @@ var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot'];
 var REFRESH_FUNCTION = 'refreshAndVerify';
 
 /**
- * The two windows. `first` is the opening run, `runs` is how many firings
- * follow at INTERVAL_MINUTES spacing. Times past midnight wrap around, which
- * is what carries the night window through to 05:30.
+ * The windows.
+ *
+ * `label` names the window in the logs; `report` is the name that appears in
+ * Slack, so the two 2.5-hour windows post under one report name while staying
+ * separately installable. `builder` is the function that writes the message.
+ *
+ * A window is timed either by `first` + `runs` at INTERVAL_MINUTES spacing —
+ * times past midnight wrap around, which is what carries Night through to
+ * 05:30 — or by explicit `times` where the spacing is not regular.
+ *
+ * AGENT_LEAD does not run the refresh sequence. That sequence rebuilds the
+ * Command Centre and exec_Snapshot, which this report does not read; the
+ * SuperLeap Churn tab it does read is on its own two-hour refresh. Running it
+ * anyway would add four heavy rebuilds a day for figures nobody reads from
+ * them. The report carries its source snapshot time so staleness is visible.
  */
 var SCHEDULES = {
   DAY: {
     label: 'Day',
+    report: 'Disposition Update',
     handler: 'runDaySchedule',
+    builder: 'buildReport_',
+    refresh: true,
     first: { hour: 11, minute: 30 },
     runs: 5
   },
   NIGHT: {
     label: 'Night',
+    report: 'Disposition Update',
     handler: 'runNightSchedule',
+    builder: 'buildReport_',
+    refresh: true,
     first: { hour: 19, minute: 30 },
     runs: 5
+  },
+  AGENT_LEAD: {
+    label: 'Agent Lead',
+    report: 'Agent Lead Status',
+    handler: 'runAgentLeadSchedule',
+    builder: 'buildAgentLeadReport_',
+    refresh: false,
+    times: [
+      { hour: 11, minute: 0 },
+      { hour: 19, minute: 0 },
+      { hour: 20, minute: 0 },
+      { hour: 4, minute: 0 }
+    ]
   }
 };
 
@@ -200,6 +237,10 @@ function runNightSchedule() {
   runSchedule_('NIGHT');
 }
 
+function runAgentLeadSchedule() {
+  runSchedule_('AGENT_LEAD');
+}
+
 function runSchedule_(key) {
   var schedule = SCHEDULES[key];
   var firedAt = Utilities.formatDate(
@@ -213,20 +254,53 @@ function runSchedule_(key) {
   // Command Centre and leaves the snapshot behind, so the sequence has to run
   // from here. Failures are captured rather than thrown, so a broken step
   // still gets reported to Slack instead of dying in the execution log.
-  var failures = [];
-  try {
-    callRefresh_().forEach(function (r) {
-      if (r.status !== 'ok') failures.push(r.name + ': ' + r.status);
-    });
-  } catch (err) {
-    failures.push('refresh sequence: ' + (err && err.message ? err.message : String(err)));
-  }
-  if (failures.length) {
-    Logger.log('%s — %s', schedule.label, failures.join(' | '));
+  if (schedule.refresh) {
+    var failures = [];
+    try {
+      callRefresh_().forEach(function (r) {
+        if (r.status !== 'ok') failures.push(r.name + ': ' + r.status);
+      });
+    } catch (err) {
+      failures.push('refresh sequence: ' + (err && err.message ? err.message : String(err)));
+    }
+    if (failures.length) {
+      Logger.log('%s — %s', schedule.label, failures.join(' | '));
+    }
   }
 
-  var report = buildReport_(schedule.label, firedAt);
+  var report = buildSchedule_(schedule, firedAt);
   postToSlack_(report.subject, report.body);
+}
+
+/**
+ * Build one schedule's message.
+ *
+ * A builder that throws would otherwise take the whole firing down silently,
+ * leaving no post and only an execution-log entry nobody is watching. Report
+ * the failure to Slack instead, naming the builder, so a broken report is as
+ * visible as a working one.
+ */
+function buildSchedule_(schedule, firedAt) {
+  var g = typeof globalThis !== 'undefined' ? globalThis : this;
+  var builder = g[schedule.builder];
+
+  if (typeof builder !== 'function') {
+    return {
+      subject: '[' + schedule.report + '] report unavailable',
+      body: 'As at ' + firedAt + ' IST\n\n!! ' + schedule.builder +
+        ' is not defined in this project, so there is nothing to report.'
+    };
+  }
+
+  try {
+    return builder(schedule.report, firedAt);
+  } catch (err) {
+    return {
+      subject: '[' + schedule.report + '] report failed',
+      body: 'As at ' + firedAt + ' IST\n\n!! ' + schedule.builder +
+        ' failed: ' + (err && err.message ? err.message : String(err))
+    };
+  }
 }
 
 /**
@@ -384,11 +458,17 @@ function triggerSummary_() {
   }
 }
 
-/** Fire both windows once, right now, without waiting for a trigger. */
+/** Fire both Disposition Update windows once, without waiting for a trigger. */
 function testBothSchedules() {
   runDaySchedule();
   runNightSchedule();
   Logger.log('Both test messages sent. Check the channel.');
+}
+
+/** Fire Agent Lead Status once, without waiting for a trigger. */
+function testAgentLeadReport() {
+  runAgentLeadSchedule();
+  Logger.log('Agent Lead Status sent. Check the channel.');
 }
 
 /** Install both windows. Safe to re-run — clears its own triggers first. */
@@ -408,6 +488,10 @@ function installDaySchedule() {
 
 function installNightSchedule() {
   installSchedule_('NIGHT');
+}
+
+function installAgentLeadSchedule() {
+  installSchedule_('AGENT_LEAD');
 }
 
 function installSchedule_(key) {
@@ -495,8 +579,13 @@ function clearHandler_(name) {
 
 /* ------------------------------------------------------------------ */
 
-/** Step INTERVAL_MINUTES from the window's first run, wrapping past midnight. */
+/**
+ * The times a window fires: either its explicit list, or INTERVAL_MINUTES
+ * steps from the first run, wrapping past midnight.
+ */
 function scheduleTimes_(schedule) {
+  if (schedule.times) return schedule.times.slice();
+
   var out = [];
   var minutes = schedule.first.hour * 60 + schedule.first.minute;
   for (var i = 0; i < schedule.runs; i++) {

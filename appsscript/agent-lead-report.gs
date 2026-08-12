@@ -54,6 +54,26 @@ var AGENT_DISPOSITIONS = [
   { header: 'Sales Won', label: 'Won' }
 ];
 
+/**
+ * The only two real teams. Anything else in that column is not a team.
+ *
+ * slp_roster_ in SuperLeapChurn.gs falls back to the office when Team is
+ * blank - "if (!rec.team) rec.team = rec.office" - so five agents arrive
+ * labelled "Bangalore". Left alone that reads as a third desk alongside India
+ * and International, and 5,187 leads look split when they are not. Team is
+ * only populated from July 2026, so an agent on earlier months only has none.
+ */
+var AGENT_TEAMS = ['India', 'International'];
+
+/**
+ * Manager names that are not a person. Mirrors SYNC_PLACEHOLDER_MGRS in the
+ * sync file: an agent under one of these rolls up to nobody, which the Audit
+ * page counts and this report should not present as a normal manager.
+ */
+var AGENT_PLACEHOLDER_MGRS = ['priyatam vusala', 'manager needed', 'tbd',
+                              'na', 'n/a', '#n/a', '#ref!', '(unassigned)',
+                              '(no manager)'];
+
 function buildAgentLeadReport_(label, firedAt) {
   var sheet = SpreadsheetApp.getActive().getSheetByName(AGENT_TAB);
   var lines = [];
@@ -89,18 +109,24 @@ function buildAgentLeadReport_(label, firedAt) {
   lines.push('');
 
   // India and International separately: the split is the reason this report
-  // reads SuperLeap Churn rather than counting rows anywhere else.
+  // reads SuperLeap Churn rather than counting rows anywhere else. A value
+  // that is neither is the office showing through, so say so on the line
+  // rather than letting it read as a third desk.
   agentByTeam_(agents).forEach(function (t) {
-    lines.push(agentPad_(t.name, 16) + agentPad_(t.count + ' agents', 12) +
+    var real = AGENT_TEAMS.indexOf(t.name) > -1;
+    lines.push(agentPad_(real ? t.name : 'no team', 16) +
+      agentPad_(t.count + ' agents', 12) +
       agentLead_(withCommas_(t.leads) + ' leads', 14) +
-      withCommas_(t.pending) + ' pending');
+      withCommas_(t.pending) + ' pending' +
+      (real ? '' : '   (Team blank, showing office "' + t.name + '")'));
   });
 
   // Every agent by name, under the manager they report to - the same grouping
   // the tab uses, so a line here can be found there without translation.
   agentByManager_(agents).forEach(function (group) {
     lines.push('');
-    lines.push(group.name + '   (' + group.rows.length + ')');
+    lines.push(group.name + '   (' + group.rows.length + ')' +
+      (group.placeholder ? '   <-- not a real manager, these roll up to nobody' : ''));
     group.rows.forEach(function (a) {
       lines.push('  ' + agentPad_(a.agent, 24) +
         agentLead_(withCommas_(a.leads), 7) +
@@ -116,6 +142,14 @@ function buildAgentLeadReport_(label, firedAt) {
     lines.push('');
     lines.push(idle.length + ' agent(s) have dispositioned nothing at all: ' +
       idle.map(function (a) { return a.agent; }).join(', '));
+  }
+
+  var orphan = agents.filter(function (a) { return agentIsPlaceholder_(a.manager); });
+  if (orphan.length) {
+    lines.push('');
+    lines.push(orphan.length + ' agent(s) have no real manager on the roster: ' +
+      orphan.map(function (a) { return a.agent; }).join(', ') +
+      '. Fix Manager Override on Agent Directory.');
   }
 
   var subject = '[' + label + ']  ' + agents.length + ' agents   ' +
@@ -235,13 +269,26 @@ function agentByTeam_(agents) {
   });
 }
 
-/** Agents under each manager, busiest manager first, busiest agent first. */
+/**
+ * Agents under each manager, busiest manager first, busiest agent first.
+ * A placeholder manager is flagged rather than presented as a person, and
+ * sorts last however many leads sit under it - it is a data fault, not a team.
+ */
 function agentByManager_(agents) {
   var groups = agentGroup_(agents, 'manager', '(no manager)');
   groups.forEach(function (g) {
+    g.placeholder = agentIsPlaceholder_(g.name);
     g.rows.sort(function (x, y) { return y.leads - x.leads; });
   });
-  return groups;
+  return groups.sort(function (x, y) {
+    if (x.placeholder !== y.placeholder) return x.placeholder ? 1 : -1;
+    return y.leads - x.leads;
+  });
+}
+
+/** Is this manager name a placeholder rather than a person? */
+function agentIsPlaceholder_(name) {
+  return AGENT_PLACEHOLDER_MGRS.indexOf(String(name).trim().toLowerCase()) > -1;
 }
 
 /** Group rows by one field, heaviest group first. */

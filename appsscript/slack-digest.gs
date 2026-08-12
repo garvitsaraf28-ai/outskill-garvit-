@@ -311,21 +311,51 @@ function postViaWebhook_(url, subject, body) {
 var SLACK_SECTION_BUDGET = 2800;
 
 function chunkForSlack_(body) {
-  var lines = String(body).split('\n');
+  // Break between groups, not inside one. Splitting on lines alone put
+  // Tarlana Geetha at the top of a new section with her manager's heading
+  // left behind in the previous one, which reads as an agent under nobody.
+  // Blank lines are what separate a manager's block, so pack whole blocks.
+  var blocks = String(body).split('\n\n');
   var parts = [], current = '';
 
-  lines.forEach(function (line) {
+  blocks.forEach(function (block) {
+    var candidate = current ? current + '\n\n' + block : block;
+    if (candidate.length <= SLACK_SECTION_BUDGET) {
+      current = candidate;
+      return;
+    }
+    if (current) { parts.push(current); current = ''; }
+
+    // A single group longer than one section still has to be split, and only
+    // then does a break land between two agents of the same manager.
+    if (block.length <= SLACK_SECTION_BUDGET) {
+      current = block;
+      return;
+    }
+    splitLongBlock_(block).forEach(function (piece, i, all) {
+      if (i === all.length - 1) current = piece;
+      else parts.push(piece);
+    });
+  });
+
+  if (current) parts.push(current);
+  return parts.length ? parts : [''];
+}
+
+/** Last resort: a group too big for one section, split on line boundaries. */
+function splitLongBlock_(block) {
+  var out = [], current = '';
+  block.split('\n').forEach(function (line) {
     var candidate = current ? current + '\n' + line : line;
     if (candidate.length <= SLACK_SECTION_BUDGET) {
       current = candidate;
       return;
     }
-    if (current) parts.push(current);
+    if (current) out.push(current);
     current = line;
   });
-
-  if (current) parts.push(current);
-  return parts.length ? parts : [''];
+  if (current) out.push(current);
+  return out;
 }
 
 /** Fallback route. Delivers reliably, but renders as a collapsed card. */

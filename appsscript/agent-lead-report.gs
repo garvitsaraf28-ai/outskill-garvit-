@@ -16,8 +16,16 @@
 
 var AGENT_TAB = 'SuperLeap Churn';
 
-/** Header of the BY AGENT block. Rows above it are the lead-pool summary. */
+/**
+ * Where the BY AGENT header sits today. Used only as a starting point:
+ * buildSuperLeapChurn writes the summary block above it row by row, so
+ * adding one line there moves this header down and a hardcoded 13 would
+ * stop finding it. locateAgentHeader_ searches instead.
+ */
 var AGENT_HEADER_ROW = 13;
+
+/** How far down to search before giving up on the header. */
+var AGENT_HEADER_SEARCH = 40;
 
 /** How many of the least-dispositioned agents to name. */
 var AGENT_ATTENTION_COUNT = 5;
@@ -121,7 +129,8 @@ function readAgentRows_(sheet) {
   if (lastRow <= AGENT_HEADER_ROW) return [];
 
   var width = sheet.getLastColumn();
-  var header = sheet.getRange(AGENT_HEADER_ROW, 1, 1, width).getDisplayValues()[0];
+  var headerRow = locateAgentHeader_(sheet, width);
+  var header = sheet.getRange(headerRow, 1, 1, width).getDisplayValues()[0];
 
   var at = {};
   Object.keys(AGENT_COLS).forEach(function (key) {
@@ -130,11 +139,11 @@ function readAgentRows_(sheet) {
 
   var missing = Object.keys(at).filter(function (k) { return at[k] < 0; });
   if (missing.length) {
-    throw new Error('SuperLeap Churn is missing column(s): ' +
+    throw new Error('SuperLeap Churn r' + headerRow + ' is missing column(s): ' +
       missing.map(function (k) { return AGENT_COLS[k]; }).join(', '));
   }
 
-  var first = AGENT_HEADER_ROW + 1;
+  var first = headerRow + 1;
   var rows = sheet.getRange(first, 1, lastRow - first + 1, width).getDisplayValues();
   var out = [];
 
@@ -156,6 +165,28 @@ function readAgentRows_(sheet) {
     });
   }
   return out;
+}
+
+/**
+ * Find the BY AGENT header by its own text rather than trusting a row number.
+ *
+ * buildSuperLeapChurn writes the summary block above this header one row at a
+ * time, so a single extra line there shifts it down. AGENT_HEADER_ROW is
+ * checked first because it is nearly always right and costs one read; the
+ * search is the fallback that stops a layout change from breaking the report.
+ */
+function locateAgentHeader_(sheet, width) {
+  var probe = sheet.getRange(AGENT_HEADER_ROW, 1, 1, width).getDisplayValues()[0];
+  if (probe.indexOf(AGENT_COLS.agent) > -1) return AGENT_HEADER_ROW;
+
+  var depth = Math.min(AGENT_HEADER_SEARCH, sheet.getLastRow());
+  var grid = sheet.getRange(1, 1, depth, width).getDisplayValues();
+  for (var r = 0; r < grid.length; r++) {
+    if (grid[r].indexOf(AGENT_COLS.agent) > -1) return r + 1;
+  }
+
+  throw new Error('SuperLeap Churn has no "' + AGENT_COLS.agent +
+    '" header in the first ' + depth + ' rows - the BY AGENT block has moved.');
 }
 
 /** Totals across a set of agent rows. */

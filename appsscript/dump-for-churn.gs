@@ -45,6 +45,69 @@ var SCAN_MAX_COLS = 40;
  * with a few sample codes and a distinct count. The column holding the most
  * distinct codes is the join key the churn report needs.
  */
+/**
+ * Tabs whose column layout the churn report still needs, and where to start
+ * reading each one. The presentation tabs open with banner and summary
+ * blocks, so the header is not at row 1 - SuperLeap Churn starts at 9
+ * because rows 1-8 are the lead-pool summary, already seen.
+ */
+var KEY_TABS = [
+  { name: 'mdl_Batches', from: 1, rows: 4 },
+  { name: 'mdl_Payments', from: 1, rows: 3 },
+  { name: 'mdl_Roster', from: 1, rows: 3 },
+  { name: 'SuperLeap Churn', from: 9, rows: 14 }
+];
+
+/**
+ * Compact layout dump: a few rows from each tab the report joins against.
+ * Deliberately small - the full dump has overrun the execution log on every
+ * run, and the column names are all that is missing.
+ */
+function dumpKeyTabs() {
+  var ss = SpreadsheetApp.getActive();
+  var out = [];
+  out.push('KEY TAB LAYOUTS');
+  out.push('');
+
+  KEY_TABS.forEach(function (spec) {
+    var sh = ss.getSheetByName(spec.name);
+    out.push('=== ' + spec.name + ' ===');
+    if (!sh) {
+      out.push('  NOT FOUND');
+      out.push('');
+      return;
+    }
+
+    var lastRow = sh.getLastRow();
+    var lastCol = Math.min(sh.getLastColumn(), SCAN_MAX_COLS);
+    out.push('  ' + lastRow + ' rows x ' + sh.getLastColumn() + ' cols');
+
+    if (spec.from > lastRow || !lastCol) {
+      out.push('  (nothing at row ' + spec.from + ')');
+      out.push('');
+      return;
+    }
+
+    var rows = Math.min(spec.rows, lastRow - spec.from + 1);
+    var values = sh.getRange(spec.from, 1, rows, lastCol).getDisplayValues();
+
+    values.forEach(function (row, i) {
+      var trimmed = trimRow_(row);
+      if (trimmed.length) out.push('  r' + (spec.from + i) + ' | ' + trimmed.join(' | '));
+    });
+    out.push('');
+  });
+
+  Logger.log(out.join('\n'));
+}
+
+/** Drop trailing blanks so a dumped row stays readable. */
+function trimRow_(row) {
+  var t = row.slice();
+  while (t.length && String(t[t.length - 1]).trim() === '') t.pop();
+  return t;
+}
+
 var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
 
 /**
@@ -214,11 +277,7 @@ function dumpForChurn() {
     var values = sh.getRange(1, 1, rows, cols).getDisplayValues();
 
     values.forEach(function (row, i) {
-      // Trim trailing blanks so the dump stays readable.
-      var trimmed = row.slice();
-      while (trimmed.length && String(trimmed[trimmed.length - 1]).trim() === '') {
-        trimmed.pop();
-      }
+      var trimmed = trimRow_(row);
       if (!trimmed.length) return;
       out.push('  r' + (i + 1) + ' | ' + trimmed.join(' | '));
     });

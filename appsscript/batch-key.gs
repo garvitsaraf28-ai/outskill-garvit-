@@ -161,6 +161,89 @@ function previewBatchKeys() {
   Logger.log(out.join('\n'));
 }
 
+var BATCH_KEY_HEADER = 'Batch Key';
+
+/**
+ * A code that did not resolve is written as "? 124" rather than left blank,
+ * so it neither matches a batch nor hides among the rows that genuinely have
+ * no code. Filtering the column on "?" lists every exception.
+ */
+var BATCH_KEY_UNRESOLVED = '? ';
+
+/**
+ * Write the resolved key into a "Batch Key" column on mdl_Payments, for
+ * everything downstream to join against instead of the raw Batch column.
+ *
+ * Nothing existing is modified: the column is appended if it is not already
+ * there, and only that column is written. Re-running is safe and is how the
+ * column is brought back after a rebuild of mdl_Payments drops it - which it
+ * will, since nothing in the rebuild knows about this column.
+ *
+ * Run previewBatchKeys() first. This writes to the sheet; that does not.
+ */
+function writeBatchKeys() {
+  var ss = SpreadsheetApp.getActive();
+  var sheet = ss.getSheetByName(PAYMENTS_TAB);
+  var out = [];
+
+  out.push('WRITE BATCH KEYS');
+  out.push('');
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('  ' + PAYMENTS_TAB + ' is empty or missing. Nothing written.');
+    return;
+  }
+
+  var header = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0];
+  var col = header.indexOf(BATCH_KEY_HEADER) + 1;
+
+  if (col) {
+    out.push('  Reusing existing column ' + columnLetterFor_(col));
+  } else {
+    col = sheet.getLastColumn() + 1;
+    sheet.getRange(1, col).setValue(BATCH_KEY_HEADER);
+    out.push('  Added column ' + columnLetterFor_(col));
+  }
+
+  var n = sheet.getLastRow() - 1;
+  var codes = sheet.getRange(2, PAYMENTS_BATCH_COL, n, 1).getDisplayValues();
+  var index = buildBatchIndex_(ss);
+
+  var values = [], stats = {};
+  for (var i = 0; i < n; i++) {
+    var r = resolveBatchKey_(codes[i][0], index);
+    stats[r.status] = (stats[r.status] || 0) + 1;
+
+    if (r.status === 'blank') values.push(['']);
+    else if (r.key) values.push([r.key]);
+    else values.push([BATCH_KEY_UNRESOLVED + r.code]);
+  }
+
+  sheet.getRange(2, col, n, 1).setValues(values);
+
+  out.push('  ' + n + ' rows written');
+  out.push('');
+  ['exact', 'normalized', 'ambiguous', 'unknown', 'blank'].forEach(function (s) {
+    if (stats[s]) out.push('      ' + batchPad_(s, 12) + stats[s]);
+  });
+  out.push('');
+  out.push('  Join on "' + BATCH_KEY_HEADER + '" from here, not on "Batch".');
+  out.push('  Rows starting "?" did not resolve and are meant to stay unmatched.');
+
+  Logger.log(out.join('\n'));
+}
+
+/** 1 -> A, 27 -> AA. Named for this file; dump-for-churn.gs has its own. */
+function columnLetterFor_(n) {
+  var s = '';
+  while (n > 0) {
+    var m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = (n - m - 1) / 26;
+  }
+  return s;
+}
+
 /** Display values arrive with separators and currency symbols. */
 function batchAmount_(v) {
   var n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));

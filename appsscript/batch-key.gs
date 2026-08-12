@@ -13,11 +13,13 @@
  * real data every bare code had exactly one candidate, because the C and E
  * series do not overlap.
  *
- * A code WITH letters must match exactly. BCR1 is a generalist bootcamp, and
- * is neither BC1 nor EBC1 - matching it on digits alone would have merged a
- * batch into an unrelated one and moved real revenue with it. When the
- * letters do not match a known batch, the answer is that the batch is missing
- * from mdl_Batches, not that some similar batch will do.
+ * A code WITH letters must match exactly, ignoring spacing - mdl_Payments
+ * writes "GEF 46" where src_TOFU writes "GEF52", and that is one batch, not
+ * two. Beyond spacing the letters have to agree: BCR1 is a generalist
+ * bootcamp, neither BC1 nor EBC1, and matching it on digits alone would have
+ * merged a batch into an unrelated one and moved real revenue with it. When
+ * the letters do not match a known batch, the answer is that the batch is
+ * missing from mdl_Batches, not that some similar batch will do.
  */
 
 var BATCH_TAB = 'mdl_Batches';
@@ -32,16 +34,27 @@ var BARE_DIGITS_RE = /^\d+$/;
 var PREFIXED_CODE_RE = /^([A-Z]+)[\s-]*(\d+)$/i;
 
 /**
- * Index the batch keys once: exact lookups, plus the bare-digit lookup that
- * the payment codes need. A digit key holding more than one batch is what
- * makes a bare code ambiguous.
+ * The same batch is spaced differently in different tabs: mdl_Payments writes
+ * "GEF 46" while src_TOFU writes "GEF52". Comparing without the spaces keeps
+ * a formatting difference from reading as a missing batch.
+ */
+function squash_(s) {
+  return String(s).replace(/\s+/g, '').toUpperCase();
+}
+
+/**
+ * Index the batch keys once: exact lookups, the spacing-insensitive lookup,
+ * and the bare-digit lookup the payment codes need. A key in either of the
+ * last two holding more than one batch is what makes a code ambiguous.
  */
 function buildBatchIndex_(ss) {
   var sheet = ss.getSheetByName(BATCH_TAB);
-  if (!sheet || sheet.getLastRow() < 2) return { exact: {}, byDigits: {}, count: 0 };
+  if (!sheet || sheet.getLastRow() < 2) {
+    return { exact: {}, byDigits: {}, bySquashed: {}, count: 0 };
+  }
 
   var raw = sheet.getRange(2, BATCH_KEY_COL, sheet.getLastRow() - 1, 1).getDisplayValues();
-  var exact = {}, byDigits = {}, count = 0;
+  var exact = {}, byDigits = {}, bySquashed = {}, count = 0;
 
   raw.forEach(function (r) {
     var key = String(r[0]).trim();
@@ -50,6 +63,10 @@ function buildBatchIndex_(ss) {
     exact[key.toUpperCase()] = key;
     count++;
 
+    var squashed = squash_(key);
+    if (!bySquashed[squashed]) bySquashed[squashed] = [];
+    bySquashed[squashed].push(key);
+
     var m = key.match(PREFIXED_CODE_RE);
     if (!m) return;
     var digits = String(parseInt(m[2], 10));
@@ -57,7 +74,7 @@ function buildBatchIndex_(ss) {
     byDigits[digits].push(key);
   });
 
-  return { exact: exact, byDigits: byDigits, count: count };
+  return { exact: exact, byDigits: byDigits, bySquashed: bySquashed, count: count };
 }
 
 /**
@@ -67,6 +84,7 @@ function buildBatchIndex_(ss) {
  * as an exception to report rather than a row to drop:
  *
  *   exact       the code is already a batch key
+ *   spacing     same batch, written with different spacing
  *   normalized  a bare number matched exactly one batch
  *   ambiguous   a bare number matched several - needs a rule, not a guess
  *   unknown     no batch matches; if it carries letters, it is missing from
@@ -79,6 +97,15 @@ function resolveBatchKey_(raw, index) {
 
   var hit = index.exact[code.toUpperCase()];
   if (hit) return { status: 'exact', key: hit, code: code };
+
+  // Same batch, different spacing: "GEF 46" against "GEF46".
+  var squashed = index.bySquashed[squash_(code)] || [];
+  if (squashed.length === 1) {
+    return { status: 'spacing', key: squashed[0], code: code };
+  }
+  if (squashed.length > 1) {
+    return { status: 'ambiguous', key: '', code: code, candidates: squashed };
+  }
 
   if (BARE_DIGITS_RE.test(code)) {
     var candidates = index.byDigits[String(parseInt(code, 10))] || [];
@@ -139,7 +166,7 @@ function previewBatchKeys() {
     }
   }
 
-  ['exact', 'normalized', 'ambiguous', 'unknown', 'blank'].forEach(function (s) {
+  ['exact', 'spacing', 'normalized', 'ambiguous', 'unknown', 'blank'].forEach(function (s) {
     var v = stats[s];
     if (!v) return;
     out.push('  ' + batchPad_(s, 12) + batchPad_(v.rows + ' rows', 12) +
@@ -223,7 +250,7 @@ function writeBatchKeys() {
 
   out.push('  ' + n + ' rows written');
   out.push('');
-  ['exact', 'normalized', 'ambiguous', 'unknown', 'blank'].forEach(function (s) {
+  ['exact', 'spacing', 'normalized', 'ambiguous', 'unknown', 'blank'].forEach(function (s) {
     if (stats[s]) out.push('      ' + batchPad_(s, 12) + stats[s]);
   });
   out.push('');

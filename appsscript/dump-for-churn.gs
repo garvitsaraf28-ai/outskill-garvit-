@@ -45,6 +45,95 @@ var SCAN_MAX_COLS = 40;
  * with a few sample codes and a distinct count. The column holding the most
  * distinct codes is the join key the churn report needs.
  */
+/**
+ * Two things stand between the settled inputs and a correct report.
+ *
+ * mdl_Payments r3 carries batch "122" where every other code is BC5 / C124 /
+ * E47, so some payments may not join to mdl_Batches at all - and revenue that
+ * fails to join does not error, it just goes missing from the batch totals.
+ *
+ * The region vocabularies also disagree: mdl_Batches says Domestic, SuperLeap
+ * Churn says India. Splitting on either without mapping them would put agents
+ * and batches in different buckets while both columns look populated.
+ */
+function checkBatchJoin() {
+  var ss = SpreadsheetApp.getActive();
+  var out = [];
+  out.push('BATCH JOIN AND VOCABULARY CHECK');
+  out.push('');
+
+  var known = {};
+  var keys = columnValues_(ss, 'mdl_Batches', 1, 2);
+  keys.forEach(function (k) { known[k.toUpperCase()] = true; });
+  out.push('  mdl_Batches: ' + Object.keys(known).length + ' distinct batch keys');
+  out.push('');
+
+  // Payment batches with no matching row in mdl_Batches.
+  var missing = {}, blank = 0, matched = 0;
+  columnValues_(ss, 'mdl_Payments', 13, 2, true).forEach(function (v) {
+    if (!v) { blank++; return; }
+    if (known[v.toUpperCase()]) matched++;
+    else missing[v] = (missing[v] || 0) + 1;
+  });
+
+  var codes = Object.keys(missing).sort(function (a, b) { return missing[b] - missing[a]; });
+  var lost = 0;
+  codes.forEach(function (c) { lost += missing[c]; });
+
+  out.push('  mdl_Payments rows: ' + matched + ' joined, ' + lost + ' unmatched, ' +
+    blank + ' blank');
+  out.push('');
+  out.push('  UNMATCHED BATCH CODES: ' + codes.length);
+  codes.slice(0, 25).forEach(function (c) {
+    out.push('      ' + c + '  x' + missing[c]);
+  });
+  if (codes.length > 25) out.push('      ... and ' + (codes.length - 25) + ' more');
+  out.push('');
+
+  vocabulary_(out, ss, 'mdl_Batches / Region', 'mdl_Batches', 5, 2);
+  vocabulary_(out, ss, 'mdl_Payments / Segment', 'mdl_Payments', 15, 2);
+  vocabulary_(out, ss, 'mdl_Payments / Team', 'mdl_Payments', 7, 2);
+  vocabulary_(out, ss, 'mdl_Roster / Team', 'mdl_Roster', 5, 2);
+
+  Logger.log(out.join('\n'));
+}
+
+/** Distinct values of one column, with counts - the vocabulary to reconcile. */
+function vocabulary_(out, ss, title, tab, col, fromRow) {
+  var counts = {}, blank = 0;
+  columnValues_(ss, tab, col, fromRow, true).forEach(function (v) {
+    if (!v) blank++;
+    else counts[v] = (counts[v] || 0) + 1;
+  });
+
+  var vals = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+  out.push('  ' + title + ': ' + vals.length + ' distinct, ' + blank + ' blank');
+  vals.slice(0, 12).forEach(function (v) {
+    out.push('      ' + v + '  x' + counts[v]);
+  });
+  if (vals.length > 12) out.push('      ... and ' + (vals.length - 12) + ' more');
+  out.push('');
+}
+
+/**
+ * Trimmed values of a single column. Returns unique values by default;
+ * pass keepAll when the counts matter.
+ */
+function columnValues_(ss, tab, col, fromRow, keepAll) {
+  var sh = ss.getSheetByName(tab);
+  if (!sh || sh.getLastRow() < fromRow) return [];
+
+  var raw = sh.getRange(fromRow, col, sh.getLastRow() - fromRow + 1, 1).getDisplayValues();
+  var out = [], seen = {};
+
+  raw.forEach(function (r) {
+    var v = String(r[0]).trim();
+    if (keepAll) { out.push(v); return; }
+    if (v && !seen[v]) { seen[v] = true; out.push(v); }
+  });
+  return out;
+}
+
 var CHURN_TAB = 'SuperLeap Churn';
 
 /** Header of the BY AGENT block. Rows above it are the lead-pool summary. */
@@ -92,6 +181,10 @@ function checkAgentJoin() {
     // by email rather than by name.
     if (!cbc && !account) break;
     if (EMAIL_RE.test(cbc) || EMAIL_RE.test(account)) break;
+
+    // It also ends on a TOTAL row, which has no Team and would otherwise be
+    // counted as an agent that failed the split.
+    if (manager.toUpperCase() === 'TOTAL') break;
 
     total++;
     var who = (cbc || account) + (manager ? '  (mgr ' + manager + ')' : '');

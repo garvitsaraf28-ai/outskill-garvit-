@@ -45,6 +45,34 @@ var SCAN_MAX_COLS = 40;
  * with a few sample codes and a distinct count. The column holding the most
  * distinct codes is the join key the churn report needs.
  */
+var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i;
+
+/**
+ * Agent Directory joins to SuperLeap on agent name, which fails on spelling
+ * drift ("Niraj" vs "Niraj Paul", "Chakraborty" vs "Chakrabrty"). Email is
+ * the stable key, but it is only worth adding to the Directory if the other
+ * side carries email too - a key with nothing to join to is no key at all.
+ *
+ * Report every column of email addresses in the workbook, so we know whether
+ * the emails already exist somewhere and can be copied across, rather than
+ * typing 67 of them by hand.
+ */
+function findEmailColumns() {
+  var out = [];
+  out.push('EMAIL COLUMNS');
+  out.push('Generated ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(),
+    'dd-MMM-yyyy HH:mm:ss'));
+  out.push('');
+
+  var found = scanColumnsFor(SpreadsheetApp.getActive(), out, EMAIL_RE, 'email');
+  if (!found) {
+    out.push('  NONE — no tab holds email addresses. They have to be entered by hand,');
+    out.push('  and SuperLeap cannot be joined on email until its export carries one.');
+  }
+
+  Logger.log(out.join('\n'));
+}
+
 /**
  * Locator only, as its own entry point. The full dump overruns the execution
  * log every time, and the batch codes are the one open question - run this
@@ -64,7 +92,7 @@ function findBatchCodeColumns(ss, out) {
   out.push('BATCH CODE LOCATIONS');
   out.push('');
 
-  var found = scanColumnsFor(ss, out, BATCH_CODE_RE, 'exact');
+  var found = scanColumnsFor(ss, out, BATCH_CODE_RE, 'exact', MONTH_RE);
 
   // The codes may be embedded in a longer label ("Cohort C160 - Mar"), which
   // the exact match misses. Falling back here means one run settles the
@@ -72,7 +100,7 @@ function findBatchCodeColumns(ss, out) {
   if (!found) {
     out.push('  No bare codes. Retrying against labels that contain one.');
     out.push('');
-    found = scanColumnsFor(ss, out, BATCH_CODE_EMBEDDED_RE, 'embedded');
+    found = scanColumnsFor(ss, out, BATCH_CODE_EMBEDDED_RE, 'embedded', MONTH_RE);
   }
 
   if (!found) {
@@ -87,7 +115,7 @@ function findBatchCodeColumns(ss, out) {
  * distinct codes is the join key the churn report needs.
  * Returns the number of matching columns.
  */
-function scanColumnsFor(ss, out, re, label) {
+function scanColumnsFor(ss, out, re, label, reject) {
   var found = 0;
 
   ss.getSheets().forEach(function (sh) {
@@ -105,7 +133,8 @@ function scanColumnsFor(ss, out, re, label) {
 
       for (var r = 0; r < lastRow; r++) {
         var cell = String(values[r][c]).trim();
-        if (!re.test(cell) || MONTH_RE.test(cell)) continue;
+        if (!re.test(cell)) continue;
+        if (reject && reject.test(cell)) continue;
         if (!firstRow) firstRow = r + 1;
         if (!distinct[cell.toUpperCase()]) {
           distinct[cell.toUpperCase()] = true;

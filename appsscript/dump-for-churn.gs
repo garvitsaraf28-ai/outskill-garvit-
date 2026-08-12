@@ -45,6 +45,80 @@ var SCAN_MAX_COLS = 40;
  * with a few sample codes and a distinct count. The column holding the most
  * distinct codes is the join key the churn report needs.
  */
+var CHURN_TAB = 'SuperLeap Churn';
+
+/** Header of the BY AGENT block. Rows above it are the lead-pool summary. */
+var CHURN_AGENT_HEADER_ROW = 13;
+
+/**
+ * Measure the agent join instead of estimating it.
+ *
+ * SuperLeap Churn already reconciles names itself - "Agent (CBC)" against
+ * "SuperLeap account" - and already carries Team, so the India/International
+ * split does not need Agent Directory at all. What matters is how often that
+ * reconciliation fails, because a row with a blank Team drops silently out of
+ * the split and leaves the totals looking plausible and wrong.
+ *
+ * Report every agent row missing a Team, missing a CBC name, or whose two
+ * names disagree.
+ */
+function checkAgentJoin() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CHURN_TAB);
+  var out = [];
+  out.push('AGENT JOIN CHECK');
+  out.push('');
+
+  if (!sh) {
+    Logger.log('  ' + CHURN_TAB + ' NOT FOUND');
+    return;
+  }
+
+  var first = CHURN_AGENT_HEADER_ROW + 1;
+  if (sh.getLastRow() < first) {
+    Logger.log('  no rows below the BY AGENT header at r' + CHURN_AGENT_HEADER_ROW);
+    return;
+  }
+  var values = sh.getRange(first, 1, sh.getLastRow() - first + 1, 6).getDisplayValues();
+
+  var total = 0, noTeam = [], noCbc = [], drift = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var manager = String(values[i][0]).trim();
+    var team = String(values[i][1]).trim();
+    var cbc = String(values[i][2]).trim();
+    var account = String(values[i][3]).trim();
+
+    // The block ends where the manager/pool listing starts, which is keyed
+    // by email rather than by name.
+    if (!cbc && !account) break;
+    if (EMAIL_RE.test(cbc) || EMAIL_RE.test(account)) break;
+
+    total++;
+    var who = (cbc || account) + (manager ? '  (mgr ' + manager + ')' : '');
+    if (!team) noTeam.push(who);
+    if (!cbc) noCbc.push(who);
+    if (cbc && account && cbc !== account) drift.push(cbc + '  ->  ' + account);
+  }
+
+  out.push('  ' + total + ' agent rows, r' + first + ' to r' + (first + total - 1));
+  out.push('');
+  report_(out, 'BLANK TEAM - dropped from the India/International split', noTeam);
+  report_(out, 'NO CBC NAME - in SuperLeap, not matched to the roster', noCbc);
+  report_(out, 'NAME DIFFERS - already reconciled, listed to confirm', drift);
+
+  Logger.log(out.join('\n'));
+}
+
+/** One section of the join check, capped so the log stays readable. */
+function report_(out, title, rows) {
+  out.push('  ' + title + ': ' + rows.length);
+  rows.slice(0, 25).forEach(function (r) {
+    out.push('      ' + r);
+  });
+  if (rows.length > 25) out.push('      ... and ' + (rows.length - 25) + ' more');
+  out.push('');
+}
+
 /**
  * Tabs whose column layout the churn report still needs, and where to start
  * reading each one. The presentation tabs open with banner and summary

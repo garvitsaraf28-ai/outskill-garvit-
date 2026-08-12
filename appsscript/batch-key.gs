@@ -53,12 +53,16 @@ function buildBatchIndex_(ss) {
     return { exact: {}, byDigits: {}, bySquashed: {}, count: 0 };
   }
 
-  var raw = sheet.getRange(2, BATCH_KEY_COL, sheet.getLastRow() - 1, 1).getDisplayValues();
+  var raw = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getDisplayValues();
   var exact = {}, byDigits = {}, bySquashed = {}, count = 0;
 
   raw.forEach(function (r) {
     var key = String(r[0]).trim();
     if (!key || exact[key.toUpperCase()]) return;
+
+    // The tab ends with a COVERAGE summary block whose labels sit in the
+    // batch column. A real batch always has a Family; those rows do not.
+    if (!String(r[3]).trim()) return;
 
     exact[key.toUpperCase()] = key;
     count++;
@@ -213,9 +217,17 @@ function listBatchKeys() {
   var rows = sheet.getRange(2, 1, n, 16).getDisplayValues();
   var families = {}, sources = {}, listed = 0;
 
+  var skipped = [];
+
   rows.forEach(function (r) {
     var key = String(r[0]).trim();
     if (!key) return;
+
+    // Same COVERAGE summary block that buildBatchIndex_ skips.
+    if (!String(r[3]).trim()) {
+      skipped.push(key);
+      return;
+    }
     listed++;
 
     var family = String(r[3]).trim() || '-';
@@ -228,7 +240,10 @@ function listBatchKeys() {
   });
 
   out.push('');
-  out.push('  ' + listed + ' keys');
+  out.push('  ' + listed + ' batches');
+  if (skipped.length) {
+    out.push('  ' + skipped.length + ' non-batch row(s) skipped: ' + skipped.join(', '));
+  }
   out.push('');
   out.push('  BY FAMILY');
   Object.keys(families).forEach(function (f) {

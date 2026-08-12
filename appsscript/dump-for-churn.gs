@@ -41,6 +41,60 @@ var SCAN_MAX_ROWS = 2000;
 var SCAN_MAX_COLS = 40;
 
 /**
+ * What the SuperLeap Stage tab actually holds.
+ *
+ * The requested report lists PTP, WFC, Non Contact-1 to -5, Not Reachable,
+ * Deferred Hot, Followup and Student, and totals 11,067 CALLS. None of those
+ * are on SuperLeap Churn, which carries nine different dispositions and
+ * counts 80,294 LEADS - a different unit at a different grain. They look like
+ * sub-dispositions, which buildSlpStageView writes to this tab as
+ * "Manager | Agent (CBC) | Total | <sub dispositions>" - the requested shape.
+ *
+ * Whether that block exists depends on the payload carrying "sub" rows at
+ * all; buildSlpStageView prints "No sub-disposition rows in this payload"
+ * when it does not. Print both block headers and a few rows so the report is
+ * built against the real columns rather than the ones in a screenshot.
+ */
+function dumpStageTab() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('SuperLeap Stage');
+  var out = [];
+  out.push('SUPERLEAP STAGE');
+  out.push('');
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('  SuperLeap Stage is empty or missing. Run buildSlpStageView() first.');
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = Math.min(sheet.getLastColumn(), SCAN_MAX_COLS);
+  out.push('  ' + lastRow + ' rows x ' + sheet.getLastColumn() + ' cols');
+  out.push('');
+
+  var grid = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+
+  // The two banners slpa_matrix_ writes, and the TOTAL row that closes each.
+  for (var r = 0; r < grid.length; r++) {
+    var first = String(grid[r][0]).trim();
+    var isBanner = /^BY (STAGE|SUB DISPOSITION)/i.test(first);
+    var isTotal = first.toUpperCase() === 'TOTAL';
+    if (!isBanner && !isTotal) continue;
+
+    out.push('  r' + (r + 1) + '  ' + (isTotal ? 'TOTAL ROW' : first));
+
+    // A banner is followed by the header row, then the agents.
+    var take = isTotal ? 1 : 4;
+    for (var i = 0; i < take && r + i < grid.length; i++) {
+      var trimmed = trimRow_(grid[r + (isTotal ? 0 : i + 1)]);
+      if (trimmed.length) out.push('      | ' + trimmed.join(' | '));
+    }
+    out.push('');
+  }
+
+  Logger.log(out.join('\n'));
+}
+
+/**
  * Can the SuperLeap data be filtered by workshop?
  *
  * A workshop dropdown over the SuperLeap tabs needs the underlying leads to

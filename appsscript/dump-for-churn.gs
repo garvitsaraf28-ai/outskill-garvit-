@@ -41,6 +41,82 @@ var SCAN_MAX_ROWS = 2000;
 var SCAN_MAX_COLS = 40;
 
 /**
+ * Find what inflates the payment totals.
+ *
+ * Summing Amount Paid across mdl_Payments gives about 990M, where Workshop
+ * Months reports 89.7M for the same period - so something in that column is
+ * not a payment. 25 rows with no batch code carried 450M between them, which
+ * is 18M each and points at summary rows being counted as data.
+ *
+ * Print the largest rows with their type and batch, and the totals split by
+ * Is Unit and Is Refund, so the real figure can be identified rather than
+ * guessed at.
+ */
+function checkPaymentAmounts() {
+  var sheet = SpreadsheetApp.getActive().getSheetByName('mdl_Payments');
+  var out = [];
+  out.push('PAYMENT AMOUNT CHECK');
+  out.push('');
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('  mdl_Payments is empty or missing.');
+    return;
+  }
+
+  var n = sheet.getLastRow() - 1;
+  var rows = sheet.getRange(2, 1, n, 18).getDisplayValues();
+
+  var total = 0, units = 0, refunds = 0, big = [];
+
+  rows.forEach(function (r, i) {
+    var amount = paymentNumber_(r[7]);          // H  Amount Paid
+    total += amount;
+    if (String(r[9]).trim().toLowerCase() === 'yes') units += amount;   // J  Is Unit
+    if (String(r[16]).trim().toLowerCase() === 'yes') refunds += amount; // Q  Is Refund
+
+    big.push({
+      row: i + 2,
+      amount: amount,
+      date: String(r[0]).trim(),
+      type: String(r[8]).trim(),
+      isUnit: String(r[9]).trim(),
+      batch: String(r[12]).trim()
+    });
+  });
+
+  out.push('  ' + n + ' rows');
+  out.push('  total Amount Paid   ' + paymentCommas_(total));
+  out.push('  where Is Unit = yes ' + paymentCommas_(units));
+  out.push('  where Is Refund=yes ' + paymentCommas_(refunds));
+  out.push('  Workshop Months says 89,720,869 for Apr-Aug');
+  out.push('');
+
+  big.sort(function (a, b) { return b.amount - a.amount; });
+  out.push('  LARGEST 15 ROWS');
+  big.slice(0, 15).forEach(function (b) {
+    out.push('      r' + b.row + '  ' + paymentCommas_(b.amount) +
+      '   unit=' + (b.isUnit || '-') +
+      '   batch=' + (b.batch || '-') +
+      '   ' + b.date + '  ' + b.type);
+  });
+  out.push('');
+
+  var over = big.filter(function (b) { return b.amount > 1000000; });
+  out.push('  rows over 1,000,000: ' + over.length);
+
+  Logger.log(out.join('\n'));
+}
+
+function paymentNumber_(v) {
+  var n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function paymentCommas_(n) {
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/**
  * Names that agent-lead-report.gs and batch-key.gs define, and the one name
  * they expect to already exist.
  *

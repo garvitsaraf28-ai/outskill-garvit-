@@ -63,22 +63,22 @@ function buildAgentLeadReport_(label, firedAt) {
     return { subject: '[' + label + '] no agent rows', body: lines.join('\n') };
   }
 
-  var all = summarise_(agents);
+  var all = agentSummarise_(agents);
   lines.push('');
   lines.push(all.count + ' agents        ' + withCommas_(all.leads) + ' leads');
   lines.push('');
 
   // India and International separately: the split is the reason this report
   // reads SuperLeap Churn rather than counting rows anywhere else.
-  byTeam_(agents).forEach(function (t) {
-    lines.push(pad_(t.name, 15) + pad_(t.count + ' agents', 12) +
+  agentByTeam_(agents).forEach(function (t) {
+    lines.push(agentPad_(t.name, 15) + agentPad_(t.count + ' agents', 12) +
       withCommas_(t.leads) + ' leads');
   });
   lines.push('');
 
   lines.push('Not dispositioned  ' + withCommas_(all.pending) +
-    '   (' + percent_(all.pending, all.leads) + ' of leads)');
-  lines.push('Dispositioned      ' + percent_(all.leads - all.pending, all.leads) +
+    '   (' + agentPercent_(all.pending, all.leads) + ' of leads)');
+  lines.push('Dispositioned      ' + agentPercent_(all.leads - all.pending, all.leads) +
     '   across all agents');
   lines.push('');
 
@@ -86,7 +86,7 @@ function buildAgentLeadReport_(label, firedAt) {
   if (idle.length) {
     lines.push(idle.length + ' agent(s) have dispositioned nothing at all:');
     idle.slice(0, AGENT_ATTENTION_COUNT).forEach(function (a) {
-      lines.push('  ' + pad_(a.agent, 26) + withCommas_(a.leads) + ' leads');
+      lines.push('  ' + agentPad_(a.agent, 26) + withCommas_(a.leads) + ' leads');
     });
     if (idle.length > AGENT_ATTENTION_COUNT) {
       lines.push('  ... and ' + (idle.length - AGENT_ATTENTION_COUNT) + ' more');
@@ -94,11 +94,11 @@ function buildAgentLeadReport_(label, firedAt) {
     lines.push('');
   }
 
-  var worst = lowestDispositioned_(agents);
+  var worst = agentLowestDispositioned_(agents);
   if (worst.length) {
     lines.push('Lowest dispositioned %:');
     worst.forEach(function (a) {
-      lines.push('  ' + pad_(a.agent, 26) + pad_(a.dispositioned + '%', 9) +
+      lines.push('  ' + agentPad_(a.agent, 26) + agentPad_(a.dispositioned + '%', 9) +
         withCommas_(a.pending) + ' pending');
     });
   }
@@ -150,16 +150,16 @@ function readAgentRows_(sheet) {
       agent: agent,
       team: String(rows[i][at.team]).trim(),
       status: String(rows[i][at.status]).trim(),
-      leads: number_(rows[i][at.leads]),
-      pending: number_(rows[i][at.pending]),
-      dispositioned: number_(rows[i][at.dispositioned])
+      leads: agentNumber_(rows[i][at.leads]),
+      pending: agentNumber_(rows[i][at.pending]),
+      dispositioned: agentNumber_(rows[i][at.dispositioned])
     });
   }
   return out;
 }
 
 /** Totals across a set of agent rows. */
-function summarise_(agents) {
+function agentSummarise_(agents) {
   var leads = 0, pending = 0;
   agents.forEach(function (a) {
     leads += a.leads;
@@ -173,7 +173,7 @@ function summarise_(agents) {
  * heading rather than dropped, because an agent missing from the split is
  * exactly the failure this report exists to make visible.
  */
-function byTeam_(agents) {
+function agentByTeam_(agents) {
   var groups = {};
   agents.forEach(function (a) {
     var key = a.team || '(no team)';
@@ -182,13 +182,13 @@ function byTeam_(agents) {
   });
 
   return Object.keys(groups).map(function (name) {
-    var s = summarise_(groups[name]);
+    var s = agentSummarise_(groups[name]);
     return { name: name, count: s.count, leads: s.leads, pending: s.pending };
   }).sort(function (x, y) { return y.leads - x.leads; });
 }
 
 /** The least-dispositioned agents that still have leads to work. */
-function lowestDispositioned_(agents) {
+function agentLowestDispositioned_(agents) {
   return agents
     .filter(function (a) { return a.pending > 0 && a.leads > 0; })
     .sort(function (x, y) { return x.dispositioned - y.dispositioned; })
@@ -203,17 +203,17 @@ function agentSnapshotTime_(sheet) {
 }
 
 /** Display values arrive with commas and percent signs. */
-function number_(v) {
+function agentNumber_(v) {
   var n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
   return isNaN(n) ? 0 : n;
 }
 
-function percent_(part, whole) {
+function agentPercent_(part, whole) {
   if (!whole) return '—';
   return (part / whole * 100).toFixed(1) + '%';
 }
 
-function pad_(s, width) {
+function agentPad_(s, width) {
   s = String(s);
   while (s.length < width) s += ' ';
   return s;

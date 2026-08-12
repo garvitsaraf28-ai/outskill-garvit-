@@ -41,6 +41,77 @@ var SCAN_MAX_ROWS = 2000;
 var SCAN_MAX_COLS = 40;
 
 /**
+ * Names that agent-lead-report.gs and batch-key.gs define, and the one name
+ * they expect to already exist.
+ *
+ * Apps Script puts every file in one global scope, so two files defining the
+ * same name do not error - the last one loaded wins and the other silently
+ * changes behaviour. Run checkNameCollisions() BEFORE pasting either file to
+ * see whether the project already has any of these.
+ */
+var INCOMING_NAMES = [
+  'AGENT_TAB', 'AGENT_HEADER_ROW', 'AGENT_ATTENTION_COUNT', 'AGENT_COLS',
+  'buildAgentLeadReport_', 'readAgentRows_', 'agentSummarise_', 'agentByTeam_',
+  'agentLowestDispositioned_', 'agentSnapshotTime_', 'agentNumber_',
+  'agentPercent_', 'agentPad_',
+  'BATCH_TAB', 'BATCH_KEY_COL', 'PAYMENTS_TAB', 'PAYMENTS_BATCH_COL',
+  'PAYMENTS_AMOUNT_COL', 'BARE_DIGITS_RE', 'PREFIXED_CODE_RE',
+  'buildBatchIndex_', 'resolveBatchKey_', 'previewBatchKeys', 'batchAmount_',
+  'batchCommas_', 'batchPad_',
+  'runAgentLeadSchedule', 'installAgentLeadSchedule', 'testAgentLeadReport',
+  'buildSchedule_'
+];
+
+/** agent-lead-report.gs calls this one rather than defining its own. */
+var REQUIRED_NAMES = ['withCommas_', 'postToSlack_'];
+
+/**
+ * Report which incoming names the project already defines.
+ *
+ * Anything listed under TAKEN has to be renamed on one side or the other
+ * before the new files are pasted, or one of the two definitions disappears
+ * without any error being raised.
+ */
+function checkNameCollisions() {
+  var g = typeof globalThis !== 'undefined' ? globalThis : this;
+  var out = [];
+  out.push('NAME COLLISION CHECK');
+  out.push('');
+
+  var taken = INCOMING_NAMES.filter(function (n) {
+    return typeof g[n] !== 'undefined';
+  });
+
+  out.push('  TAKEN - already in the project: ' + taken.length);
+  taken.forEach(function (n) {
+    out.push('      ' + n + '   (' + typeof g[n] + ')');
+  });
+  if (!taken.length) {
+    out.push('      none. Both files can be pasted as new.');
+  }
+  out.push('');
+
+  var missing = REQUIRED_NAMES.filter(function (n) {
+    return typeof g[n] !== 'function';
+  });
+  out.push('  EXPECTED but not found: ' + missing.length);
+  missing.forEach(function (n) {
+    out.push('      ' + n + '   <-- paste refresh-schedule.gs / slack-digest.gs first');
+  });
+  out.push('');
+
+  // Anything already there whose name says it is the existing agent report.
+  var related = Object.getOwnPropertyNames(g).filter(function (n) {
+    return /agent|lead/i.test(n) && typeof g[n] === 'function';
+  }).sort();
+
+  out.push('  EXISTING functions mentioning agent or lead: ' + related.length);
+  related.forEach(function (n) { out.push('      ' + n); });
+
+  Logger.log(out.join('\n'));
+}
+
+/**
  * Two things stand between the settled inputs and a correct report.
  *
  * mdl_Payments r3 carries batch "122" where every other code is BC5 / C124 /

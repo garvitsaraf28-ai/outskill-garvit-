@@ -59,24 +59,26 @@ without ever saying why.
 Steps 1-4 are safe while the routine is still on v1 - that is the point
 of doing them first. Nothing changes visibly until step 5.
 
+### Current-month Slack report - built, dormant until v3
+
+`agentRowsForMonth_` in `agent-lead-report.gs` already does this. It reads
+the payload when the payload carries a month and falls back to the tab
+when it does not, so it needs no switching on: while the routine is on v1
+it returns null and the report behaves exactly as it does now. The first
+v3 payload makes it narrow to the current month by itself and say which
+month it is showing.
+
+**Decided:** the SuperLeap Churn tab itself stays whole - everything since
+1 April - because other things read it. Only the Slack report narrows.
+
 ### Still waiting on v3 data
 
-Neither of these can be built against a payload that has no month in it,
-so both are waiting on step 5 above, not on a decision:
-
-- **Slack report for the current month only.** Today every report covers
-  everything since 1 April stacked together.
 - **Month and workshop dropdowns in the sheet.** Same pattern the Agent,
   Manager and Rhythm pages already use - a hidden lookup tab keyed
   `month|source|agent`, the visible tab INDEX/MATCHing against two
   data-validation cells, exactly how `buildOverallReport` drives
-  `_OverallData`.
-
-One open question before the sheet side is built: should the **SuperLeap
-Churn tab itself** become month-selectable, or stay as it is - everything
-since 1 April - with only the Slack report filtered to the current month?
-The tab is used as a source by other things, so narrowing it is not a
-free change.
+  `_OverallData`. Cannot be built against a payload with no month in it,
+  so this is waiting on step 5 above.
 
 ## House rules that have cost time before
 

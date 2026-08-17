@@ -97,7 +97,14 @@ The "n" values across all rows must sum to the total row count of the query. If 
 
 Also check every month in "months" appears on at least one row, and that no row carries a month outside it. A month in the list with no rows behind it would show as an empty selection in the sheet's dropdown.
 
-STEP 6 - deliver it.
+STEP 6 - deliver it. ONE upload, and only when the content is final.
+
+Never write a sample, a preview, a truncated version or a "first attempt" to that folder. Build the complete JSON, verify it in STEP 5, and upload exactly once.
+
+This has already gone wrong. On 17 Aug a run uploaded a truncated sample, noticed, and re-uploaded the correct payload nine minutes later — reasoning that "the Apps Script only reads the newest file, so this doesn't affect the workbook". That reasoning is wrong. The workbook reads on its own two-hour timer, not after you finish, so it can and did read the bad file during those nine minutes. It rebuilt its tabs from 5 rows instead of 674 and posted a report to the sales team saying Inside Sales had one agent.
+
+Anything written to that folder is live the instant it lands. There is no draft state. If you have already uploaded something wrong, uploading a correction is still right — but say so plainly in your report rather than calling it harmless, because somebody may need to reload the workbook.
+
 Use the Google Drive MCP tool create_file with:
   title: slp_payload.json
   contentMimeType: text/plain

@@ -120,6 +120,33 @@ dropdown lists are written at build time.
 Everything that could be built before the data exists has been. The only
 remaining steps are steps 4-6 above, which are yours.
 
+## The churn post to Slack is off, deliberately
+
+`slpAutoRefresh` ends with a line like:
+
+```
+slack not sent: SLACK_WEBHOOK is not set in Script Properties
+```
+
+That is expected, not a fault. `postChurnToSlack` reads a script property
+called `SLACK_WEBHOOK`; everything else reads `SLACK_WEBHOOK_URL`. Only
+the second was ever set, so the churn summary has never posted - it has
+been failing quietly every two hours for as long as the trigger has
+existed, and nobody missed it.
+
+It was left off rather than fixed. You already get 14 Slack posts a day
+and the Agent Lead Status report covers per-agent dispositions four times
+daily; the churn summary every two hours would be 12 more.
+
+The one figure in it that nothing else reported - leads sitting in pools
+with no owner, better than a third of every lead in SuperLeap - is now on
+the Agent Lead Status report instead, so the information survives without
+the posts.
+
+**To turn it on anyway:** add a script property `SLACK_WEBHOOK` with the
+same value as `SLACK_WEBHOOK_URL`. No code change needed. Be aware that
+rotating the webhook then means updating both.
+
 ## House rules that have cost time before
 
 - **Shared global scope.** Every `.gs` file in the project shares one

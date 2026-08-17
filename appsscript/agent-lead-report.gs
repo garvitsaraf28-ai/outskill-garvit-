@@ -145,6 +145,18 @@ function buildAgentLeadReport_(label, firedAt) {
   lines.push(all.count + ' agents        ' + withCommas_(all.leads) + ' leads        ' +
     withCommas_(all.pending) + ' not dispositioned (' +
     agentPercent_(all.pending, all.leads) + ')');
+
+  // Leads with no owner at all. Labelled as the whole period even when the
+  // rest of the report is one month, because a lead sitting in a pool has
+  // not been worked in any month - scoping it would make a real backlog
+  // look smaller than it is.
+  var pools = agentPools_(sheet);
+  if (pools && pools.leads) {
+    lines.push('Unassigned in pools, whole period   ' + withCommas_(pools.leads) +
+      (pools.total ? '   (' + agentPercent_(pools.leads, pools.total) +
+                     ' of every lead in SuperLeap)' : ''));
+  }
+
   lines.push('');
 
   // India and International separately: the split is the reason this report
@@ -517,6 +529,37 @@ function agentSnapshotTime_(sheet) {
   var text = String(sheet.getRange(2, 1).getDisplayValue());
   var m = text.match(/snapshot\s+([^|]+)/i);
   return m ? m[1].trim() : '';
+}
+
+/**
+ * Leads nobody has been given yet, from the churn tab's own summary block.
+ *
+ * This is the one figure in the SuperLeap churn summary that nothing else
+ * reports, and it is large: at the time this was written, 54,051 of 147,526
+ * leads - better than a third - were sitting in pools with no owner. A
+ * per-agent report cannot show it, because by definition it belongs to no
+ * agent, so it would otherwise only ever be visible to someone who opened
+ * the tab.
+ *
+ * Returns null rather than a zero when the block cannot be read, so a
+ * layout change shows as the line disappearing rather than as a confident
+ * "0 unassigned" that would read as good news.
+ */
+function agentPools_(sheet) {
+  var rows = Math.min(sheet.getLastRow(), AGENT_HEADER_SEARCH);
+  if (rows < 1) return null;
+
+  var grid = sheet.getRange(1, 1, rows, 3).getDisplayValues();
+  var pool = null, total = null;
+
+  for (var i = 0; i < grid.length; i++) {
+    var label = String(grid[i][0]).trim().toLowerCase();
+    if (label.indexOf('lead pools') === 0) pool = agentNumber_(grid[i][2]);
+    else if (label.indexOf('total in superleap') === 0) total = agentNumber_(grid[i][2]);
+  }
+
+  if (pool === null) return null;
+  return { leads: pool, total: total };
 }
 
 /** "Jul, Aug" -> ["Jul","Aug"]. slp_roster_ writes the abbreviation only. */

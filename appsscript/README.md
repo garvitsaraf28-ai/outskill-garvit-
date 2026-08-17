@@ -89,14 +89,36 @@ month it is showing.
 **Decided:** the SuperLeap Churn tab itself stays whole - everything since
 1 April - because other things read it. Only the Slack report narrows.
 
-### Still waiting on v3 data
+### Month and workshop dropdowns - built, dormant until v3
 
-- **Month and workshop dropdowns in the sheet.** Same pattern the Agent,
-  Manager and Rhythm pages already use - a hidden lookup tab keyed
-  `month|source|agent`, the visible tab INDEX/MATCHing against two
-  data-validation cells, exactly how `buildOverallReport` drives
-  `_OverallData`. Cannot be built against a payload with no month in it,
-  so this is waiting on step 5 above.
+`slp-month-page.gs`. Run `buildSlpMonthPage()`. It writes the visible
+**SuperLeap by Month** tab and a hidden `_SlpMonthData` lookup, on the
+same pattern `buildOverallReport` uses for `_OverallData`: one pre-summed
+row per `month|source|agent` key, every cell on the page a single
+`INDEX/MATCH` against it, so changing a dropdown is instant and nothing
+has to be re-run.
+
+`All months` and `All workshops` are real pre-summed rows, not the page
+adding its own columns up, so they stay correct under any filter. Only
+keys that carry leads are written - the page reads through
+`IFERROR(..., 0)`, so an absent key is correctly a zero, and writing the
+full cross product would be tens of thousands of rows of nothing.
+
+On today's v1 payload it writes nothing, does not touch the spreadsheet,
+and logs why. Run it again after the first v3 payload and it builds.
+Nothing needs editing in between.
+
+`slpMonthPageSelfTest()` checks the part that could be wrong quietly -
+that `All months` equals the sum of the months, `All workshops` equals
+the sum of the workshops, and nothing leaks between agents.
+
+Rebuild it when a payload brings a new month or workshop, because the
+dropdown lists are written at build time.
+
+### Nothing else is waiting on v3
+
+Everything that could be built before the data exists has been. The only
+remaining steps are steps 4-6 above, which are yours.
 
 ## House rules that have cost time before
 
@@ -124,6 +146,7 @@ month it is showing.
 | `agent-lead-report.gs` | the Agent Lead Status report, incl. the leaver filter |
 | `slack-digest.gs` | Slack delivery - webhook and email routes, 3000-char chunking |
 | `slp-payload.gs` | payload version detection and normalising (v1/v2/v3) |
+| `slp-month-page.gs` | the SuperLeap by Month page and its hidden lookup |
 | `dump-for-churn.gs` | read-only diagnostics; nothing here writes |
 | `diagnose-to-drive.gs`, `inventory-to-drive.gs` | diagnostics that write their output to Drive |
 | `superleap-routine-prompt*.md` | instructions for the Claude routine, **not** Apps Script |

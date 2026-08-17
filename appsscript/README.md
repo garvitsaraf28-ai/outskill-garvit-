@@ -60,12 +60,15 @@ without ever saying why.
    - `SlpAuto.gs`, in `slpAutoRefresh()` - this is the one on the trigger
    - `SuperLeapChurn.gs`, in `slpLoadFromDrive()` - the manual loader
 
+   **Done.**
 5. Run **`slpLoadFromDrive()`** - not `slpAutoRefresh` - then
    `slpPayloadCheck()`. The `normaliser :` line must say `WIRED IN`. If
    it says `NOT WIRED IN`, an edit did not take; fix it before going
-   further.
+   further. **Done - confirmed `WIRED IN`, 17 Aug 14:37 IST.**
 6. Only now point the routine at `superleap-routine-prompt-v3.md`.
-7. Run `slpPayloadCheck()` again after the first v3 payload lands.
+   **<- you are here.**
+7. Run `slpPayloadCheck()` again after the first v3 payload lands, then
+   `buildSlpMonthPage()` to create the month page.
 
 Steps 1-5 are safe while the routine is still on v1 - that is the point
 of doing them first. Nothing changes visibly until step 6.
@@ -128,8 +131,10 @@ dropdown lists are written at build time.
 
 ### Nothing else is waiting on v3
 
-Everything that could be built before the data exists has been. The only
-remaining steps are steps 4-6 above, which are yours.
+Everything that could be built before the data exists has been, and the
+workbook side is confirmed ready. The only step left is 6 - pointing the
+routine at the v3 prompt - after which the current-month report switches
+itself on and `buildSlpMonthPage()` will build.
 
 ## The churn post to Slack is off, deliberately
 

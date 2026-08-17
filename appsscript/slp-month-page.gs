@@ -380,7 +380,18 @@ function smp_writePage_(ss, agg, disps, t0) {
   sh.setColumnWidth(4, 80);
   for (var w = 5; w <= NCOL; w++) sh.setColumnWidth(w, 92);
   sh.setFrozenRows(hRow);
-  sh.setFrozenColumns(3);
+
+  /* No frozen columns, deliberately.
+     The subtitle on row 2 and the footnote at the bottom are each merged
+     across the full width of the page, and Sheets refuses to freeze a
+     column that would cut through a merge anywhere on the sheet:
+     "you can't freeze columns which contain only part of a merged cell".
+     Freezing three columns and merging seventeen cannot both be had.
+     The explanations are worth more than the frozen agent column, and an
+     exception here would abandon the build after the lookup tab had
+     already been written - leaving a hidden tab with no page in front of
+     it. Frozen rows are unaffected: those merges sit wholly inside or
+     wholly below the frozen band. */
   SpreadsheetApp.flush();
 }
 

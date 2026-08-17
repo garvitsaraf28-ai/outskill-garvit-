@@ -244,12 +244,36 @@ function smp_lookupRows_(agg, disps) {
    ================================================================ */
 function smp_writePage_(ss, agg, disps, t0) {
   var sh = ss.getSheetByName(SMP_TAB);
-  if (!sh) sh = ss.insertSheet(SMP_TAB);
-  else {
-    // clear() leaves merges behind, and a stale merge breaks every later
-    // setValues on that range.
-    sh.getDataRange().breakApart();
-    sh.clear();
+  if (!sh) {
+    sh = ss.insertSheet(SMP_TAB);
+  } else {
+    /* Break every merge on the SHEET, not just the ones inside the data
+       range. getDataRange() stops at the last cell with content, and the
+       footnote merge is two rows tall - so on a rebuild its second row sat
+       outside the range, breakApart left it alone, and the next merge
+       overlapped it:
+
+         You must select all cells in a merged range to merge or unmerge them.
+
+       clear() does not remove merges either, which is why this has to
+       happen explicitly and before anything is written. */
+    var wiped = false;
+    try {
+      sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart();
+      sh.clear();
+      wiped = true;
+    } catch (e) {
+      Logger.log('could not clear the old page (' + e.message + '); rebuilding it from scratch');
+    }
+
+    /* If some leftover shape still defeats it, replace the sheet rather
+       than abandon the build. The lookup tab is already written by this
+       point, so throwing here would leave a hidden tab with no page in
+       front of it - which is harder to diagnose than a recreated tab. */
+    if (!wiped) {
+      ss.deleteSheet(sh);
+      sh = ss.insertSheet(SMP_TAB);
+    }
   }
   sh.setHiddenGridlines(true);
 

@@ -1,5 +1,5 @@
 /**
- * SlpMonthPage.gs - the SuperLeap numbers, sliceable by month and workshop.
+ * SlpMonthPage.gs - the SuperLeap numbers, sliceable by month and source.
  *
  * The SuperLeap Churn tab is every lead since 1 April summed into one
  * figure per agent. That is deliberate and it stays that way, because other
@@ -12,10 +12,21 @@
  *
  * NOTHING TO SWITCH ON
  *
- *   It needs month and workshop, which only a v3 payload carries. On a v1
+ *   It needs month and source, which only a v3 payload carries. On a v1
  *   payload it writes nothing, says exactly why in the log, and leaves any
- *   existing page alone. Run it again after the first v3 payload lands and
- *   it builds. Nothing here has to be edited in between.
+ *   existing page alone.
+
+ *   NOTE ON "source". SuperLeap's source field is the lead CHANNEL -
+ *   Website, Inbound Call, Manual, Bulk Upload - not the workshop code
+ *   (C160, MM158) the rest of this workbook joins on. That was assumed
+ *   rather than checked when the v3 prompt was written, and a real
+ *   payload proved it wrong: five values, all channels. The dimension is
+ *   still worth having, it is just not the workshop one. If a workshop
+ *   filter is wanted, the field carrying it has to be found in SuperLeap
+ *   first.
+ *
+ *   Run it again after the first v3 payload lands and it builds. Nothing
+ *   here has to be edited in between.
  *
  * WHY A HIDDEN LOOKUP TAB RATHER THAN FORMULAS OVER THE RAW DATA
  *
@@ -25,14 +36,14 @@
  *   tens of thousands of payload rows, once per cell - recalculates the
  *   whole page on every keystroke.
  *
- *   The "All months" and "All workshops" rows are real pre-summed rows, not
+ *   The "All months" and "All sources" rows are real pre-summed rows, not
  *   something the page adds up at read time, for the same reason.
  */
 
 var SMP_TAB     = 'SuperLeap by Month';
 var SMP_DATA    = '_SlpMonthData';
 var SMP_ALL_M   = 'All months';
-var SMP_ALL_S   = 'All workshops';
+var SMP_ALL_S   = 'All sources';
 
 /* A guard, not a target. If the key count ever gets near this the page has
    stopped being a page, and silently writing 200,000 rows into someone's
@@ -70,7 +81,7 @@ function buildSlpMonthPage() {
   if (!pay.rows || !pay.rows.length || !pay.months || !pay.months.length) {
     Logger.log('NOTHING TO BUILD: this payload carries no month.');
     Logger.log('');
-    Logger.log('  It is v' + slp_payloadVersion_(pay) + '. Month and workshop arrive with v3.');
+    Logger.log('  It is v' + slp_payloadVersion_(pay) + '. Month and source arrive with v3.');
     Logger.log('  SuperLeap sums the leads before they reach the sheet, so a month');
     Logger.log('  cannot be recovered from what is here - it has to be in the query.');
     Logger.log('');
@@ -118,7 +129,7 @@ function buildSlpMonthPage() {
   Logger.log('built in ' + Math.round((new Date() - t0) / 1000) + 's');
   Logger.log('  agents    : ' + agg.agents.length);
   Logger.log('  months    : ' + agg.months.join(', '));
-  Logger.log('  workshops : ' + agg.sources.length);
+  Logger.log('  sources   : ' + agg.sources.length);
   Logger.log('  lookup    : ' + (rows.length - 1) + ' rows on the hidden "' + SMP_DATA + '"');
   Logger.log('  leads     : ' + agg.total);
 
@@ -131,7 +142,7 @@ function buildSlpMonthPage() {
    2.  AGGREGATE
 
    Every payload row is added to four keys, so "All months" and "All
-   workshops" are real sums rather than something the page works out at
+   sources" are real sums rather than something the page works out at
    read time:
 
      month|source|agent   month|ALL|agent   ALL|source|agent   ALL|ALL|agent
@@ -168,7 +179,7 @@ function smp_aggregate_(payRows, ros, nameMap, disps) {
     var month = String(r.month || '');
     var src = String(r.source || '');
     if (!month) return;                      // cannot place it on the month axis
-    if (!src) src = '(no workshop)';
+    if (!src) src = '(no source)';
 
     var n = Number(r.n || 0);
     if (!n) return;
@@ -244,12 +255,12 @@ function smp_writePage_(ss, agg, disps, t0) {
 
   var NCOL = 4 + 1 + disps.length + 3;   // mgr, team, agent, status | total | disps | pend, disp%, contact%
 
-  sh.getRange(1, 1).setValue('SUPERLEAP BY MONTH AND WORKSHOP')
+  sh.getRange(1, 1).setValue('SUPERLEAP BY MONTH AND SOURCE')
     .setFontSize(16).setFontWeight('bold').setFontColor('#1f3864');
 
   sh.getRange(2, 1).setValue(
     'The same leads as the SuperLeap Churn tab, sliced. Pick a month in B3 and a ' +
-    'workshop in C3 - both apply together and the numbers update as you choose, ' +
+    'lead source in C3 - both apply together and the numbers update as you choose, ' +
     'nothing needs re-running.' +
     (agg.snapshot && typeof slp_stamp_ === 'function'
       ? '   Snapshot ' + slp_stamp_(agg.snapshot) : '') +
@@ -356,8 +367,10 @@ function smp_writePage_(ss, agg, disps, t0) {
     'Only leads that carry a month are on this page. "' + SMP_ALL_M + '" and "' +
     SMP_ALL_S + '" are pre-summed rows on the hidden lookup, not the page adding ' +
     'the columns up, so they stay right when a filter is applied. Rebuild with ' +
-    'buildSlpMonthPage() after a payload arrives with a new month or workshop in it - ' +
-    'the dropdown lists are written at build time.')
+    'buildSlpMonthPage() after a payload arrives with a new month or source in it - ' +
+    'the dropdown lists are written at build time.   Source here is the lead ' +
+    'channel SuperLeap records (Website, Inbound Call, Manual, Bulk Upload), not ' +
+    'the workshop code the rest of the workbook joins on.')
     .setFontStyle('italic').setFontColor('#666666').setWrap(true);
   sh.getRange(tRow + 2, 1, 2, NCOL).merge();
 
@@ -420,18 +433,18 @@ function slpMonthPageSelfTest() {
   eq('pool excluded', agg.total, 10 + 20 + 5 + 7 + 3);
   eq('monthless row excluded', !!B['|C160|Ann'], false);
   eq('months found', agg.months.join(','), '2026-07,2026-08');
-  eq('workshops found', agg.sources.join(','), 'C160,C161');
+  eq('sources found', agg.sources.join(','), 'C160,C161');
 
-  eq('one month one workshop', B['2026-08|C160|Ann'].total, 20);
-  eq('one month all workshops', B['2026-08|' + SMP_ALL_S + '|Ann'].total, 32);
-  eq('all months one workshop', B[SMP_ALL_M + '|C160|Ann'].total, 30);
-  eq('all months all workshops', B[SMP_ALL_M + '|' + SMP_ALL_S + '|Ann'].total, 42);
+  eq('one month one source', B['2026-08|C160|Ann'].total, 20);
+  eq('one month all sources', B['2026-08|' + SMP_ALL_S + '|Ann'].total, 32);
+  eq('all months one source', B[SMP_ALL_M + '|C160|Ann'].total, 30);
+  eq('all months all sources', B[SMP_ALL_M + '|' + SMP_ALL_S + '|Ann'].total, 42);
 
   // the thing that would be wrong quietly: All must equal the sum of parts
   var sumMonths = B['2026-07|' + SMP_ALL_S + '|Ann'].total + B['2026-08|' + SMP_ALL_S + '|Ann'].total;
   eq('All months == sum of months', B[SMP_ALL_M + '|' + SMP_ALL_S + '|Ann'].total, sumMonths);
   var sumSrc = B[SMP_ALL_M + '|C160|Ann'].total + B[SMP_ALL_M + '|C161|Ann'].total;
-  eq('All workshops == sum of workshops', B[SMP_ALL_M + '|' + SMP_ALL_S + '|Ann'].total, sumSrc);
+  eq('All sources == sum of sources', B[SMP_ALL_M + '|' + SMP_ALL_S + '|Ann'].total, sumSrc);
 
   eq('blank disposition is pending, not lost', B['2026-08|C161|Ann'].pending, 7);
   eq('pending not counted as a disposition', B['2026-08|C161|Ann'].d['Prospect'], 0);

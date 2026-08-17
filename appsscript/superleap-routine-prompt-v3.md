@@ -112,7 +112,7 @@ rows is the new part and the only new part. Short keys on purpose: a=agent, m=mo
 Rules that matter:
 - agent is owner.name; use "(no owner)" when null.
 - In disp, send the email on an agent's FIRST row and "" after. In rows, omit email entirely.
-- s is the workshop code. Use "(no source)" when null. Send it verbatim - the workbook matches the exact string.
+- s is SuperLeap's source field - the lead channel (Website, Inbound Call, Manual, Bulk Upload), NOT the workshop code. An earlier version of this prompt called it the workshop code; a real payload proved otherwise, returning five channel values and no batch codes. Use "(no source)" when null and send it verbatim.
 - d: a null disposition MUST be the empty string "". The reader turns "" into "Not dispositioned yet". Do not send the word null and do not drop those rows - they are roughly half the leads.
 - sub only includes rows where sub_disposition is set.
 - stage is never null; if one arrives null, send "(blank)".

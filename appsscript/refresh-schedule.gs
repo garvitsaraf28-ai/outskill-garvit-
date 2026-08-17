@@ -247,6 +247,67 @@ function runAgentLeadSchedule() {
   runSchedule_('AGENT_LEAD');
 }
 
+/**
+ * A script gets 6 minutes. This is that, less enough headroom to finish
+ * posting to Slack after the last thing that can block.
+ */
+var SCHEDULE_BUDGET_SECS = 330;
+
+/**
+ * How long to wait for the lock before giving up on refreshing.
+ *
+ * Short on purpose. If another firing is refreshing the same workbook from
+ * the same sources, waiting the whole thing out to do it again is wasted
+ * budget - the data will be current either way.
+ */
+var SCHEDULE_REFRESH_WAIT_SECS = 90;
+
+/** Seconds held back for building and posting once the lock is in hand. */
+var SCHEDULE_BUILD_RESERVE_SECS = 20;
+
+/**
+ * Run fn with the script lock held, so two firings cannot write the same
+ * tabs at once.
+ *
+ * This is not theoretical. The installed times collide by design and by
+ * jitter:
+ *
+ *   Day 19:00 and Agent Lead 19:00 are the same minute.
+ *   Day 19:00 and Night 19:30, and Day 21:30 and Night 22:00, are 30
+ *   minutes apart, and nearMinute() places a trigger within +/-15 minutes
+ *   of the hour asked for - so either pair can land on the same minute.
+ *   slpAutoRefresh runs on its own 2-hour clock that nothing here controls.
+ *
+ * Two concurrent refreshAndVerify runs write mdl_Roster, mdl_Payments and
+ * mdl_Batches at the same time. A report that reads SuperLeap Churn while
+ * slpAutoRefresh is between its clear() and its setValues() reads an empty
+ * tab and posts a confident report with no agents in it. Neither failure
+ * throws, so neither would appear anywhere except in the numbers.
+ *
+ * Returns true if fn ran, false if the lock never came.
+ */
+function withScheduleLock_(what, waitMs, fn) {
+  var lock;
+  try {
+    lock = LockService.getScriptLock();
+  } catch (err) {
+    // No lock service available: better to do the work unguarded than to
+    // skip the report entirely.
+    Logger.log('%s - lock service unavailable, running unguarded: %s', what, err);
+    fn();
+    return true;
+  }
+
+  if (!lock.tryLock(waitMs)) return false;
+
+  try {
+    fn();
+  } finally {
+    lock.releaseLock();
+  }
+  return true;
+}
+
 function runSchedule_(key) {
   var schedule = SCHEDULES[key];
   var firedAt = Utilities.formatDate(
@@ -255,6 +316,9 @@ function runSchedule_(key) {
     'dd-MMM-yyyy HH:mm'
   );
 
+  var startedMs = new Date().getTime();
+  function spentSecs() { return (new Date().getTime() - startedMs) / 1000; }
+
   // Refresh first, report second. This is what keeps exec_Snapshot current:
   // the pre-existing trigger calls refreshAndVerify alone, which updates the
   // Command Centre and leaves the snapshot behind, so the sequence has to run
@@ -262,19 +326,57 @@ function runSchedule_(key) {
   // still gets reported to Slack instead of dying in the execution log.
   if (schedule.refresh) {
     var failures = [];
-    try {
-      callRefresh_().forEach(function (r) {
-        if (r.status !== 'ok') failures.push(r.name + ': ' + r.status);
-      });
-    } catch (err) {
-      failures.push('refresh sequence: ' + (err && err.message ? err.message : String(err)));
-    }
-    if (failures.length) {
-      Logger.log('%s - %s', schedule.label, failures.join(' | '));
-    }
+
+    // Skipping the refresh when another firing holds the lock is not a
+    // degradation. Whoever holds it is refreshing the same workbook from the
+    // same sources, so by the time the report is built the data is current
+    // either way. Running it twice concurrently is the only bad outcome.
+    var ran = withScheduleLock_(schedule.label + ' refresh', SCHEDULE_REFRESH_WAIT_SECS * 1000, function () {
+      try {
+        callRefresh_().forEach(function (r) {
+          if (r.status !== 'ok') failures.push(r.name + ': ' + r.status);
+        });
+      } catch (err) {
+        failures.push('refresh sequence: ' + (err && err.message ? err.message : String(err)));
+      }
+    });
+
+    if (!ran) Logger.log('%s - another refresh was already running; used its result', schedule.label);
+    if (failures.length) Logger.log('%s - %s', schedule.label, failures.join(' | '));
   }
 
-  var report = buildSchedule_(schedule, firedAt);
+  // Build under the lock too. The Agent Lead report reads the SuperLeap
+  // Churn tab, which slpAutoRefresh rebuilds on a clock this file does not
+  // control, and a read landing inside that rebuild returns an empty tab.
+  // Wait with whatever budget is actually left rather than a fixed number.
+  // A firing that skipped its refresh has spent almost nothing and can
+  // afford to wait the other run out; one that just refreshed for four
+  // minutes cannot. A fixed wait gets this wrong at both ends - it made
+  // Night, jittering onto Day, give up and post nothing at all.
+  var reportWait = Math.max(
+    15,
+    SCHEDULE_BUDGET_SECS - spentSecs() - SCHEDULE_BUILD_RESERVE_SECS
+  ) * 1000;
+
+  var report = null;
+  var built = withScheduleLock_(schedule.label + ' report', reportWait, function () {
+    report = buildSchedule_(schedule, firedAt);
+  });
+
+  if (!built) {
+    // Say so rather than posting numbers read from a tab mid-rebuild, and
+    // rather than staying silent - a missing post looks like a broken
+    // trigger and sends someone looking in the wrong place.
+    report = {
+      subject: '[' + schedule.report + '] skipped this run',
+      body: 'As at ' + firedAt + ' IST\n\n' +
+        '!! Another refresh was still running after ' +
+        Math.round(reportWait / 1000) + ' seconds, so this report ' +
+        'was not built. Reading the tabs mid-rebuild would have reported ' +
+        'numbers that were not real. The next run is unaffected.'
+    };
+  }
+
   postToSlack_(report.subject, report.body);
 }
 

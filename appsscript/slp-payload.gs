@@ -327,10 +327,49 @@ function slp_rowsForMonth_(pay, month) {
 
 
 /* ================================================================
-   6.  CHECK IT YOURSELF
+   6.  IS THE NORMALISER ACTUALLY WIRED IN
+
+   The two one-line edits are the only part of this that a person has
+   to do by hand, so it is the only part that can silently not happen.
+   An edit that was missed looks exactly like an edit that was made -
+   until the routine switches to v3 and the pipeline stops.
+
+   It can be checked without reading the source. The routine's own
+   payload carries no "version" key; slp_normalisePayload_ always adds
+   one. So a stored payload with a version went through the normaliser,
+   and one without it did not.
+   ================================================================ */
+function slp_wiringState_(stored, drivePay) {
+  if (!stored) {
+    return { state: 'unknown',
+             why: 'nothing stored yet - run slpAutoRefresh once, then check again' };
+  }
+
+  if (Object.prototype.hasOwnProperty.call(stored, 'version')) {
+    return { state: 'WIRED IN', why: '' };
+  }
+
+  /* No version key. If what is stored is the same snapshot as the file
+     currently in Drive, then the newest payload was stored without
+     passing through the normaliser, which is conclusive. */
+  if (drivePay && String(drivePay.snapshot || '') === String(stored.snapshot || '')) {
+    return { state: 'NOT WIRED IN',
+             why: 'the newest payload was stored without passing through ' +
+                  'slp_normalisePayload_. Make the two edits in the header of ' +
+                  'this file before switching the routine to v3.' };
+  }
+
+  return { state: 'cannot tell yet',
+           why: 'the stored payload is older than the one in Drive. Run ' +
+                'slpAutoRefresh, then check again.' };
+}
+
+
+/* ================================================================
+   7.  CHECK IT YOURSELF
 
    Read-only. Says which version is in Drive, which is in the sheet,
-   and whether the two agree, without touching either.
+   whether the normaliser is wired in, and what to do next.
    ================================================================ */
 function slpPayloadCheck() {
   Logger.log('--- SuperLeap payload check ---');
@@ -377,18 +416,38 @@ function slpPayloadCheck() {
       return;
     }
 
+    var wiring = slp_wiringState_(stored, pay);
+    Logger.log('normaliser   : ' + wiring.state);
+    if (wiring.why) Logger.log('               ' + wiring.why);
+
     Logger.log('');
     if (dv === 1) {
-      Logger.log('VERDICT      : v1. This is what the readers were written for.');
-      Logger.log('               Safe with or without slp_normalisePayload_ wired in.');
-      Logger.log('               No month and no workshop code, so the current-month');
-      Logger.log('               report and the month dropdown cannot be built yet.');
+      Logger.log('VERDICT      : v1. This is what the readers were written for, so');
+      Logger.log('               nothing is broken and nothing is urgent.');
+      Logger.log('               No month and no workshop code in this payload, so');
+      Logger.log('               the current-month report and the month dropdown');
+      Logger.log('               have nothing to work from yet.');
+      Logger.log('');
+      if (wiring.state === 'WIRED IN') {
+        Logger.log('NEXT         : the workbook side is ready. Point the routine at');
+        Logger.log('               superleap-routine-prompt-v3.md whenever you want');
+        Logger.log('               the month. Everything switches on by itself.');
+      } else {
+        Logger.log('NEXT         : make the two edits in the header of this file');
+        Logger.log('               FIRST, then switch the routine to v3. Doing it');
+        Logger.log('               the other way round stops the pipeline without');
+        Logger.log('               an error message.');
+      }
     } else {
       Logger.log('VERDICT      : v' + dv + '. The readers cannot use this on their own.');
-      Logger.log('               slp_normalisePayload_ MUST be wired into');
-      Logger.log('               slpAutoRefresh and slpLoadFromDrive, or the');
-      Logger.log('               workbook will keep showing its last good numbers');
-      Logger.log('               and never say why. See the header of this file.');
+      if (wiring.state === 'WIRED IN') {
+        Logger.log('               The normaliser is wired in, so this is handled.');
+      } else {
+        Logger.log('               slp_normalisePayload_ is NOT wired in. The workbook');
+        Logger.log('               is showing its last good numbers and will keep');
+        Logger.log('               doing so, silently. Make the two edits in the');
+        Logger.log('               header of this file now.');
+      }
     }
   }
 }
@@ -456,6 +515,22 @@ function slpPayloadSelfTest() {
   eq('v1 has no rows to filter', slp_rowsForMonth_(o1, '2026-08').length, 0);
 
   eq('unknown shape passes through', slp_normalisePayload_('{"nope":1}'), '{"nope":1}');
+
+  /* The wiring check. A payload straight from the routine has no version
+     key; anything the normaliser touched has one. */
+  var routineV1 = { snapshot: 'S1', disp: [['Ann', 'a@x', 'Prospect', 3]] };
+  var normalised = JSON.parse(slp_normalisePayload_(JSON.stringify(routineV1)));
+
+  eq('wiring: normalised payload is detected as wired',
+     slp_wiringState_(normalised, { snapshot: 'S1' }).state, 'WIRED IN');
+  eq('wiring: raw payload, same snapshot as Drive, is detected as not wired',
+     slp_wiringState_(routineV1, { snapshot: 'S1' }).state, 'NOT WIRED IN');
+  eq('wiring: raw payload older than Drive is not called either way',
+     slp_wiringState_(routineV1, { snapshot: 'S2' }).state, 'cannot tell yet');
+  eq('wiring: nothing stored',
+     slp_wiringState_(null, { snapshot: 'S1' }).state, 'unknown');
+  eq('wiring: v3 payload is wired by construction',
+     slp_wiringState_(o3, { snapshot: 'x' }).state, 'WIRED IN');
 
   if (fails.length) {
     Logger.log('SELF TEST FAILED');

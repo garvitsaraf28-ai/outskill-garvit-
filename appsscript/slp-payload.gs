@@ -93,6 +93,38 @@
    inside JSON.parse with a message nobody can act on. */
 var SLP_PAYLOAD_MAX_CHARS = 9000000;
 
+/* ----------------------------------------------------------------
+   THE SHRINK GUARD
+
+   On 17 Aug a payload arrived carrying 5 disposition rows where the one
+   before it had 671. It was stored, the SuperLeap tabs were rebuilt from
+   it, and the Slack report went out saying the Inside Sales team had one
+   agent and 123 leads. Nothing errored, because nothing was wrong in a
+   way any check was looking for: the file was valid JSON in the right
+   shape, it just had almost nothing in it.
+
+   A payload that suddenly loses most of its rows is a failed query far
+   more often than it is real news. Refusing it costs one stale refresh
+   cycle. Accepting it costs the tabs, the report, and anyone who read
+   the report.
+
+   The guard lives here rather than in the readers because this is the
+   one place every payload already passes through, so it protects both
+   slpAutoRefresh and slpLoadFromDrive without either needing another
+   hand-edit. Both wrap the call in a try/catch that returns early
+   WITHOUT storing, which is exactly the behaviour wanted.
+
+   Their catch reports its own message rather than this one, so the real
+   reason is also written to SLP_LAST_REJECT, which slpPayloadCheck
+   reports.
+
+   To accept a genuinely smaller payload, set the script property
+   SLP_ALLOW_SHRINK to yes. It clears itself after one use, so a
+   deliberate override cannot silently become permanent.
+   ---------------------------------------------------------------- */
+var SLP_SHRINK_FLOOR = 0.5;   // refuse below half of the last good count
+var SLP_SHRINK_MIN   = 50;    // ignore the guard until there is a real baseline
+
 
 /* ================================================================
    1.  WHICH VERSION IS THIS
@@ -144,6 +176,8 @@ function slp_normalisePayload_(text) {
   var pay = JSON.parse(text);          // let a parse error reach the caller
   var v = slp_payloadVersion_(pay);
 
+  slp_guardShrink_(pay, v);
+
   if (v === 1) {
     /* Already the shape the readers want. Add the empty new fields so
        later code can ask for .months without checking it exists, and
@@ -170,6 +204,64 @@ function slp_normalisePayload_(text) {
      the same message they always did. Silently inventing a shape here
      would be the worst outcome: a tab full of confident zeroes. */
   return text;
+}
+
+
+/** How many data rows a payload carries, whatever shape it is in. */
+function slp_rowCount_(pay) {
+  if (!pay) return 0;
+  if (pay.rows && pay.rows.length) return pay.rows.length;
+  return ((pay.disp && pay.disp.length) || 0);
+}
+
+/**
+ * Refuse a payload that has lost most of its rows.
+ *
+ * Throws to stop it being stored. Records why, because the callers'
+ * catch blocks report their own wording rather than this message.
+ */
+function slp_guardShrink_(pay, version) {
+  var P;
+  try { P = PropertiesService.getScriptProperties(); }
+  catch (e) { return; }                       // no properties, no baseline, no guard
+
+  var now = slp_rowCount_(pay);
+  var last = Number(P.getProperty('SLP_LAST_GOOD_ROWS') || 0);
+
+  // Nothing to compare against yet, or the baseline is too small to mean
+  // anything. Record and allow.
+  if (!last || last < SLP_SHRINK_MIN) {
+    if (now) P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+    return;
+  }
+
+  if (now >= Math.floor(last * SLP_SHRINK_FLOOR)) {
+    P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+    P.deleteProperty('SLP_LAST_REJECT');
+    return;
+  }
+
+  // One-shot override, so a deliberate accept cannot become permanent.
+  var allow = String(P.getProperty('SLP_ALLOW_SHRINK') || '').trim().toLowerCase();
+  if (allow === 'yes' || allow === 'true') {
+    P.deleteProperty('SLP_ALLOW_SHRINK');
+    P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+    P.setProperty('SLP_LAST_REJECT',
+      'ACCEPTED a shrink from ' + last + ' to ' + now + ' rows because ' +
+      'SLP_ALLOW_SHRINK was set. That override has now been cleared.');
+    return;
+  }
+
+  var why = 'REFUSED a v' + version + ' payload with ' + now +
+    ' row(s) where the last good one had ' + last +
+    '. A payload that loses most of its rows is a failed query far more ' +
+    'often than it is real news, so the workbook kept its previous ' +
+    'numbers rather than rebuilding the tabs and the Slack report from ' +
+    'almost nothing. If the drop is genuine, set the script property ' +
+    'SLP_ALLOW_SHRINK to yes and run again; it clears itself after one use.';
+
+  P.setProperty('SLP_LAST_REJECT', why);
+  throw new Error(why);
 }
 
 
@@ -440,6 +532,82 @@ function slp_payloadFiles_() {
 }
 
 
+/**
+ * Every payload file, with what is actually inside it.
+ *
+ * Read-only. Opens each one and counts its rows, because size and date
+ * cannot tell a good payload from a nearly empty one - the file that
+ * rebuilt the tabs down to a single agent was valid JSON in the right
+ * shape, and only its row count gave it away.
+ *
+ * Run this when the numbers look wrong, to find which file did it.
+ */
+function slpPayloadList() {
+  var name = (typeof SLPA_FILE !== 'undefined' && SLPA_FILE) ? SLPA_FILE : 'slp_payload.json';
+  var folderId = PropertiesService.getScriptProperties().getProperty('SLP_FOLDER_ID');
+
+  Logger.log('--- every file called ' + name + ' ---');
+  if (!folderId) Logger.log('SLP_FOLDER_ID is not set, so "where" cannot be reported.');
+
+  var it;
+  try { it = DriveApp.getFilesByName(name); }
+  catch (e) { Logger.log('cannot search Drive: ' + e.message); return; }
+
+  var rows = [];
+  while (it.hasNext()) {
+    var f = it.next();
+    var rec = {
+      when: f.getLastUpdated(),
+      kb: Math.round(f.getSize() / 1024),
+      trashed: !!(f.isTrashed && f.isTrashed()),
+      where: '?', n: null, snap: '', ver: 0, id: f.getId()
+    };
+
+    if (folderId) {
+      rec.where = 'elsewhere';
+      try {
+        var p = f.getParents();
+        while (p.hasNext()) { if (p.next().getId() === folderId) { rec.where = 'feed folder'; break; } }
+      } catch (e) {}
+    }
+
+    try {
+      var pay = JSON.parse(f.getBlob().getDataAsString('UTF-8'));
+      rec.n = slp_rowCount_(pay);
+      rec.snap = String(pay.snapshot || '');
+      rec.ver = slp_payloadVersion_(pay);
+    } catch (e) { rec.n = -1; }
+
+    rows.push(rec);
+  }
+
+  if (!rows.length) { Logger.log('none found.'); return; }
+  rows.sort(function (a, b) { return b.when - a.when; });
+
+  var best = 0;
+  rows.forEach(function (r) { if (r.n > best) best = r.n; });
+
+  Logger.log('');
+  Logger.log('uploaded            size   rows   v  where         state');
+  rows.forEach(function (r) {
+    var flag = '';
+    if (r.trashed) flag = 'in Trash';
+    else if (r.n === -1) flag = 'UNREADABLE';
+    else if (best && r.n < best * SLP_SHRINK_FLOOR) flag = '<-- SUSPECT, far fewer rows';
+    Logger.log('  ' +
+      Utilities.formatDate(r.when, 'Asia/Kolkata', 'dd MMM HH:mm') + '   ' +
+      (r.kb + ' KB').slice(0, 7) + '  ' +
+      String(r.n).slice(0, 6) + '   ' + r.ver + '  ' +
+      (r.where + '            ').slice(0, 13) + ' ' + flag);
+  });
+
+  Logger.log('');
+  Logger.log('The newest file is the one the workbook will use. If it is marked');
+  Logger.log('SUSPECT, the routine wrote a bad payload - fix the routine rather');
+  Logger.log('than the workbook, then let the next run replace it.');
+}
+
+
 /* ================================================================
    7.  CHECK IT YOURSELF
 
@@ -514,6 +682,20 @@ function slpPayloadCheck() {
       Logger.log('               Set SLP_FOLDER_ID to the feed folder so a stray');
       Logger.log('               slp_payload.json elsewhere in Drive cannot be picked up.');
     }
+    if (files.elsewhere) {
+      Logger.log('               ' + files.elsewhere + ' file(s) sit OUTSIDE the feed folder. ' +
+                 'slpLoadFromDrive');
+      Logger.log('               searches the whole Drive and would use one if it were newest.');
+    }
+
+    var rejected = PropertiesService.getScriptProperties().getProperty('SLP_LAST_REJECT');
+    if (rejected) {
+      Logger.log('');
+      Logger.log('last refusal : ' + rejected);
+    }
+
+    var lastRows = PropertiesService.getScriptProperties().getProperty('SLP_LAST_GOOD_ROWS');
+    if (lastRows) Logger.log('row baseline : ' + lastRows + ' (a payload below half of this is refused)');
 
     Logger.log('');
     if (dv === 1) {

@@ -51,7 +51,7 @@ function inventoryToDrive() {
  * Every top-level function in the project.
  *
  * Functions this repo added are marked so they can be told apart from the
- * ones that were already here — the pre-existing ones are the interesting
+ * ones that were already here - the pre-existing ones are the interesting
  * set when working out which refresh entry point is real.
  */
 function listFunctions_(out) {
@@ -86,7 +86,7 @@ function listFunctions_(out) {
     out.push('  Added by the Slack/schedule work (' + added.length + '):');
     added.forEach(function (n) { out.push('    ' + n); });
   } catch (err) {
-    out.push('  ERROR — ' + err.message);
+    out.push('  ERROR - ' + err.message);
   }
 }
 
@@ -107,7 +107,7 @@ function listTriggers_(out) {
       out.push('  ' + h + ' x' + counts[h]);
     });
   } catch (err) {
-    out.push('  ERROR — ' + err.message);
+    out.push('  ERROR - ' + err.message);
   }
 }
 
@@ -122,7 +122,7 @@ function listTabs_(out) {
   try {
     var ss = SpreadsheetApp.getActive();
     if (!ss) {
-      out.push('  ERROR — not bound to a spreadsheet');
+      out.push('  ERROR - not bound to a spreadsheet');
       return;
     }
     out.push('  ' + ss.getName());
@@ -136,7 +136,7 @@ function listTabs_(out) {
       out.push('      stamp: ' + (found || '(none found)'));
     });
   } catch (err) {
-    out.push('  ERROR — ' + err.message);
+    out.push('  ERROR - ' + err.message);
   }
 }
 
@@ -149,7 +149,7 @@ function findStamp_(sheet, lastRow, lastCol) {
   try {
     values = sheet.getRange(1, 1, rows, cols).getDisplayValues();
   } catch (e) {
-    return 'ERROR — ' + e.message;
+    return 'ERROR - ' + e.message;
   }
 
   for (var r = 0; r < values.length; r++) {

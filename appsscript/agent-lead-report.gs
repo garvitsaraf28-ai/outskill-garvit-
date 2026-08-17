@@ -185,7 +185,7 @@ function buildAgentLeadReport_(label, firedAt) {
   if (left.length) {
     var goneLeads = agentSummarise_(left).leads;
     lines.push('');
-    lines.push('Not counted above — ' + left.length + ' agent(s) off the ' +
+    lines.push('Not counted above - ' + left.length + ' agent(s) off the ' +
       split.newest + ' roster still hold ' + withCommas_(goneLeads) + ' leads:');
     lines.push('  ' + left.sort(function (x, y) { return y.leads - x.leads; })
       .map(function (a) { return a.agent + ' ' + withCommas_(a.leads); }).join(', '));
@@ -202,7 +202,7 @@ function buildAgentLeadReport_(label, firedAt) {
  * The agent rows, read by header name.
  *
  * The block ends at the TOTAL row and at the manager and lead-pool listing
- * below it, which is keyed by email rather than by name — neither is an
+ * below it, which is keyed by email rather than by name - neither is an
  * agent, and counting either would inflate every figure in the report.
  */
 function readAgentRows_(sheet) {
@@ -418,7 +418,7 @@ function agentNumber_(v) {
 }
 
 function agentPercent_(part, whole) {
-  if (!whole) return '—';
+  if (!whole) return '-';
   return (part / whole * 100).toFixed(1) + '%';
 }
 

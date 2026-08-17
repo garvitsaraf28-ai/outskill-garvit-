@@ -106,10 +106,23 @@ STEP 7 - report in one line: the snapshot time, the row count against the limit,
 
 ## What the workbook side needs
 
-The readers currently index v1 positions and must be replaced, not patched
-again. `version: 3` on the payload is what tells them which shape they have,
-so a v1 or v2 file already sitting in Drive is still readable during the
-changeover rather than being misread.
+**Done — `SlpPayload.gs` (`appsscript/slp-payload.gs`).** The readers are not
+replaced. A normaliser sits in front of them and converts v1, v2 or v3 into
+the one shape they already understand, carrying month and workshop alongside
+rather than discarding them. `slp_payloadVersion_` detects the version from
+the row shape, so a v1 file already sitting in Drive keeps working during the
+changeover instead of being misread.
+
+Wiring it in is two one-line changes, both documented in that file's header:
+`slpAutoRefresh` and `slpLoadFromDrive` each normalise `text` before parsing
+it. Until those two lines are in, **do not point the routine at v3** — a v3
+payload has no `disp` key, so `slpAutoRefresh` would stop at its guard, log
+"payload has no disposition rows", and leave the workbook showing its last
+good numbers every two hours without ever saying why.
+
+Order of operations, therefore: paste `SlpPayload.gs`, make the two edits, run
+`slpPayloadSelfTest()` and `slpPayloadCheck()`, and only then switch the
+routine to this prompt.
 
 Once `rows` carries month and source:
 

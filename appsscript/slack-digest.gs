@@ -60,8 +60,8 @@ function slackDigest() {
 /**
  * Run this when the digest reports success but nothing reaches the channel.
  *
- * It sends the same short message twice — once to the Slack channel address,
- * once to the account running the script — which splits the two failure modes
+ * It sends the same short message twice - once to the Slack channel address,
+ * once to the account running the script - which splits the two failure modes
  * apart. If the copy to yourself arrives and the channel stays empty, Google
  * is sending fine and the problem is the address or the Slack side. If neither
  * arrives, the problem is on the Google side and the quota and scope readings
@@ -79,7 +79,7 @@ function diagnoseSlack() {
   Logger.log('quota left   : %s', MailApp.getRemainingDailyQuota());
 
   if (!isEmailShaped_(clean)) {
-    Logger.log('STOP — the address is malformed. Fix the property, then re-run.');
+    Logger.log('STOP - the address is malformed. Fix the property, then re-run.');
     return;
   }
 
@@ -152,7 +152,7 @@ function normalizeAddress_(raw) {
  * Explain what is wrong with an address, or return null if it is usable.
  *
  * A plain shape check is not enough here. An address copied out of a UI that
- * abbreviates long strings comes back as team-pv-…@growthschoolio.slack.com —
+ * abbreviates long strings comes back as team-pv-...@growthschoolio.slack.com - 
  * one U+2026 ellipsis standing in for the 25-character token. That still
  * satisfies "something@something.something", so MailApp accepts it, reports
  * success, decrements the quota, and the mail bounces because the mailbox
@@ -190,7 +190,7 @@ function addressProblem_(s) {
     var token = local.slice(local.lastIndexOf('-') + 1);
     if (token.length < 16) {
       return (
-        'the Slack token looks truncated — the part after the last hyphen is "' +
+        'the Slack token looks truncated - the part after the last hyphen is "' +
         token + '" (' + token.length + ' characters), where a real one runs to ' +
         'roughly 24 or more.'
       );
@@ -233,7 +233,7 @@ function slackAddress_() {
  *   Webhook  posts a native Slack message. The text is visible inline and
  *            Slack mrkdwn works, so a code block holds column alignment.
  *   Email    posts a collapsed email card. Slack always renders inbound mail
- *            this way — subject showing, body behind a click — and no header
+ *            this way - subject showing, body behind a click - and no header
  *            or formatting changes that.
  *
  * The webhook is used whenever SLACK_WEBHOOK_URL is set, so adding that one
@@ -247,7 +247,7 @@ function postToSlack_(subject, body) {
 
 /**
  * Native Slack message. Body goes inside a code block so the alignment
- * survives — Slack collapses ordinary runs of spaces, which would otherwise
+ * survives - Slack collapses ordinary runs of spaces, which would otherwise
  * turn a tidy column of numbers into a ragged one.
  */
 /**
@@ -270,7 +270,7 @@ function postViaWebhook_(url, subject, body) {
   if (url.indexOf('https://hooks.slack.com/services/') !== 0) {
     throw new Error(
       'No Slack webhook URL found in SLACK_WEBHOOK_URL. Expected something ' +
-        'containing https://hooks.slack.com/services/... — got [' + url + ']'
+        'containing https://hooks.slack.com/services/... - got [' + url + ']'
     );
   }
 
@@ -371,7 +371,7 @@ function postViaEmail_(subject, body) {
  *
  * Use this to test the webhook on its own. It never falls back to email, so
  * a failure here is unambiguously a webhook problem and Slack's own response
- * body names the reason — no_service for a revoked URL, channel_not_found if
+ * body names the reason - no_service for a revoked URL, channel_not_found if
  * the app was removed from the channel.
  */
 function testWebhook() {
@@ -395,9 +395,9 @@ function testWebhook() {
 function whichSlackRoute() {
   var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
   if (hook) {
-    Logger.log('Webhook — native messages, text visible inline.');
+    Logger.log('Webhook - native messages, text visible inline.');
   } else {
-    Logger.log('Email — collapsed cards. Set SLACK_WEBHOOK_URL to upgrade.');
+    Logger.log('Email - collapsed cards. Set SLACK_WEBHOOK_URL to upgrade.');
   }
 }
 
@@ -414,7 +414,7 @@ function sendSlackDigest_(label, warning) {
   var body = buildDigest_(cc);
   if (warning) body = warning + '\n\n' + body;
 
-  var subject = 'Inside Sales — ' + monthLabel_(cc) + ' — ' + get_(cc, 'Revenue');
+  var subject = 'Inside Sales - ' + monthLabel_(cc) + ' - ' + get_(cc, 'Revenue');
   if (label) subject = '[' + label + '] ' + subject;
 
   var route = postToSlack_(subject, body);
@@ -494,8 +494,8 @@ function readGrid_(sheet) {
  *
  * The Command Centre lays labels out in two places: the KPI stack on the
  * left, and the PACING / MIX / PEOPLE blocks further right. Scanning the
- * whole grid covers both. Where a label appears more than once — "Revenue"
- * is also a header in the per-agent table — the match whose neighbour is
+ * whole grid covers both. Where a label appears more than once - "Revenue"
+ * is also a header in the per-agent table - the match whose neighbour is
  * numeric wins, which is always the KPI block.
  */
 function get_(cc, label, fallback) {
@@ -514,7 +514,7 @@ function get_(cc, label, fallback) {
       if (textMatch === null) textMatch = value; // remember, keep looking
     }
   }
-  return textMatch !== null ? textMatch : fallback === undefined ? '—' : fallback;
+  return textMatch !== null ? textMatch : fallback === undefined ? '-' : fallback;
 }
 
 function firstNonEmptyRight_(row, fromCol) {
@@ -526,7 +526,7 @@ function firstNonEmptyRight_(row, fromCol) {
 }
 
 function looksNumeric_(v) {
-  return /^-?[₹$]?\s*[\d,]+(\.\d+)?%?$/.test(String(v).trim());
+  return /^-?[\u20B9$]?\s*[\d,]+(\.\d+)?%?$/.test(String(v).trim());
 }
 
 /** "Last updated: 11-Aug-2026 17:25" -> the timestamp, or a blank string. */
@@ -546,10 +546,10 @@ function lastUpdated_(cc) {
   return '';
 }
 
-/** "COMMAND CENTRE — August 2026" -> "August 2026". */
+/** "COMMAND CENTRE - August 2026" -> "August 2026". */
 function monthLabel_(cc) {
   var title = String(cc.titleCell.getDisplayValue());
-  var parts = title.split(/[—–-]/);
+  var parts = title.split(/[\u2014\u2013-]/);
   var tail = parts.length > 1 ? parts[parts.length - 1].trim() : '';
   return tail || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMMM yyyy');
 }
@@ -558,7 +558,7 @@ function monthLabel_(cc) {
  * Formatting
  *
  * Slack's email-to-channel does not parse Markdown, so this is deliberately
- * plain "Label: value" text. No backticks, no asterisks — they would show
+ * plain "Label: value" text. No backticks, no asterisks - they would show
  * up literally in the channel.
  * ------------------------------------------------------------------ */
 
@@ -566,7 +566,7 @@ function buildDigest_(cc) {
   var stamp = lastUpdated_(cc);
   var lines = [];
 
-  lines.push('INSIDE SALES — ' + monthLabel_(cc).toUpperCase());
+  lines.push('INSIDE SALES - ' + monthLabel_(cc).toUpperCase());
   if (stamp) lines.push('Sheet last updated ' + stamp);
   lines.push('');
 
@@ -580,7 +580,7 @@ function buildDigest_(cc) {
   lines.push('PACING');
   lines.push(
     '  Day ' + get_(cc, 'Days elapsed') + ' of ' + get_(cc, 'Days in month') +
-    ' — ' + get_(cc, 'Days remaining') + ' remaining'
+    ' - ' + get_(cc, 'Days remaining') + ' remaining'
   );
   lines.push('  Daily rate achieved: ' + get_(cc, 'Daily rate achieved'));
   lines.push('  Daily rate needed: ' + get_(cc, 'Daily rate needed'));

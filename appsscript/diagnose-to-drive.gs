@@ -7,7 +7,7 @@
  *
  * Every probe is wrapped individually. One failing check records its own
  * error and the rest still run, because the useful signal is usually the
- * combination — a valid address plus zero remaining quota says something
+ * combination - a valid address plus zero remaining quota says something
  * quite different from a valid address plus a full quota.
  */
 
@@ -39,7 +39,7 @@ function diagnoseToDrive() {
   });
   probe_(out, 'bound spreadsheet', function () {
     var ss = SpreadsheetApp.getActive();
-    if (!ss) return 'NOT BOUND — this is a standalone script, not bound to a sheet';
+    if (!ss) return 'NOT BOUND - this is a standalone script, not bound to a sheet';
     return ss.getName();
   });
   out.push('');
@@ -49,7 +49,7 @@ function diagnoseToDrive() {
   var clean = '';
   probe_(out, 'property exists', function () {
     var raw = PropertiesService.getScriptProperties().getProperty(SLACK_PROP_KEY);
-    return raw === null ? 'NO — SLACK_CHANNEL_EMAIL is not set' : 'yes';
+    return raw === null ? 'NO - SLACK_CHANNEL_EMAIL is not set' : 'yes';
   });
   probe_(out, 'stored value', function () {
     var raw = PropertiesService.getScriptProperties().getProperty(SLACK_PROP_KEY);
@@ -73,7 +73,7 @@ function diagnoseToDrive() {
   });
   probe_(out, 'usable', function () {
     var problem = addressProblem_(clean);
-    return problem ? 'NO — ' + problem : 'yes';
+    return problem ? 'NO - ' + problem : 'yes';
   });
   probe_(out, 'domain', function () {
     var at = clean.lastIndexOf('@');
@@ -119,14 +119,14 @@ function diagnoseToDrive() {
   var body = 'Slack delivery probe generated at ' + probeStamp + '.';
 
   probe_(out, 'send to channel', function () {
-    if (!isEmailShaped_(clean)) return 'SKIPPED — address is malformed';
+    if (!isEmailShaped_(clean)) return 'SKIPPED - address is malformed';
     MailApp.sendEmail({ to: clean, subject: 'Slack probe ' + probeStamp, body: body });
     return 'sent without error to ' + clean;
   });
 
   probe_(out, 'send to self', function () {
     var me = Session.getEffectiveUser().getEmail();
-    if (!me) return 'SKIPPED — could not resolve own address';
+    if (!me) return 'SKIPPED - could not resolve own address';
     MailApp.sendEmail({ to: me, subject: 'Slack probe, copy to self ' + probeStamp, body: body });
     return 'sent without error to ' + me;
   });
@@ -151,7 +151,7 @@ function probe_(out, label, fn) {
   try {
     value = fn();
   } catch (err) {
-    value = 'ERROR — ' + (err && err.message ? err.message : String(err));
+    value = 'ERROR - ' + (err && err.message ? err.message : String(err));
   }
   out.push('  ' + label + ': ' + value);
 }

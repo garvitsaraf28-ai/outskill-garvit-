@@ -13,13 +13,13 @@
  * agent-lead-report.gs.
  *
  * Which builder runs, and whether the refresh sequence runs before it, are
- * both properties of the window in SCHEDULES — runSchedule_ reads them rather
+ * both properties of the window in SCHEDULES - runSchedule_ reads them rather
  * than knowing about either report.
  *
  * Why fixed clock times rather than an interval
  * ---------------------------------------------
  * Apps Script's everyHours() only accepts 1, 2, 4, 6, 8 or 12, so a 2.5-hour
- * interval cannot be expressed with it — which is why the schedule had
+ * interval cannot be expressed with it - which is why the schedule had
  * settled at 2 hours. Fixed daily triggers give the exact spacing, stay
  * anchored to their start time, and one failed run cannot break the sequence
  * because each trigger is independent.
@@ -61,9 +61,9 @@ var REFRESH_FUNCTION = 'refreshAndVerify';
  * Slack, so the two 2.5-hour windows post under one report name while staying
  * separately installable. `builder` is the function that writes the message.
  *
- * A window is timed either by `first` + `runs` at INTERVAL_MINUTES spacing —
+ * A window is timed either by `first` + `runs` at INTERVAL_MINUTES spacing - 
  * times past midnight wrap around, which is what carries Night through to
- * 05:30 — or by explicit `times` where the spacing is not regular.
+ * 05:30 - or by explicit `times` where the spacing is not regular.
  *
  * AGENT_LEAD does not run the refresh sequence. That sequence rebuilds the
  * Command Centre and exec_Snapshot, which this report does not read; the
@@ -132,7 +132,13 @@ function buildReport_(label, firedAt) {
   // A report of dashes looks like real data at a glance. If the headline
   // figure did not resolve, say so and name the tab that was read, rather
   // than posting something that reads as a genuine zero.
-  if (revenue === '—' || revenue === '') {
+  //
+  // Test for "carries no digit" rather than for get_'s placeholder. The two
+  // used to be a matched pair of the same dash character in two different
+  // files, which meant changing the placeholder in one silently disabled
+  // the warning in the other. A figure with no digit in it did not resolve,
+  // whatever the placeholder happens to be today.
+  if (!/\d/.test(String(revenue))) {
     lines.push('');
     lines.push('!! Could not read the figures. Tab read was "' +
       cc.sheet.getName() + '". Numbers below are not reliable.');
@@ -192,7 +198,7 @@ function revenueDelta_(displayValue) {
   props.setProperty(LAST_REVENUE_PROP, String(current));
 
   if (previousRaw === null) {
-    return '(first report — no baseline yet)';
+    return '(first report - no baseline yet)';
   }
 
   var previous = toNumber_(previousRaw);
@@ -264,7 +270,7 @@ function runSchedule_(key) {
       failures.push('refresh sequence: ' + (err && err.message ? err.message : String(err)));
     }
     if (failures.length) {
-      Logger.log('%s — %s', schedule.label, failures.join(' | '));
+      Logger.log('%s - %s', schedule.label, failures.join(' | '));
     }
   }
 
@@ -314,12 +320,12 @@ function runRefreshNow() {
   var results = callRefresh_();
   Logger.log('REFRESH SEQUENCE');
   results.forEach(function (r) {
-    Logger.log('  %s — %s (%ss)', r.name, r.status, r.seconds);
+    Logger.log('  %s - %s (%ss)', r.name, r.status, r.seconds);
   });
   var failed = results.filter(function (r) { return r.status !== 'ok'; });
   Logger.log('');
   Logger.log(failed.length ? '%s step(s) failed.' : 'All steps completed.', failed.length);
-  Logger.log('Check exec_Snapshot — generatedAt should now match the Command Centre.');
+  Logger.log('Check exec_Snapshot - generatedAt should now match the Command Centre.');
   return results;
 }
 
@@ -327,7 +333,7 @@ function runRefreshNow() {
  * Run every function in REFRESH_SEQUENCE, in order.
  *
  * A failing step is recorded and the sequence continues, because the steps
- * are independent — a broken verify should not stop the snapshot rebuild
+ * are independent - a broken verify should not stop the snapshot rebuild
  * that the Executive page depends on.
  */
 function callRefresh_() {
@@ -339,7 +345,7 @@ function callRefresh_() {
     var fn = g[name];
 
     if (typeof fn !== 'function') {
-      results.push({ name: name, status: 'MISSING — no such function', seconds: 0 });
+      results.push({ name: name, status: 'MISSING - no such function', seconds: 0 });
       return;
     }
 
@@ -353,7 +359,7 @@ function callRefresh_() {
     } catch (err) {
       results.push({
         name: name,
-        status: 'FAILED — ' + (err && err.message ? err.message : String(err)),
+        status: 'FAILED - ' + (err && err.message ? err.message : String(err)),
         seconds: ((new Date().getTime() - started) / 1000).toFixed(1)
       });
     }
@@ -410,11 +416,11 @@ function installAllSchedulesToDrive() {
         out.push('  ' + s.label + ': removed ' + removed + ', created ' + times.length +
           ' at ' + times.map(formatTime_).join(' '));
       } catch (err) {
-        out.push('  ' + s.label + ': FAILED — ' + (err && err.message ? err.message : String(err)));
+        out.push('  ' + s.label + ': FAILED - ' + (err && err.message ? err.message : String(err)));
       }
     });
   } catch (err) {
-    out.push('  OUTER FAILURE — ' + (err && err.message ? err.message : String(err)));
+    out.push('  OUTER FAILURE - ' + (err && err.message ? err.message : String(err)));
   }
   out.push('');
 
@@ -454,7 +460,7 @@ function triggerSummary_() {
       return h + ' x' + counts[h];
     }).join(', ');
   } catch (err) {
-    return 'ERROR — ' + err.message;
+    return 'ERROR - ' + err.message;
   }
 }
 
@@ -471,7 +477,7 @@ function testAgentLeadReport() {
   Logger.log('Agent Lead Status sent. Check the channel.');
 }
 
-/** Install both windows. Safe to re-run — clears its own triggers first. */
+/** Install both windows. Safe to re-run - clears its own triggers first. */
 function installAllSchedules() {
   var total = 0;
   Object.keys(SCHEDULES).forEach(function (key) {
@@ -509,7 +515,7 @@ function installSchedule_(key) {
   });
 
   Logger.log(
-    '%s — removed %s, installed %s: %s',
+    '%s - removed %s, installed %s: %s',
     schedule.label,
     removed,
     times.length,
@@ -520,7 +526,7 @@ function installSchedule_(key) {
 
 /**
  * Remove every trigger this file installs, plus any left pointing directly
- * at the refresh function — that last part clears the old 2-hour trigger,
+ * at the refresh function - that last part clears the old 2-hour trigger,
  * which would otherwise keep firing alongside the new schedules.
  */
 function removeAllSchedules() {
@@ -543,7 +549,7 @@ function showAllSchedules() {
   Logger.log('Intended:');
   Object.keys(SCHEDULES).forEach(function (key) {
     var s = SCHEDULES[key];
-    Logger.log('  %s — %s', s.label, scheduleTimes_(s).map(formatTime_).join('  '));
+    Logger.log('  %s - %s', s.label, scheduleTimes_(s).map(formatTime_).join('  '));
   });
   Logger.log('');
 

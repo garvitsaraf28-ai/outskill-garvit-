@@ -560,7 +560,7 @@ function findEmailColumns() {
 
   var found = scanColumnsFor(SpreadsheetApp.getActive(), out, EMAIL_RE, 'email');
   if (!found) {
-    out.push('  NONE — no tab holds email addresses. They have to be entered by hand,');
+    out.push('  NONE - no tab holds email addresses. They have to be entered by hand,');
     out.push('  and SuperLeap cannot be joined on email until its export carries one.');
   }
 
@@ -598,7 +598,7 @@ function findBatchCodeColumns(ss, out) {
   }
 
   if (!found) {
-    out.push('  NONE FOUND — no tab holds anything shaped like a batch code.');
+    out.push('  NONE FOUND - no tab holds anything shaped like a batch code.');
   }
   out.push('');
 }
@@ -678,7 +678,7 @@ function dumpForChurn() {
   });
   out.push('');
 
-  // Early, so it survives a truncated execution log — this is the open question.
+  // Early, so it survives a truncated execution log - this is the open question.
   findBatchCodeColumns(ss, out);
 
   CHURN_DUMP_TABS.forEach(function (spec) {

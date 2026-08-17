@@ -263,11 +263,15 @@ function slp_guardShrink_(pay, version) {
 
   switch (slp_shrinkVerdict_(now, last, allow)) {
     case 'first':
-      if (now) P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+      if (now) {
+        P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+        P.setProperty('SLP_LAST_GOOD_VERSION', String(version));
+      }
       return;
 
     case 'ok':
       P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+      P.setProperty('SLP_LAST_GOOD_VERSION', String(version));
       P.deleteProperty('SLP_LAST_REJECT');
       return;
 
@@ -278,6 +282,24 @@ function slp_guardShrink_(pay, version) {
         'ACCEPTED a shrink from ' + last + ' to ' + now + ' rows because ' +
         'SLP_ALLOW_SHRINK was set. That override has now been cleared.');
       return;
+  }
+
+  /* A drop from v3 to v1 is not a failed query, it is the routine having
+     gone back to the old prompt - and the row count collapses either way,
+     so the generic message would send somebody to look at SuperLeap when
+     the fix is in the routine's saved prompt. Name the real cause. */
+  var lastVer = Number(P.getProperty('SLP_LAST_GOOD_VERSION') || 0);
+  if (lastVer === 3 && version < 3) {
+    var vwhy = 'REFUSED a v' + version + ' payload. The last good one was v3, ' +
+      'so the routine has gone back to a prompt that does not select the ' +
+      'month. This is almost always the saved prompt never having been ' +
+      'updated: a run started by hand uses what you paste, but the schedule ' +
+      'uses what is stored. The workbook kept its v3 data rather than losing ' +
+      'the month, which means it will now stop updating until this is fixed. ' +
+      'Update the routine\'s saved prompt to superleap-routine-prompt-v3.md. ' +
+      'To accept v1 and give up the month page, set SLP_ALLOW_SHRINK to yes.';
+    P.setProperty('SLP_LAST_REJECT', vwhy);
+    throw new Error(vwhy);
   }
 
   var why = 'REFUSED a v' + version + ' payload with ' + now +
@@ -786,6 +808,17 @@ function slpPayloadCheck() {
     if (rejected) {
       Logger.log('');
       Logger.log('last refusal : ' + rejected);
+
+      /* A refusal on its own is fine - the workbook kept good numbers. A
+         refusal of the file that is currently newest is not, because
+         there is nothing left to accept: every run from here refuses the
+         same file and the tabs never move again. */
+      if (stored && String(pay.snapshot || '') !== String(stored.snapshot || '')) {
+        Logger.log('');
+        Logger.log('!! THE WORKBOOK HAS STOPPED UPDATING. The newest file in Drive is');
+        Logger.log('   the one that was refused, so nothing newer can arrive to');
+        Logger.log('   replace it. The tabs are frozen on ' + slp_stamp_(stored.snapshot) + '.');
+      }
     }
 
     var lastRows = PropertiesService.getScriptProperties().getProperty('SLP_LAST_GOOD_ROWS');

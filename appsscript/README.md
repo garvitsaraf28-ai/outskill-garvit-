@@ -60,22 +60,33 @@ without ever saying why.
    - `SlpAuto.gs`, in `slpAutoRefresh()` - this is the one on the trigger
    - `SuperLeapChurn.gs`, in `slpLoadFromDrive()` - the manual loader
 
-5. Run `slpAutoRefresh()` once, then `slpPayloadCheck()`. The
-   `normaliser :` line must say `WIRED IN`. If it says `NOT WIRED IN`,
-   an edit did not take - fix it before going further.
+5. Run **`slpLoadFromDrive()`** - not `slpAutoRefresh` - then
+   `slpPayloadCheck()`. The `normaliser :` line must say `WIRED IN`. If
+   it says `NOT WIRED IN`, an edit did not take; fix it before going
+   further.
 6. Only now point the routine at `superleap-routine-prompt-v3.md`.
 7. Run `slpPayloadCheck()` again after the first v3 payload lands.
 
 Steps 1-5 are safe while the routine is still on v1 - that is the point
 of doing them first. Nothing changes visibly until step 6.
 
-The check at step 5 is not a formality. The two edits are the only part
-of this a person does by hand, so they are the only part that can
-silently not happen, and a missed edit looks exactly like a made one
-until the routine switches and the pipeline stops. It is detectable
-without reading the source: the routine's payload carries no `version`
-key and `slp_normalisePayload_` always adds one, so a stored payload
-with a version went through the normaliser and one without it did not.
+**Why `slpLoadFromDrive` and not `slpAutoRefresh` at step 5.**
+`slpAutoRefresh` compares the payload's snapshot against the last one it
+stored and returns early when they match - the `no new data` line in its
+log - and that return happens *before* it calls `slp_writeRaw_`. On an
+unchanged payload it therefore re-stores nothing, so the check would keep
+reporting `NOT WIRED IN` no matter how correct the edits were, until a
+fresh payload happened to arrive up to two hours later. `slpLoadFromDrive`
+has no snapshot guard: it re-reads, re-normalises and re-stores every
+time.
+
+The check itself is not a formality. The two edits are the only part of
+this a person does by hand, so they are the only part that can silently
+not happen, and a missed edit looks exactly like a made one until the
+routine switches and the pipeline stops. It is detectable without reading
+the source: the routine's payload carries no `version` key and
+`slp_normalisePayload_` always adds one, so a stored payload with a
+version went through the normaliser and one without it did not.
 
 ### Current-month Slack report - built, dormant until v3
 

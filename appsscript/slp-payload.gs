@@ -69,8 +69,22 @@
  *   After normalisation they are still the right check, and they now
  *   correctly reject a v3 payload that arrived empty.
  *
- * Run slpPayloadCheck() to see which version is in Drive right now
- * without changing anything.
+ * HOW TO CHECK THE EDITS TOOK  -  run slpLoadFromDrive(), then
+ * slpPayloadCheck(). The "normaliser :" line must say WIRED IN.
+ *
+ *   Use slpLoadFromDrive, NOT slpAutoRefresh. slpAutoRefresh compares the
+ *   payload's snapshot against the last one it stored and returns early
+ *   when they match - "no new data" - and that return happens BEFORE it
+ *   calls slp_writeRaw_. So on an unchanged payload it re-stores nothing,
+ *   the check keeps reporting NOT WIRED IN however correct the edits are,
+ *   and the only thing that would eventually clear it is a fresh payload
+ *   arriving from the routine up to two hours later.
+ *
+ *   slpLoadFromDrive has no such guard. It re-reads, re-normalises and
+ *   re-stores every time, which is exactly what is wanted here.
+ *
+ * Run slpPayloadCheck() any time to see which version is in Drive right
+ * now without changing anything.
  */
 
 /* Apps Script gives a script 6 minutes and a cell 50,000 characters.
@@ -356,12 +370,14 @@ function slp_wiringState_(stored, drivePay) {
     return { state: 'NOT WIRED IN',
              why: 'the newest payload was stored without passing through ' +
                   'slp_normalisePayload_. Make the two edits in the header of ' +
-                  'this file before switching the routine to v3.' };
+                  'this file, then run slpLoadFromDrive() - NOT slpAutoRefresh, ' +
+                  'which skips when the snapshot has not changed and so would ' +
+                  'never re-store it.' };
   }
 
   return { state: 'cannot tell yet',
            why: 'the stored payload is older than the one in Drive. Run ' +
-                'slpAutoRefresh, then check again.' };
+                'slpLoadFromDrive(), then check again.' };
 }
 
 

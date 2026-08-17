@@ -984,3 +984,206 @@ function checkCbcRevenueValues() {
   Logger.log('the cross-check has nothing to compare against - that is a CBC');
   Logger.log('question, not a workbook one.');
 }
+
+
+/**
+ * The red block, with suggested fixes.
+ *
+ * Read-only. Run from the Apps Script editor.
+ *
+ * buildSuperLeapChurn reports "N account(s) with 50+ leads matched nobody"
+ * and lists them at the bottom of the tab, but it cannot say what they
+ * SHOULD have matched - so the block tells you there is a problem without
+ * telling you what to do about it.
+ *
+ * This does the same classification and then, for each unmatched account,
+ * scores every roster name for similarity and offers the best candidates.
+ * A SuperLeap account and a CBC roster row are usually the same person
+ * typed differently - "Kshitij Jaiswal" against "Kshitij", "Nishith
+ * Chakrabrty" against "Nishith Chakraborty" - and those are exactly the
+ * pairs a comparison can find.
+ *
+ * It proposes; it does not decide. Every suggestion is a line you add to
+ * SLP_NAME_MAP by hand after checking it is really the same person. Two
+ * agents with similar names are a real possibility, and guessing wrong
+ * moves somebody's leads onto a colleague.
+ */
+function listUnmatchedAgents() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (typeof slp_storedPayload_ !== 'function') {
+    Logger.log('SlpPayload.gs is not in this project. Paste it first.');
+    return;
+  }
+  var pay = slp_storedPayload_();
+  if (!pay) { Logger.log('No payload stored yet.'); return; }
+
+  var ros = (typeof slp_roster_ === 'function') ? slp_roster_(ss) : null;
+  if (!ros || !ros.count) { Logger.log('mdl_Roster unreadable.'); return; }
+
+  var nameMap = (typeof SLP_NAME_MAP !== 'undefined' && SLP_NAME_MAP) ? SLP_NAME_MAP : {};
+  var known = [];
+  ['SLP_MANAGERS', 'SLP_POOLS', 'SLP_SYSTEM', 'SLP_NOT_INSIDE_SALES'].forEach(function (n) {
+    var g = typeof globalThis !== 'undefined' ? globalThis : this;
+    if (g[n] && g[n].length) known = known.concat(g[n]);
+  });
+
+  /* Total leads per SuperLeap account, from whichever array the payload
+     carries - disp on every version, rows only on v3. */
+  var total = {};
+  (pay.disp || []).forEach(function (r) {
+    var a = String(r[0] || '(no owner)');
+    total[a] = (total[a] || 0) + Number(r[3] || 0);
+  });
+  if (!Object.keys(total).length && pay.rows) {
+    pay.rows.forEach(function (r) {
+      var a = String(r.agent || r.a || '(no owner)');
+      total[a] = (total[a] || 0) + Number(r.n || 0);
+    });
+  }
+
+  var rosterNames = [];
+  Object.keys(ros.byKey).forEach(function (k) { rosterNames.push(ros.byKey[k].agent); });
+
+  var matched = 0, classified = 0, unmatched = [];
+  Object.keys(total).forEach(function (a) {
+    if (ros.find(nameMap[a] || a)) { matched++; return; }
+    if (known.indexOf(a) > -1) { classified++; return; }
+    unmatched.push({ name: a, leads: total[a] });
+  });
+  unmatched.sort(function (x, y) { return y.leads - x.leads; });
+
+  Logger.log('--- SuperLeap accounts that matched nobody ---');
+  Logger.log('roster agents      : ' + ros.count);
+  Logger.log('matched to roster  : ' + matched);
+  Logger.log('classified by list : ' + classified + '  (managers, pools, test, other teams)');
+  Logger.log('UNMATCHED          : ' + unmatched.length +
+             '   (' + unmatched.filter(function (u) { return u.leads >= 50; }).length + ' with 50+ leads)');
+  Logger.log('');
+
+  if (!unmatched.length) { Logger.log('Nothing to fix.'); return; }
+
+  unmatched.forEach(function (u) {
+    var best = smp_bestNames_(u.name, rosterNames);
+    Logger.log(u.name + '   ' + dfc_commas_(u.leads) + ' leads');
+    if (!best.length) {
+      Logger.log('    no roster name resembles this. Either they are not Inside');
+      Logger.log('    Sales - add them to SLP_NOT_INSIDE_SALES - or they are not');
+      Logger.log('    on the roster yet.');
+    } else {
+      best.forEach(function (b) {
+        Logger.log('    maybe: ' + b.name + '   (' + b.score + '% alike)');
+      });
+      Logger.log("    if right:  '" + u.name + "' : '" + best[0].name + "',");
+    }
+    Logger.log('');
+  });
+
+  Logger.log('Add the lines you have checked to SLP_NAME_MAP in SuperLeapChurn.gs,');
+  Logger.log('then run slpLoadFromDrive. Check each one first - two people with');
+  Logger.log('similar names are real, and a wrong line moves their leads.');
+}
+
+/** Comparable form of a name: lowercase letters only. */
+function smp_nameKey_(s) {
+  return String(s).toLowerCase().replace(/[^a-z]/g, '');
+}
+
+/** The closest roster names to one SuperLeap name, best first. */
+function smp_bestNames_(name, rosterNames) {
+  var a = smp_nameKey_(name);
+  if (!a) return [];
+  var aTok = String(name).toLowerCase().split(/[^a-z]+/).filter(Boolean);
+
+  var out = [];
+  rosterNames.forEach(function (rn) {
+    var b = smp_nameKey_(rn);
+    if (!b) return;
+
+    // One name contained in the other covers the common case: SuperLeap
+    // carries a surname CBC leaves off, or the reverse.
+    var score;
+    if (a === b) score = 100;
+    else if (a.indexOf(b) === 0 || b.indexOf(a) === 0) score = 92;
+    else if (a.indexOf(b) > -1 || b.indexOf(a) > -1) score = 85;
+    else {
+      /* A whole name part in common - "Tamanna Choudhury" against
+         "Tamanna Choudhary", "Nishith Chakrabrty" against "Nishith
+         Chakraborty" - which is what a misspelt surname looks like.
+
+         There is deliberately no letter-overlap fallback below this. It
+         was tried and it scored "Arnav Mohanty" against "Tamanna
+         Choudhary" at 79%, above the 75% of two genuine pairs, because
+         long Indian names share letters freely. Every real pair in the
+         existing SLP_NAME_MAP is found by containment or a shared part,
+         so the fallback bought nothing and cost precision. */
+      var bTok = String(rn).toLowerCase().split(/[^a-z]+/).filter(Boolean);
+      var shared = 0;
+      aTok.forEach(function (t) { if (t.length > 2 && bTok.indexOf(t) > -1) shared++; });
+
+      if (shared) {
+        score = 70 + shared * 5;
+      } else {
+        /* One or two letters apart, on names of comparable length. This is
+           the Shahbaz/Shabaz case - a single dropped letter, which shares
+           no whole name part and is not a substring either, so nothing
+           above sees it.
+
+           Kept tight on purpose: at most two edits AND at most a fifth of
+           the longer name. Shahbaz to Shabaz is one edit in seven, 14%.
+           Arnav Mohanty to Tamanna Choudhary is twelve edits, nowhere
+           near. Loosening either bound is how false suggestions come
+           back. */
+        var dist = dfc_editDistance_(a, b);
+        var longer = Math.max(a.length, b.length);
+        if (dist > 2 || dist / longer > 0.2) return;
+        score = 88;
+      }
+    }
+    /* 70, not 60. Every real pair in the existing SLP_NAME_MAP scores 75
+       or better - including the two misspellings, Choudhury/Choudhary at
+       75 and Chakrabrty/Chakraborty at 75 - while genuinely unrelated
+       names topped out at 67 on the same roster. Below 70 the suggestions
+       are noise, and a plausible-looking wrong suggestion is worse than
+       none: it invites a SLP_NAME_MAP line that moves somebody's leads. */
+    if (score >= 70) out.push({ name: rn, score: score });
+  });
+
+  out.sort(function (x, y) { return y.score - x.score; });
+  return out.slice(0, 3);
+}
+
+
+/** Thousands separators, without depending on another file being pasted. */
+function dfc_commas_(n) {
+  var s = String(Math.round(Number(n) || 0));
+  var out = '', c = 0;
+  for (var i = s.length - 1; i >= 0; i--) {
+    out = s.charAt(i) + out;
+    if (++c % 3 === 0 && i > 0) out = ',' + out;
+  }
+  return out;
+}
+
+
+/**
+ * Levenshtein distance, capped so a long pair costs nothing to reject.
+ * Used only to catch a name that is one or two letters out.
+ */
+function dfc_editDistance_(a, b) {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 2) return 99;
+
+  var prev = [], cur = [], i, j;
+  for (j = 0; j <= b.length; j++) prev[j] = j;
+
+  for (i = 1; i <= a.length; i++) {
+    cur[0] = i;
+    for (j = 1; j <= b.length; j++) {
+      var cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+      cur[j] = Math.min(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (j = 0; j <= b.length; j++) prev[j] = cur[j];
+  }
+  return prev[b.length];
+}

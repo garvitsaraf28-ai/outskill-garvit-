@@ -45,8 +45,17 @@ The result is large and will be saved to a file rather than returned inline. Tha
 
 If SuperLeap is unreachable or the query errors, STOP. Write nothing. The workbook keeps its last good payload, which is far better than overwriting it with a partial one. Say so in one line and end.
 
-STEP 2 - check the query was not truncated.
-Count the rows returned. If it equals the LIMIT exactly, the result was cut off and agents are missing from the tail. STOP, write nothing, and say the limit was hit — do not write a partial payload. Raise the limit and run again.
+STEP 2 - check the query was not truncated, and was not nearly empty.
+
+Count the rows returned.
+
+If it equals the LIMIT exactly, the result was cut off and agents are missing from the tail. STOP, write nothing, and say the limit was hit — do not write a partial payload. Raise the limit and run again.
+
+If it is FEWER THAN 100 rows, STOP and write nothing. Say how many rows came back and what the query was. An Inside Sales team of sixty-odd agents against four months of leads cannot produce a five-row breakdown; a tiny result means the query failed, returned an error page, or hit an empty connection — not that the business lost its leads.
+
+This is not hypothetical. On 17 Aug this routine wrote a payload containing 5 rows, and on 12 Aug one containing 16. Both were valid JSON in the correct shape, so the workbook accepted them, rebuilt its tabs from almost nothing, and posted a Slack report to the sales team saying Inside Sales had one agent and 123 leads. Writing nothing at all would have been correct in both cases: the workbook keeps its last good payload and simply reports slightly stale numbers until the next run.
+
+A partial payload is worse than no payload. If anything about the result looks thin, stop.
 
 STEP 3 - count today's dispositions.
 Using the object found in step 0, count the disposition activities recorded today in Asia/Kolkata — midnight to now, not the last 24 hours. Group the count by agent as well as a grand total, so the report can show both.

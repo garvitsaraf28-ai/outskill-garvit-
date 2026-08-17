@@ -196,6 +196,43 @@ That makes all three agree on what counts as a payload. Also worth
 setting a script property `SLP_FOLDER_ID` to the feed folder, so a stray
 `slp_payload.json` anywhere else in Drive cannot be picked up.
 
+## When the numbers suddenly look wrong
+
+Run `slpPayloadList()`. It opens every `slp_payload.json` in Drive and
+reports the row count inside each, because size and date cannot tell a
+good payload from a nearly empty one.
+
+This has happened twice:
+
+```
+17 Aug 14:52   91 KB  674 rows   healthy
+17 Aug 14:43    0 KB    5 rows   <- rebuilt the tabs down to one agent
+12 Aug 17:00    1 KB   16 rows   <- same failure, six days earlier
+```
+
+Both were valid JSON in the correct shape with a plausible snapshot, so
+every guard in the pipeline passed them - they all test shape, and
+nothing tested magnitude. The Slack report went out saying Inside Sales
+had one agent and 123 leads.
+
+Two defences now exist, at both ends:
+
+- **The routine** is told to STOP and write nothing if its query returns
+  fewer than 100 rows. A partial payload is worse than no payload,
+  because the workbook keeps its last good one and merely goes stale.
+- **The workbook** refuses any payload below half the row count of the
+  last good one, via `slp_guardShrink_`. The baseline lives in
+  `SLP_LAST_GOOD_ROWS` and only advances on an accepted payload, so a bad
+  one cannot drag it down and make the next bad one look reasonable.
+  `slpPayloadCheck()` reports any refusal.
+
+**To recover:** the routine usually writes a good payload on its next
+run, so the fix is normally just `slpLoadFromDrive()` to pick up the
+newest. Check `slpPayloadList()` first to confirm the newest is healthy.
+
+**If a drop is genuine**, set the script property `SLP_ALLOW_SHRINK` to
+`yes` and run again. It clears itself after one use.
+
 ## House rules that have cost time before
 
 - **Shared global scope.** Every `.gs` file in the project shares one

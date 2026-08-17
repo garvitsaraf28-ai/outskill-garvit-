@@ -31,110 +31,130 @@ v2  disp  [agent, email, source, disposition, n]   <- source inserted at index 2
 v3  rows  [{agent,email,source,month,stage,disposition,sub,n}, ...]
 ```
 
-**Live today: v1.** `buildSuperLeapChurn` reads `disp` rows as
-`[agent, email, disposition, n]`, and the reports it produces carry
-sensible numbers, which they could not if the routine were writing
-anything else. Confirm it in ten seconds by running `slpPayloadCheck()`.
+**Live: v3**, since 17 Aug. Run `slpPayloadCheck()` to see the current
+state at any time - it reports the version in Drive, the version in the
+sheet, whether the normaliser is wired in, and any refusal.
 
 `slp-payload.gs` converts any of the three into the shape the readers
 already know, so the version question is asked once instead of at four
-call sites. Without it, pointing the routine at v3 stops the pipeline
-dead: a v3 payload has no `disp` key, `slpAutoRefresh` returns at its
-guard, and the workbook shows its last good numbers every two hours
-without ever saying why.
+call sites. Every reader still consumes `disp` and `stage` exactly as it
+did on v1.
 
-### Switching to v3 - in this order
+### v3 is live - what it took, and what still guards it
 
-1. Paste `slp-payload.gs` into the project as `SlpPayload.gs`. **Done.**
-2. Run `slpPayloadSelfTest()`. It should log `SELF TEST PASSED`. **Done.**
-3. Run `slpPayloadCheck()`. It reports the version in Drive and in the
-   sheet without changing either. **Done - v1 in both, 17 Aug 13:30 IST.**
-4. Make two one-line edits. In each file the target line occurs exactly
-   once, so find-and-replace cannot hit the wrong one:
+**Done on 17 Aug.** The workbook reads v3, the month page is built, and
+both ends refuse a bad payload. `slpPayloadCheck()` reports the state at
+any time.
 
-   ```
-   find     try { pay = JSON.parse(text); }
-   replace  try { text = slp_normalisePayload_(text); pay = JSON.parse(text); }
-   ```
+The changeover needed the readers to understand v3 BEFORE the routine
+wrote it, so the order was: paste `slp-payload.gs`, make two one-line
+edits, verify, then switch the routine. Doing it the other way stops the
+pipeline without an error - a v3 payload has no `disp` key, so
+`slpAutoRefresh` returns at its guard and the workbook shows its last
+good numbers every two hours without ever saying why.
 
-   - `SlpAuto.gs`, in `slpAutoRefresh()` - this is the one on the trigger
-   - `SuperLeapChurn.gs`, in `slpLoadFromDrive()` - the manual loader
+The two edits, both `try { pay = JSON.parse(text); }` becoming
+`try { text = slp_normalisePayload_(text); pay = JSON.parse(text); }`:
 
-   **Done.**
-5. Run **`slpLoadFromDrive()`** - not `slpAutoRefresh` - then
-   `slpPayloadCheck()`. The `normaliser :` line must say `WIRED IN`. If
-   it says `NOT WIRED IN`, an edit did not take; fix it before going
-   further. **Done - confirmed `WIRED IN`, 17 Aug 14:37 IST.**
-6. Only now point the routine at `superleap-routine-prompt-v3.md`.
-   **<- you are here.**
-7. Run `slpPayloadCheck()` again after the first v3 payload lands, then
-   `buildSlpMonthPage()` to create the month page.
+- `SlpAuto.gs`, in `slpAutoRefresh()` - the one on the trigger
+- `SuperLeapChurn.gs`, in `slpLoadFromDrive()` - the manual loader
 
-Steps 1-5 are safe while the routine is still on v1 - that is the point
-of doing them first. Nothing changes visibly until step 6.
+**To check they are still in place:** run `slpLoadFromDrive()` - NOT
+`slpAutoRefresh`, which returns early on an unchanged snapshot and
+re-stores nothing - then `slpPayloadCheck()`. The `normaliser :` line
+must say `WIRED IN`. It is detectable because the routine's payload
+carries no `version` key and `slp_normalisePayload_` always adds one.
 
-**Why `slpLoadFromDrive` and not `slpAutoRefresh` at step 5.**
-`slpAutoRefresh` compares the payload's snapshot against the last one it
-stored and returns early when they match - the `no new data` line in its
-log - and that return happens *before* it calls `slp_writeRaw_`. On an
-unchanged payload it therefore re-stores nothing, so the check would keep
-reporting `NOT WIRED IN` no matter how correct the edits were, until a
-fresh payload happened to arrive up to two hours later. `slpLoadFromDrive`
-has no snapshot guard: it re-reads, re-normalises and re-stores every
-time.
+### What the payload looks like now
 
-The check itself is not a formality. The two edits are the only part of
-this a person does by hand, so they are the only part that can silently
-not happen, and a missed edit looks exactly like a made one until the
-routine switches and the pipeline stops. It is detectable without reading
-the source: the routine's payload carries no `version` key and
-`slp_normalisePayload_` always adds one, so a stored payload with a
-version went through the normaliser and one without it did not.
+```
+disp   [agent, email, disposition, n]        exactly as v1 - readers untouched
+stage  [agent, stage, n]                     exactly as v1
+sub    [agent, sub, n]                       exactly as v1
+rows   {"a":agent,"m":month,"s":source,"d":disposition,"n":count}
+```
 
-### Current-month Slack report - built, dormant until v3
+Additive, not a redesign. The three v1 arrays are byte-identical to what
+they always were, so every existing reader kept working without a change.
+`rows` is the only new part.
 
-`agentRowsForMonth_` in `agent-lead-report.gs` already does this. It reads
-the payload when the payload carries a month and falls back to the tab
-when it does not, so it needs no switching on: while the routine is on v1
-it returns null and the report behaves exactly as it does now. The first
-v3 payload makes it narrow to the current month by itself and say which
-month it is showing.
+**Why short keys and only four dimensions.** The first v3 draft put
+agent x source x month x stage x disposition x sub in one array with long
+key names: 5,731 rows, **1,015,020 bytes**, and `create_file` only takes
+content inline - undeliverable. Nothing slices stage or sub by month, so
+they do not belong there. Rolled up, the file is ~300 KB.
 
-**Decided:** the SuperLeap Churn tab itself stays whole - everything since
-1 April - because other things read it. Only the Slack report narrows.
+### Two guards, at opposite ends
 
-### Month and workshop dropdowns - built, dormant until v3
+Both exist because of real incidents on 17 Aug, and both are worth
+keeping.
 
-`slp-month-page.gs`. Run `buildSlpMonthPage()`. It writes the visible
-**SuperLeap by Month** tab and a hidden `_SlpMonthData` lookup, on the
-same pattern `buildOverallReport` uses for `_OverallData`: one pre-summed
-row per `month|source|agent` key, every cell on the page a single
-`INDEX/MATCH` against it, so changing a dropdown is instant and nothing
-has to be re-run.
+**The routine stops rather than writing a thin payload.** It writes 5 rows
+where the last had 671, the workbook rebuilt from it, and Slack reported
+that Inside Sales had one agent and 123 leads. Every check in the
+pipeline tested *shape* - is it JSON, does it have a `disp` key, is it
+non-empty - and a five-row payload passes all three. Nothing tested
+magnitude. The prompt now takes `SELECT COUNT(*)` first and requires the
+summed rows to match it, which also catches the **2000-row server-side
+cap** on `execute_query` that made `LIMIT 60000` a fiction: a run got
+exactly 2000 rows holding 84,844 of 147,570 leads, and the old
+"did it equal the LIMIT?" check could never have seen it.
 
-`All months` and `All workshops` are real pre-summed rows, not the page
-adding its own columns up, so they stay correct under any filter. Only
-keys that carry leads are written - the page reads through
-`IFERROR(..., 0)`, so an absent key is correctly a zero, and writing the
-full cross product would be tens of thousands of rows of nothing.
+**The workbook refuses a payload below half the last good row count.**
+`slp_guardShrink_`, with the baseline in `SLP_LAST_GOOD_ROWS`, advancing
+only on an accepted payload so a bad one cannot drag it down.
 
-On today's v1 payload it writes nothing, does not touch the spreadsheet,
-and logs why. Run it again after the first v3 payload and it builds.
-Nothing needs editing in between.
+A **version downgrade** is its own case with its own message. If the
+routine goes back to a v1 prompt, the row count collapses and the generic
+"failed query" wording would send someone to SuperLeap when the fix is
+the routine's saved prompt. Note that a run started by hand uses what you
+paste; the schedule uses what is stored.
 
-`slpMonthPageSelfTest()` checks the part that could be wrong quietly -
-that `All months` equals the sum of the months, `All workshops` equals
-the sum of the workshops, and nothing leaks between agents.
+`SLP_ALLOW_SHRINK = yes` accepts a genuine drop, and clears itself after
+one use.
 
-Rebuild it when a payload brings a new month or workshop, because the
-dropdown lists are written at build time.
+### "source" is the lead channel, not the workshop
 
-### Nothing else is waiting on v3
+Worth knowing before reading the month page as a workshop breakdown.
+SuperLeap's `source` field returned five values:
 
-Everything that could be built before the data exists has been, and the
-workbook side is confirmed ready. The only step left is 6 - pointing the
-routine at the v3 prompt - after which the current-month report switches
-itself on and `buildSlpMonthPage()` will build.
+```
+(no source), Bulk Upload, Inbound Call, Manual, Website
+```
+
+Not one batch code. Earlier prompts asserted it was the workshop code;
+that was assumed and never checked. Whether SuperLeap carries the
+workshop on some other field is still open and needs a query.
+
+### The month page
+
+`slp-month-page.gs`, `buildSlpMonthPage()`. Writes **SuperLeap by Month**
+and a hidden `_SlpMonthData`, on the same pattern `buildOverallReport`
+uses: one pre-summed row per `month|source|agent` key, every cell a
+single `INDEX/MATCH`, so a dropdown change is instant.
+
+`All months` and `All sources` are real pre-summed rows, not the page
+adding its own columns - a page that sums its own filtered columns
+double-counts the moment a filter is applied.
+
+Rebuild it when a payload brings a new month or source; the dropdown
+lists are written at build time.
+
+Two traps already paid for: the month cells are set to **text format
+before** a value, because "Aug 2026" in a general cell becomes a Date and
+the key built from it concatenates as a serial number, so every MATCH
+misses and the page reads 0. And there are **no frozen columns** - the
+subtitle and footnote are merged across the full width, and Sheets
+refuses a freeze that cuts through a merge anywhere on the sheet.
+
+### The current-month Slack report
+
+`agentRowsForMonth_` in `agent-lead-report.gs`. Reads the payload when it
+carries a month, falls back to the tab when it does not - so it needed no
+switching on and needs no switching off.
+
+**Decided:** the SuperLeap Churn tab itself stays whole, everything since
+1 April, because other things read it. Only the Slack report narrows.
 
 ## The churn post to Slack is off, deliberately
 
@@ -296,8 +316,37 @@ people actually use come from `mdl_Payments` and are unaffected.
 | `refresh-schedule.gs` | the trigger windows, the lock, and the Disposition Update body |
 | `agent-lead-report.gs` | the Agent Lead Status report, incl. the leaver filter |
 | `slack-digest.gs` | Slack delivery - webhook and email routes, 3000-char chunking |
-| `slp-payload.gs` | payload version detection and normalising (v1/v2/v3) |
+| `slp-payload.gs` | payload version detection, normalising (v1/v2/v3), the shrink guard, `slpPayloadCheck`, `slpPayloadList` |
 | `slp-month-page.gs` | the SuperLeap by Month page and its hidden lookup |
-| `dump-for-churn.gs` | read-only diagnostics; nothing here writes |
+| `dump-for-churn.gs` | read-only diagnostics: `checkBatchMatcher`, `checkCbcRevenueColumn`, `checkCbcRevenueValues`, `listUnmatchedAgents` |
 | `diagnose-to-drive.gs`, `inventory-to-drive.gs` | diagnostics that write their output to Drive |
 | `superleap-routine-prompt*.md` | instructions for the Claude routine, **not** Apps Script |
+
+## Open, and not in this folder
+
+None of these are Apps Script problems, which is why none of them are
+fixed here.
+
+**The routine's saved prompt.** The v3 changeover was done by pasting the
+prompt as a message into the routine's session. A message runs once; the
+schedule uses the saved prompt. If that was never updated, a scheduled run
+writes v1, the shrink guard refuses it, and the workbook stops updating -
+correctly keeping its v3 data, but frozen, because the file it refused is
+the newest one and nothing newer can replace it. `slpPayloadCheck()` says
+so outright when that happens.
+
+**Thirteen SuperLeap accounts with no roster row**, holding roughly 1,400
+leads between them and therefore outside every agent total. Twelve of the
+thirteen hold between 104 and 113 leads - a nine-lead band, which is a
+bulk allocation rather than organic assignment. Almost certainly a cohort
+of joiners not yet on the CBC roster, in which case they belong on the CBC
+month tab and `syncRosterSources` picks them up. `listUnmatchedAgents()`
+names them.
+
+**`Revenue (CBC)` is empty at source.** Not a workbook bug - see the
+section above. Needs whoever owns the CBC sheet to say whether that column
+is still meant to be filled.
+
+**One stray `slp_payload.json`** outside the feed folder. Harmless while
+it stays old, because `slpLoadFromDrive` takes the newest by date across
+the whole Drive; delete it and that route closes.

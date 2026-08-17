@@ -733,3 +733,57 @@ function dumpForChurn() {
 
   Logger.log('\nWritten to %s', CHURN_DUMP_FILENAME);
 }
+
+
+/**
+ * Which canonBatch_ is live, and are there duplicate definitions?
+ *
+ * Read-only. Run this from the Apps Script editor.
+ *
+ * canonBatch_ is defined twice in this project: the full version in
+ * ModelAlliases.gs, and an older seven-line version in Code.gs that a
+ * previous session's EDIT 1 said to delete and which is still there. Every
+ * .gs file shares one global scope, so Apps Script keeps one of them and
+ * there is no way to tell which by reading the files.
+ *
+ * The difference is not cosmetic. The old version does not map MM, ENG or
+ * BCR codes, so the same August mastermind arrives as both MM158 and C158
+ * and the model builds two workshops out of one - which is the bug the
+ * comment above the good version says cost a day.
+ *
+ * This asks the function itself rather than guessing.
+ */
+function checkBatchMatcher() {
+  if (typeof canonBatch_ !== 'function') {
+    Logger.log('canonBatch_ is not defined in this project at all.');
+    return;
+  }
+
+  var cases = [
+    ['MM158', 'C158'], ['ENG64', 'E64'], ['BCR1', 'BC1'],
+    ['GEF60', 'E60'],  ['141', 'C141'],  ['C158', 'C158']
+  ];
+
+  var wrong = [];
+  Logger.log('--- which canonBatch_ is live ---');
+  cases.forEach(function (c) {
+    var got = canonBatch_(c[0]);
+    var ok = got === c[1];
+    if (!ok) wrong.push(c[0] + ' -> ' + got + ' (should be ' + c[1] + ')');
+    Logger.log('  ' + c[0] + '  ->  ' + got + (ok ? '' : '   WRONG, expected ' + c[1]));
+  });
+
+  Logger.log('');
+  if (!wrong.length) {
+    Logger.log('VERDICT: the ModelAlliases.gs version is live. Correct.');
+    Logger.log('         Still delete the old one from Code.gs - which of the two');
+    Logger.log('         wins depends on file order, so this is right by luck.');
+  } else {
+    Logger.log('VERDICT: the OLD Code.gs version is live. This is the bug.');
+    Logger.log('         ' + wrong.length + ' code(s) are not being mapped:');
+    wrong.forEach(function (w) { Logger.log('           ' + w); });
+    Logger.log('         Workshops are being split in two. Delete the seven-line');
+    Logger.log('         canonBatch_ from Code.gs, keep the one in ModelAlliases.gs,');
+    Logger.log('         then run refreshEverything.');
+  }
+}

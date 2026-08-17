@@ -40,7 +40,7 @@
  *     .disp / .stage / .sub    v1 arrays, rebuilt by summing if needed
  *     .rows                    v3 named rows, when the payload has them
  *     .months                  every month present, ascending
- *     .sources                 every workshop code present
+ *     .sources                 every lead source present
  *     .version                 the version that arrived (1, 2 or 3)
  *
  *   Nothing downstream has to change. buildSuperLeapChurn and
@@ -384,7 +384,7 @@ function slp_v3ToV1_(pay) {
   }
 
   /* The shipped v3 carries disp, stage and sub exactly as v1 does, and adds
-     rows only for the month and workshop dimension. Keeping those three
+     rows only for the month and source dimension. Keeping those three
      untouched is what lets every existing reader work without a change, so
      when they are present they are used as-is rather than rebuilt.
 
@@ -722,7 +722,8 @@ function slpPayloadCheck() {
     var m = (stored.months && stored.months.length) ? stored.months.join(', ') : '(none - this payload has no month in it)';
     Logger.log('               months: ' + m);
     var s = (stored.sources && stored.sources.length) || 0;
-    Logger.log('               workshops: ' + (s ? s + ' distinct' : '(none - this payload has no workshop code in it)'));
+    Logger.log('               sources: ' + (s ? s + ' distinct   ' + stored.sources.join(', ')
+                                               : '(none - this payload has no source in it)'));
   }
 
   var file = null;
@@ -794,7 +795,7 @@ function slpPayloadCheck() {
     if (dv === 1) {
       Logger.log('VERDICT      : v1. This is what the readers were written for, so');
       Logger.log('               nothing is broken and nothing is urgent.');
-      Logger.log('               No month and no workshop code in this payload, so');
+      Logger.log('               No month and no source in this payload, so');
       Logger.log('               the current-month report and the month dropdown');
       Logger.log('               have nothing to work from yet.');
       Logger.log('');
@@ -895,7 +896,7 @@ function slpPayloadSelfTest() {
   eq('unknown shape passes through', slp_normalisePayload_('{"nope":1}'), '{"nope":1}');
 
   /* The shipped v3: v1's three rollups untouched, plus a short-keyed rows
-     array carrying only the month and workshop dimension. The first draft
+     array carrying only the month and source dimension. The first draft
      put every dimension in rows with long keys and reached a megabyte,
      which create_file could not take. Both shapes must still read. */
   var v3s = {

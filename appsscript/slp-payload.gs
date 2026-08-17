@@ -322,12 +322,77 @@ function slp_v2ToV1_(pay) {
    reader's "first non-blank wins" logic gives the same answer either
    way.
    ================================================================ */
+/**
+ * One month row, whatever spelling it arrived in.
+ *
+ * The first v3 draft used full names on every row and reached a megabyte,
+ * which could not be uploaded. The shipped shape uses short keys and drops
+ * the fields nothing slices by month. Both are accepted so a payload
+ * written against either spec still reads.
+ */
+function slp_monthRow_(r) {
+  if (!r) return null;
+  var agent = r.a !== undefined ? r.a : r.agent;
+  if (agent === undefined || agent === null || agent === '') return null;
+  var d = r.d !== undefined ? r.d : r.disposition;
+  return {
+    agent: String(agent),
+    month: String((r.m !== undefined ? r.m : r.month) || ''),
+    source: String((r.s !== undefined ? r.s : r.source) || ''),
+    disposition: (d === undefined || d === null) ? '' : String(d),
+    stage: String(r.stage || ''),
+    sub: String(r.sub || ''),
+    email: String(r.email || ''),
+    n: Number(r.n || 0)
+  };
+}
+
 function slp_v3ToV1_(pay) {
-  var rows = pay.rows || [];
+  var raw = pay.rows || [];
+  var rows = [];
+  for (var i = 0; i < raw.length; i++) {
+    var m = slp_monthRow_(raw[i]);
+    if (m) rows.push(m);
+  }
+
+  /* The shipped v3 carries disp, stage and sub exactly as v1 does, and adds
+     rows only for the month and workshop dimension. Keeping those three
+     untouched is what lets every existing reader work without a change, so
+     when they are present they are used as-is rather than rebuilt.
+
+     The earlier draft put every dimension in rows and nothing else. That is
+     still readable: if the arrays are missing, they are derived below. */
+  var haveV1Arrays = !!(pay.disp && pay.disp.length);
+
+  var months = {}, sources = {};
+  rows.forEach(function (r) {
+    if (r.month) months[r.month] = true;
+    if (r.source) sources[r.source] = true;
+  });
+
+  if (haveV1Arrays) {
+    var monthList0 = Object.keys(months).sort();
+    if (!monthList0.length && pay.months && pay.months.length) {
+      monthList0 = pay.months.slice().sort();
+    }
+    return {
+      version: 3,
+      snapshot: pay.snapshot || '',
+      from: pay.from || '',
+      today_count: (pay.today_count === undefined ? null : pay.today_count),
+      today_by_agent: pay.today_by_agent || [],
+      months: monthList0,
+      sources: Object.keys(sources).sort(),
+      disp: pay.disp,
+      stage: pay.stage || [],
+      sub: pay.sub || [],
+      rows: rows
+    };
+  }
 
   var dAgg = {}, sAgg = {}, bAgg = {};
   var dOrder = [], sOrder = [], bOrder = [];
-  var months = {}, sources = {}, emails = {};
+  var emails = {};
 
   rows.forEach(function (r) {
     var agent = String(r.agent || '(no owner)');
@@ -792,6 +857,52 @@ function slpPayloadSelfTest() {
   eq('v1 has no rows to filter', slp_rowsForMonth_(o1, '2026-08').length, 0);
 
   eq('unknown shape passes through', slp_normalisePayload_('{"nope":1}'), '{"nope":1}');
+
+  /* The shipped v3: v1's three rollups untouched, plus a short-keyed rows
+     array carrying only the month and workshop dimension. The first draft
+     put every dimension in rows with long keys and reached a megabyte,
+     which create_file could not take. Both shapes must still read. */
+  var v3s = {
+    version: 3, snapshot: 'x', months: ['2026-07', '2026-08'],
+    disp:  [['Ann', 'a@x', 'Prospect', 30], ['Ann', '', '', 5]],
+    stage: [['Ann', 'Lead', 35]],
+    sub:   [['Ann', 'PTP', 12]],
+    rows: [
+      { a: 'Ann', m: '2026-07', s: 'C160', d: 'Prospect', n: 10 },
+      { a: 'Ann', m: '2026-08', s: 'C161', d: 'Prospect', n: 20 },
+      { a: 'Ann', m: '2026-08', s: 'C161', d: '', n: 5 }
+    ]
+  };
+  var os = JSON.parse(slp_normalisePayload_(JSON.stringify(v3s)));
+
+  eq('shipped v3 detected', slp_payloadVersion_(v3s), 3);
+  eq('v1 rollups passed through untouched', JSON.stringify(os.disp), JSON.stringify(v3s.disp));
+  eq('stage untouched', JSON.stringify(os.stage), JSON.stringify(v3s.stage));
+  eq('sub untouched', JSON.stringify(os.sub), JSON.stringify(v3s.sub));
+  eq('months read from rows', os.months.join(','), '2026-07,2026-08');
+  eq('sources read from rows', os.sources.join(','), 'C160,C161');
+  eq('short keys expanded to agent', os.rows[0].agent, 'Ann');
+  eq('short keys expanded to month', os.rows[1].month, '2026-08');
+  eq('short keys expanded to source', os.rows[1].source, 'C161');
+  eq('short keys expanded to disposition', os.rows[1].disposition, 'Prospect');
+  eq('blank disposition survives expansion', os.rows[2].disposition, '');
+  eq('current month', slp_currentMonth_(os), '2026-08');
+  eq('rows for Aug', slp_rowsForMonth_(os, '2026-08').length, 2);
+  eq('Aug leads', slp_rowsForMonth_(os, '2026-08').reduce(
+      function (s, r) { return s + r.n; }, 0), 25);
+
+  // long-key rows must still work, so a payload written to either spec reads
+  var mixed = { version: 3, snapshot: 'x', disp: [['Bo', 'b@x', 'Lead', 4]],
+    rows: [{ agent: 'Bo', month: '2026-08', source: 'C1', disposition: 'Lead', n: 4 }] };
+  var om = JSON.parse(slp_normalisePayload_(JSON.stringify(mixed)));
+  eq('long keys still accepted', om.rows[0].agent, 'Bo');
+  eq('long-key month', om.rows[0].month, '2026-08');
+
+  // a row with no agent is dropped rather than becoming "(no owner)" noise
+  var junk = { version: 3, snapshot: 'x', disp: [['Bo', '', 'Lead', 1]],
+    rows: [{ m: '2026-08', n: 5 }, { a: 'Bo', m: '2026-08', d: 'Lead', n: 1 }] };
+  eq('agentless row dropped',
+     JSON.parse(slp_normalisePayload_(JSON.stringify(junk))).rows.length, 1);
 
   /* The wiring check. A payload straight from the routine has no version
      key; anything the normaliser touched has one. */

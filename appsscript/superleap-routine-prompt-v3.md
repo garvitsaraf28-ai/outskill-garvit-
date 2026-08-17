@@ -1,23 +1,35 @@
 # SuperLeap routine — v3 prompt (month, workshop, named fields)
 
-Replaces v2. Three changes.
+Replaces v2. The month and the workshop code get into the payload, so the
+Slack report can show the current month and the sheet can have a month
+dropdown. Neither is possible today: v1 collapses every lead since 1 April
+into one bucket, and a month cannot be recovered from rows that were summed
+before they arrived.
 
-1. **Month.** Neither v1 nor v2 puts a date in the GROUP BY, so the payload is
-   every lead since 1 April collapsed into one bucket — 80,294 of them. No
-   filter in the sheet can recover a month from that, because the rows were
-   summed before they arrived. The Slack report needs the current month and
-   the sheet needs a month dropdown; both need the month to be in the data.
+**Additive, not a redesign.** `disp`, `stage` and `sub` stay exactly as v1
+sends them - positional, unchanged, already understood by every reader in the
+workbook. One new array, `rows`, carries the month and workshop dimension.
+Nothing that works today is disturbed.
 
-2. **Named fields instead of positions.** v2 inserted `source` at index 2 and
-   every reader still indexed the v1 positions, so a v2 payload would have
-   read workshop codes as dispositions and counts as `NaN` — no error, just a
-   tab full of nonsense. Adding month would shift them a third time. Named
-   keys end that class of bug permanently: a reader that does not know a field
-   ignores it, and one that needs it asks for it by name.
+### Two things a real run taught us, the hard way
 
-3. **Row count.** Adding month multiplies the rows again. The limit goes up
-   and the count is checked explicitly, because a silently truncated payload
-   is a report that is quietly missing agents.
+**The 60000 LIMIT was a fiction.** `execute_query` is capped server-side at
+**2000 rows**. A run asked for 60000, got exactly 2000, and those held 84,844
+of 147,570 leads - 43% of leads and 60% of agents missing. The old check
+("did the row count equal the LIMIT?") could never catch it, because 2000 is
+not 60000. The check is now: **does the summed `n` equal `SELECT COUNT(*)`?**
+That catches any cap, named or not. The query is paginated with a total
+`ORDER BY`.
+
+**One row per dimension combination was too big to deliver.** The first draft
+put agent x source x month x stage x disposition x sub in one array with long
+key names: 5,731 rows, **1,015,020 bytes**, and `create_file` only takes
+content inline. Nothing slices stage or sub by month or workshop, so they do
+not belong in the month array. Rolled up to agent x month x source x
+disposition with short keys, the file lands around 200-300 KB.
+
+Both failures were found by the routine itself, which stopped rather than
+uploading. That was the right call and the prompt now makes it a rule.
 
 ---
 
@@ -28,42 +40,57 @@ Refresh the SuperLeap lead payload that feeds the Outskill Inside Sales workbook
 STRICTLY READ-ONLY ON SUPERLEAP. Never call create_record, update_record or delete_records. This is a real company's live CRM.
 
 STEP 0 - find the disposition-activity object.
-List the SuperLeap objects available to you. Find the one that records call or disposition activity — in the UI it is "Call Disposition Activities", and its Updates view can be filtered to Today. Note its object_slug and the timestamp column that filter uses (something like updated_at, activity_at or created_at).
+List the SuperLeap objects available to you. Find the one that records call or disposition activity - in the UI it is "Call Disposition Activities", and its Updates view can be filtered to Today. Note its object_slug and the timestamp column that filter uses.
 
 If you cannot find such an object, do not guess. Set "today_count" to null in the payload and continue with the rest. A null is honest; a wrong number is not.
 
-STEP 1 - pull the breakdown, now with the month.
-Use execute_query on object_slug "lead" with exactly this SQL:
+STEP 1 - get the authoritative total FIRST.
 
-SELECT owner.name AS agent_slp_alias, owner.email AS email_slp_alias, source AS source_slp_alias, to_char(to_timestamp(created_at/1000) AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM') AS month_slp_alias, stage AS stage_slp_alias, dispositions AS disp_slp_alias, sub_disposition AS sub_slp_alias, COUNT(*) AS n_slp_alias FROM lead WHERE created_at >= (date_part('epoch', TIMESTAMP '2026-04-01 00:00:00' AT TIME ZONE 'Asia/Kolkata')*1000) GROUP BY owner.name, owner.email, source, month_slp_alias, stage, dispositions, sub_disposition LIMIT 60000
+Before anything else, run:
 
-The month is derived from created_at in Asia/Kolkata, so a lead created at 00:30 IST on the 1st belongs to that month and not the previous one. It is formatted YYYY-MM because that sorts correctly as text and carries the year — month names alone cannot be ordered across a year boundary.
+SELECT COUNT(*) AS n_slp_alias FROM lead WHERE created_at >= (date_part('epoch', TIMESTAMP '2026-04-01 00:00:00' AT TIME ZONE 'Asia/Kolkata')*1000)
 
-If that to_char expression is rejected, do not silently drop the month. Try the engine's own equivalent (date_trunc, EXTRACT, strftime). If none works, STOP and say which expressions you tried. A payload without a month is the thing this version exists to fix.
+Write that number down. It is the only thing that can prove a later result is complete. Every check in STEP 3 is against it.
 
-The result is large and will be saved to a file rather than returned inline. That is expected. Read it with python or jq, not by pasting it into context. Schema: {records: {records: [{...}]}}.
+STEP 2 - pull the breakdown, paginated.
 
-If SuperLeap is unreachable or the query errors, STOP. Write nothing. The workbook keeps its last good payload, which is far better than overwriting it with a partial one. Say so in one line and end.
+execute_query is capped SERVER-SIDE at 2000 rows regardless of the LIMIT you write. A run on 17 Aug asked for LIMIT 60000, got exactly 2000 rows, and those 2000 rows held 84,844 of 147,570 leads - 43% of the leads and 60% of the agents silently missing. Do not assume any single query returned everything.
 
-STEP 2 - check the query was not truncated, and was not nearly empty.
+Page through it. Use a stable ORDER BY over the whole grouping key so pages cannot overlap or gap:
 
-Count the rows returned.
+SELECT owner.name AS agent_slp_alias, owner.email AS email_slp_alias, source AS source_slp_alias, to_char(to_timestamp(created_at/1000) AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM') AS month_slp_alias, stage AS stage_slp_alias, dispositions AS disp_slp_alias, sub_disposition AS sub_slp_alias, COUNT(*) AS n_slp_alias FROM lead WHERE created_at >= (date_part('epoch', TIMESTAMP '2026-04-01 00:00:00' AT TIME ZONE 'Asia/Kolkata')*1000) GROUP BY owner.name, owner.email, source, month_slp_alias, stage, dispositions, sub_disposition ORDER BY owner.name, owner.email, source, month_slp_alias, stage, dispositions, sub_disposition LIMIT 1500 OFFSET <0, then 1500, 3000, ...>
 
-If it equals the LIMIT exactly, the result was cut off and agents are missing from the tail. STOP, write nothing, and say the limit was hit — do not write a partial payload. Raise the limit and run again.
+Keep paging until a page returns fewer than 1500 rows. Then check the assembled set is unique on the grouping key - a duplicate means the ORDER BY was not total and the paging drifted.
 
-If it is FEWER THAN 100 rows, STOP and write nothing. Say how many rows came back and what the query was. An Inside Sales team of sixty-odd agents against four months of leads cannot produce a five-row breakdown; a tiny result means the query failed, returned an error page, or hit an empty connection — not that the business lost its leads.
+If the to_char month expression is rejected, do not silently drop the month. Try the engine's equivalent (date_trunc, EXTRACT, strftime). If none works, STOP and say which you tried. A payload without a month is what this version exists to fix.
 
-This is not hypothetical. On 17 Aug this routine wrote a payload containing 5 rows, and on 12 Aug one containing 16. Both were valid JSON in the correct shape, so the workbook accepted them, rebuilt its tabs from almost nothing, and posted a Slack report to the sales team saying Inside Sales had one agent and 123 leads. Writing nothing at all would have been correct in both cases: the workbook keeps its last good payload and simply reports slightly stale numbers until the next run.
+If SuperLeap is unreachable or a query errors, STOP. Write nothing. The workbook keeps its last good payload, which is far better than overwriting it with a partial one.
 
-A partial payload is worse than no payload. If anything about the result looks thin, stop.
+STEP 3 - prove it is complete.
 
-STEP 3 - count today's dispositions.
-Using the object found in step 0, count the disposition activities recorded today in Asia/Kolkata — midnight to now, not the last 24 hours. Group the count by agent as well as a grand total, so the report can show both.
+Sum the n column across every row you assembled. That sum MUST equal the COUNT(*) from STEP 1 exactly.
 
-If step 0 found nothing, skip this and use null.
+If it does not, the result is truncated. STOP and write nothing. Say both numbers and how many rows you assembled.
 
-STEP 4 - build the payload.
-Write compact JSON (no spaces, separators (',',':')) in this exact shape. Note that every row is an OBJECT with named keys, not a positional array — that is the point of v3:
+This replaces the old "did the row count equal the LIMIT?" check, which was useless: the cap is 2000 and the LIMIT was 60000, so a truncated result never equalled it. Comparing against COUNT(*) catches every cap, named or not.
+
+Also stop if the assembled set is under 100 rows. Sixty-odd agents across four months cannot produce a five-row breakdown; a tiny result means the query failed, not that the business lost its leads. On 17 Aug a payload of 5 rows was written and accepted, and the workbook posted a Slack report saying Inside Sales had one agent.
+
+STEP 4 - count today's dispositions.
+Using the object from STEP 0, count the disposition activities recorded today in Asia/Kolkata - midnight to now, not the last 24 hours. Group by agent as well as a grand total. If STEP 0 found nothing, use null.
+
+STEP 5 - roll up, then build the payload.
+
+Do NOT write one row per grouping combination. That is what the first v3 draft did and it produced 1,015,020 bytes, which create_file cannot accept inline. Nothing slices stage or sub-disposition by month or workshop, so those two do not belong in the month array.
+
+Roll your assembled rows up into four separate aggregates:
+
+  disp   agent + email + disposition          summed over everything else
+  stage  agent + stage                        summed over everything else
+  sub    agent + sub_disposition              only where sub is set
+  rows   agent + month + source + disposition summed over stage and sub
+
+Then write compact JSON (no spaces, separators (',',':')) in exactly this shape:
 
 {
  "version": 3,
@@ -72,51 +99,53 @@ Write compact JSON (no spaces, separators (',',':')) in this exact shape. Note t
  "months": ["2026-04", ... every month present, ascending],
  "today_count": <grand total of dispositions today, or null>,
  "today_by_agent": [{"agent":"...","n":12}, ...],
- "rows": [
-   {"agent":"Niraj Paul","email":"niraj.p+1@outskill.com","source":"C160",
-    "month":"2026-08","stage":"Non Contact","disposition":"Non Contact",
-    "sub":"Non Contact-2","n":357},
-   ...
- ]
+ "disp":  [["Niraj Paul","niraj.p+1@outskill.com","Non Contact",357], ...],
+ "stage": [["Niraj Paul","Non Contact",412], ...],
+ "sub":   [["Niraj Paul","Non Contact-2",88], ...],
+ "rows":  [{"a":"Niraj Paul","m":"2026-08","s":"C160","d":"Non Contact","n":357}, ...]
 }
 
-One "rows" array replaces the three of v1 and v2. Those were three separate rollups of the same query, which lost the correlation between them — you could not ask how many Non Contact leads for workshop C160 were at sub-disposition NC-3, because stage, disposition and sub were summed apart from each other. One row carrying every dimension lets the sheet roll up whichever way each page needs.
+disp, stage and sub are EXACTLY the three arrays v1 sent, positional and unchanged. Every existing reader in the workbook already understands them, which is why they stay as they are - the month upgrade must not disturb what already works.
+
+rows is the new part and the only new part. Short keys on purpose: a=agent, m=month, s=source, d=disposition, n=count. At this grain the file lands around 200-300 KB instead of a megabyte.
 
 Rules that matter:
-- agent is owner.name; use "(no owner)" when it is null.
-- email: send it on every row. v1 and v2 sent it only on an agent's first row to keep the file small; with named keys that saving is not worth the fragility of a reader having to remember.
-- source is the workshop code. Use "(no source)" when null. Send it verbatim - do not tidy, trim or reformat it, because the workbook matches on the exact string.
-- disposition: a null MUST be sent as the empty string "". The reader turns "" into "Not dispositioned yet". Do not send the word null and do not drop those rows - they are roughly half the leads.
-- sub: send "" when there is no sub_disposition. Do not omit the key.
-- stage is never null in SuperLeap; if one arrives null, send "(blank)".
+- agent is owner.name; use "(no owner)" when null.
+- In disp, send the email on an agent's FIRST row and "" after. In rows, omit email entirely.
+- s is the workshop code. Use "(no source)" when null. Send it verbatim - the workbook matches the exact string.
+- d: a null disposition MUST be the empty string "". The reader turns "" into "Not dispositioned yet". Do not send the word null and do not drop those rows - they are roughly half the leads.
+- sub only includes rows where sub_disposition is set.
+- stage is never null; if one arrives null, send "(blank)".
 - n is a number, not a string.
-- Sort rows by agent, then month, then source, so the file is stable between runs and two payloads can be diffed.
+- Sort disp, stage and sub by agent; sort rows by agent, then month, then source.
 
-STEP 5 - sanity check before writing.
-The "n" values across all rows must sum to the total row count of the query. If they do not, stop and do not write.
+STEP 6 - check the payload before writing it.
 
-Also check every month in "months" appears on at least one row, and that no row carries a month outside it. A month in the list with no rows behind it would show as an empty selection in the sheet's dropdown.
+- The n values in disp must sum to the COUNT(*) from STEP 1.
+- The n values in rows must sum to the COUNT(*) from STEP 1.
+- Every month in "months" appears on at least one row, and no row carries a month outside it.
+- The finished JSON is under 600,000 bytes. If it is larger, STOP and say the size. Do not try to emit it anyway - a truncated emission uploads corrupt JSON, which is worse than uploading nothing.
 
-STEP 6 - deliver it. ONE upload, and only when the content is final.
+Any check fails: write nothing and say which.
 
-Never write a sample, a preview, a truncated version or a "first attempt" to that folder. Build the complete JSON, verify it in STEP 5, and upload exactly once.
+STEP 7 - deliver it. ONE upload, and only when the content is final.
 
-This has already gone wrong. On 17 Aug a run uploaded a truncated sample, noticed, and re-uploaded the correct payload nine minutes later — reasoning that "the Apps Script only reads the newest file, so this doesn't affect the workbook". That reasoning is wrong. The workbook reads on its own two-hour timer, not after you finish, so it can and did read the bad file during those nine minutes. It rebuilt its tabs from 5 rows instead of 674 and posted a report to the sales team saying Inside Sales had one agent.
+Never write a sample, a preview, a truncated version or a first attempt to that folder. Build the complete JSON, pass STEP 6, upload exactly once.
 
-Anything written to that folder is live the instant it lands. There is no draft state. If you have already uploaded something wrong, uploading a correction is still right — but say so plainly in your report rather than calling it harmless, because somebody may need to reload the workbook.
+On 17 Aug a run uploaded a truncated sample, noticed, and re-uploaded correctly nine minutes later, reasoning that "the Apps Script only reads the newest file, so this doesn't affect the workbook". That is wrong. The workbook reads on its own two-hour timer, not after you finish, so it read the bad file during those nine minutes, rebuilt its tabs from 5 rows instead of 674, and posted a report to the sales team saying Inside Sales had one agent.
+
+Anything in that folder is live the instant it lands. There is no draft state. If you have already uploaded something wrong, uploading a correction is still right - but report it as a problem, not as harmless, because somebody may need to reload the workbook.
 
 Use the Google Drive MCP tool create_file with:
   title: slp_payload.json
   contentMimeType: text/plain
   disableConversionToGoogleType: true
   parentId: 1CC_abng7CqZbMaSWmj7xOPrbgasTjeTq
-  textContent: the JSON string from step 4
+  textContent: the JSON string from STEP 5
 
-That folder is shared by the workbook owner specifically for this. Do not write anywhere else in Drive and do not touch any spreadsheet.
+Do not write anywhere else in Drive and do not touch any spreadsheet. The Apps Script side picks it up on its own timer.
 
-The Apps Script side picks it up on its own timer: it reads the newest slp_payload.json in that folder, rebuilds the SuperLeap tabs and the churn report, and bins older payloads. You do not need to trigger anything in the workbook, and you must never edit the workbook directly.
-
-STEP 7 - report in one line: the snapshot time, the row count against the limit, the total lead count, the number of distinct agents, months and sources, and today_count. If step 0 failed to find the activity object, add "activity object not found" to that line.
+STEP 8 - report in one line: the snapshot time, COUNT(*) and the summed total (they must match), the assembled row count and how many pages it took, the payload size in bytes, the number of distinct agents, months and sources, and today_count. If STEP 0 failed, add "activity object not found".
 
 ---
 

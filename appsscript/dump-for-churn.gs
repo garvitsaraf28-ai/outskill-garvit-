@@ -773,11 +773,26 @@ function checkBatchMatcher() {
     Logger.log('  ' + c[0] + '  ->  ' + got + (ok ? '' : '   WRONG, expected ' + c[1]));
   });
 
+  // Global scope keeps exactly one definition, so this can report which one
+  // won but never how many were declared. Reading the live function's own
+  // source is the closest thing to proof available at runtime: the keeper
+  // carries five rules, the old Code.gs copy carried two.
+  var rules = -1;
+  try { rules = (String(canonBatch_).match(/if\s*\(\//g) || []).length; }
+  catch (e) {}
+
   Logger.log('');
   if (!wrong.length) {
-    Logger.log('VERDICT: the ModelAlliases.gs version is live. Correct.');
-    Logger.log('         Still delete the old one from Code.gs - which of the two');
-    Logger.log('         wins depends on file order, so this is right by luck.');
+    Logger.log('VERDICT: correct. Every code maps the way it should.');
+    if (rules === 5) {
+      Logger.log('         The live function carries 5 rules, which is the');
+      Logger.log('         ModelAlliases.gs version.');
+    }
+    Logger.log('');
+    Logger.log('         This test sees which definition won, not how many exist.');
+    Logger.log('         If Code.gs still holds a second canonBatch_, delete it -');
+    Logger.log('         with two declared, which one wins depends on file order,');
+    Logger.log('         so a correct answer here would be luck. With one, it is not.');
   } else {
     Logger.log('VERDICT: the OLD Code.gs version is live. This is the bug.');
     Logger.log('         ' + wrong.length + ' code(s) are not being mapped:');

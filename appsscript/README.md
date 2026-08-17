@@ -158,6 +158,39 @@ the posts.
 same value as `SLACK_WEBHOOK_URL`. No code change needed. Be aware that
 rotating the webhook then means updating both.
 
+## "12 files with that name"
+
+`slpLoadFromDrive` reports how many files share the payload's name. That
+count includes the Trash, and it is the only one of the three payload
+finders that does not filter it out:
+
+| function | skips trashed | respects `SLP_FOLDER_ID` |
+|---|---|---|
+| `slpa_newestPayload_` (used by `slpAutoRefresh`) | yes | yes |
+| `slpa_tidy_` | yes | yes |
+| `slpLoadFromDrive` | **no** | **no** |
+
+`slpa_tidy_` keeps the newest few payloads and moves the rest to Trash,
+where they stay matchable by name. So "12 files" is most likely a working
+tidy being miscounted, not a pile-up. `slpPayloadCheck()` now splits the
+count into live and trashed so it can be read rather than guessed at.
+
+The automated path is unaffected - `slpAutoRefresh` goes through
+`slpa_newestPayload_`, which filters both. Only the manual loader could
+pick up a trashed file, and only if a trashed one were newer than every
+live one. `slpPayloadCheck()` warns explicitly if that is ever true.
+
+**Optional one-line fix.** In `slpLoadFromDrive`, inside the
+`while (it.hasNext())` loop, after `seen++;`:
+
+```
+if (f.isTrashed && f.isTrashed()) continue;
+```
+
+That makes all three agree on what counts as a payload. Also worth
+setting a script property `SLP_FOLDER_ID` to the feed folder, so a stray
+`slp_payload.json` anywhere else in Drive cannot be picked up.
+
 ## House rules that have cost time before
 
 - **Shared global scope.** Every `.gs` file in the project shares one

@@ -382,6 +382,65 @@ function slp_wiringState_(stored, drivePay) {
 
 
 /* ================================================================
+   6b. WHAT PAYLOAD FILES ARE ACTUALLY OUT THERE
+
+   slpLoadFromDrive reports how many files share the payload's name, and
+   it said 12. That number is not what it looks like. Of the three
+   functions that go looking for a payload, two skip trashed files and
+   one does not:
+
+     slpa_newestPayload_   skips trashed   respects SLP_FOLDER_ID
+     slpa_tidy_            skips trashed   respects SLP_FOLDER_ID
+     slpLoadFromDrive      counts trashed  searches the whole Drive
+
+   slpa_tidy_ keeps the newest few and moves the rest to Trash, where
+   they stay matchable by name. So the honest reading of "12 files" is
+   most likely a working tidy - a few live payloads and the rest already
+   binned - being counted by the one function that does not filter them
+   out.
+
+   This splits the count so it can be read rather than guessed at, and
+   says plainly whether a trashed file could ever be picked up in
+   preference to a live one, which is the part that would actually
+   matter.
+   ================================================================ */
+function slp_payloadFiles_() {
+  var name = (typeof SLPA_FILE !== 'undefined' && SLPA_FILE) ? SLPA_FILE : 'slp_payload.json';
+  var folderId = PropertiesService.getScriptProperties().getProperty('SLP_FOLDER_ID');
+
+  var out = { live: 0, trashed: 0, inFolder: 0, elsewhere: 0,
+              newestLive: null, newestAny: null, folderId: folderId || '' };
+
+  var it;
+  try { it = DriveApp.getFilesByName(name); }
+  catch (e) { return out; }
+
+  var folder = null;
+  if (folderId) { try { folder = DriveApp.getFolderById(folderId); } catch (e) { folder = null; } }
+
+  while (it.hasNext()) {
+    var f = it.next();
+    var trashed = !!(f.isTrashed && f.isTrashed());
+    var when = f.getLastUpdated();
+
+    if (trashed) out.trashed++; else out.live++;
+    if (!out.newestAny || when > out.newestAny.when) out.newestAny = { when: when, trashed: trashed };
+    if (!trashed && (!out.newestLive || when > out.newestLive.when)) out.newestLive = { when: when };
+
+    if (folder) {
+      var inIt = false;
+      try {
+        var p = f.getParents();
+        while (p.hasNext()) { if (p.next().getId() === folderId) { inIt = true; break; } }
+      } catch (e) {}
+      if (inIt) out.inFolder++; else out.elsewhere++;
+    }
+  }
+  return out;
+}
+
+
+/* ================================================================
    7.  CHECK IT YOURSELF
 
    Read-only. Says which version is in Drive, which is in the sheet,
@@ -435,6 +494,26 @@ function slpPayloadCheck() {
     var wiring = slp_wiringState_(stored, pay);
     Logger.log('normaliser   : ' + wiring.state);
     if (wiring.why) Logger.log('               ' + wiring.why);
+
+    var files = slp_payloadFiles_();
+    Logger.log('files        : ' + files.live + ' live, ' + files.trashed + ' in Trash' +
+      (files.folderId ? '   (' + files.inFolder + ' in the feed folder, ' +
+                        files.elsewhere + ' elsewhere)'
+                      : '   (SLP_FOLDER_ID not set, so the whole Drive is searched)'));
+
+    if (files.trashed) {
+      Logger.log('               slpLoadFromDrive counts Trash and will say "' +
+                 (files.live + files.trashed) + ' files"; only ' + files.live + ' are real.');
+    }
+    if (files.newestAny && files.newestAny.trashed) {
+      Logger.log('               WARNING: the newest file by date is IN TRASH.');
+      Logger.log('               slpLoadFromDrive does not skip trashed files, so it');
+      Logger.log('               would load that one. slpAutoRefresh is unaffected.');
+    }
+    if (!files.folderId) {
+      Logger.log('               Set SLP_FOLDER_ID to the feed folder so a stray');
+      Logger.log('               slp_payload.json elsewhere in Drive cannot be picked up.');
+    }
 
     Logger.log('');
     if (dv === 1) {

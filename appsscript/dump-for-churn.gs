@@ -802,3 +802,98 @@ function checkBatchMatcher() {
     Logger.log('         then run refreshEverything.');
   }
 }
+
+
+/**
+ * Why "Revenue (CBC)" reports 0 for every month.
+ *
+ * Read-only. Run this from the Apps Script editor.
+ *
+ * buildRoster_ finds the CBC revenue column by an EXACT header match:
+ *
+ *     else if (k === 'revenue') col.revenue = i;
+ *
+ * while the target column next to it is matched on a substring:
+ *
+ *     else if (k.indexOf('target') > -1 && col.target === undefined)
+ *
+ * So a CBC header of "Revenue Achieved" or "Total Revenue" leaves
+ * col.revenue undefined, grid[row][undefined] is undefined, toNum_ turns
+ * that into 0, and every month reports zero CBC revenue. Nothing errors.
+ *
+ * The cost is a dead cross-check. That column exists to compare our
+ * payments total against CBC's own figure, and the Difference column
+ * beside it is meant to be near zero. With CBC always zero, Difference
+ * silently equals the whole payments revenue - it reads like a total
+ * mismatch and actually means "never read".
+ *
+ * Attainment is computed from targets and shows a sensible 27.9%, which
+ * proves these tabs are readable and that it is specifically the revenue
+ * header that does not match.
+ *
+ * This prints the real header row of every src_Roster_* tab so the fix
+ * can be made against the actual column name rather than a guess.
+ */
+function checkCbcRevenueColumn() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tabs = [];
+  ss.getSheets().forEach(function (sh) {
+    if (/^src_Roster_/i.test(sh.getName())) tabs.push(sh);
+  });
+
+  if (!tabs.length) { Logger.log('No src_Roster_* tabs found.'); return; }
+
+  Logger.log('--- CBC roster headers ---');
+  Logger.log('buildRoster_ needs a header that is EXACTLY "revenue" (any case).');
+  Logger.log('');
+
+  var anyExact = false;
+
+  tabs.forEach(function (sh) {
+    var grid = sh.getDataRange().getValues();
+    var hRow = -1;
+    for (var r = 0; r < grid.length && hRow < 0; r++)
+      for (var c = 0; c < grid[r].length; c++)
+        if (String(grid[r][c]).trim() === 'Agent') { hRow = r; break; }
+
+    if (hRow < 0) { Logger.log(sh.getName() + ' : no "Agent" header row found'); return; }
+
+    var heads = grid[hRow].map(function (h) { return String(h).trim(); })
+                          .filter(function (h) { return h !== ''; });
+
+    var exact = null, near = [];
+    heads.forEach(function (h) {
+      var k = h.toLowerCase();
+      if (k === 'revenue') exact = h;
+      else if (k.indexOf('revenue') > -1 || k.indexOf('achiev') > -1 ||
+               k.indexOf('collect') > -1 || k.indexOf('sales') > -1) near.push(h);
+    });
+
+    if (exact) anyExact = true;
+
+    Logger.log(sh.getName() + '   (header on row ' + (hRow + 1) + ')');
+    Logger.log('   headers : ' + heads.join(' | '));
+    Logger.log('   exact "revenue" match : ' + (exact ? 'YES' : 'NO'));
+    if (!exact && near.length) Logger.log('   closest candidates    : ' + near.join(' | '));
+    Logger.log('');
+  });
+
+  if (anyExact) {
+    Logger.log('VERDICT: at least one tab has an exact "Revenue" header, so the');
+    Logger.log('         zero is coming from somewhere else. Check whether the');
+    Logger.log('         column is empty rather than misnamed.');
+  } else {
+    Logger.log('VERDICT: no tab has a header of exactly "Revenue", which is why');
+    Logger.log('         Revenue (CBC) is 0 for every month.');
+    Logger.log('');
+    Logger.log('         Fix in Code.gs, inside buildRoster_. Change:');
+    Logger.log('           else if (k === \'revenue\') col.revenue = i;');
+    Logger.log('         to match the real name above. If you widen it to a');
+    Logger.log('         substring, exclude target as well, because a header like');
+    Logger.log('         "Revenue Target" would otherwise be read as revenue -');
+    Logger.log('         the revenue test runs BEFORE the target test:');
+    Logger.log('           else if (k.indexOf(\'revenue\') > -1 &&');
+    Logger.log('                    k.indexOf(\'target\') < 0 &&');
+    Logger.log('                    col.revenue === undefined) col.revenue = i;');
+  }
+}

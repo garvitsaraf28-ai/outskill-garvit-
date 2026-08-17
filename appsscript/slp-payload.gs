@@ -215,41 +215,69 @@ function slp_rowCount_(pay) {
 }
 
 /**
+ * True only while slpPayloadSelfTest is running.
+ *
+ * The self test feeds the normaliser deliberately tiny payloads - two or
+ * three rows - to prove the conversions. Against a live baseline of 674
+ * the guard correctly refuses every one of them, so the test could not
+ * run at all in a workbook that had ever seen real data. It also wrote
+ * its throwaway row counts into the live SLP_LAST_GOOD_ROWS, which is a
+ * diagnostic quietly editing production state.
+ *
+ * Both are fixed by taking the guard out of the self test's path. What
+ * the guard actually decides is tested directly, through
+ * slp_shrinkVerdict_, which touches nothing.
+ */
+var SLP_IN_SELFTEST = false;
+
+/**
+ * The whole decision, as arithmetic. No properties, no throwing, no
+ * side effects - so it can be tested honestly.
+ *
+ * Returns 'first' | 'ok' | 'override' | 'refuse'.
+ */
+function slp_shrinkVerdict_(now, last, allow) {
+  if (!last || last < SLP_SHRINK_MIN) return 'first';
+  if (now >= Math.floor(last * SLP_SHRINK_FLOOR)) return 'ok';
+  var a = String(allow || '').trim().toLowerCase();
+  if (a === 'yes' || a === 'true') return 'override';
+  return 'refuse';
+}
+
+/**
  * Refuse a payload that has lost most of its rows.
  *
  * Throws to stop it being stored. Records why, because the callers'
  * catch blocks report their own wording rather than this message.
  */
 function slp_guardShrink_(pay, version) {
+  if (SLP_IN_SELFTEST) return;
+
   var P;
   try { P = PropertiesService.getScriptProperties(); }
   catch (e) { return; }                       // no properties, no baseline, no guard
 
   var now = slp_rowCount_(pay);
   var last = Number(P.getProperty('SLP_LAST_GOOD_ROWS') || 0);
+  var allow = P.getProperty('SLP_ALLOW_SHRINK');
 
-  // Nothing to compare against yet, or the baseline is too small to mean
-  // anything. Record and allow.
-  if (!last || last < SLP_SHRINK_MIN) {
-    if (now) P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
-    return;
-  }
+  switch (slp_shrinkVerdict_(now, last, allow)) {
+    case 'first':
+      if (now) P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+      return;
 
-  if (now >= Math.floor(last * SLP_SHRINK_FLOOR)) {
-    P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
-    P.deleteProperty('SLP_LAST_REJECT');
-    return;
-  }
+    case 'ok':
+      P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+      P.deleteProperty('SLP_LAST_REJECT');
+      return;
 
-  // One-shot override, so a deliberate accept cannot become permanent.
-  var allow = String(P.getProperty('SLP_ALLOW_SHRINK') || '').trim().toLowerCase();
-  if (allow === 'yes' || allow === 'true') {
-    P.deleteProperty('SLP_ALLOW_SHRINK');
-    P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
-    P.setProperty('SLP_LAST_REJECT',
-      'ACCEPTED a shrink from ' + last + ' to ' + now + ' rows because ' +
-      'SLP_ALLOW_SHRINK was set. That override has now been cleared.');
-    return;
+    case 'override':
+      P.deleteProperty('SLP_ALLOW_SHRINK');
+      P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+      P.setProperty('SLP_LAST_REJECT',
+        'ACCEPTED a shrink from ' + last + ' to ' + now + ' rows because ' +
+        'SLP_ALLOW_SHRINK was set. That override has now been cleared.');
+      return;
   }
 
   var why = 'REFUSED a v' + version + ' payload with ' + now +
@@ -807,6 +835,14 @@ function slpPayloadSelfTest() {
     if (String(got) !== String(want)) fails.push(what + ': got ' + got + ', wanted ' + want);
   }
 
+  /* The guard is switched off for the duration, and put back in a finally
+     so a thrown assertion cannot leave it off. Without this the test
+     cannot run in any workbook that has seen real data - its two-row
+     fixtures are exactly what the guard exists to refuse - and it would
+     write its fixture row counts into the live baseline on the way. */
+  SLP_IN_SELFTEST = true;
+  try {
+
   var v1 = { snapshot: 'x', disp: [['Ann', 'a@x', 'Prospect', 3], ['Ann', '', '', 2]],
              stage: [['Ann', 'Lead', 5]], sub: [['Ann', 'PTP', 3]] };
   var o1 = JSON.parse(slp_normalisePayload_(JSON.stringify(v1)));
@@ -919,6 +955,26 @@ function slpPayloadSelfTest() {
      slp_wiringState_(null, { snapshot: 'S1' }).state, 'unknown');
   eq('wiring: v3 payload is wired by construction',
      slp_wiringState_(o3, { snapshot: 'x' }).state, 'WIRED IN');
+
+  /* The shrink guard, tested as the arithmetic it is. slp_guardShrink_
+     itself reads and writes script properties, so calling it here would
+     mean a diagnostic editing live state - which is the bug this section
+     was rewritten to remove. */
+  eq('shrink: no baseline yet', slp_shrinkVerdict_(5, 0, null), 'first');
+  eq('shrink: baseline too small to trust', slp_shrinkVerdict_(5, 10, null), 'first');
+  eq('shrink: the 674 -> 5 collapse is refused', slp_shrinkVerdict_(5, 674, null), 'refuse');
+  eq('shrink: growth 674 -> 703 is fine', slp_shrinkVerdict_(703, 674, null), 'ok');
+  eq('shrink: exactly half is allowed', slp_shrinkVerdict_(337, 674, null), 'ok');
+  eq('shrink: just under half is refused', slp_shrinkVerdict_(336, 674, null), 'refuse');
+  eq('shrink: override accepts it', slp_shrinkVerdict_(5, 674, 'yes'), 'override');
+  eq('shrink: override is case and space tolerant',
+     slp_shrinkVerdict_(5, 674, '  YES '), 'override');
+  eq('shrink: a v1 payload after v3 looks like a collapse',
+     slp_shrinkVerdict_(674, 12000, null), 'refuse');
+
+  } finally {
+    SLP_IN_SELFTEST = false;
+  }
 
   if (fails.length) {
     Logger.log('SELF TEST FAILED');

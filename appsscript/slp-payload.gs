@@ -234,11 +234,11 @@ function slp_v3ToV1_(pay) {
     if (r.month) months[String(r.month)] = true;
     if (r.source) sources[String(r.source)] = true;
 
-    var kd = agent + ' ' + d;
+    var kd = agent + '|' + d;
     if (dAgg[kd] === undefined) { dAgg[kd] = 0; dOrder.push([agent, d, kd]); }
     dAgg[kd] += n;
 
-    var ks = agent + ' ' + st;
+    var ks = agent + '|' + st;
     if (sAgg[ks] === undefined) { sAgg[ks] = 0; sOrder.push([agent, st, ks]); }
     sAgg[ks] += n;
 
@@ -246,7 +246,7 @@ function slp_v3ToV1_(pay) {
        set. Keep that, so the stage tab's totals mean the same thing
        they meant before the changeover. */
     if (sb) {
-      var kb = agent + ' ' + sb;
+      var kb = agent + '|' + sb;
       if (bAgg[kb] === undefined) { bAgg[kb] = 0; bOrder.push([agent, sb, kb]); }
       bAgg[kb] += n;
     }

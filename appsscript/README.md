@@ -233,6 +233,44 @@ newest. Check `slpPayloadList()` first to confirm the newest is healthy.
 **If a drop is genuine**, set the script property `SLP_ALLOW_SHRINK` to
 `yes` and run again. It clears itself after one use.
 
+## "Revenue (CBC)" is 0 every month - and that is CBC, not the workbook
+
+`refreshEverything` prints a reconciliation table per month:
+
+```
+Month        Rows   Revenue (payments)   Revenue (CBC)   Difference
+April 2026   176            15,217,166               0    15,217,166
+```
+
+`Difference` is supposed to be near zero. It is instead the whole
+payments figure, which reads like a total reconciliation failure and
+actually means CBC published no number to compare against.
+
+Checked, twice, and it is not a workbook bug:
+
+- `checkCbcRevenueColumn()` - every `src_Roster_*` tab carries an exact
+  `Revenue` header, so `buildRoster_` locates the column correctly.
+- `checkCbcRevenueValues()` - across all five tabs and 204 agent-months,
+  **not one row has a non-zero revenue**, and the cells are literal
+  numeric `0`, not blanks, text or error values.
+
+The Target column on the same tabs, in the same IMPORTRANGE, in the same
+rows, IS populated - it is what drives the 27.9% attainment figure. So
+the import works and the source column is genuinely empty.
+
+**This is a question for whoever owns the CBC sheet**, not for Apps
+Script. Ask whether that Revenue column is still meant to be filled:
+
+- **If yes** - it has stopped being populated at source. Fixing it there
+  makes the cross-check start working with no workbook change at all.
+- **If no** - it is deprecated, and the workbook should stop printing a
+  `Difference` that reads like a discrepancy. Say so and that is a small
+  change to `buildPayments_` in `Code.gs`.
+
+Deliberately not papered over in the meantime. Suppressing the column
+would hide a real question behind a cosmetic fix, and the revenue figures
+people actually use come from `mdl_Payments` and are unaffected.
+
 ## House rules that have cost time before
 
 - **Shared global scope.** Every `.gs` file in the project shares one

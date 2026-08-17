@@ -104,7 +104,18 @@ function buildAgentLeadReport_(label, firedAt) {
   var snapshot = agentSnapshotTime_(sheet);
   if (snapshot) lines.push('Source snapshot: ' + snapshot);
 
-  var everyone = readAgentRows_(sheet);
+  // Prefer the payload when it can answer "this month", fall back to the tab
+  // when it cannot. The tab is every lead since 1 April summed together, so
+  // it has no month to filter on - see agentRowsForMonth_.
+  var scoped = agentRowsForMonth_();
+  var everyone;
+
+  if (scoped) {
+    everyone = scoped.rows;
+    lines.push('Showing ' + scoped.label + ' only');
+  } else {
+    everyone = readAgentRows_(sheet);
+  }
 
   if (!everyone.length) {
     lines.push('');
@@ -275,6 +286,110 @@ function readAgentRows_(sheet) {
  * checked first because it is nearly always right and costs one read; the
  * search is the fallback that stops a layout change from breaking the report.
  */
+/**
+ * The same rows readAgentRows_ returns, but for the current month only.
+ *
+ * Returns null - meaning "use the tab instead" - whenever the month cannot be
+ * answered honestly. That covers every case that exists today:
+ *
+ *   SlpPayload.gs not pasted into the project yet
+ *   a v1 or v2 payload, which carries no month at all
+ *   a payload whose newest month has no rows behind it
+ *   mdl_Roster unreadable, so nothing could be tied to a manager
+ *
+ * This is why the switch needs no coordination. While the routine is on v1
+ * this function returns null on its first check and the report reads the tab
+ * exactly as it does now. The first v3 payload to land makes it start
+ * answering, and the report narrows to the current month on its own.
+ *
+ * The tab cannot be filtered by month instead, and that is the whole reason
+ * this exists: SuperLeap sums the leads before they reach the sheet, so by
+ * the time a number is on the tab, April and August are already one figure.
+ */
+function agentRowsForMonth_() {
+  // Written as capability checks rather than assumptions, so this file is
+  // safe to paste on its own, in any order, without breaking the report.
+  if (typeof slp_storedPayload_ !== 'function' ||
+      typeof slp_currentMonth_ !== 'function' ||
+      typeof slp_rowsForMonth_ !== 'function' ||
+      typeof slp_roster_ !== 'function') return null;
+
+  var pay = slp_storedPayload_();
+  if (!pay) return null;
+
+  var month = slp_currentMonth_(pay);
+  if (!month) return null;                       // no month in this payload
+
+  var rows = slp_rowsForMonth_(pay, month);
+  if (!rows.length) return null;
+
+  var ros = slp_roster_(SpreadsheetApp.getActive());
+  if (!ros || !ros.count) return null;
+
+  // SuperLeap and CBC spell the same people differently; SLP_NAME_MAP is the
+  // agreed translation and lives in SuperLeapChurn.gs.
+  var nameMap = (typeof SLP_NAME_MAP !== 'undefined' && SLP_NAME_MAP) ? SLP_NAME_MAP : {};
+
+  var acc = {}, order = [];
+
+  rows.forEach(function (r) {
+    var slpName = String(r.agent || '').trim();
+    if (!slpName) return;
+
+    // Not on the roster means a manager, a lead pool or another team. The
+    // churn tab makes the same call the same way; this report is about
+    // Inside Sales agents.
+    var hit = ros.find(nameMap[slpName] || slpName);
+    if (!hit) return;
+
+    var key = hit.agent;
+    if (!acc[key]) {
+      var rec = {
+        agent: hit.agent,
+        manager: hit.mgr || '(no manager)',
+        team: hit.team || '',
+        status: hit.status || '',
+        months: agentMonths_(hit.months),
+        leads: 0, pending: 0, dispositioned: 0,
+        disp: {}
+      };
+      AGENT_DISPOSITIONS.forEach(function (d) { rec.disp[d.header] = 0; });
+      acc[key] = rec;
+      order.push(key);
+    }
+
+    var a = acc[key];
+    var n = Number(r.n || 0);
+    var d = String(r.disposition || '');
+
+    a.leads += n;
+    if (d) a.dispositioned += n; else a.pending += n;
+    // Only the four dispositions this report has room for; the rest are
+    // counted in the total and shown on the tab.
+    if (a.disp[d] !== undefined) a.disp[d] += n;
+  });
+
+  if (!order.length) return null;
+
+  return {
+    month: month,
+    label: agentMonthLabel_(month),
+    rows: order.map(function (k) { return acc[k]; })
+  };
+}
+
+/** "2026-08" -> "August 2026". Anything else is passed through unchanged. */
+function agentMonthLabel_(m) {
+  var parts = String(m).split('-');
+  if (parts.length !== 2) return String(m);
+  var names = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+               'August', 'September', 'October', 'November', 'December'];
+  var i = Number(parts[1]) - 1;
+  if (i < 0 || i > 11) return String(m);
+  return names[i] + ' ' + parts[0];
+}
+
+
 function locateAgentHeader_(sheet, width) {
   var probe = sheet.getRange(AGENT_HEADER_ROW, 1, 1, width).getDisplayValues()[0];
   if (probe.indexOf(AGENT_COLS.agent) > -1) return AGENT_HEADER_ROW;

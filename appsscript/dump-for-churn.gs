@@ -1107,45 +1107,27 @@ function smp_bestNames_(name, rosterNames) {
     else if (a.indexOf(b) === 0 || b.indexOf(a) === 0) score = 92;
     else if (a.indexOf(b) > -1 || b.indexOf(a) > -1) score = 85;
     else {
-      /* A whole name part in common - "Tamanna Choudhury" against
-         "Tamanna Choudhary", "Nishith Chakrabrty" against "Nishith
-         Chakraborty" - which is what a misspelt surname looks like.
+      /* Everything else is decided by edit distance over the whole name,
+         and only when it is at most a quarter of the longer one.
 
-         There is deliberately no letter-overlap fallback below this. It
-         was tried and it scored "Arnav Mohanty" against "Tamanna
-         Choudhary" at 79%, above the 75% of two genuine pairs, because
-         long Indian names share letters freely. Every real pair in the
-         existing SLP_NAME_MAP is found by containment or a shared part,
-         so the fallback bought nothing and cost precision. */
-      var bTok = String(rn).toLowerCase().split(/[^a-z]+/).filter(Boolean);
-      var shared = 0;
-      aTok.forEach(function (t) { if (t.length > 2 && bTok.indexOf(t) > -1) shared++; });
+         A shared name PART used to be enough. On real data that was wrong
+         two times out of three: it offered "Syed Faizan" for "Syed
+         Mohiuddin" and "Aditi Nanda" for "Nanda Kishore", because Syed
+         and Nanda are common particles rather than identity. Both scored
+         the same 75% as two genuine pairs, so no threshold could have
+         separated them - the rule itself had to go.
 
-      if (shared) {
-        score = 70 + shared * 5;
-      } else {
-        /* One or two letters apart, on names of comparable length. This is
-           the Shahbaz/Shabaz case - a single dropped letter, which shares
-           no whole name part and is not a substring either, so nothing
-           above sees it.
-
-           Kept tight on purpose: at most two edits AND at most a fifth of
-           the longer name. Shahbaz to Shabaz is one edit in seven, 14%.
-           Arnav Mohanty to Tamanna Choudhary is twelve edits, nowhere
-           near. Loosening either bound is how false suggestions come
-           back. */
-        var dist = dfc_editDistance_(a, b);
-        var longer = Math.max(a.length, b.length);
-        if (dist > 2 || dist / longer > 0.2) return;
-        score = 88;
-      }
+         Edit distance separates them cleanly. Every confirmed pair sits
+         at or under 14% - Choudhury/Choudhary 6%, Chakrabrty/Chakraborty
+         6%, Shahbaz/Shabaz 14%, Mathew/Mathews 9% - while those two false
+         offers are 54% and 75%. */
+      var dist = dfc_editDistance_(a, b);
+      var longer = Math.max(a.length, b.length);
+      if (!longer || dist / longer > 0.25) return;
+      score = Math.max(70, 100 - Math.round(dist * 100 / longer));
     }
-    /* 70, not 60. Every real pair in the existing SLP_NAME_MAP scores 75
-       or better - including the two misspellings, Choudhury/Choudhary at
-       75 and Chakrabrty/Chakraborty at 75 - while genuinely unrelated
-       names topped out at 67 on the same roster. Below 70 the suggestions
-       are noise, and a plausible-looking wrong suggestion is worse than
-       none: it invites a SLP_NAME_MAP line that moves somebody's leads. */
+    /* A wrong suggestion is worse than none: it invites a SLP_NAME_MAP
+       line that moves somebody's leads onto a colleague. */
     if (score >= 70) out.push({ name: rn, score: score });
   });
 
@@ -1172,7 +1154,7 @@ function dfc_commas_(n) {
  */
 function dfc_editDistance_(a, b) {
   if (a === b) return 0;
-  if (Math.abs(a.length - b.length) > 2) return 99;
+  if (Math.abs(a.length - b.length) > 4) return 99;
 
   var prev = [], cur = [], i, j;
   for (j = 0; j <= b.length; j++) prev[j] = j;

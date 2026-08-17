@@ -897,3 +897,90 @@ function checkCbcRevenueColumn() {
     Logger.log('                    col.revenue === undefined) col.revenue = i;');
   }
 }
+
+
+/**
+ * The CBC Revenue column is found but reads as zero. What is in it?
+ *
+ * Read-only. Run after checkCbcRevenueColumn has confirmed the header
+ * exists, which it does - every src_Roster_* tab carries an exact
+ * "Revenue" header, so the column is located correctly and the zero has
+ * to come from the values or from how they are converted.
+ *
+ * buildRoster_ does:  var rev = toNum_(grid[r2][col.revenue]);
+ *
+ * There are only a few ways that yields 0 for every row:
+ *   the cells are genuinely empty or zero
+ *   they hold text toNum_ cannot parse - a currency symbol, a stray
+ *     space, a non-breaking space, "-" for nil
+ *   they hold an error value from a broken IMPORTRANGE
+ *   the header row found is not the row the data is under
+ *
+ * This prints the raw cell, its JavaScript type, and what toNum_ makes
+ * of it, so the answer is read rather than guessed.
+ */
+function checkCbcRevenueValues() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tabs = [];
+  ss.getSheets().forEach(function (sh) {
+    if (/^src_Roster_/i.test(sh.getName())) tabs.push(sh);
+  });
+  if (!tabs.length) { Logger.log('No src_Roster_* tabs found.'); return; }
+
+  var haveToNum = (typeof toNum_ === 'function');
+  Logger.log('--- CBC Revenue values ---');
+  Logger.log(haveToNum ? 'toNum_ is available, so its real output is shown.'
+                       : 'toNum_ NOT found - showing parseFloat instead.');
+  Logger.log('');
+
+  tabs.forEach(function (sh) {
+    var grid = sh.getDataRange().getValues();
+    var hRow = -1;
+    for (var r = 0; r < grid.length && hRow < 0; r++)
+      for (var c = 0; c < grid[r].length; c++)
+        if (String(grid[r][c]).trim() === 'Agent') { hRow = r; break; }
+    if (hRow < 0) { Logger.log(sh.getName() + ' : no Agent header'); return; }
+
+    var col = {};
+    grid[hRow].forEach(function (h, i) {
+      var k = String(h).trim().toLowerCase();
+      if (k === 'agent') col.agent = i;
+      else if (k === 'revenue') col.revenue = i;
+    });
+
+    Logger.log(sh.getName() + '   header row ' + (hRow + 1) +
+               '   Agent at col ' + col.agent + '   Revenue at col ' + col.revenue);
+
+    if (col.revenue === undefined) { Logger.log('   no revenue column'); Logger.log(''); return; }
+
+    var shown = 0, sum = 0, nonZero = 0, dataRows = 0;
+    for (var r2 = hRow + 1; r2 < grid.length; r2++) {
+      var name = String(grid[r2][col.agent]).trim();
+      if (!name || name === 'Total' || name === 'Agent') continue;
+      dataRows++;
+
+      var raw = grid[r2][col.revenue];
+      var n = haveToNum ? toNum_(raw) : parseFloat(String(raw).replace(/[^0-9.\-]/g, ''));
+      if (!isNaN(n)) sum += n;
+      if (n) nonZero++;
+
+      if (shown < 4) {
+        shown++;
+        Logger.log('   ' + name.slice(0, 22) +
+                   '   raw=' + JSON.stringify(raw).slice(0, 30) +
+                   '   type=' + (raw instanceof Date ? 'Date' : typeof raw) +
+                   '   toNum_=' + n);
+      }
+    }
+    Logger.log('   ' + dataRows + ' agent rows, ' + nonZero +
+               ' with a non-zero revenue, total = ' + sum);
+    Logger.log('');
+  });
+
+  Logger.log('If raw values are numbers and the total is large, the column reads');
+  Logger.log('fine here and the zero is being lost later - in how buildRoster_');
+  Logger.log('returns cbc, or how buildPayments_ receives it.');
+  Logger.log('If the totals are 0, the CBC tabs genuinely carry no revenue and');
+  Logger.log('the cross-check has nothing to compare against - that is a CBC');
+  Logger.log('question, not a workbook one.');
+}

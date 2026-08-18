@@ -465,21 +465,32 @@ function lr_slack_(team, tabName, label, firedAt) {
 
     var head0 = 'OFFICE: ' + g.office + '   (' + g.people.length + ' agents, ' +
                 lr_commas_(subTotal) + ' leads)';
-    var page = 0, used = 0;
+    var overhead = head0.length + headRow.length + 24;
 
-    function openPage() {
-      L.push('');
-      L.push(page ? head0 + '   cont. ' + (page + 1) : head0);
-      L.push(headRow);
-      used = head0.length + headRow.length + 24;
-      page++;
+    /* Fill each page to the brim and the office total gets pushed onto a
+       page of its own - a heading, a row of column names and one line,
+       which reads as a broken table rather than a continuation. Splitting
+       into equal pages instead puts half the office on each and keeps the
+       total with the agents it totals. */
+    function fits(n) {
+      var per = Math.ceil(body.length / n);
+      for (var i = 0; i < body.length; i += per) {
+        var len = overhead;
+        for (var j = i; j < Math.min(i + per, body.length); j++) len += body[j].length + 1;
+        if (len > LR_SLACK_PAGE) return false;
+      }
+      return true;
     }
-    openPage();
-    body.forEach(function (b) {
-      if (used + b.length + 1 > LR_SLACK_PAGE) openPage();
-      L.push(b);
-      used += b.length + 1;
-    });
+    var pages = 1;
+    while (pages < body.length && !fits(pages)) pages++;
+
+    var per = Math.ceil(body.length / pages);
+    for (var p = 0; p * per < body.length; p++) {
+      L.push('');
+      L.push(p ? head0 + '   cont. ' + (p + 1) : head0);
+      L.push(headRow);
+      body.slice(p * per, (p + 1) * per).forEach(function (b) { L.push(b); });
+    }
   });
 
   L.push('');
@@ -745,6 +756,32 @@ function slpLeadReportSelfTest() {
   eq('numbers right align', lr_lpad_(42, 5), '   42');
   eq('a long name is cut and marked', lr_cut_('Baishali Bhattercharya', 18), 'Baishali Bhatterc.');
   eq('a short name is left alone', lr_cut_('Divya', 18), 'Divya');
+
+  /* Pages are split evenly rather than filled to the brim. Filling put
+     21 agents on one page and the office total alone on the next, under
+     its own heading and column names - which reads as a broken table.
+     This is the arithmetic that decides it, checked directly: 22 lines
+     that need two pages must come out 11 and 11, never 21 and 1. */
+  function pagesFor(lines, overhead, budget) {
+    function fits(n) {
+      var per = Math.ceil(lines.length / n);
+      for (var i = 0; i < lines.length; i += per) {
+        var len = overhead;
+        for (var j = i; j < Math.min(i + per, lines.length); j++) len += lines[j] + 1;
+        if (len > budget) return false;
+      }
+      return true;
+    }
+    var n = 1;
+    while (n < lines.length && !fits(n)) n++;
+    return Math.ceil(lines.length / n);
+  }
+  var twentyTwo = [];
+  for (var q = 0; q < 22; q++) twentyTwo.push(107);
+  eq('a full office splits evenly, not to the brim',
+     pagesFor(twentyTwo, 175, LR_SLACK_PAGE), 11);
+  eq('a small office stays on one page',
+     pagesFor([107, 107, 107], 175, LR_SLACK_PAGE), 3);
 
   /* A code block does not wrap. One long line of batch codes would set
      the sideways scroll for the whole table if it were not broken up. */

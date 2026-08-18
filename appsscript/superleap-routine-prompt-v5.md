@@ -1,14 +1,25 @@
-# SuperLeap routine - v4 prompt (outcome per row, batch codes)
+# SuperLeap routine - v5 prompt (indexed payload)
 
-> **Superseded by `superleap-routine-prompt-v5.md`, and never ran.** v4 asks
-> for the payload spelled out; at 148,006 leads that is 554,331 bytes, which
-> `create_file` cannot carry in one tool-call argument - the run of 18 Aug
-> assembled it correctly and then could not deliver it. v5 says the same
-> things with a string dictionary, about a quarter of the size. Kept for the
-> outcome and batch-code rules, which v5 carries forward unchanged.
+Replaces v4, which was never able to run. v4 asked for the payload in the
+same spelled-out form v3 used, and on 18 Aug the routine assembled it
+correctly - 148,006 leads, every check passed - and then could not deliver
+it. `create_file` has no way to reference a local file: the whole JSON has
+to be emitted as one tool-call argument, and at 554,331 bytes it truncated
+silently. The routine was right to stop rather than upload half a file into
+a folder the workbook reads on a timer.
 
-Replaces v3. Two additions, both because the lead status report needs them
-and neither can be recovered afterwards:
+v5 changes only how the payload is written. Each distinct string is written
+once into a dictionary and referenced by position everywhere after, which on
+real data is a **3.9x cut - 389 KB down to 100 KB** - with no facts given up.
+The workbook expands it on the way in, so no reader changes.
+
+It also adds a fallback ladder: if the file is still too big, re-roll it at a
+coarser grain rather than stopping. A coarser payload every twelve hours
+beats no payload at all, and the workbook's shrink guard now watches leads
+rather than rows so it accepts one.
+
+v4 also carried two additions that stand, both because the lead status
+report needs them and neither can be recovered afterwards:
 
 - **`b`, the outcome, on every row.** One column per outcome is the whole
   report. Without `b` every lead lands in a single column and the table
@@ -30,10 +41,9 @@ field that has them. `lead_source` holds strings like
 
 ### Size, and what to give up first
 
-v3's row grain was agent x month x source x disposition. Adding the outcome
-on top of that multiplies the array. The priority order when the file gets
-too big is written into STEP 6 below: **the outcome is the report and must
-never be dropped; the source is a dropdown and can be.**
+The priority order when the file gets too big is written into STEP 7 below:
+**the outcome is the report and must never be dropped; the source is a
+dropdown, and older months are history.** Give those up in that order.
 
 ---
 
@@ -111,58 +121,84 @@ Collect the distinct codes per month, sorted.
 
 STEP 6 - roll up, then build the payload.
 
-Do NOT write one row per grouping combination. That is what the first v3 draft did and it produced 1,015,020 bytes, which create_file cannot accept inline. Nothing slices stage or sub-disposition by month, so those two do not belong in the month array.
-
-Roll your assembled rows up into four separate aggregates:
+Do NOT write one row per grouping combination. Roll your assembled rows up into four separate aggregates:
 
   disp   agent + email + disposition        summed over everything else
   stage  agent + stage                      summed over everything else
   sub    agent + sub_disposition            only where sub is set
   rows   agent + month + source + outcome   summed over stage and sub
 
+WRITE IT IN THE INDEXED FORM. This is the part that changed and it is not optional.
+
+Spelling "Satyam Aditya Samant" out on every one of his rows is what made the last attempt 554,331 bytes, which could not be uploaded at all - create_file takes the whole file as one argument and it truncated silently partway through. Write each distinct string ONCE in a dictionary and use its position everywhere after. The same facts come to about a quarter of the size.
+
+Build five lists, each holding distinct values in first-seen order:
+
+  dict.a   agent names
+  dict.e   emails
+  dict.o   dispositions, sub-dispositions and outcomes - ONE shared list
+  dict.g   stages
+  dict.s   sources
+
+An index is that value's 0-based position in its list. The months list is its own dictionary: a month index is a position in "months".
+
 Then write compact JSON (no spaces, separators (',',':')) in exactly this shape:
 
 {
- "version": 3,
+ "version": 4,
  "snapshot": "<ISO 8601 timestamp, Asia/Kolkata +05:30, of when the query actually ran>",
  "from": "1 Apr 2026",
- "months": ["2026-04", ... every month present, ascending],
- "batches": {"2026-08": ["BC14","C160","C161","C162"], "2026-07": [...]},
+ "months": ["2026-04","2026-05","2026-06","2026-07","2026-08"],
+ "batches": {"2026-08":["BC14","C160","C161","C162"]},
  "today_count": <grand total of dispositions today, or null>,
- "today_by_agent": [{"agent":"...","n":12}, ...],
- "disp":  [["Niraj Paul","niraj.p+1@outskill.com","Non Contact",357], ...],
- "stage": [["Niraj Paul","Non Contact",412], ...],
- "sub":   [["Niraj Paul","Non Contact-2",88], ...],
- "rows":  [{"a":"Niraj Paul","m":"2026-08","s":"Website","b":"Non Contact-2","n":88}, ...]
+ "today_by_agent": [{"agent":"Niraj Paul","n":12}],
+ "dict": {"a":["Niraj Paul","Ann Rao"],"e":["niraj.p+1@outskill.com","ann@outskill.com"],"o":["Non Contact","Non Contact-2","Lead"],"g":["Non Contact","Lead"],"s":["Website","Manual"]},
+ "disp":  [[0,0,0,357]],
+ "stage": [[0,0,412]],
+ "sub":   [[0,1,88]],
+ "rows":  [[0,4,0,1,88]]
 }
 
-"version" stays 3. The workbook's normaliser reads a version number, not a prompt number, and 3 is the shape it knows - b and batches are additions to that shape, not a new one. It carries across any key it does not recognise, so this cannot break it.
+What each position means:
 
-disp, stage and sub are EXACTLY the three arrays v1 sent, positional and unchanged. Every existing reader in the workbook already understands them.
+  disp   [agent, email, disposition, count]      indexes into a, e, o
+  stage  [agent, stage, count]                   indexes into a, g
+  sub    [agent, sub_disposition, count]         indexes into a, o
+  rows   [agent, month, source, outcome, count]  indexes into a, months, s, o
 
-rows uses short keys on purpose: a=agent, m=month, s=source, b=outcome, n=count.
+Read the example above literally: disp [0,0,0,357] is Niraj Paul, his email, "Non Contact", 357. rows [0,4,0,1,88] is Niraj Paul, 2026-08, Website, "Non Contact-2", 88.
+
+today_by_agent stays as named objects. It is a hundred-odd entries and indexing it saves nothing worth the risk of getting it wrong.
 
 Rules that matter:
-- agent is owner.name; use "(no owner)" when null.
-- In disp, send the email on an agent's FIRST row and "" after. In rows, omit email entirely.
-- s is SuperLeap's source field - the lead channel (Website, Inbound Call, Manual, Bulk Upload), NOT the batch code. Use "(no source)" when null.
-- b is the outcome from STEP 5. A row with neither a disposition nor a sub-disposition sends "" - do not drop those rows, they are roughly half the leads.
-- d is not sent on rows at all. b is the finer answer to the same question and disp already carries the disposition rollup.
-- sub only includes rows where sub_disposition is set.
-- stage is never null; if one arrives null, send "(blank)".
-- n is a number, not a string.
-- Sort disp, stage and sub by agent; sort rows by agent, then month, then outcome.
+- Every index must point at something. An index past the end of its list reads as a blank agent or a blank outcome in the report. Check the highest index in each column against the length of the list it points into before you write anything.
+- The count is always the LAST value in the row. Nothing else about a row may be reordered either.
+- agent is owner.name; use "(no owner)" when null - as a dictionary entry like any other.
+- o is ONE shared list for disp, sub and rows. Do not build separate lists for dispositions and outcomes; they overlap heavily and one list is smaller.
+- b (the outcome, STEP 5) is what rows point at, not the plain disposition.
+- A lead with neither a disposition nor a sub-disposition points at an entry that is the empty string "". Include that entry in dict.o. Do not drop those rows - they are roughly half the leads.
+- stage is never null; if one arrives null, use "(blank)".
+- Counts are numbers, not strings.
+- Sort disp, stage and sub by agent name; sort rows by agent, then month, then outcome. Sort by the STRINGS, then write the indexes.
 
 STEP 7 - check the payload before writing it.
 
-- The n values in disp must sum to the COUNT(*) from STEP 1.
-- The n values in rows must sum to the COUNT(*) from STEP 1.
-- Every month in "months" appears on at least one row, and no row carries a month outside it.
+- The counts in disp must sum to the COUNT(*) from STEP 1.
+- The counts in rows must sum to the COUNT(*) from STEP 1.
+- Every index is within the length of the list it points into.
 - Every key in "batches" is one of the months in "months".
-- At least one row carries a non-empty b. If none does, the STEP 5 rule was not applied and the report will show a single "(none)" column - stop rather than send that.
-- The finished JSON is under 600,000 bytes.
+- At least one row carries a non-empty outcome. If none does, the STEP 5 rule was not applied and the report will show a single "(none)" column - stop rather than send that.
+- The finished JSON is under 400,000 bytes.
 
-If it is over 600,000 bytes: re-roll rows WITHOUT s, at agent + month + outcome, and check again. Give up the source before the outcome, every time - the outcome is the report itself, the source is one dropdown on one tab. Say in STEP 8 that you dropped it and what the size was. Only if it is still over after that should you stop.
+IF IT IS OVER 400,000 BYTES, do not stop. Work down this ladder, re-checking the size after each step, and take the first one that fits:
+
+  1. Re-roll rows without the source: [agent, month, outcome, count]. Say you did.
+  2. Restrict rows to the newest THREE months in "months". Leave disp, stage and sub covering the whole window - the churn tab needs them.
+  3. Restrict rows to the newest ONE month.
+
+Every rung still counts every lead in disp, so the workbook's shrink guard - which watches leads, not rows - will accept them all. Only if the file is still too big after rung 3 should you stop.
+
+Report which rung you used. If you used any rung at all, that is worth knowing: it means the payload is outgrowing the format again.
 
 Any other check fails: write nothing and say which.
 
@@ -183,14 +219,14 @@ Use the Google Drive MCP tool create_file with:
 
 Do not write anywhere else in Drive and do not touch any spreadsheet. The Apps Script side picks it up on its own timer.
 
-STEP 9 - report in one line: the snapshot time, COUNT(*) and the summed total (they must match), the assembled row count and how many pages it took, the payload size in bytes, the number of distinct agents, months, sources and outcomes, how many batch codes in the newest month, and today_count. If STEP 0 failed, add "activity object not found". If you dropped s, say so.
+STEP 9 - report in one line: the snapshot time, COUNT(*) and the summed total (they must match), the assembled row count and how many pages it took, the payload size in bytes, the number of distinct agents, months, sources and outcomes, how many batch codes in the newest month, and today_count. If STEP 0 failed, add "activity object not found". Say which rung of the size ladder you used, if any.
 
 ---
 
 ## What the workbook side does with it
 
-`SlpPayload.gs` normalises whatever arrives - v1, v2 or v3 - into the one
-shape the readers understand. Two things about it matter here:
+`SlpPayload.gs` normalises whatever arrives - v1, v2, v3 or v4 - into the
+one shape the readers understand. Three things about it matter here:
 
 **It carries unknown keys across.** `slp_keepExtras_` copies every top-level
 key the conversion did not rebuild, so a field added to this prompt reaches
@@ -203,8 +239,20 @@ about, which silently deleted `batches`.
 by Month page's breakdown column working on a payload that has no separate
 disposition field.
 
-`slpPayloadSelfTest()` asserts both, so a change that reintroduces either bug
-fails in the workbook rather than in a Slack post.
+**It expands the dictionary.** `slp_v4ToV3_` turns the indexes back into
+strings before anything reads them, so the compact form costs the readers
+nothing. An index pointing past the end of its list becomes a blank rather
+than a number, so a mistake in one index costs one cell instead of putting
+a stray "3" in the report where an agent's name belongs.
+
+`slpPayloadSelfTest()` asserts all three - including that the same payload
+written as v3 and as v4 normalises to the identical object - so a change
+that reintroduces any of these bugs fails in the workbook rather than in a
+Slack post.
+
+The shrink guard now counts **leads, not rows**. That is what makes the size
+ladder safe: rung 2 drops thousands of rows and not one lead, and the guard
+passes it. A genuinely truncated payload loses both and is still refused.
 
 Who reads what:
 

@@ -137,6 +137,11 @@ var SLP_SHRINK_MIN   = 50;    // ignore the guard until there is a real baseline
 function slp_payloadVersion_(pay) {
   if (!pay || typeof pay !== 'object') return 0;
 
+  /* v4 replaces the repeated strings with indexes into a dictionary, so
+     it is recognised by carrying one. Checked first: a v4 file also has
+     rows and would otherwise be read as v3 and expand to nonsense. */
+  if (Number(pay.version) === 4 || (pay.dict && typeof pay.dict === 'object')) return 4;
+
   if (Number(pay.version) === 3) return 3;
   if (pay.rows && pay.rows.length) return 3;
 
@@ -199,6 +204,15 @@ function slp_normalisePayload_(text) {
     return JSON.stringify(pay);
   }
 
+  if (v === 4) {
+    /* Expand the dictionary back to strings, then hand the result to the
+       v3 conversion - v4 is v3 with the repetition squeezed out, not a
+       different set of facts, so it must not grow a second reader. */
+    pay = slp_v3ToV1_(slp_v4ToV3_(pay));
+    pay.version = 4;
+    return JSON.stringify(pay);
+  }
+
   /* Unknown shape. Hand it back untouched so the existing guards see
      the same thing they would have seen without this file, and report
      the same message they always did. Silently inventing a shape here
@@ -212,6 +226,44 @@ function slp_rowCount_(pay) {
   if (!pay) return 0;
   if (pay.rows && pay.rows.length) return pay.rows.length;
   return ((pay.disp && pay.disp.length) || 0);
+}
+
+/**
+ * How many LEADS a payload accounts for, whatever shape it is in.
+ *
+ * This is what the shrink guard should be watching, not the row count.
+ * The two agree about truncation - the five-row payload carried 123
+ * leads against 82,811 - but they disagree about a payload that is
+ * deliberately reshaped. When the file is too big to deliver the routine
+ * is told to re-roll it at a coarser grain, which drops rows sharply
+ * while every lead is still counted. Guarding on rows would refuse
+ * exactly the payload the size rule just asked for.
+ *
+ * Read from the LAST field of each row, which is where the count sits in
+ * v1, v2 and v4 alike, so this works before any conversion has run.
+ */
+function slp_leadTotal_(pay) {
+  if (!pay) return 0;
+  var t = 0, any = false;
+
+  var d = pay.disp || [];
+  for (var i = 0; i < d.length; i++) {
+    var r = d[i];
+    if (!r || r.length === undefined) continue;
+    var n = Number(r[r.length - 1]);
+    if (isFinite(n)) { t += n; any = true; }
+  }
+  if (any) return t;
+
+  var rows = pay.rows || [];
+  for (var j = 0; j < rows.length; j++) {
+    var q = rows[j];
+    if (!q) continue;
+    var m = (q.n !== undefined) ? Number(q.n)
+          : (q.length !== undefined ? Number(q[q.length - 1]) : NaN);
+    if (isFinite(m)) { t += m; any = true; }
+  }
+  return any ? t : 0;
 }
 
 /**
@@ -257,29 +309,36 @@ function slp_guardShrink_(pay, version) {
   try { P = PropertiesService.getScriptProperties(); }
   catch (e) { return; }                       // no properties, no baseline, no guard
 
-  var now = slp_rowCount_(pay);
-  var last = Number(P.getProperty('SLP_LAST_GOOD_ROWS') || 0);
+  /* Leads, not rows - see slp_leadTotal_. Falls back to the row count for
+     a payload whose counts cannot be read at all, so a shape nobody has
+     seen before is still guarded rather than waved through. */
+  var leads = slp_leadTotal_(pay);
+  var now = leads || slp_rowCount_(pay);
+  var unit = leads ? ' leads' : ' rows';
+  var last = Number(P.getProperty('SLP_LAST_GOOD_LEADS') || 0);
   var allow = P.getProperty('SLP_ALLOW_SHRINK');
+
+  function remember() {
+    P.setProperty('SLP_LAST_GOOD_LEADS', String(now));
+    P.setProperty('SLP_LAST_GOOD_ROWS', String(slp_rowCount_(pay)));
+    P.setProperty('SLP_LAST_GOOD_VERSION', String(version));
+  }
 
   switch (slp_shrinkVerdict_(now, last, allow)) {
     case 'first':
-      if (now) {
-        P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
-        P.setProperty('SLP_LAST_GOOD_VERSION', String(version));
-      }
+      if (now) remember();
       return;
 
     case 'ok':
-      P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
-      P.setProperty('SLP_LAST_GOOD_VERSION', String(version));
+      remember();
       P.deleteProperty('SLP_LAST_REJECT');
       return;
 
     case 'override':
       P.deleteProperty('SLP_ALLOW_SHRINK');
-      P.setProperty('SLP_LAST_GOOD_ROWS', String(now));
+      remember();
       P.setProperty('SLP_LAST_REJECT',
-        'ACCEPTED a shrink from ' + last + ' to ' + now + ' rows because ' +
+        'ACCEPTED a shrink from ' + last + ' to ' + now + unit + ' because ' +
         'SLP_ALLOW_SHRINK was set. That override has now been cleared.');
       return;
   }
@@ -289,25 +348,28 @@ function slp_guardShrink_(pay, version) {
      so the generic message would send somebody to look at SuperLeap when
      the fix is in the routine's saved prompt. Name the real cause. */
   var lastVer = Number(P.getProperty('SLP_LAST_GOOD_VERSION') || 0);
-  if (lastVer === 3 && version < 3) {
-    var vwhy = 'REFUSED a v' + version + ' payload. The last good one was v3, ' +
+  if (lastVer >= 3 && version < 3) {
+    var vwhy = 'REFUSED a v' + version + ' payload. The last good one was v' +
+      lastVer + ', ' +
       'so the routine has gone back to a prompt that does not select the ' +
       'month. This is almost always the saved prompt never having been ' +
       'updated: a run started by hand uses what you paste, but the schedule ' +
       'uses what is stored. The workbook kept its v3 data rather than losing ' +
       'the month, which means it will now stop updating until this is fixed. ' +
-      'Update the routine\'s saved prompt to superleap-routine-prompt-v3.md. ' +
+      'Update the routine\'s saved prompt to superleap-routine-prompt-v5.md. ' +
       'To accept v1 and give up the month page, set SLP_ALLOW_SHRINK to yes.';
     P.setProperty('SLP_LAST_REJECT', vwhy);
     throw new Error(vwhy);
   }
 
-  var why = 'REFUSED a v' + version + ' payload with ' + now +
-    ' row(s) where the last good one had ' + last +
-    '. A payload that loses most of its rows is a failed query far more ' +
+  var why = 'REFUSED a v' + version + ' payload with ' + now + unit +
+    ' where the last good one had ' + last +
+    '. A payload that loses most of its leads is a failed query far more ' +
     'often than it is real news, so the workbook kept its previous ' +
     'numbers rather than rebuilding the tabs and the Slack report from ' +
-    'almost nothing. If the drop is genuine, set the script property ' +
+    'almost nothing. Note this counts leads, not rows: a payload re-rolled ' +
+    'at a coarser grain to fit the upload limit has far fewer rows and the ' +
+    'same leads, and passes. If the drop is genuine, set the script property ' +
     'SLP_ALLOW_SHRINK to yes and run again; it clears itself after one use.';
 
   P.setProperty('SLP_LAST_REJECT', why);
@@ -550,6 +612,90 @@ function slp_v3ToV1_(pay) {
     disp: disp, stage: stage, sub: sub,
     rows: rows
   });
+}
+
+
+/* ================================================================
+   4b.  v4 -> v3
+
+   WHY THIS FORMAT EXISTS
+
+   v3 spells every agent name, email and outcome out on every row it
+   appears on. At 148,006 leads that came to 554,331 bytes, and the
+   routine has no way to hand a file to Drive except by typing it out as
+   one tool-call argument. It could not, so on 18 Aug it correctly
+   refused to upload rather than write a file that was silently cut in
+   half - the workbook's timer would have read it.
+
+   v4 says the same things with indexes. "Satyam Aditya Samant" is
+   written once in dict.a and is a small number everywhere after. The
+   strings are most of the file, so this is roughly a fourfold cut with
+   no facts given up.
+
+   Expanding it here means the readers never learn about any of it.
+   ================================================================ */
+
+/**
+ * One index back to its string.
+ *
+ * An index the dictionary cannot answer becomes "", never "undefined"
+ * and never a number - a bad index should cost one blank cell, not put
+ * the word undefined in a report or shift a whole row.
+ */
+function slp_fromDict_(list, i) {
+  if (i === undefined || i === null || i === '') return '';
+  var n = Number(i);
+  if (!isFinite(n) || n < 0 || n >= list.length) return '';
+  var v = list[n];
+  return (v === undefined || v === null) ? '' : String(v);
+}
+
+function slp_v4ToV3_(pay) {
+  var D = pay.dict || {};
+  var A = D.a || [];             // agent names
+  var E = D.e || [];             // emails
+  var O = D.o || [];             // outcomes and dispositions
+  var G = D.g || [];             // stages
+  var S = D.s || [];             // sources
+  var M = pay.months || [];      // months index straight into this
+
+  var disp = (pay.disp || []).map(function (r) {
+    return [slp_fromDict_(A, r[0]), slp_fromDict_(E, r[1]),
+            slp_fromDict_(O, r[2]), Number(r[3] || 0)];
+  });
+  var stage = (pay.stage || []).map(function (r) {
+    return [slp_fromDict_(A, r[0]), slp_fromDict_(G, r[1]), Number(r[2] || 0)];
+  });
+  var sub = (pay.sub || []).map(function (r) {
+    return [slp_fromDict_(A, r[0]), slp_fromDict_(O, r[1]), Number(r[2] || 0)];
+  });
+  var rows = (pay.rows || []).map(function (r) {
+    return { a: slp_fromDict_(A, r[0]), m: slp_fromDict_(M, r[1]),
+             s: slp_fromDict_(S, r[2]), b: slp_fromDict_(O, r[3]),
+             n: Number(r[4] || 0) };
+  });
+
+  /* today_by_agent is a hundred-odd entries either way, so v4 leaves it
+     as named objects. An indexed form is accepted too rather than
+     rejected over a detail that costs nothing. */
+  var today = (pay.today_by_agent || []).map(function (t) {
+    if (t && t.length !== undefined && typeof t !== 'string') {
+      return { agent: slp_fromDict_(A, t[0]), n: Number(t[1] || 0) };
+    }
+    return t;
+  });
+
+  var out = slp_keepExtras_(pay, {
+    version: 3,
+    snapshot: pay.snapshot || '',
+    from: pay.from || '',
+    today_count: (pay.today_count === undefined ? null : pay.today_count),
+    today_by_agent: today,
+    months: M.slice(),
+    disp: disp, stage: stage, sub: sub, rows: rows
+  });
+  delete out.dict;               // spent; carrying it on would double the size
+  return out;
 }
 
 
@@ -1038,6 +1184,78 @@ function slpPayloadSelfTest() {
      something rather than one blank row per agent. */
   eq('outcome stands in for a missing disposition', ob.disp.length, 3);
 
+  /* ---- v4, the indexed form ----
+
+     The routine could not upload a 554 KB payload: create_file takes the
+     whole file as one tool-call argument and it truncated silently. v4
+     says exactly the same things with indexes into a dictionary and
+     comes to about a quarter of the size. "Exactly the same things" is
+     the claim being tested here - the same payload written both ways
+     must normalise to the same object. */
+  var pairV3 = {
+    version: 3, snapshot: 's', months: ['2026-07', '2026-08'],
+    batches: { '2026-08': ['C162'] },
+    disp:  [['Ann', 'a@x', 'Prospect', 30], ['Bo', 'b@x', 'Lead', 5]],
+    stage: [['Ann', 'Lead', 30]],
+    sub:   [['Ann', 'PTP', 12]],
+    rows: [
+      { a: 'Ann', m: '2026-08', s: 'Website', b: 'Non Contact-2', n: 20 },
+      { a: 'Bo',  m: '2026-07', s: 'Manual',  b: 'Lead',          n: 5 }
+    ]
+  };
+  var pairV4 = {
+    version: 4, snapshot: 's', months: ['2026-07', '2026-08'],
+    batches: { '2026-08': ['C162'] },
+    dict: { a: ['Ann', 'Bo'], e: ['a@x', 'b@x'],
+            o: ['Prospect', 'Lead', 'Non Contact-2', 'PTP'],
+            g: ['Lead'], s: ['Website', 'Manual'] },
+    disp:  [[0, 0, 0, 30], [1, 1, 1, 5]],
+    stage: [[0, 0, 30]],
+    sub:   [[0, 3, 12]],
+    rows:  [[0, 1, 0, 2, 20], [1, 0, 1, 1, 5]]
+  };
+  eq('v4 detected by its dictionary', slp_payloadVersion_(pairV4), 4);
+  eq('a dictionary alone is enough to detect it',
+     slp_payloadVersion_({ dict: {}, disp: [['A', '', 'L', 1]] }), 4);
+
+  var n3 = JSON.parse(slp_normalisePayload_(JSON.stringify(pairV3)));
+  var n4 = JSON.parse(slp_normalisePayload_(JSON.stringify(pairV4)));
+  function shape(o) {
+    return JSON.stringify({ disp: o.disp, stage: o.stage, sub: o.sub,
+      months: o.months, batches: o.batches,
+      rows: o.rows.map(function (r) {
+        return [r.agent, r.month, r.source, r.bucket, r.disposition, r.n];
+      }) });
+  }
+  eq('v4 normalises to exactly what v3 does', shape(n4), shape(n3));
+  eq('v4 keeps its version so diagnostics can say which arrived', n4.version, 4);
+  eq('the dictionary is not carried into storage', n4.dict, undefined);
+
+  /* A bad index must cost one blank cell. Left as a number it would put
+     "3" in a report as if it were an agent's name. */
+  eq('an index past the end becomes blank', slp_fromDict_(['a', 'b'], 9), '');
+  eq('a negative index becomes blank', slp_fromDict_(['a'], -1), '');
+  eq('a missing index becomes blank', slp_fromDict_(['a'], null), '');
+  eq('a good index resolves', slp_fromDict_(['a', 'b'], 1), 'b');
+
+  /* ---- the guard counts leads, not rows ----
+
+     When the payload is too big to upload the routine re-rolls it at a
+     coarser grain: far fewer rows, every lead still counted. Guarding on
+     rows would refuse the very payload the size rule just asked for. */
+  eq('leads read from a v1 payload',
+     slp_leadTotal_({ disp: [['A', '', 'L', 10], ['B', '', 'L', 5]] }), 15);
+  eq('leads read from a v2 payload, where n sits one place later',
+     slp_leadTotal_({ disp: [['A', '', 'C1', 'L', 10]] }), 10);
+  eq('leads read from a v4 payload before it is expanded',
+     slp_leadTotal_({ dict: {}, disp: [[0, 0, 0, 10], [1, 1, 0, 5]] }), 15);
+  eq('leads fall back to rows when there is no disp',
+     slp_leadTotal_({ rows: [{ a: 'A', n: 7 }, { a: 'B', n: 3 }] }), 10);
+  eq('a coarser re-roll with the same leads is accepted',
+     slp_shrinkVerdict_(147570, 147570, ''), 'ok');
+  eq('a truncated payload is still refused',
+     slp_shrinkVerdict_(123, 82811, ''), 'refuse');
+
   /* Same for a v1 payload carrying an unknown key - the v1 path mutates
      rather than rebuilds, so this has always worked, and a test keeps it
      that way. */
@@ -1085,7 +1303,7 @@ function slpPayloadSelfTest() {
     Logger.log('SELF TEST FAILED');
     fails.forEach(function (f) { Logger.log('  ' + f); });
   } else {
-    Logger.log('SELF TEST PASSED - v1, v2 and v3 all normalise, totals intact.');
+    Logger.log('SELF TEST PASSED - v1, v2, v3 and v4 all normalise, totals intact.');
   }
   return fails;
 }

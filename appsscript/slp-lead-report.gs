@@ -36,6 +36,19 @@
  *   should have been 4,322, because a call that has a sub-disposition never
  *   lands in the plain disposition bucket. If a column looks implausibly
  *   empty, that is the first thing to check.
+ *
+ *   If EVERY lead lands in one column called "(none)", the payload is not
+ *   carrying the outcome at all. That is the routine's prompt, not this
+ *   file - it needs v4, which sends "b" on every row.
+ *
+ * SLACK GETS THE SAME TABLE
+ *
+ *   Not a summary of it. Agents down, outcomes across, offices in order,
+ *   totals where they are on the tab. Two differences, both forced by the
+ *   width of a Slack message and both stated at the foot of the post:
+ *   headings are short (NC2, not "Non Contact-2"), and outcomes outside the
+ *   familiar seventeen are summed into one OTHR column. The tab keeps every
+ *   outcome in a column of its own.
  */
 
 var LR_TAB_INDIA = 'Lead Report - India';
@@ -172,10 +185,8 @@ function lr_build_(team, tabName, month) {
   var grand = 0;
   people.forEach(function (p) { grand += p.total; });
 
-  /* Enough for a Slack summary without rebuilding any of it there. The
-     26-column table cannot go in a Slack message - it is unreadable on a
-     phone and past the block size limit - so Slack gets the shape of it
-     and a link to the real thing. */
+  /* Everything Slack needs to print the same table, so it never
+     recomputes a number that is already on the tab. */
   var byOffice = officeNames.map(function (o) {
     var n = 0;
     offices[o].forEach(function (p) { n += p.total; });
@@ -187,6 +198,17 @@ function lr_build_(team, tabName, month) {
     return { col: c, n: n };
   }).filter(function (x) { return x.n; })
     .sort(function (a, b) { return b.n - a.n; });
+
+  /* The grid itself, so Slack can print the same table rather than
+     rebuilding it from a different set of numbers and drifting. */
+  var groups = officeNames.map(function (o) {
+    return {
+      office: o,
+      people: offices[o].map(function (p) {
+        return { agent: p.agent, d: p.d, total: p.total };
+      })
+    };
+  });
 
   var tab = ss.getSheetByName(tabName);
   var url = '';
@@ -202,19 +224,105 @@ function lr_build_(team, tabName, month) {
            leads: grand, team: team, tab: tabName, url: url,
            batches: (pay.batches && pay.batches[month]) ? pay.batches[month] : [],
            snapshot: pay.snapshot || '', byOffice: byOffice, byCol: byCol,
-           noTeam: other.length };
+           cols: cols, groups: groups, noTeam: other.length };
 }
 
 
 /* ================================================================
    THE SLACK POST
 
-   A summary and a link, not the table. Twenty-six columns is unreadable
-   on a phone whatever is done to it, and a Slack section block caps at
-   3000 characters - the table alone would be several times that. What
-   goes out is the shape of the month: totals, each office, and which
-   outcomes actually moved. The full grid is one tap away.
+   The whole grid, not a summary of it. Every agent is a line, every
+   outcome a column, exactly as on the tab.
+
+   Three things make that fit in Slack:
+
+     the code fence   postToSlack_ wraps each part in one, which is the
+                      only way Slack keeps runs of spaces - without it
+                      the columns collapse into a ragged sentence
+
+     short headings   "NC2" instead of "Non Contact-2". Full names are
+                      six times the width of the number underneath them,
+                      and the width is the whole problem. A legend at the
+                      bottom spells every one of them out
+
+     one block per    postToSlack_ splits on blank lines and caps each
+     office           part at 2800 characters. An office is a block and
+                      carries its own heading row, so wherever the split
+                      lands the reader still has the column names
+
+   It is still wide - that is what a table of this shape is. On a phone
+   the code block scrolls sideways; the link at the bottom opens the tab
+   for anyone who would rather pinch and zoom there.
    ================================================================ */
+
+/** Cap on the owner column. Longer names are cut, not wrapped. */
+var LR_SLACK_NAME_W = 18;
+
+/** The Slack-only catch-all for outcomes outside the familiar seventeen. */
+var LR_OTHER = 'Other';
+
+/**
+ * Characters per page of the grid.
+ *
+ * A Slack section holds 3000 and chunkForSlack_ budgets 2800 for the
+ * code fence it adds. Staying under that here means postToSlack_ never
+ * has to split a page, so every page keeps the heading row this file
+ * put at the top of it.
+ */
+var LR_SLACK_PAGE = 2500;
+
+/**
+ * Short headings for the outcomes that have them.
+ *
+ * Only the familiar ones are listed. Anything SuperLeap invents later
+ * gets an abbreviation derived from its name, so a new outcome appears
+ * in the table on its own rather than waiting for this map to be edited.
+ */
+var LR_ABBR = {
+  'Lead': 'LEAD', 'PTP': 'PTP', 'WFC': 'WFC',
+  'Non Contact': 'NC', 'Non Contact-1': 'NC1', 'Non Contact-2': 'NC2',
+  'Non Contact-3': 'NC3', 'Non Contact-4': 'NC4', 'Non Contact-5': 'NC5',
+  'Not Interested': 'NI', 'Not Reachable': 'NR', 'Prospect': 'PROS',
+  'Deferred Hot': 'DHOT', 'Followup': 'FUP', 'Student': 'STUD',
+  'Disqualified': 'DISQ', 'Financial Issue': 'FIN', 'Other': 'OTHR'
+};
+
+/**
+ * A heading for an outcome nothing has named yet.
+ *
+ * One word gives its first four letters, several give their initials -
+ * so "Callback" reads CALL and "Language Barrier" reads LB. Digits are
+ * kept wherever they appear, which is what keeps the five Non Contact
+ * levels apart.
+ */
+function lr_abbr_(name) {
+  var s = String(name || '').trim();
+  if (LR_ABBR[s]) return LR_ABBR[s];
+  if (!s) return '?';
+
+  var digits = s.replace(/[^0-9]/g, '');
+  var words = s.replace(/[^A-Za-z ]/g, ' ').split(/\s+/)
+               .filter(function (w) { return w; });
+  var base;
+  if (!words.length) base = 'X';
+  else if (words.length === 1) base = words[0].substring(0, 4);
+  else base = words.map(function (w) { return w.charAt(0); }).join('').substring(0, 4);
+
+  return (base + digits).toUpperCase().substring(0, 5);
+}
+
+/** Headings for a whole column list, with collisions broken by a digit. */
+function lr_abbrs_(cols) {
+  var used = {}, out = [];
+  cols.forEach(function (c) {
+    var a = lr_abbr_(c), t = a, i = 2;
+    while (used[t]) { t = (a + i).substring(0, 5); i++; }
+    used[t] = true;
+    out.push(t);
+  });
+  return out;
+}
+
 function lr_slack_(team, tabName, label, firedAt) {
   var res = lr_build_(team, tabName);
 
@@ -226,40 +334,165 @@ function lr_slack_(team, tabName, label, firedAt) {
     };
   }
 
+  /* Only the outcomes this team actually recorded. A column of nothing
+     but zeroes costs width and says nothing; how many were left out is
+     stated at the bottom so the omission is visible rather than quiet. */
+  var present = [], emptied = 0;
+  res.cols.forEach(function (c) {
+    var n = 0;
+    res.groups.forEach(function (g) {
+      g.people.forEach(function (p) { n += (p.d[c] || 0); });
+    });
+    if (n) present.push(c); else emptied++;
+  });
+  if (!present.length) present = res.cols.slice(0, 6);
+
+  /* Width is the one thing that decides whether this is readable, and
+     SuperLeap carries about twenty-six distinct outcomes against the
+     seventeen the report is read for. The seventeen keep their own
+     columns; the rest are summed into OTHER and named underneath. The
+     tab still shows every one of them separately - this trade is Slack's
+     alone, and it is what brings the line back under a screen width. */
+  var known = [], extra = [];
+  present.forEach(function (c) {
+    (LR_COLS.indexOf(c) > -1 ? known : extra).push(c);
+  });
+  var live = known.slice();
+  if (extra.length) live.push(LR_OTHER);
+
+  /* One place that answers "what goes in this cell", so the body, the
+     office totals and the grand total can never disagree about OTHER. */
+  function valOf(p, c) {
+    if (c !== LR_OTHER) return p.d[c] || 0;
+    var n = 0;
+    extra.forEach(function (e) { n += (p.d[e] || 0); });
+    return n;
+  }
+
+  var head = lr_abbrs_(live);
+
+  /* Column widths from the widest thing that will sit in them, headings
+     and office totals included, so nothing overflows its column and
+     shunts the rest of the line out of alignment. */
+  var W = head.map(function (h) { return Math.max(h.length, 3); });
+  var totW = 5;
+  res.groups.forEach(function (g) {
+    var sub = [];
+    g.people.forEach(function (p) {
+      live.forEach(function (c, i) {
+        var n = valOf(p, c);
+        if (String(n).length > W[i]) W[i] = String(n).length;
+        sub[i] = (sub[i] || 0) + n;
+      });
+      totW = Math.max(totW, String(p.total).length);
+    });
+    live.forEach(function (c, i) {
+      W[i] = Math.max(W[i], String(sub[i] || 0).length);
+    });
+  });
+  totW = Math.max(totW, String(res.leads).length, 5);
+
+  var nameW = 0;
+  res.groups.forEach(function (g) {
+    g.people.forEach(function (p) {
+      nameW = Math.max(nameW, Math.min(p.agent.length, LR_SLACK_NAME_W));
+    });
+  });
+  nameW = Math.max(nameW, 14);
+
+  function line(label0, values, total) {
+    var s = lr_pad_(lr_cut_(label0, nameW), nameW);
+    values.forEach(function (v, i) { s += ' ' + lr_lpad_(v, W[i]); });
+    return s + ' ' + lr_lpad_(total, totW);
+  }
+  var headRow = line('OWNER', head, 'TOTAL');
+  var wrapAt = Math.max(headRow.length, 60);
+
+  /* ---- what the month is ---- */
   var L = [];
   L.push('As at ' + firedAt + ' IST   (' + label + ')');
   L.push(lr_monthLabel_(res.month) + '   |   snapshot ' +
-         (typeof slp_stamp_ === 'function' ? slp_stamp_(res.snapshot) : ''));
-  L.push('');
-  L.push(res.agents + ' agents        ' + lr_commas_(res.leads) + ' leads');
+         (typeof slp_stamp_ === 'function' ? slp_stamp_(res.snapshot) : '') +
+         '   |   ' + res.agents + ' agents   ' + lr_commas_(res.leads) + ' leads');
+  lr_wrap_('Batches: ', (res.batches && res.batches.length
+      ? res.batches.join(', ')
+      : 'not carried by this payload'), wrapAt)
+    .forEach(function (x) { L.push(x); });
 
-  if (res.batches && res.batches.length) {
-    L.push('');
-    L.push('Batches: ' + res.batches.join(', '));
-  }
+  /* ---- the grid, in blocks that carry their own heading ----
 
-  L.push('');
-  res.byOffice.forEach(function (o) {
-    L.push(lr_pad_(o.office, 16) + lr_pad_(o.agents + ' agents', 12) +
-           lr_commas_(o.leads) + ' leads');
+     An office of 27 agents is past what one Slack section holds, and
+     leaving the split to postToSlack_ drops the second half in with no
+     column names above it - which is what happened the first time this
+     ran. Pagination belongs here, where the heading row can be repeated
+     at the top of each page. Blank lines between the pages are what
+     stop chunkForSlack_ from cutting anywhere else. */
+  var grand = [], grandTotal = 0;
+  res.groups.forEach(function (g) {
+    var sub = [], subTotal = 0;
+    var body = g.people.map(function (p) {
+      var vals = live.map(function (c, i) {
+        var v = valOf(p, c);
+        sub[i] = (sub[i] || 0) + v;
+        grand[i] = (grand[i] || 0) + v;
+        return v;
+      });
+      subTotal += p.total;
+      grandTotal += p.total;
+      return line(p.agent, vals, p.total);
+    });
+    body.push(line(g.office.toUpperCase() + ' TOTAL',
+                   live.map(function (c, i) { return sub[i] || 0; }), subTotal));
+
+    var head0 = 'OFFICE: ' + g.office + '   (' + g.people.length + ' agents, ' +
+                lr_commas_(subTotal) + ' leads)';
+    var page = 0, used = 0;
+
+    function openPage() {
+      L.push('');
+      L.push(page ? head0 + '   cont. ' + (page + 1) : head0);
+      L.push(headRow);
+      used = head0.length + headRow.length + 24;
+      page++;
+    }
+    openPage();
+    body.forEach(function (b) {
+      if (used + b.length + 1 > LR_SLACK_PAGE) openPage();
+      L.push(b);
+      used += b.length + 1;
+    });
   });
 
-  if (res.byCol.length) {
-    L.push('');
-    L.push('By outcome');
-    res.byCol.slice(0, 8).forEach(function (c) {
-      L.push('  ' + lr_pad_(c.col, 22) + lr_commas_(c.n));
-    });
-    if (res.byCol.length > 8) {
-      var rest = 0;
-      res.byCol.slice(8).forEach(function (c) { rest += c.n; });
-      L.push('  ' + lr_pad_('everything else', 22) + lr_commas_(rest));
-    }
+  L.push('');
+  L.push(headRow);
+  L.push(line('TOTAL - ' + team.toUpperCase(),
+              live.map(function (c, i) { return grand[i] || 0; }), grandTotal));
+
+  /* ---- what the headings mean ---- */
+  L.push('');
+  L.push('Columns');
+  var pairs = known.map(function (c, i) { return head[i] + ' = ' + c; });
+  for (var i = 0; i < pairs.length; i += 2) {
+    /* Cut before padding. Padding a pair that is already past the column
+       width does nothing, and the next pair then starts flush against
+       it - which is how "requirements" and "DTAO" ended up as one word. */
+    L.push('  ' + pairs.slice(i, i + 2).map(function (p) {
+      return lr_pad_(lr_cut_(p, 43), 44);
+    }).join('').replace(/\s+$/, ''));
+  }
+  if (extra.length) {
+    lr_wrap_('  OTHR = ', extra.join(', '), wrapAt)
+      .forEach(function (x) { L.push(x); });
+  }
+  if (emptied) {
+    L.push('  ' + emptied + ' outcome column(s) were zero for every agent ' +
+           'this month; they are on the tab.');
   }
 
   if (res.noTeam) {
     L.push('');
-    L.push('!! ' + res.noTeam + ' agent(s) are on neither team - see the bottom of the tab.');
+    L.push('!! ' + res.noTeam + ' agent(s) are on neither team - check the');
+    L.push('   Team column on mdl_Roster. They are named at the tab\'s foot.');
   }
 
   if (res.url) {
@@ -269,7 +502,7 @@ function lr_slack_(team, tabName, label, firedAt) {
 
   return {
     subject: '[' + label + '] ' + lr_monthLabel_(res.month) + '   ' +
-             lr_commas_(res.leads) + ' leads',
+             lr_commas_(res.leads) + ' leads   ' + res.agents + ' agents',
     body: L.join('\n')
   };
 }
@@ -475,6 +708,36 @@ function slpLeadReportSelfTest() {
   eq('both real teams still recognised',
      teams.indexOf('India') > -1 && teams.indexOf('International') > -1, true);
 
+  /* ---- the Slack table's formatting ---- */
+  eq('named outcomes keep their heading', lr_abbr_('Non Contact-2'), 'NC2');
+  eq('an unnamed one word outcome', lr_abbr_('Callback'), 'CALL');
+  eq('an unnamed multi word outcome', lr_abbr_('Language Barrier'), 'LB');
+  eq('digits are kept, so levels stay apart', lr_abbr_('Some Level 4'), 'SL4');
+  eq('an empty outcome still gets a heading', lr_abbr_(''), '?');
+
+  /* Two outcomes reducing to the same letters would put two columns
+     under one heading and there would be no way to tell which was
+     which. */
+  eq('collisions are broken apart',
+     lr_abbrs_(['Alpha Beta', 'Alpha Bravo']).join(','), 'AB,AB2');
+
+  /* Numbers must be right-aligned or a column of them does not line up,
+     and a long name must be cut rather than widen every row. */
+  eq('numbers right align', lr_lpad_(42, 5), '   42');
+  eq('a long name is cut and marked', lr_cut_('Baishali Bhattercharya', 18), 'Baishali Bhatterc.');
+  eq('a short name is left alone', lr_cut_('Divya', 18), 'Divya');
+
+  /* A code block does not wrap. One long line of batch codes would set
+     the sideways scroll for the whole table if it were not broken up. */
+  var w = lr_wrap_('Batches: ', 'C160, C161, C162, BC14', 24);
+  eq('a long line is broken', w.length > 1, true);
+  eq('every piece fits the width',
+     w.filter(function (x) { return x.length > 24; }).length, 0);
+  eq('no code is lost in the wrap',
+     w.join(' ').replace(/\s+/g, ' ').indexOf('C162,') > -1, true);
+  eq('a short line is left on one line',
+     lr_wrap_('Batches: ', 'C160', 40).length, 1);
+
   if (fails.length) {
     Logger.log('SELF TEST FAILED');
     fails.forEach(function (f) { Logger.log('  ' + f); });
@@ -505,4 +768,48 @@ function lr_pad_(s, width) {
   s = String(s);
   while (s.length < width) s += ' ';
   return s;
+}
+
+/**
+ * Wrap a long comma-separated line to the table's width.
+ *
+ * A code block does not wrap, so one long line of batch codes sets the
+ * sideways scroll for everything under it - the table could be 100
+ * characters wide and still need a 190-character swipe because of a
+ * sentence. Broken on commas, so no code is split in half.
+ */
+function lr_wrap_(prefix, text, width) {
+  var parts = String(text).split(', ');
+  var out = [], line = prefix;
+  var indent = lr_pad_('', Math.min(prefix.length, 9));
+
+  parts.forEach(function (p, i) {
+    var piece = p + (i < parts.length - 1 ? ',' : '');
+    if (line !== prefix && line !== indent && (line + ' ' + piece).length > width) {
+      out.push(line);
+      line = indent;
+    }
+    line += (line === prefix || line === indent) ? piece : ' ' + piece;
+  });
+  if (line.replace(/\s+$/, '')) out.push(line);
+  return out;
+}
+
+/** Right-aligned, which is the only way a column of numbers reads as one. */
+function lr_lpad_(s, width) {
+  s = String(s);
+  while (s.length < width) s = ' ' + s;
+  return s;
+}
+
+/**
+ * Cut a long name to the column, marking that it was cut.
+ *
+ * Letting one long name widen the owner column pushes every number
+ * sideways for the sake of a single row, and the table is already as
+ * wide as Slack will take.
+ */
+function lr_cut_(s, width) {
+  s = String(s);
+  return s.length <= width ? s : s.substring(0, width - 1) + '.';
 }

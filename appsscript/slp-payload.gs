@@ -344,7 +344,7 @@ function slp_v2ToV1_(pay) {
     if (r[1]) sources[String(r[1])] = true;
   });
 
-  return {
+  return slp_keepExtras_(pay, {
     version: 2,
     snapshot: pay.snapshot || '',
     from: pay.from || '',
@@ -354,7 +354,7 @@ function slp_v2ToV1_(pay) {
     sources: Object.keys(sources).sort(),
     disp: disp, stage: stage, sub: sub,
     rows: rows
-  };
+  });
 }
 
 
@@ -385,16 +385,52 @@ function slp_monthRow_(r) {
   var agent = r.a !== undefined ? r.a : r.agent;
   if (agent === undefined || agent === null || agent === '') return null;
   var d = r.d !== undefined ? r.d : r.disposition;
+  var b = r.b !== undefined ? r.b : r.bucket;
   return {
     agent: String(agent),
     month: String((r.m !== undefined ? r.m : r.month) || ''),
     source: String((r.s !== undefined ? r.s : r.source) || ''),
-    disposition: (d === undefined || d === null) ? '' : String(d),
+    /* A payload that sends the outcome and no separate disposition would
+       otherwise leave every reader of .disposition with a blank - the
+       month page's whole breakdown column among them. The outcome is the
+       finer answer to the same question, so stand it in. A payload that
+       does send a disposition is left exactly as it was. */
+    disposition: (d === undefined || d === null || d === '')
+                   ? ((b === undefined || b === null) ? '' : String(b))
+                   : String(d),
+    /* The lead's outcome: its sub-disposition where it has one and its
+       disposition where it does not. The lead report puts one column per
+       distinct value, so a row that loses this lands in a single "(none)"
+       column and the whole table collapses to one number per agent. That
+       is exactly what happened when this line was missing. */
+    bucket: (b === undefined || b === null) ? '' : String(b),
     stage: String(r.stage || ''),
     sub: String(r.sub || ''),
     email: String(r.email || ''),
     n: Number(r.n || 0)
   };
+}
+
+
+/**
+ * Copy across every top-level key the conversion did not rebuild.
+ *
+ * The conversions used to return a fresh object listing the keys they knew
+ * about, which silently deleted anything else the routine had sent - the
+ * batch codes went that way, and nothing said so. Carrying the unknown keys
+ * makes the normaliser additive: a new field reaches the readers on the day
+ * the routine starts sending it, without a change here.
+ *
+ * Known keys win, because the conversion computed them deliberately.
+ */
+function slp_keepExtras_(src, built) {
+  if (!src) return built;
+  for (var k in src) {
+    if (!Object.prototype.hasOwnProperty.call(src, k)) continue;
+    if (Object.prototype.hasOwnProperty.call(built, k)) continue;
+    built[k] = src[k];
+  }
+  return built;
 }
 
 function slp_v3ToV1_(pay) {
@@ -425,7 +461,7 @@ function slp_v3ToV1_(pay) {
     if (!monthList0.length && pay.months && pay.months.length) {
       monthList0 = pay.months.slice().sort();
     }
-    return {
+    return slp_keepExtras_(pay, {
       version: 3,
       snapshot: pay.snapshot || '',
       from: pay.from || '',
@@ -437,7 +473,7 @@ function slp_v3ToV1_(pay) {
       stage: pay.stage || [],
       sub: pay.sub || [],
       rows: rows
-    };
+    });
   }
 
   var dAgg = {}, sAgg = {}, bAgg = {};
@@ -447,6 +483,8 @@ function slp_v3ToV1_(pay) {
   rows.forEach(function (r) {
     var agent = String(r.agent || '(no owner)');
     var n = Number(r.n || 0);
+    /* Already carries the outcome where no disposition was sent -
+       slp_monthRow_ stood it in on the way through. */
     var d = (r.disposition === undefined || r.disposition === null) ? '' : String(r.disposition);
     var st = (r.stage === undefined || r.stage === null) ? '' : String(r.stage);
     var sb = (r.sub === undefined || r.sub === null) ? '' : String(r.sub);
@@ -501,7 +539,7 @@ function slp_v3ToV1_(pay) {
     monthList = pay.months.slice().sort();
   }
 
-  return {
+  return slp_keepExtras_(pay, {
     version: 3,
     snapshot: pay.snapshot || '',
     from: pay.from || '',
@@ -511,7 +549,7 @@ function slp_v3ToV1_(pay) {
     sources: Object.keys(sources).sort(),
     disp: disp, stage: stage, sub: sub,
     rows: rows
-  };
+  });
 }
 
 
@@ -973,6 +1011,39 @@ function slpPayloadSelfTest() {
     rows: [{ m: '2026-08', n: 5 }, { a: 'Bo', m: '2026-08', d: 'Lead', n: 1 }] };
   eq('agentless row dropped',
      JSON.parse(slp_normalisePayload_(JSON.stringify(junk))).rows.length, 1);
+
+  /* ---- the two things the normaliser used to throw away ----
+
+     Both shipped, and both showed up the same way: a lead report where
+     every lead sat in one column called "(none)" and no batch codes at the
+     top. The cause was a conversion that returned a fresh object listing
+     the keys it knew about, so "batches" was deleted, and a row expander
+     that never mapped the outcome. Neither failed loudly. These four
+     assertions are the ones that would have. */
+  var withB = {
+    version: 3, snapshot: 'x', months: ['2026-08'],
+    batches: { '2026-08': ['C162 16th Aug 2026', 'BC14 4th August 2026'] },
+    rows: [
+      { a: 'Ann', m: '2026-08', b: 'Non Contact-2', n: 7 },
+      { a: 'Ann', m: '2026-08', b: 'PTP', n: 3 },
+      { a: 'Bo',  m: '2026-08', bucket: 'Lead', n: 4 }
+    ]
+  };
+  var ob = JSON.parse(slp_normalisePayload_(JSON.stringify(withB)));
+  eq('short-key outcome survives', ob.rows[0].bucket, 'Non Contact-2');
+  eq('long-key outcome survives', ob.rows[2].bucket, 'Lead');
+  eq('batches survive the conversion',
+     (ob.batches && ob.batches['2026-08'] || []).length, 2);
+  /* With no disposition sent, the outcome stands in, so the rollups say
+     something rather than one blank row per agent. */
+  eq('outcome stands in for a missing disposition', ob.disp.length, 3);
+
+  /* Same for a v1 payload carrying an unknown key - the v1 path mutates
+     rather than rebuilds, so this has always worked, and a test keeps it
+     that way. */
+  eq('v1 keeps unknown keys',
+     JSON.parse(slp_normalisePayload_('{"disp":[["A","","L",1]],"batches":{"x":["c1"]}}'))
+       .batches.x[0], 'c1');
 
   /* The wiring check. A payload straight from the routine has no version
      key; anything the normaliser touched has one. */

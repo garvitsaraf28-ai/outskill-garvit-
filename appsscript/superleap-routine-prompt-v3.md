@@ -1,5 +1,10 @@
 # SuperLeap routine — v3 prompt (month, workshop, named fields)
 
+> **Superseded by `superleap-routine-prompt-v4.md`.** v3 sends no outcome on
+> its rows and no batch codes, so the lead status report built on it shows
+> every lead in one column called `(none)` and no batches. Kept for the
+> history of why the payload has the shape it has. Paste v4 into the Routine.
+
 Replaces v2. The month and the workshop code get into the payload, so the
 Slack report can show the current month and the sheet can have a month
 dropdown. Neither is possible today: v1 collapses every lead since 1 April

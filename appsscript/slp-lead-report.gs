@@ -171,6 +171,26 @@ function lr_build_(team, tabName, month) {
 
   var grand = 0;
   people.forEach(function (p) { grand += p.total; });
+
+  /* Enough for a Slack summary without rebuilding any of it there. The
+     26-column table cannot go in a Slack message - it is unreadable on a
+     phone and past the block size limit - so Slack gets the shape of it
+     and a link to the real thing. */
+  var byOffice = officeNames.map(function (o) {
+    var n = 0;
+    offices[o].forEach(function (p) { n += p.total; });
+    return { office: o, agents: offices[o].length, leads: n };
+  });
+  var byCol = cols.map(function (c) {
+    var n = 0;
+    people.forEach(function (p) { n += (p.d[c] || 0); });
+    return { col: c, n: n };
+  }).filter(function (x) { return x.n; })
+    .sort(function (a, b) { return b.n - a.n; });
+
+  var tab = ss.getSheetByName(tabName);
+  var url = '';
+  try { url = ss.getUrl() + '#gid=' + tab.getSheetId(); } catch (e) {}
   Logger.log('built in ' + Math.round((new Date() - t0) / 1000) + 's');
   Logger.log('  month   : ' + month);
   Logger.log('  offices : ' + officeNames.join(', '));
@@ -178,7 +198,88 @@ function lr_build_(team, tabName, month) {
   Logger.log('  leads   : ' + grand);
   if (other.length) Logger.log('  NOTE    : ' + other.length + ' agent(s) have no India/International team - listed at the bottom');
 
-  return { month: month, offices: officeNames.length, agents: people.length, leads: grand };
+  return { month: month, offices: officeNames.length, agents: people.length,
+           leads: grand, team: team, tab: tabName, url: url,
+           batches: (pay.batches && pay.batches[month]) ? pay.batches[month] : [],
+           snapshot: pay.snapshot || '', byOffice: byOffice, byCol: byCol,
+           noTeam: other.length };
+}
+
+
+/* ================================================================
+   THE SLACK POST
+
+   A summary and a link, not the table. Twenty-six columns is unreadable
+   on a phone whatever is done to it, and a Slack section block caps at
+   3000 characters - the table alone would be several times that. What
+   goes out is the shape of the month: totals, each office, and which
+   outcomes actually moved. The full grid is one tap away.
+   ================================================================ */
+function lr_slack_(team, tabName, label, firedAt) {
+  var res = lr_build_(team, tabName);
+
+  if (res.error) {
+    return {
+      subject: '[' + label + '] report not built',
+      body: 'As at ' + firedAt + ' IST\n\n!! ' + res.error +
+            '\nThe tab was left as it was; nothing below is new.'
+    };
+  }
+
+  var L = [];
+  L.push('As at ' + firedAt + ' IST   (' + label + ')');
+  L.push(lr_monthLabel_(res.month) + '   |   snapshot ' +
+         (typeof slp_stamp_ === 'function' ? slp_stamp_(res.snapshot) : ''));
+  L.push('');
+  L.push(res.agents + ' agents        ' + lr_commas_(res.leads) + ' leads');
+
+  if (res.batches && res.batches.length) {
+    L.push('');
+    L.push('Batches: ' + res.batches.join(', '));
+  }
+
+  L.push('');
+  res.byOffice.forEach(function (o) {
+    L.push(lr_pad_(o.office, 16) + lr_pad_(o.agents + ' agents', 12) +
+           lr_commas_(o.leads) + ' leads');
+  });
+
+  if (res.byCol.length) {
+    L.push('');
+    L.push('By outcome');
+    res.byCol.slice(0, 8).forEach(function (c) {
+      L.push('  ' + lr_pad_(c.col, 22) + lr_commas_(c.n));
+    });
+    if (res.byCol.length > 8) {
+      var rest = 0;
+      res.byCol.slice(8).forEach(function (c) { rest += c.n; });
+      L.push('  ' + lr_pad_('everything else', 22) + lr_commas_(rest));
+    }
+  }
+
+  if (res.noTeam) {
+    L.push('');
+    L.push('!! ' + res.noTeam + ' agent(s) are on neither team - see the bottom of the tab.');
+  }
+
+  if (res.url) {
+    L.push('');
+    L.push('<' + res.url + '|Open the full table>');
+  }
+
+  return {
+    subject: '[' + label + '] ' + lr_monthLabel_(res.month) + '   ' +
+             lr_commas_(res.leads) + ' leads',
+    body: L.join('\n')
+  };
+}
+
+/** Schedule entry points. buildSchedule_ calls these with (label, firedAt). */
+function buildLeadSlackIndia_(label, firedAt) {
+  return lr_slack_(LR_TEAMS.INDIA, LR_TAB_INDIA, label, firedAt);
+}
+function buildLeadSlackIntl_(label, firedAt) {
+  return lr_slack_(LR_TEAMS.INTL, LR_TAB_INTL, label, firedAt);
 }
 
 
@@ -381,4 +482,27 @@ function slpLeadReportSelfTest() {
     Logger.log('SELF TEST PASSED');
   }
   return fails;
+}
+
+
+/* Local number and padding helpers.
+
+   withCommas_ lives in RefreshSchedule.gs and agentPad_ in
+   AgentLeadReport.gs. Borrowing them would mean this report stops posting
+   because a different file was not pasted, which is a failure with no
+   relationship to its cause. */
+function lr_commas_(n) {
+  var s = String(Math.round(Number(n) || 0));
+  var out = '', c = 0;
+  for (var i = s.length - 1; i >= 0; i--) {
+    out = s.charAt(i) + out;
+    if (++c % 3 === 0 && i > 0) out = ',' + out;
+  }
+  return out;
+}
+
+function lr_pad_(s, width) {
+  s = String(s);
+  while (s.length < width) s += ' ';
+  return s;
 }

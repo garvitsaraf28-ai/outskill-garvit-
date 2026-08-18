@@ -6,6 +6,8 @@
  *   Disposition Update   Day    11:30  14:00  16:30  19:00  21:30
  *                        Night  19:30  22:00  00:30  03:00  05:30
  *   Agent Lead Status           11:00  19:00  20:00  04:00
+ *   Lead Status India           11:00  20:00
+ *   Lead Status International   19:00  04:00
  *
  * Disposition Update reports money from the Command Centre and refreshes
  * first; buildReport_ writes it, below. Agent Lead Status reports where the
@@ -100,6 +102,39 @@ var SCHEDULES = {
       { hour: 11, minute: 0 },
       { hour: 19, minute: 0 },
       { hour: 20, minute: 0 },
+      { hour: 4, minute: 0 }
+    ]
+  },
+
+  /* The lead status report, split by team because the two are read by
+     different people at different hours. Each firing rebuilds its own tab
+     and posts a summary with a link - the table itself is 26 columns wide,
+     which no Slack message can carry and no phone can read.
+
+     India at 11:00 and 20:00, International at 19:00 and 04:00, as asked.
+     Note 19:00 and 20:00 already carry the Agent Lead report and the Day
+     window; the script lock serialises them, so they queue rather than
+     collide. */
+  LEAD_INDIA: {
+    label: 'Lead India',
+    report: 'Lead Status - India',
+    handler: 'runLeadIndiaSchedule',
+    builder: 'buildLeadSlackIndia_',
+    refresh: false,
+    times: [
+      { hour: 11, minute: 0 },
+      { hour: 20, minute: 0 }
+    ]
+  },
+
+  LEAD_INTL: {
+    label: 'Lead Intl',
+    report: 'Lead Status - International',
+    handler: 'runLeadIntlSchedule',
+    builder: 'buildLeadSlackIntl_',
+    refresh: false,
+    times: [
+      { hour: 19, minute: 0 },
       { hour: 4, minute: 0 }
     ]
   }
@@ -242,6 +277,9 @@ function runDaySchedule() {
 function runNightSchedule() {
   runSchedule_('NIGHT');
 }
+
+function runLeadIndiaSchedule() { runSchedule_('LEAD_INDIA'); }
+function runLeadIntlSchedule()  { runSchedule_('LEAD_INTL'); }
 
 function runAgentLeadSchedule() {
   runSchedule_('AGENT_LEAD');
@@ -577,6 +615,16 @@ function testBothSchedules() {
 function testAgentLeadReport() {
   runAgentLeadSchedule();
   Logger.log('Agent Lead Status sent. Check the channel.');
+}
+
+/** Send one lead-status post now. Rebuilds the tab, then posts. */
+function testLeadReportIndia() {
+  runLeadIndiaSchedule();
+  Logger.log('Lead Status - India sent. Check the channel.');
+}
+function testLeadReportIntl() {
+  runLeadIntlSchedule();
+  Logger.log('Lead Status - International sent. Check the channel.');
 }
 
 /** Install both windows. Safe to re-run - clears its own triggers first. */

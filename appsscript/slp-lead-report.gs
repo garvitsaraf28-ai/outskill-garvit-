@@ -255,8 +255,13 @@ function lr_build_(team, tabName, month) {
    for anyone who would rather pinch and zoom there.
    ================================================================ */
 
-/** Cap on the owner column. Longer names are cut, not wrapped. */
-var LR_SLACK_NAME_W = 18;
+/**
+ * Cap on the owner column for AGENT names. Longer ones are cut, not
+ * wrapped - one long name must not push every number sideways. Twenty
+ * fits all but a handful of the roster; the total rows are allowed past
+ * it, because a cut total label reads as a different total.
+ */
+var LR_SLACK_NAME_W = 20;
 
 /** The Slack-only catch-all for outcomes outside the familiar seventeen. */
 var LR_OTHER = 'Other';
@@ -374,8 +379,12 @@ function lr_slack_(team, tabName, label, firedAt) {
   /* Column widths from the widest thing that will sit in them, headings
      and office totals included, so nothing overflows its column and
      shunts the rest of the line out of alignment. */
+  /* Every number that will be printed, the office subtotals and the grand
+     total included. Leaving the grand total out of this is what put
+     "1013" in a column three characters wide and shifted the whole
+     TOTAL - INDIA line one place left of its heading. */
   var W = head.map(function (h) { return Math.max(h.length, 3); });
-  var totW = 5;
+  var totW = 5, gsum = [];
   res.groups.forEach(function (g) {
     var sub = [];
     g.people.forEach(function (p) {
@@ -383,6 +392,7 @@ function lr_slack_(team, tabName, label, firedAt) {
         var n = valOf(p, c);
         if (String(n).length > W[i]) W[i] = String(n).length;
         sub[i] = (sub[i] || 0) + n;
+        gsum[i] = (gsum[i] || 0) + n;
       });
       totW = Math.max(totW, String(p.total).length);
     });
@@ -390,15 +400,24 @@ function lr_slack_(team, tabName, label, firedAt) {
       W[i] = Math.max(W[i], String(sub[i] || 0).length);
     });
   });
+  live.forEach(function (c, i) {
+    W[i] = Math.max(W[i], String(gsum[i] || 0).length);
+  });
   totW = Math.max(totW, String(res.leads).length, 5);
 
+  /* The owner column has to hold the total rows' labels as well as the
+     names - "TOTAL - INTERNATIONAL" is longer than any agent and was
+     being cut to "TOTAL - INTERNATI.". */
+  var labels = ['TOTAL - ' + team.toUpperCase()];
   var nameW = 0;
   res.groups.forEach(function (g) {
+    labels.push(g.office.toUpperCase() + ' TOTAL');
     g.people.forEach(function (p) {
       nameW = Math.max(nameW, Math.min(p.agent.length, LR_SLACK_NAME_W));
     });
   });
-  nameW = Math.max(nameW, 14);
+  labels.forEach(function (t) { nameW = Math.max(nameW, t.length); });
+  nameW = Math.max(Math.min(nameW, LR_SLACK_NAME_W + 8), 14);
 
   function line(label0, values, total) {
     var s = lr_pad_(lr_cut_(label0, nameW), nameW);

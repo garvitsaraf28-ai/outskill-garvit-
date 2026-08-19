@@ -29,6 +29,64 @@ var SLACK_PROP_KEY = 'SLACK_CHANNEL_EMAIL';
  */
 var SLACK_WEBHOOK_PROP = 'SLACK_WEBHOOK_URL';
 
+/**
+ * The mute switch. Set SLACK_MUTED to yes and the bot stops posting.
+ *
+ * WHY A MUTE RATHER THAN REMOVING THE TRIGGERS
+ *
+ *   Removing the triggers would also stop the work the triggers do. The
+ *   Day and Night windows run refreshAndVerify and buildExecSnapshot
+ *   BEFORE they post, so deleting them stops the Command Centre and the
+ *   Executive page updating too - and the tabs would quietly go stale
+ *   while the reason for it looked like "we turned off Slack".
+ *
+ *   Muting keeps every schedule running: the workbook still refreshes,
+ *   the tabs are still rebuilt, the reports are still built and written
+ *   to the log. Only the sending is skipped. Turning it back on is one
+ *   property and nothing has to be reinstalled or caught up.
+ *
+ *   Everything scheduled goes through postToSlack_, so one check there
+ *   covers all 18 firings. testWebhook deliberately bypasses it: running
+ *   that function by hand IS asking for a message, and a delivery test
+ *   that silently sends nothing would be useless.
+ *
+ * Use muteSlack() and unmuteSlack() rather than editing the property.
+ */
+var SLACK_MUTE_PROP = 'SLACK_MUTED';
+
+/** True when the bot has been told to stay quiet. */
+function slackMuted_() {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty(SLACK_MUTE_PROP);
+    v = String(v == null ? '' : v).trim().toLowerCase();
+    return v === 'yes' || v === 'true' || v === '1' || v === 'on';
+  } catch (e) {
+    return false;                 // no properties, no mute - fail towards posting
+  }
+}
+
+/** Stop every scheduled Slack post. Schedules and refreshes keep running. */
+function muteSlack() {
+  PropertiesService.getScriptProperties().setProperty(SLACK_MUTE_PROP, 'yes');
+  Logger.log('Slack is MUTED. The bot will not post again until unmuteSlack().');
+  Logger.log('');
+  Logger.log('Still running normally, just not sending:');
+  Logger.log('  - the refresh sequence on the Day and Night windows');
+  Logger.log('  - every tab rebuild, including the two Lead Status tabs');
+  Logger.log('  - the reports themselves, which are written to the log');
+  Logger.log('');
+  Logger.log('testWebhook() still posts, because running it by hand is a');
+  Logger.log('deliberate request to send one message.');
+}
+
+/** Start posting again. */
+function unmuteSlack() {
+  PropertiesService.getScriptProperties().deleteProperty(SLACK_MUTE_PROP);
+  Logger.log('Slack is UNMUTED. The next scheduled firing will post.');
+  Logger.log('Nothing is sent for the runs that were missed - each report');
+  Logger.log('reads the tabs as they are now, so the next one is current.');
+}
+
 /* ------------------------------------------------------------------ *
  * Entry points
  * ------------------------------------------------------------------ */
@@ -240,6 +298,15 @@ function slackAddress_() {
  * property upgrades every message without touching any other code.
  */
 function postToSlack_(subject, body) {
+  /* Muted: build everything, send nothing. The report still goes to the
+     log, so a run can be read afterwards and the schedule is provably
+     working - which is the difference between "muted" and "broken". */
+  if (slackMuted_()) {
+    Logger.log('MUTED - not sent. Run unmuteSlack() to start posting again.');
+    Logger.log('%s\n\n%s', subject, body);
+    return 'muted';
+  }
+
   var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
   if (hook) return postViaWebhook_(hook, subject, body);
   return postViaEmail_(subject, body);
@@ -393,11 +460,15 @@ function testWebhook() {
 
 /** Which route is live right now. */
 function whichSlackRoute() {
+  if (slackMuted_()) {
+    Logger.log('MUTED - nothing is being posted. unmuteSlack() turns it back on.');
+    Logger.log('');
+  }
   var hook = PropertiesService.getScriptProperties().getProperty(SLACK_WEBHOOK_PROP);
   if (hook) {
-    Logger.log('Webhook - native messages, text visible inline.');
+    Logger.log('Route when unmuted: webhook - native messages, text visible inline.');
   } else {
-    Logger.log('Email - collapsed cards. Set SLACK_WEBHOOK_URL to upgrade.');
+    Logger.log('Route when unmuted: email - collapsed cards. Set SLACK_WEBHOOK_URL to upgrade.');
   }
 }
 

@@ -19,6 +19,31 @@ folder is a subset, not a mirror.
 
 `installAllSchedules()` installs all five windows - 18 triggers.
 
+## Turning the bot quiet
+
+`muteSlack()` stops every scheduled post. `unmuteSlack()` starts them
+again. The switch is a script property, `SLACK_MUTED`, read in
+`postToSlack_` - which everything scheduled goes through, so one check
+covers all 18 firings.
+
+**Muting is not the same as removing the triggers, and the difference
+matters.** The Day and Night windows run `refreshAndVerify` and
+`buildExecSnapshot` *before* they post, so deleting those triggers would
+also stop the Command Centre and the Executive page updating - the tabs
+would go quietly stale while the cause looked like "we turned off
+Slack". Muted, every schedule still runs: the workbook refreshes, the
+tabs rebuild, the reports are built and written to the execution log.
+Only the sending is skipped.
+
+Nothing is queued or replayed on unmute. Each report reads the tabs as
+they are at the moment it fires, so the first one after unmuting is
+current rather than a backlog.
+
+`testWebhook()` deliberately ignores the mute - running it by hand is a
+request to send one message, and a delivery test that silently sent
+nothing would be useless. `whichSlackRoute()` says whether the bot is
+muted.
+
 `nearMinute()` places a trigger within +/-15 minutes of the hour asked
 for, so these overlap. Day 19:00, Agent Lead 19:00 and Lead Intl 19:00 are
 the same minute by design, as are Agent Lead 20:00 and Lead India 20:00. A

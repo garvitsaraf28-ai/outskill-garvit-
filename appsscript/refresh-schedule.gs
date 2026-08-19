@@ -108,8 +108,9 @@ var SCHEDULES = {
 
   /* The lead status report, split by team because the two are read by
      different people at different hours. Each firing rebuilds its own tab
-     and posts a summary with a link - the table itself is 26 columns wide,
-     which no Slack message can carry and no phone can read.
+     and posts the table itself - agents down, outcomes across, the same
+     numbers as the tab - inside a code fence, paginated so each Slack
+     section carries its own heading row. A link to the tab goes with it.
 
      India at 11:00 and 20:00, International at 19:00 and 04:00, as asked.
      Note 19:00 and 20:00 already carry the Agent Lead report and the Day

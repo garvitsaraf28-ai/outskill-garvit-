@@ -5,7 +5,7 @@
  *
  *   The routine that queries SuperLeap and the workbook that reads the
  *   result are two separate programs that have to agree on a file format.
- *   They have disagreed three times already:
+ *   They have disagreed four times already:
  *
  *     v1  disp  [agent, email, disposition, n]          <- what the readers know
  *         stage [agent, stage, n]
@@ -15,8 +15,12 @@
  *         stage [agent, source, stage, n]
  *         sub   [agent, source, sub, n]
  *
- *     v3  rows  [{agent,email,source,month,stage,disposition,sub,n}, ...]
+ *     v3  rows  [{a,m,s,b,n}, ...]   short keys; b is the lead's outcome
  *         version: 3
+ *
+ *     v4  dict  {a:[names], e:[emails], o:[outcomes], g:[stages], s:[sources]}
+ *         rows  [[agentIdx, monthIdx, sourceIdx, outcomeIdx, n], ...]
+ *         version: 4
  *
  *   A v2 file read by a v1 reader does not error. It reads the workshop
  *   code as the disposition and the disposition as the count, so every
@@ -26,7 +30,14 @@
  *   "payload has no disposition rows", and the workbook sits on its last
  *   good numbers indefinitely while appearing to run fine every two hours.
  *
- *   So the readers have to understand v3 BEFORE the routine starts
+ *   v4 exists for a different reason: size. v3 spells every agent name,
+ *   email and outcome out on every row they appear on, and at 148,006
+ *   leads that came to 554,331 bytes - which the routine could not
+ *   upload, because create_file takes the whole file as one tool-call
+ *   argument. v4 writes each distinct string once and refers to it by
+ *   position: the same payload, 389 KB down to 100 KB.
+ *
+ *   So the readers have to understand a version BEFORE the routine starts
  *   writing it, not after. This file is that understanding, in one place,
  *   so the version question is asked once instead of at four call sites.
  *
@@ -41,7 +52,9 @@
  *     .rows                    v3 named rows, when the payload has them
  *     .months                  every month present, ascending
  *     .sources                 every lead source present
- *     .version                 the version that arrived (1, 2 or 3)
+ *     .bucket                  on each row, the lead's outcome
+ *     .batches                 batch codes per month, when the payload has them
+ *     .version                 the version that arrived (1, 2, 3 or 4)
  *
  *   Nothing downstream has to change. buildSuperLeapChurn and
  *   buildSlpStageView keep reading .disp and .stage exactly as they do
@@ -317,6 +330,34 @@ function slp_guardShrink_(pay, version) {
   var unit = leads ? ' leads' : ' rows';
   var last = Number(P.getProperty('SLP_LAST_GOOD_LEADS') || 0);
   var allow = P.getProperty('SLP_ALLOW_SHRINK');
+
+  /* No baseline, but the workbook is already holding a payload.
+   *
+   * This is the state every workbook was in the moment the guard moved
+   * from rows to leads: SLP_LAST_GOOD_LEADS had never been written, so
+   * the verdict was 'first' and the very next payload was accepted
+   * whatever was in it - and then BECAME the baseline. A truncated one
+   * would have set the bar at its own size and gone on being accepted.
+   * That is the 17 Aug incident with the guard removed.
+   *
+   * The count is recoverable rather than lost: the payload the workbook
+   * is holding right now is, by definition, the last one accepted. Read
+   * the baseline back off it and the window never opens. Nothing to set
+   * by hand, and it self-heals on any workbook that upgrades later.
+   *
+   * Note what is being read here: slp_guardShrink_ runs BEFORE the new
+   * payload is stored, so the stored one is still the PREVIOUS good one.
+   */
+  if (!last) {
+    try {
+      var held = slp_storedPayload_();
+      if (held) last = slp_leadTotal_(held);
+    } catch (e) {
+      /* Nothing stored, or the reader is not in this project. Falls
+         through to 'first', which is the honest answer for a workbook
+         that genuinely has no history. */
+    }
+  }
 
   function remember() {
     P.setProperty('SLP_LAST_GOOD_LEADS', String(now));
@@ -1005,8 +1046,23 @@ function slpPayloadCheck() {
       }
     }
 
-    var lastRows = PropertiesService.getScriptProperties().getProperty('SLP_LAST_GOOD_ROWS');
-    if (lastRows) Logger.log('row baseline : ' + lastRows + ' (a payload below half of this is refused)');
+    /* Report the number the guard actually decides on. It used to say
+       "row baseline", which stopped being true when the guard moved to
+       leads - a diagnostic naming the wrong rule is worse than none,
+       because it is read during an incident. Rows are still shown,
+       labelled as what they are: context, not the threshold. */
+    var PS = PropertiesService.getScriptProperties();
+    var lastLeads = PS.getProperty('SLP_LAST_GOOD_LEADS');
+    var lastRows = PS.getProperty('SLP_LAST_GOOD_ROWS');
+    if (lastLeads) {
+      Logger.log('lead baseline: ' + lastLeads +
+                 ' (a payload below half of this is refused)');
+    } else {
+      Logger.log('lead baseline: not set yet - it will be read back off the');
+      Logger.log('               payload the workbook is holding, so the guard');
+      Logger.log('               is active from the next load onwards.');
+    }
+    if (lastRows) Logger.log('rows last ok : ' + lastRows + ' (context only, not the threshold)');
 
     Logger.log('');
     if (dv === 1) {
@@ -1018,11 +1074,12 @@ function slpPayloadCheck() {
       Logger.log('');
       if (wiring.state === 'WIRED IN') {
         Logger.log('NEXT         : the workbook side is ready. Point the routine at');
-        Logger.log('               superleap-routine-prompt-v3.md whenever you want');
-        Logger.log('               the month. Everything switches on by itself.');
+        Logger.log('               superleap-routine-prompt-v5.md whenever you want');
+        Logger.log('               the month, the outcome and the batch codes.');
+        Logger.log('               Everything switches on by itself.');
       } else {
         Logger.log('NEXT         : make the two edits in the header of this file');
-        Logger.log('               FIRST, then switch the routine to v3. Doing it');
+        Logger.log('               FIRST, then switch the routine to v5. Doing it');
         Logger.log('               the other way round stops the pipeline without');
         Logger.log('               an error message.');
       }

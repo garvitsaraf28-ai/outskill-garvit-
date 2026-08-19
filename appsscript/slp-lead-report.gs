@@ -751,6 +751,29 @@ function slpLeadReportSelfTest() {
   eq('collisions are broken apart',
      lr_abbrs_(['Alpha Beta', 'Alpha Bravo']).join(','), 'AB,AB2');
 
+  /* Every column the Slack table can ever show must have a heading
+     chosen deliberately, not derived. The derived form is a safety net
+     for an outcome SuperLeap invents, and a net is not a design: a new
+     entry added to LR_COLS without one would read as something like
+     "PC2" and mean nothing to anybody. This is the assertion that says
+     so at the moment the column is added, rather than in a Slack post. */
+  var unnamed = [];
+  LR_COLS.concat([LR_OTHER]).forEach(function (c) {
+    if (!LR_ABBR[c]) unnamed.push(c);
+  });
+  eq('every possible column has a deliberate heading', unnamed.join(','), '');
+
+  /* Headings must not depend on which columns happen to be non-zero
+     this month, or a reader comparing two days would see the same
+     outcome under two different names. */
+  var fullSet = lr_abbrs_(LR_COLS.concat([LR_OTHER]));
+  var subset = lr_abbrs_(['Lead', 'Not Interested', LR_OTHER]);
+  eq('a heading does not change with the month\'s column set',
+     [subset[0], subset[1], subset[2]].join(','),
+     [fullSet[LR_COLS.indexOf('Lead')],
+      fullSet[LR_COLS.indexOf('Not Interested')],
+      fullSet[LR_COLS.length]].join(','));
+
   /* Numbers must be right-aligned or a column of them does not line up,
      and a long name must be cut rather than widen every row. */
   eq('numbers right align', lr_lpad_(42, 5), '   42');

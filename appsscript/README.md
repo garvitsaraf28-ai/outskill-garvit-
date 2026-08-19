@@ -12,33 +12,56 @@ folder is a subset, not a mirror.
 | 11:30, 14:00, 16:30, 19:00, 21:30 IST | Disposition Update to Slack (`runDaySchedule`) | yes |
 | 19:30, 22:00, 00:30, 03:00, 05:30 IST | Disposition Update to Slack (`runNightSchedule`) | yes |
 | 11:00, 19:00, 20:00, 04:00 IST | Agent Lead Status to Slack (`runAgentLeadSchedule`) | no, reads only |
+| 11:00, 20:00 IST | Lead Status - India to Slack (`runLeadIndiaSchedule`) | no, reads only |
+| 19:00, 04:00 IST | Lead Status - International to Slack (`runLeadIntlSchedule`) | no, reads only |
 | every 2 hours | `slpAutoRefresh` - picks up the SuperLeap payload, rebuilds the two SuperLeap tabs, posts | no |
 | every ~2 hours, outside Apps Script | the Claude routine queries SuperLeap and writes `slp_payload.json` to Drive | no |
 
+`installAllSchedules()` installs all five windows - 18 triggers.
+
 `nearMinute()` places a trigger within +/-15 minutes of the hour asked
-for, so these overlap. Day 19:00 and Agent Lead 19:00 are the same minute
-by design. A script lock in `refresh-schedule.gs` serialises them; see the
-comment on `withScheduleLock_` for what went wrong without it.
+for, so these overlap. Day 19:00, Agent Lead 19:00 and Lead Intl 19:00 are
+the same minute by design, as are Agent Lead 20:00 and Lead India 20:00. A
+script lock in `refresh-schedule.gs` serialises them; see the comment on
+`withScheduleLock_` for what went wrong without it.
 
 ## The SuperLeap payload
 
 The routine and the workbook are two separate programs that have to agree
-on a file format, and they have disagreed three times.
+on a file format, and they have disagreed four times.
 
 ```
 v1  disp  [agent, email, disposition, n]           <- what the readers were written for
 v2  disp  [agent, email, source, disposition, n]   <- source inserted at index 2
-v3  rows  [{agent,email,source,month,stage,disposition,sub,n}, ...]
+v3  rows  [{a,m,s,b,n}, ...]                       <- short keys; b is the outcome
+v4  dict  {a:[names], e:[emails], o:[outcomes], g:[stages], s:[sources]}
+    rows  [[agentIdx, monthIdx, sourceIdx, outcomeIdx, n], ...]
 ```
 
-**Live: v3**, since 17 Aug. Run `slpPayloadCheck()` to see the current
-state at any time - it reports the version in Drive, the version in the
-sheet, whether the normaliser is wired in, and any refusal.
+**The workbook reads all four.** Run `slpPayloadCheck()` to see the
+current state at any time - it reports the version in Drive, the version
+in the sheet, whether the normaliser is wired in, the lead baseline, and
+any refusal.
 
-`slp-payload.gs` converts any of the three into the shape the readers
-already know, so the version question is asked once instead of at four
-call sites. Every reader still consumes `disp` and `stage` exactly as it
-did on v1.
+`slp-payload.gs` converts any of them into the shape the readers already
+know, so the version question is asked once instead of at four call
+sites. Every reader still consumes `disp` and `stage` exactly as it did
+on v1.
+
+**Why v4 exists: size, not features.** v3 spells every agent name, email
+and outcome out on every row they appear on. At 148,006 leads that came
+to 554,331 bytes, and the routine has no way to hand a file to Drive
+except by emitting it as one tool-call argument - it could not, and on
+18 Aug it correctly refused to upload a file that would have been
+silently cut in half. v4 writes each distinct string once and refers to
+it by position. Measured on the real payload: **389,522 bytes to 100,623,
+a 3.9x cut, decoding to an identical object.**
+
+`slp_keepExtras_` copies across any top-level key a conversion did not
+rebuild, so a field added to the routine's prompt reaches the readers
+without an edit here. That was not always true - the conversions used to
+return a fresh object listing the keys they knew about, which silently
+deleted `batches`.
 
 ### v3 is live - what it took, and what still guards it
 
@@ -71,8 +94,16 @@ carries no `version` key and `slp_normalisePayload_` always adds one.
 disp   [agent, email, disposition, n]        exactly as v1 - readers untouched
 stage  [agent, stage, n]                     exactly as v1
 sub    [agent, sub, n]                       exactly as v1
-rows   {"a":agent,"m":month,"s":source,"d":disposition,"n":count}
+rows   {"a":agent,"m":month,"s":source,"b":outcome,"n":count}
+batches {"2026-08": ["BC14","C160", ...]}    batch codes per month
 ```
+
+`b` is the **outcome**: the lead's sub-disposition where it has one and
+its disposition where it does not. It is what gives the lead status
+report one column per outcome. A payload without it puts every lead in a
+single column called `(none)`, which is what the first live post showed.
+
+`batches` comes from SuperLeap's `lead_source`, not `source` - see below.
 
 Additive, not a redesign. The three v1 arrays are byte-identical to what
 they always were, so every existing reader kept working without a change.
@@ -100,9 +131,22 @@ cap** on `execute_query` that made `LIMIT 60000` a fiction: a run got
 exactly 2000 rows holding 84,844 of 147,570 leads, and the old
 "did it equal the LIMIT?" check could never have seen it.
 
-**The workbook refuses a payload below half the last good row count.**
-`slp_guardShrink_`, with the baseline in `SLP_LAST_GOOD_ROWS`, advancing
+**The workbook refuses a payload below half the last good LEAD count.**
+`slp_guardShrink_`, with the baseline in `SLP_LAST_GOOD_LEADS`, advancing
 only on an accepted payload so a bad one cannot drag it down.
+
+Leads rather than rows, because the two disagree about one case that
+matters. When the payload is too big to upload, the routine re-rolls it
+at a coarser grain: far fewer rows, every lead still counted. A row-based
+guard would refuse exactly the payload the size rule just asked for. They
+agree about truncation, which is what the guard is for - the five-row
+payload carried 123 leads against 82,811.
+
+If `SLP_LAST_GOOD_LEADS` has never been written, the baseline is read
+back off the payload the workbook is currently holding, which by
+definition is the last one accepted. Without that, the first payload
+after the guard changed units would have been accepted whatever was in
+it - and then become the baseline.
 
 A **version downgrade** is its own case with its own message. If the
 routine goes back to a v1 prompt, the row count collapses and the generic
@@ -146,6 +190,64 @@ the key built from it concatenates as a serial number, so every MATCH
 misses and the page reads 0. And there are **no frozen columns** - the
 subtitle and footnote are merged across the full width, and Sheets
 refuses a freeze that cuts through a merge anywhere on the sheet.
+
+### The lead status report
+
+`slp-lead-report.gs`. Two tabs, **Lead Report - India** and **Lead Report
+- International**, because the two are read by different people at
+different hours. Each is one month, agents grouped under their office,
+one column per outcome, an office total and a grand total. Build with
+`buildLeadReportIndia()` / `buildLeadReportIntl()`, both taking an
+optional month like `'2026-07'`; `buildLeadReportsBoth()` does both.
+
+Where each piece comes from:
+
+| | |
+|---|---|
+| the numbers | the payload's `rows` - agent, month, outcome, count |
+| the agents | `mdl_Roster`, which is what makes this **Inside Sales only** |
+| office, team | `mdl_Roster` |
+| the batches | the payload's `batches`, listed at the top |
+
+Nothing is hardcoded. A new office, a joiner, a leaver or a new outcome
+appears on its own at the next build.
+
+**It counts LEADS, not calls.** An earlier attempt counted call
+activities and the Lead column came out at 36 where it should have been
+4,322, because a call carrying a sub-disposition never lands in the plain
+disposition bucket. If a column looks implausibly empty, check that
+first. If EVERY lead is in one column called `(none)`, the payload is not
+carrying the outcome at all - that is the routine's prompt, not this
+file.
+
+**Agents with no leads this month show as zero**, driven by the roster
+rather than the payload. Leaving them out reads as "no such agent"
+rather than "nothing yet".
+
+**Anyone whose `Team` is neither India nor International is named** in an
+orange line at the foot of the tab rather than dropped. A person missing
+from both reports is invisible, and the cause is a blank or misspelt Team
+cell that somebody can fix.
+
+#### Slack gets the same table, not a summary
+
+Agents down, outcomes across, offices in order, the same totals as the
+tab. Three things make it fit:
+
+- **the code fence** - `postToSlack_` wraps each part in one, the only
+  way Slack keeps runs of spaces
+- **short headings** - `NC2`, not `Non Contact-2`. A legend at the foot
+  spells every one out. Outcomes outside the familiar seventeen are
+  summed into one `OTHR` column and named underneath; **the tab still
+  gives each of them a column of its own.** This trade is Slack's alone
+  and it is what brings the line to ~107 characters
+- **pagination here, not in `postToSlack_`** - each page carries its own
+  heading row. Left to the chunker, a split landed mid-table and dropped
+  rows in with no column names above them. Pages are split evenly rather
+  than filled to the brim, so an office total never lands alone on a page
+
+`slpLeadReportSelfTest()` covers the grouping, the headings, the
+alignment and the pagination arithmetic without touching a sheet.
 
 ### The current-month Slack report
 
@@ -240,11 +342,11 @@ Two defences now exist, at both ends:
 - **The routine** is told to STOP and write nothing if its query returns
   fewer than 100 rows. A partial payload is worse than no payload,
   because the workbook keeps its last good one and merely goes stale.
-- **The workbook** refuses any payload below half the row count of the
+- **The workbook** refuses any payload below half the lead count of the
   last good one, via `slp_guardShrink_`. The baseline lives in
-  `SLP_LAST_GOOD_ROWS` and only advances on an accepted payload, so a bad
-  one cannot drag it down and make the next bad one look reasonable.
-  `slpPayloadCheck()` reports any refusal.
+  `SLP_LAST_GOOD_LEADS` and only advances on an accepted payload, so a
+  bad one cannot drag it down and make the next bad one look reasonable.
+  `slpPayloadCheck()` reports the baseline and any refusal.
 
 **To recover:** the routine usually writes a good payload on its next
 run, so the fix is normally just `slpLoadFromDrive()` to pick up the
@@ -316,7 +418,8 @@ people actually use come from `mdl_Payments` and are unaffected.
 | `refresh-schedule.gs` | the trigger windows, the lock, and the Disposition Update body |
 | `agent-lead-report.gs` | the Agent Lead Status report, incl. the leaver filter |
 | `slack-digest.gs` | Slack delivery - webhook and email routes, 3000-char chunking |
-| `slp-payload.gs` | payload version detection, normalising (v1/v2/v3), the shrink guard, `slpPayloadCheck`, `slpPayloadList` |
+| `slp-payload.gs` | payload version detection, normalising (v1/v2/v3/v4), the shrink guard, `slpPayloadCheck`, `slpPayloadList` |
+| `slp-lead-report.gs` | the two Lead Status tabs and the Slack table |
 | `slp-month-page.gs` | the SuperLeap by Month page and its hidden lookup |
 | `dump-for-churn.gs` | read-only diagnostics: `checkBatchMatcher`, `checkCbcRevenueColumn`, `checkCbcRevenueValues`, `listUnmatchedAgents` |
 | `diagnose-to-drive.gs`, `inventory-to-drive.gs` | diagnostics that write their output to Drive |
@@ -327,13 +430,25 @@ people actually use come from `mdl_Payments` and are unaffected.
 None of these are Apps Script problems, which is why none of them are
 fixed here.
 
-**The routine's saved prompt.** The v3 changeover was done by pasting the
-prompt as a message into the routine's session. A message runs once; the
-schedule uses the saved prompt. If that was never updated, a scheduled run
-writes v1, the shrink guard refuses it, and the workbook stops updating -
-correctly keeping its v3 data, but frozen, because the file it refused is
-the newest one and nothing newer can replace it. `slpPayloadCheck()` says
-so outright when that happens.
+**The routine's saved prompt - the one thing currently blocking the
+pipeline.** As of 18 Aug the routine has not uploaded since the 17 Aug
+16:15 snapshot, so every report is running on that data. The 18 Aug run
+assembled 148,006 leads correctly, passed every check, and then could not
+deliver: at 554,331 bytes the file exceeded what one tool-call argument
+carries and truncated silently. It stopped rather than upload half a
+file, which was right.
+
+`superleap-routine-prompt-v5.md` is the fix and it has to be **saved**,
+not pasted as a message. A message runs once; the schedule uses what is
+stored. Order matters: `slp-payload.gs` must be in the project first, or
+the workbook will not recognise what the routine writes and will keep its
+last good numbers without saying why.
+
+If the saved prompt is left on an older version, a scheduled run writes
+v1, the shrink guard refuses it, and the workbook freezes - correctly
+keeping good data, but frozen, because the file it refused is the newest
+one and nothing newer can replace it. `slpPayloadCheck()` says so
+outright when that happens.
 
 **Thirteen SuperLeap accounts with no roster row**, holding roughly 1,400
 leads between them and therefore outside every agent total. Twelve of the

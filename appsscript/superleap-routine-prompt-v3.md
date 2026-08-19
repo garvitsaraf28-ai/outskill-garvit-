@@ -1,9 +1,10 @@
 # SuperLeap routine — v3 prompt (month, workshop, named fields)
 
-> **Superseded by `superleap-routine-prompt-v4.md`.** v3 sends no outcome on
+> **Superseded by `superleap-routine-prompt-v5.md`.** v3 sends no outcome on
 > its rows and no batch codes, so the lead status report built on it shows
 > every lead in one column called `(none)` and no batches. Kept for the
-> history of why the payload has the shape it has. Paste v4 into the Routine.
+> history of why the payload has the shape it has. **v5 is the live prompt**
+> - v4 named those two fields but was never deliverable at its size.
 
 Replaces v2. The month and the workshop code get into the payload, so the
 Slack report can show the current month and the sheet can have a month
@@ -104,10 +105,10 @@ Then write compact JSON (no spaces, separators (',',':')) in exactly this shape:
  "months": ["2026-04", ... every month present, ascending],
  "today_count": <grand total of dispositions today, or null>,
  "today_by_agent": [{"agent":"...","n":12}, ...],
- "disp":  [["Niraj Paul","niraj.p+1@outskill.com","Non Contact",357], ...],
- "stage": [["Niraj Paul","Non Contact",412], ...],
- "sub":   [["Niraj Paul","Non Contact-2",88], ...],
- "rows":  [{"a":"Niraj Paul","m":"2026-08","s":"C160","d":"Non Contact","n":357}, ...]
+ "disp":  [["Agent One","agent.one@example.com","Non Contact",357], ...],
+ "stage": [["Agent One","Non Contact",412], ...],
+ "sub":   [["Agent One","Non Contact-2",88], ...],
+ "rows":  [{"a":"Agent One","m":"2026-08","s":"C160","d":"Non Contact","n":357}, ...]
 }
 
 disp, stage and sub are EXACTLY the three arrays v1 sent, positional and unchanged. Every existing reader in the workbook already understands them, which is why they stay as they are - the month upgrade must not disturb what already works.

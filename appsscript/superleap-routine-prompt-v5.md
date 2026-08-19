@@ -151,8 +151,8 @@ Then write compact JSON (no spaces, separators (',',':')) in exactly this shape:
  "months": ["2026-04","2026-05","2026-06","2026-07","2026-08"],
  "batches": {"2026-08":["BC14","C160","C161","C162"]},
  "today_count": <grand total of dispositions today, or null>,
- "today_by_agent": [{"agent":"Niraj Paul","n":12}],
- "dict": {"a":["Niraj Paul","Ann Rao"],"e":["niraj.p+1@outskill.com","ann@outskill.com"],"o":["Non Contact","Non Contact-2","Lead"],"g":["Non Contact","Lead"],"s":["Website","Manual"]},
+ "today_by_agent": [{"agent":"Agent One","n":12}],
+ "dict": {"a":["Agent One","Agent Two"],"e":["agent.one@example.com","agent.two@example.com"],"o":["Non Contact","Non Contact-2","Lead"],"g":["Non Contact","Lead"],"s":["Website","Manual"]},
  "disp":  [[0,0,0,357]],
  "stage": [[0,0,412]],
  "sub":   [[0,1,88]],
@@ -166,7 +166,7 @@ What each position means:
   sub    [agent, sub_disposition, count]         indexes into a, o
   rows   [agent, month, source, outcome, count]  indexes into a, months, s, o
 
-Read the example above literally: disp [0,0,0,357] is Niraj Paul, his email, "Non Contact", 357. rows [0,4,0,1,88] is Niraj Paul, 2026-08, Website, "Non Contact-2", 88.
+Read the example above literally: disp [0,0,0,357] is Agent One, their email, "Non Contact", 357. rows [0,4,0,1,88] is Agent One, 2026-08, Website, "Non Contact-2", 88.
 
 today_by_agent stays as named objects. It is a hundred-odd entries and indexing it saves nothing worth the risk of getting it wrong.
 

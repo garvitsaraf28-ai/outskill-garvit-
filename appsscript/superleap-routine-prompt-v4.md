@@ -130,10 +130,10 @@ Then write compact JSON (no spaces, separators (',',':')) in exactly this shape:
  "batches": {"2026-08": ["BC14","C160","C161","C162"], "2026-07": [...]},
  "today_count": <grand total of dispositions today, or null>,
  "today_by_agent": [{"agent":"...","n":12}, ...],
- "disp":  [["Niraj Paul","niraj.p+1@outskill.com","Non Contact",357], ...],
- "stage": [["Niraj Paul","Non Contact",412], ...],
- "sub":   [["Niraj Paul","Non Contact-2",88], ...],
- "rows":  [{"a":"Niraj Paul","m":"2026-08","s":"Website","b":"Non Contact-2","n":88}, ...]
+ "disp":  [["Agent One","agent.one@example.com","Non Contact",357], ...],
+ "stage": [["Agent One","Non Contact",412], ...],
+ "sub":   [["Agent One","Non Contact-2",88], ...],
+ "rows":  [{"a":"Agent One","m":"2026-08","s":"Website","b":"Non Contact-2","n":88}, ...]
 }
 
 "version" stays 3. The workbook's normaliser reads a version number, not a prompt number, and 3 is the shape it knows - b and batches are additions to that shape, not a new one. It carries across any key it does not recognise, so this cannot break it.

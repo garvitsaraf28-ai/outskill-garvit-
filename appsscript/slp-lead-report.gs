@@ -129,7 +129,7 @@ function lr_build_(team, tabName, month) {
     var hit = ros.find(nameMap[slpName] || slpName);
     if (!hit) return;
 
-    var b = String((r.b !== undefined ? r.b : r.bucket) || '').trim() || '(none)';
+    var b = String((r.b !== undefined ? r.b : r.bucket) || '').trim() || LR_NONE;
     var n = Number(r.n || 0);
     if (!byAgent[hit.agent]) byAgent[hit.agent] = {};
     byAgent[hit.agent][b] = (byAgent[hit.agent][b] || 0) + n;
@@ -267,6 +267,20 @@ var LR_SLACK_NAME_W = 20;
 var LR_OTHER = 'Other';
 
 /**
+ * What a lead with no outcome at all is called.
+ *
+ * It must never be pooled into OTHR. On 19 Aug a payload sent a blank
+ * outcome for every untouched lead - 989 of them on the India report -
+ * and because "(none)" is not one of the seventeen named columns it went
+ * straight into the catch-all, where a number that size is invisible.
+ *
+ * A bucket this big is a fact about the month, not a rounding error: it
+ * is the work not yet started. It gets a column of its own whatever the
+ * payload calls it.
+ */
+var LR_NONE = '(none)';
+
+/**
  * Characters per page of the grid.
  *
  * A Slack section holds 3000 and chunkForSlack_ budgets 2800 for the
@@ -289,7 +303,8 @@ var LR_ABBR = {
   'Non Contact-3': 'NC3', 'Non Contact-4': 'NC4', 'Non Contact-5': 'NC5',
   'Not Interested': 'NI', 'Not Reachable': 'NR', 'Prospect': 'PROS',
   'Deferred Hot': 'DHOT', 'Followup': 'FUP', 'Student': 'STUD',
-  'Disqualified': 'DISQ', 'Financial Issue': 'FIN', 'Other': 'OTHR'
+  'Disqualified': 'DISQ', 'Financial Issue': 'FIN', 'Other': 'OTHR',
+  '(none)': 'NONE'
 };
 
 /**
@@ -360,6 +375,7 @@ function lr_slack_(team, tabName, label, firedAt) {
      alone, and it is what brings the line back under a screen width. */
   var known = [], extra = [];
   present.forEach(function (c) {
+    if (c === LR_NONE) { known.push(c); return; }   // never pooled - see LR_NONE
     (LR_COLS.indexOf(c) > -1 ? known : extra).push(c);
   });
   var live = known.slice();
@@ -758,10 +774,16 @@ function slpLeadReportSelfTest() {
      "PC2" and mean nothing to anybody. This is the assertion that says
      so at the moment the column is added, rather than in a Slack post. */
   var unnamed = [];
-  LR_COLS.concat([LR_OTHER]).forEach(function (c) {
+  LR_COLS.concat([LR_OTHER, LR_NONE]).forEach(function (c) {
     if (!LR_ABBR[c]) unnamed.push(c);
   });
   eq('every possible column has a deliberate heading', unnamed.join(','), '');
+
+  /* The untouched-work bucket must never be swept into OTHR - it was, and
+     989 leads went invisible for it. */
+  eq('the blank bucket has its own heading', lr_abbr_(LR_NONE), 'NONE');
+  eq('it does not collide with anything else',
+     lr_abbrs_(LR_COLS.concat([LR_NONE, LR_OTHER])).join(',').indexOf('NONE') > -1, true);
 
   /* Headings must not depend on which columns happen to be non-zero
      this month, or a reader comparing two days would see the same

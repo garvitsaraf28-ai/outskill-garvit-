@@ -97,7 +97,20 @@ Using the object from STEP 0, count the disposition activities recorded today in
 
 STEP 5 - work out the outcome and the batch code.
 
-THE OUTCOME, b. For each assembled row: b is sub_disposition where sub_disposition is set, and dispositions where it is not. Null or blank on both gives "". This is one field derived from two you already have; do not run another query for it.
+THE OUTCOME, b. For each assembled row, take the first of these that is set:
+
+  1. sub_disposition
+  2. dispositions
+  3. stage
+  4. otherwise ""
+
+This is one field derived from three you already have; do not run another query for it.
+
+STAGE IS THE THIRD RUNG AND IT MATTERS. A lead nobody has worked yet sits at stage "Lead" with no disposition at all, and "Lead" is the first column of the report - it is how the team sees what is still untouched. Stopping at rung 2 turns that whole column into blanks: on 19 Aug it put 1,985 August leads into a column called "(none)" and left the Lead column reading 3.
+
+The fallback cannot mislabel anything else. Checked against the CRM on 19 Aug: of 1,992 August leads at stage "Lead", 1,985 have no disposition - and every other stage has ZERO leads with a null disposition. So rung 3 only ever fires for the untouched ones, which is exactly what it is for.
+
+"" is therefore rare and means the lead has no sub-disposition, no disposition and no stage. Send it anyway rather than dropping the row.
 
 That rule is the report's definition of an outcome and it is not negotiable. It is what puts "Non Contact-2" and "Not Interested" side by side as separate columns, which is how the report has always been read. Send b verbatim - do not tidy the spelling, merge similar values or map them onto a fixed list. The workbook decides which get their own column.
 

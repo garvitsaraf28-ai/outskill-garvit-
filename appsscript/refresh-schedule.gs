@@ -606,26 +606,47 @@ function triggerSummary_() {
 }
 
 /** Fire both Disposition Update windows once, without waiting for a trigger. */
+/**
+ * What a test function should say when it finishes.
+ *
+ * "sent. Check the channel." is a lie while the bot is muted, and it sat
+ * two lines under "MUTED - not sent" in the same log - the sort of
+ * contradiction that makes somebody go looking in Slack for a message
+ * that was never going to arrive.
+ *
+ * Guarded by typeof so this file still runs if SlackDigest.gs has not
+ * been pasted; it reports the optimistic wording in that case, which is
+ * the same thing it said before the mute existed.
+ */
+function testOutcome_(what) {
+  if (typeof slackMuted_ === 'function' && slackMuted_()) {
+    Logger.log(what + ' was BUILT but NOT SENT - Slack is muted.');
+    Logger.log('The whole report is in this log, above. unmuteSlack() to post.');
+  } else {
+    Logger.log(what + ' sent. Check the channel.');
+  }
+}
+
 function testBothSchedules() {
   runDaySchedule();
   runNightSchedule();
-  Logger.log('Both test messages sent. Check the channel.');
+  testOutcome_('Both test messages');
 }
 
 /** Fire Agent Lead Status once, without waiting for a trigger. */
 function testAgentLeadReport() {
   runAgentLeadSchedule();
-  Logger.log('Agent Lead Status sent. Check the channel.');
+  testOutcome_('Agent Lead Status');
 }
 
 /** Send one lead-status post now. Rebuilds the tab, then posts. */
 function testLeadReportIndia() {
   runLeadIndiaSchedule();
-  Logger.log('Lead Status - India sent. Check the channel.');
+  testOutcome_('Lead Status - India');
 }
 function testLeadReportIntl() {
   runLeadIntlSchedule();
-  Logger.log('Lead Status - International sent. Check the channel.');
+  testOutcome_('Lead Status - International');
 }
 
 /** Install both windows. Safe to re-run - clears its own triggers first. */

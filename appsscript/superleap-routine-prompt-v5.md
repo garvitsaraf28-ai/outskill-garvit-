@@ -219,7 +219,21 @@ Use the Google Drive MCP tool create_file with:
 
 Do not write anywhere else in Drive and do not touch any spreadsheet. The Apps Script side picks it up on its own timer.
 
-STEP 9 - report in one line: the snapshot time, COUNT(*) and the summed total (they must match), the assembled row count and how many pages it took, the payload size in bytes, the number of distinct agents, months, sources and outcomes, how many batch codes in the newest month, and today_count. If STEP 0 failed, add "activity object not found". Say which rung of the size ladder you used, if any.
+DO THE UPLOAD YOURSELF, IN THIS RUN. Do not hand it to a background agent, a subagent or anything else whose completion you cannot confirm before you finish. On 19 Aug a run built a correct 120,522-byte payload, delegated the upload to a background agent to keep the file out of its own context, waited, and then ended. The agent's result never arrived, nothing was written, and the workbook was still reading a two-day-old file hours later - while the run itself showed as Completed. A delegated upload you do not see finish is indistinguishable from no upload at all.
+
+If the file is too large to hold in your context while calling create_file, that is a reason to make the payload smaller - the size ladder in STEP 7 exists for exactly this - not a reason to hand the step to somebody else.
+
+THEN PROVE IT LANDED. An upload that reports success is not evidence; the only evidence is the file being there afterwards. Before you write STEP 9:
+
+1. List the feed folder (parentId above) and find slp_payload.json.
+2. Check the newest one is yours: its created time is within the last few minutes and its size is within a few percent of the byte count you validated in STEP 7.
+3. If no such file exists, or the newest is older than this run, THE UPLOAD DID NOT HAPPEN. Say so plainly as a failure. Do not report success, and do not describe the payload as delivered.
+
+A run that assembled a perfect payload and did not deliver it has achieved nothing. The workbook does not read your reasoning, it reads the file.
+
+STEP 9 - report in one line: the snapshot time, COUNT(*) and the summed total (they must match), the assembled row count and how many pages it took, the payload size in bytes, **the confirmed file size and created time you read back from Drive in STEP 8**, the number of distinct agents, months, sources and outcomes, how many batch codes in the newest month, and today_count. If STEP 0 failed, add "activity object not found". Say which rung of the size ladder you used, if any.
+
+The read-back is the part that matters. A report without it is a report about a file that may not exist.
 
 ---
 

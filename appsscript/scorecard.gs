@@ -21,6 +21,16 @@
 
 var SCC_TAB = 'Scorecard';
 var SCC_PREFIX = 'src_Roster_';
+
+/* Targets come from the roster mirrors, but achieved does NOT: the Revenue
+   column on those mirrors reads 0 on every agent row even when CBC itself
+   holds real figures. mdl_Payments is the workbook's own payment model and
+   reconciles to CBC at delta 0, so achieved is summed from there instead. */
+var SCC_PAY_TAB = 'mdl_Payments';
+
+/* Nothing before April 2026 counts, whatever the payment tab holds. */
+var SCC_FROM_MONTH = 'Apr';
+var SCC_FROM_YEAR = 2026;
 var SCC_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // how the office reads on the page, keyed by the tail of the team name
@@ -56,6 +66,8 @@ function buildScorecard() {
   var keys = Object.keys(agents);
   if (!keys.length) throw new Error('no agents read from the roster tabs.');
   Logger.log('agents read: ' + keys.length);
+
+  scc_applyPayments_(ss, agents, months);
 
   var tree = scc_group_(agents);
   scc_write_(ss, tree, months);
@@ -168,6 +180,108 @@ function scc_collect_(ss, months) {
   });
 
   return map;
+}
+
+/* ---------- achieved, from the payment model ---------- */
+
+function scc_applyPayments_(ss, map, months) {
+  var sh = ss.getSheetByName(SCC_PAY_TAB);
+  if (!sh) {
+    Logger.log('WARNING: no ' + SCC_PAY_TAB + ' tab. achieved left as read from the roster.');
+    return;
+  }
+  var last = sh.getLastRow(), wide = sh.getLastColumn();
+  if (last < 2) { Logger.log('WARNING: ' + SCC_PAY_TAB + ' is empty.'); return; }
+
+  var head = sh.getRange(1, 1, 1, wide).getDisplayValues()[0].map(function (h) {
+    return String(h || '').trim().toLowerCase();
+  });
+  var iMonth = head.indexOf('month');
+  var iOwner = head.indexOf('lead owner');
+  var iRoster = head.indexOf('on roster');
+  var iAmt = head.indexOf('amount paid');
+  var iRef = head.indexOf('is refund');
+  if (iMonth < 0 || iOwner < 0 || iAmt < 0) {
+    Logger.log('WARNING: ' + SCC_PAY_TAB + ' headers not recognised. achieved left as is.');
+    return;
+  }
+
+  var want = {};
+  months.forEach(function (m) { want[m.label.toLowerCase()] = m.label; });
+  var floorIdx = SCC_MONTHS.indexOf(SCC_FROM_MONTH);
+
+  // clear first, so a month with no payments reads 0 rather than a stale figure
+  Object.keys(map).forEach(function (k) {
+    months.forEach(function (m) {
+      if (map[k].months[m.label]) map[k].months[m.label].ach = 0;
+    });
+  });
+
+  var vals = sh.getRange(2, 1, last - 1, wide).getValues();
+  var kept = 0, tooOld = 0, offRoster = 0, refRows = 0, refAmt = 0;
+  var unknown = {}, totals = {};
+
+  for (var i = 0; i < vals.length; i++) {
+    var row = vals[i];
+    var when = scc_month_(row[iMonth]);
+    if (!when) continue;
+
+    // the April 2026 floor, applied before anything else
+    if (when.year < SCC_FROM_YEAR ||
+        (when.year === SCC_FROM_YEAR && when.idx < floorIdx)) { tooOld++; continue; }
+
+    var label = want[when.label.toLowerCase()];
+    if (!label) continue;
+
+    if (iRoster >= 0 && String(row[iRoster] || '').trim().toUpperCase() !== 'YES') {
+      offRoster++; continue;
+    }
+
+    var amt = scc_num_(row[iAmt]);
+    if (iRef >= 0 && String(row[iRef] || '').trim().toLowerCase() === 'yes') {
+      refRows++; refAmt += amt; continue;    // CBC excludes refunds, so we do too
+    }
+
+    var name = String(row[iOwner] || '').trim();
+    var key = scc_key_(name);
+    if (!key) continue;
+    if (!map[key]) { unknown[name] = (unknown[name] || 0) + amt; continue; }
+
+    if (!map[key].months[label]) map[key].months[label] = { target: 0, ach: 0 };
+    map[key].months[label].ach += amt;
+    totals[label] = (totals[label] || 0) + amt;
+    kept++;
+  }
+
+  Logger.log('achieved from ' + SCC_PAY_TAB + ', ' + SCC_FROM_MONTH + ' ' + SCC_FROM_YEAR + ' onward');
+  Logger.log('  counted ' + kept + ' rows; ' + tooOld + ' before the floor; ' +
+             offRoster + ' not on roster; ' + refRows + ' refunds (' + Math.round(refAmt) + ')');
+  months.forEach(function (m) {
+    Logger.log('  ' + m.label + ': ' + Math.round(totals[m.label] || 0));
+  });
+
+  var un = Object.keys(unknown);
+  if (un.length) {
+    Logger.log('  ' + un.length + ' payment owners are on no roster, so their revenue is NOT shown:');
+    un.sort(function (a, b) { return unknown[b] - unknown[a]; }).slice(0, 10).forEach(function (n) {
+      Logger.log('    ' + n + ': ' + Math.round(unknown[n]));
+    });
+  }
+}
+
+/* "April 2026" / "Aug 2026" -> { label, idx, year } */
+function scc_month_(v) {
+  var t = String(v || '').trim();
+  var mm = t.match(/[A-Za-z]{3}/);
+  var yy = t.match(/(\d{4})/);
+  if (!mm || !yy) return null;
+  var pre = mm[0].toLowerCase();
+  for (var i = 0; i < SCC_MONTHS.length; i++) {
+    if (SCC_MONTHS[i].toLowerCase() === pre) {
+      return { label: SCC_MONTHS[i], idx: i, year: parseInt(yy[1], 10) };
+    }
+  }
+  return null;
 }
 
 /* ---------- office > manager > agent ---------- */
@@ -439,6 +553,19 @@ function scorecardSelfTest() {
   // name keys ignore case and punctuation
   if (scc_key_('SWAPNA NAIK') !== scc_key_('Swapna Naik')) fails.push('case should not split an agent');
   if (scc_key_('Peesa  Sirisha') !== scc_key_('peesasirisha')) fails.push('spacing should not split an agent');
+
+  // month parsing, and the April 2026 floor
+  var floorIdx = SCC_MONTHS.indexOf(SCC_FROM_MONTH);
+  var apr = scc_month_('April 2026');
+  if (!apr || apr.label !== 'Apr' || apr.year !== 2026) fails.push('"April 2026" not parsed');
+  var aug = scc_month_('Aug 2026');
+  if (!aug || aug.label !== 'Aug' || aug.year !== 2026) fails.push('"Aug 2026" not parsed');
+  if (scc_month_('') !== null) fails.push('blank month should be null');
+  if (scc_month_('2026') !== null) fails.push('year with no month should be null');
+  var mar = scc_month_('March 2026');
+  if (!mar || mar.idx >= floorIdx) fails.push('March 2026 should sit below the April floor');
+  var last = scc_month_('August 2025');
+  if (!last || last.year >= SCC_FROM_YEAR) fails.push('2025 should sit below the floor');
 
   // months sort calendar order, not alphabetical
   var order = SCC_MONTHS.indexOf('Apr') < SCC_MONTHS.indexOf('Aug') &&

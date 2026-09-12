@@ -125,6 +125,9 @@ h1.big .accent { color: var(--lime); }
 .stat.hero { background: linear-gradient(135deg, rgba(194,238,69,0.16), rgba(194,238,69,0.04)); border-color: rgba(194,238,69,0.42); }
 .stat.hero .val { color: var(--lime); }
 .stat .foot { font-size: 15px; color: var(--muted); margin-top: 6px; }
+/* The spot board's three headline numbers stretch to fill the height they
+   are given, so the figures dominate rather than the reference material. */
+.spotstats .stat { display: flex; flex-direction: column; justify-content: center; }
 
 /* attainment bar */
 .bar { height: 16px; border-radius: 10px; background: rgba(255,255,255,0.07); overflow: hidden; position: relative; }
@@ -254,7 +257,7 @@ h1.big .accent { color: var(--lime); }
   <div id="stage">
 
     <div id="topbar">
-      <div class="brand"><span class="mark">OUTSKILL</span><span class="sub">Sales War Room</span></div>
+      <div class="brand"><span class="mark">OUTSKILL</span><span class="sub" id="boardName">Sales War Room</span></div>
       <div id="clockwrap">
         <div class="period">
           <div class="big" id="periodBig">—</div>
@@ -291,6 +294,9 @@ h1.big .accent { color: var(--lime); }
    ===================================================================== */
 var Q = new URLSearchParams(location.search);
 
+/* Which board this screen is. 'spot' = the running contest only. */
+var BOARD = (Q.get('board') || 'main').toLowerCase();
+
 var CONFIG = {
   /* The feed. Baked in so ONE address works on every screen - TV, desktop,
      laptop, phone - with nothing to append and nothing to remember:
@@ -306,24 +312,27 @@ var CONFIG = {
   SOUND: Q.get('sound') === '1',                // default OFF: many TVs in one room
 
   /* Screen rotation. Remove or reorder freely. "city:X" renders one city. */
-  SCREENS: (Q.get('screens') ? Q.get('screens').split(',') : [
-    'contest',            // while a contest is running it leads, and repeats
-    'overall',
-    'city:Bangalore',
-    'contest',
-    'city:Hyderabad',
-    'city:Bhubaneswar',
-    'initiative',         // the ladder and the rules
-    'managers',
-    'contest',
-    'agents',
-    'teams',
-    'interstitial',
-    'targetbattle',
-    'awards',
-    'contest',
-    'interstitial'
-  ]),
+  /* TWO BOARDS, TWO LINKS.
+       /warroom              the month - revenue, cities, managers, agents
+       /warroom?board=spot   the running contest, and nothing else
+     A contest screen buried in a sixteen-screen rotation is glanced at once
+     an hour. On its own screen it is the thing people look up at. */
+  SCREENS: (Q.get('screens') ? Q.get('screens').split(',')
+    : BOARD === 'spot'
+      ? ['spotoffer', 'spotboard', 'spotsplit']
+      : [
+          'overall',
+          'city:Bangalore',
+          'city:Hyderabad',
+          'city:Bhubaneswar',
+          'interstitial',
+          'managers',
+          'agents',
+          'teams',
+          'targetbattle',
+          'awards',
+          'interstitial'
+        ]),
 
   /* THE RUNNING CONTEST - the rules screen.
      The dates and the unit counting live in WR_CONTEST in war-room.gs;
@@ -1044,6 +1053,186 @@ function ladderHtml() {
   '</div>';
 }
 
+/* ---------------------------------------------------------------------
+   THE SPOT BOARD - a contest gets its own screen, not a slot in a queue
+   --------------------------------------------------------------------- */
+
+/* How long is left. The window's last day is inclusive, so it runs to the
+   end of that day in the viewer's own timezone - which on these TVs is IST. */
+function timeLeft(C) {
+  if (!C || !C.to) return null;
+  var p = String(C.to).split('-');
+  if (p.length !== 3) return null;
+  var end = new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59);
+  var ms = end.getTime() - Date.now();
+  if (ms <= 0) return { over: true, label: 'CLOSED' };
+  var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return { over: false, hours: h,
+           label: h >= 1 ? (h + 'h ' + m + 'm') : (m + 'm'),
+           urgent: h < 6 };
+}
+
+/* Contest units folded by whatever key you hand it - city or manager. */
+function spotBy(list, key) {
+  var m = {}, i, k;
+  for (i = 0; i < list.length; i++) {
+    k = list[i][key] || 'Unassigned';
+    if (!m[k]) m[k] = { name: k, units: 0, revenue: 0, people: 0 };
+    m[k].units += n(list[i].units);
+    m[k].revenue += n(list[i].revenue);
+    m[k].people += 1;
+  }
+  var out = [];
+  for (k in m) out.push(m[k]);
+  return out.sort(function (a, b) { return b.units - a.units || b.revenue - a.revenue; });
+}
+
+function spotPot(list) {
+  return list.reduce(function (s2, a) { return s2 + payout(a.units); }, 0);
+}
+
+/* No contest running: say so plainly rather than show an empty board. */
+function scSpotClosed() {
+  return '<div class="center">' +
+    '<div class="kicker">Spot board</div>' +
+    '<div class="line">NO CONTEST <span class="accent">RUNNING</span></div>' +
+    '<div class="note">Set <b>WR_CONTEST.active</b> in war-room.gs when the next one starts. ' +
+    'The month board is on <b>/warroom</b>.</div></div>';
+}
+
+/* SCREEN 1 - the offer, the count, the clock, the ladder. */
+function scSpotOffer() {
+  var C = DATA.contest;
+  if (!C || !C.active) return scSpotClosed();
+  var I = CONFIG.INITIATIVE, L = CONFIG.LADDER;
+  var list = C.agents || [];
+  var pot = spotPot(list);
+  var left = timeLeft(C);
+  var onBoard = list.filter(function (a) { return a.units > 0; }).length;
+
+  var rungs = Object.keys(L.steps).sort(function (a, b) { return a - b; }).map(function (uu) {
+    return { u: uu, v: money(L.steps[uu]), hot: false };
+  });
+  rungs.push({ u: L.perUnitFrom + '+', v: money(L.perUnit) + ' EACH', hot: true });
+
+  return '' +
+  '<div class="eyebrow" style="color:var(--gold)">Running now &middot; ' + esc(I.period) + '</div>' +
+  '<h1 class="big" style="font-size:88px;color:var(--gold)">' + esc(C.name) + '</h1>' +
+  '<div class="sub" style="font-size:23px;margin-top:6px">' + esc(I.detail) + '</div>' +
+
+  /* The three numbers anyone actually looks up for get the height. The
+     ladder is a reference strip underneath, not the main event. */
+  '<div class="statrow spotstats" style="margin-top:24px;flex:1;min-height:0">' +
+    '<div class="stat hero" style="flex:1.4"><div class="lbl">Units on the board</div>' +
+      '<div class="val" style="font-size:196px;line-height:.95" data-count="' + n(C.totalUnits) + '" data-fmt="int">0</div></div>' +
+    '<div class="stat"><div class="lbl">Earned so far</div>' +
+      '<div class="val" style="color:var(--gold);font-size:88px">' + money(pot) + '</div>' +
+      '<div class="foot" style="font-size:17px">' + onBoard + ' agent' + (onBoard === 1 ? '' : 's') + ' on the board</div></div>' +
+    '<div class="stat"' + (left && left.urgent ? ' style="border-color:rgba(255,107,138,.55);background:rgba(255,107,138,.10)"' : '') + '>' +
+      '<div class="lbl">' + (left && left.over ? 'Window' : 'Time left') + '</div>' +
+      '<div class="val" style="font-size:88px' + (left && left.urgent ? ';color:var(--rose)' : '') + '">' +
+        (left ? left.label : '-') + '</div>' +
+      '<div class="foot" style="font-size:17px">closes ' + esc(C.to) + '</div></div>' +
+  '</div>' +
+
+  '<div class="eyebrow" style="margin:20px 0 10px">Payout ladder &middot; no cap</div>' +
+  '<div style="display:flex;gap:14px;flex:none;height:168px">' +
+    rungs.map(function (r) {
+      return '<div style="flex:1;border-radius:18px;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;' +
+        'border:1px solid ' + (r.hot ? 'rgba(255,215,110,.6)' : 'var(--line)') + ';' +
+        'background:' + (r.hot ? 'rgba(255,215,110,.12)' : 'rgba(255,255,255,.04)') + '">' +
+        '<div style="display:flex;align-items:baseline;gap:10px">' +
+          '<span style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:50px;line-height:1">' + r.u + '</span>' +
+          '<span style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:3px">units</span>' +
+        '</div>' +
+        '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:38px;margin-top:10px;color:' +
+          (r.hot ? 'var(--gold)' : 'var(--white)') + '">' + r.v + '</div>' +
+      '</div>';
+    }).join('') +
+  '</div>' +
+  '<div style="font-size:16px;color:var(--muted);margin-top:12px">' +
+    (L.rules || []).map(esc).join(' &nbsp;&middot;&nbsp; ') + '</div>';
+}
+
+/* SCREEN 2 - who is on it. */
+function scSpotBoard() {
+  var C = DATA.contest;
+  if (!C || !C.active) return scSpotClosed();
+  var list = C.agents || [];
+  var left = timeLeft(C);
+
+  if (!list.length) {
+    return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) + '</div>' +
+      '<div class="center"><div class="kicker">The board is open</div>' +
+      '<div class="line">FIRST <span class="accent">UNIT</span> TAKES IT</div>' +
+      '<div class="note">Nobody has closed yet.' +
+      (left && !left.over ? ' ' + left.label + ' left.' : '') + '</div></div>';
+  }
+
+  var pods = list.slice(0, 3).map(function (x, i) {
+    return '<div class="pod ' + ['gold', 'silver', 'bronze'][i] + '">' +
+      '<div class="medal">' + medal(i) + '</div>' +
+      '<div class="nm">' + esc(x.name) + '</div>' +
+      '<div class="meta">' + esc(joinDot(x.manager, x.city)) + '</div>' +
+      '<div class="rev" style="font-size:78px">' + x.units + '</div>' +
+      '<div class="u" style="font-size:19px">' + earnedLine(x.units) + '</div>' +
+      '</div>';
+  }).join('');
+
+  var rows = list.slice(3).map(function (x, i) {
+    return '<div class="row" style="grid-template-columns:64px 1fr 180px 140px 90px 170px">' +
+      '<div class="rk">' + (i + 4) + '</div>' +
+      '<div class="nm2"><span class="tx">' + esc(x.name) + '</span></div>' +
+      '<div class="meta2">' + esc(x.manager) + '</div>' +
+      '<div class="meta2">' + esc(x.city) + '</div>' +
+      '<div class="num">' + x.units + '</div>' +
+      (payout(x.units) > 0
+        ? '<div class="num" style="color:var(--gold)">' + money(payout(x.units)) + '</div>'
+        : '<div class="meta2" style="text-align:right;font-size:15px">' +
+            money(payout(x.units + 1)) + ' at ' + (x.units + 1) + '</div>') +
+      '</div>';
+  }).join('');
+
+  return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) +
+      (left && !left.over ? ' &middot; ' + left.label + ' left' : '') + '</div>' +
+    '<h1 class="big">WHO IS <span class="accent">CLOSING</span></h1>' +
+    '<div class="podium" style="margin-top:20px">' + pods + '</div>' +
+    '<div class="lb" style="margin-top:16px">' + rows + '</div>';
+}
+
+/* SCREEN 3 - where the units are coming from. */
+function scSpotSplit() {
+  var C = DATA.contest;
+  if (!C || !C.active) return scSpotClosed();
+  var list = C.agents || [];
+  var byCity = spotBy(list, 'city'), byMgr = spotBy(list, 'manager');
+  var top = Math.max(1, byCity.length ? byCity[0].units : 1);
+  var topM = Math.max(1, byMgr.length ? byMgr[0].units : 1);
+
+  function bars(items, max) {
+    if (!items.length) return '<div class="note" style="font-size:20px">Nothing yet.</div>';
+    return items.slice(0, 7).map(function (x) {
+      return '<div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
+          '<span style="font-size:25px;font-weight:700">' + esc(x.name) + '</span>' +
+          '<span><span style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:30px">' + x.units + '</span>' +
+          '<span style="font-size:15px;color:var(--muted)"> units &middot; ' + money(spotPot([x])) + '</span></span>' +
+        '</div>' +
+        '<div class="bar"><i data-w="' + Math.round(x.units / max * 100) + '"></i></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) + ' &middot; where it is coming from</div>' +
+    '<h1 class="big">THE <span class="accent">SPLIT</span></h1>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:26px;flex:1;min-height:0">' +
+      '<div class="barwrap"><div class="eyebrow">By city</div>' +
+        '<div class="barcol">' + bars(byCity, top) + '</div></div>' +
+      '<div class="barwrap"><div class="eyebrow">By manager</div>' +
+        '<div class="barcol">' + bars(byMgr, topM) + '</div></div>' +
+    '</div>';
+}
+
 function scContest() {
   var C = DATA.contest;
   if (!C || !C.active) return scAgents();
@@ -1162,11 +1351,17 @@ function activeScreens() {
     }
     if (s === 'teams') return DATA && DATA.teams.length > 1;
     if (s === 'contest') return !!(DATA && DATA.contest && DATA.contest.active);
+    /* The spot screens stay in rotation even with no contest running - one of
+       them then says so, which beats a board that silently shows nothing. */
+    if (s.indexOf('spot') === 0) return true;
     return true;
   });
 }
 
 function buildScreen(key) {
+  if (key === 'spotoffer') return { name: 'The offer', html: scSpotOffer() };
+  if (key === 'spotboard') return { name: 'Live board', html: scSpotBoard() };
+  if (key === 'spotsplit') return { name: 'The split', html: scSpotSplit() };
   if (key === 'contest') return { name: (DATA.contest && DATA.contest.name) || 'Contest', html: scContest() };
   if (key === 'overall') return { name: 'Company championship', html: scOverall() };
   if (key.indexOf('city:') === 0) { var c = key.slice(5); return { name: c + ' leaderboard', html: scCity(c) }; }
@@ -1306,6 +1501,10 @@ function runProgress(secs) {
 /* =====================================================================
    BOOT
    ===================================================================== */
+/* Say which of the two boards this screen is, so nobody has to guess. */
+document.getElementById('boardName').textContent =
+  (BOARD === 'spot') ? 'Spot Offer Board' : 'Sales War Room';
+
 fit();
 if (Q.get('demo') === '1') {
   /* Layout preview only, for checking a TV before the feed exists.

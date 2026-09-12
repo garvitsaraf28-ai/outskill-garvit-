@@ -7,7 +7,7 @@ Three pieces, nothing else:
 | Piece | Where it lives | What it does |
 |---|---|---|
 | `war-room.gs` | paste into your Inside Sales Apps Script project | builds the leaderboard JSON |
-| `exec-doget-patched.gs` | replaces the `doGet` in your Exec Web App file | routes the feed without breaking the exec page |
+| `exec-webapp.gs` | paste over your whole Exec Web App file | routes the feed without breaking the exec page |
 | `warroom.html` | already deployed to Vercel | the TV page |
 
 The page is already online. It shows **preview data** until you give it the feed URL. That is one step.
@@ -18,7 +18,7 @@ The page is already online. It shows **preview data** until you give it the feed
 
 Apps Script allows only **one `doGet`** per project, and this project's belongs to the **Executive Command Center**. So the war room does not define one. Instead the exec `doGet` routes to the feed when the request asks for it, and serves the exec page for everything else. Both web apps share one URL without fighting.
 
-That is why `war-room.gs` has no `doGet` in it, and why there is a second file, `exec-doget-patched.gs`.
+That is why `war-room.gs` has no `doGet` in it, and why there is a second file, `exec-webapp.gs`.
 
 ## Step 1 — paste the WarRoom file in
 
@@ -26,11 +26,9 @@ Apps Script editor → **+ → Script** → name it `WarRoom` → paste the cont
 
 ## Step 2 — patch the exec doGet
 
-Open your Exec Web App file. Replace **only** the `doGet` function with the one in `exec-doget-patched.gs`. Two lines are added at the top; the rest is byte-for-byte what you already have.
+Open your Exec Web App file, select all, and paste `exec-webapp.gs` over it. Every function is byte-for-byte what you already have — the only behaviour change is two lines at the top of `doGet`.
 
-Leave `onOpen`, `showExecSidebarDialog` and `exec_inject_` alone.
-
-The patched version guards with `typeof wr_serve_ === 'function'`, so if you paste it in before the WarRoom file exists it falls through to the exec page instead of throwing. Order does not matter.
+The routing guards with `typeof wr_serve_ === 'function'`, so if you paste it in before the WarRoom file exists it falls through to the exec page instead of throwing. Order does not matter.
 
 > **While you are in there:** this file also defines `onOpen`. If any other file in the project defines `onOpen` too, Apps Script silently keeps one of them and your Executive menu may already be missing. Same trap as `refreshAndVerify`. Worth a `Ctrl+F` for `function onOpen` across all files.
 

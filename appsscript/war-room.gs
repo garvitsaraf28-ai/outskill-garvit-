@@ -288,9 +288,11 @@ function wr_roster_(ss, monthKey) {
 
   for (var r = 1; r < grid.length; r++) {
     var row = grid[r];
-    var name = wr_str_(row[cAgent]);
+    var name    = wr_str_(row[cAgent]);
+    var mgrRaw  = cMgr  >= 0 ? wr_str_(row[cMgr])  : '';
+    var cityRaw = cCity >= 0 ? wr_str_(row[cCity]) : '';
     if (!name) continue;
-    if (wr_isSummary_(name)) continue;   // "Sum agent revenue", "52675000", etc
+    if (wr_isSummaryRow_(name, mgrRaw, cityRaw)) continue;
 
     var rowMonth = (cMonth >= 0) ? wr_monthKey_(row[cMonth]) : monthKey;
     if (rowMonth) out.monthsSeen[rowMonth] = true;
@@ -304,8 +306,8 @@ function wr_roster_(ss, monthKey) {
     }
     out.byAgent[key] = {
       name:    name,
-      manager: cMgr    >= 0 ? wr_str_(row[cMgr])            : '',
-      city:    cCity   >= 0 ? wr_city_(wr_str_(row[cCity])) : '',
+      manager: mgrRaw,
+      city:    wr_city_(cityRaw),
       team:    cTeam   >= 0 ? wr_team_(wr_str_(row[cTeam])) : '',
       target:  cTarget >= 0 ? wr_num_(row[cTarget])         : 0
     };
@@ -521,14 +523,33 @@ function wr_key_(name) {
 /* Both model tabs carry totals rows at the foot - "Sum agent revenue",
    "Sum targets", and bare numbers like 52675000 sitting where a name
    should be. Left alone they become agents, cities and managers of their
-   own and poison every roll-up. A row is not a person if it has no
-   letters in it at all, or if it announces itself as a total. */
-function wr_isSummary_(name) {
-  var t = String(name == null ? '' : name).trim().toLowerCase();
-  if (!t) return true;
+   own and poison every roll-up.
+
+   A value in an identity column is a total if it has no letters in it at
+   all, or if it announces itself as one. Blank is NOT a total here: a real
+   agent can have an empty manager or office cell, and dropping them would
+   lose real revenue. */
+function wr_looksLikeTotal_(v) {
+  var t = String(v == null ? '' : v).trim().toLowerCase();
+  if (!t) return false;
   if (!/[a-z]/.test(t)) return true;
-  if (/^(sum|total|totals|subtotal|grand\s+total|average|avg|count)\b/.test(t)) return true;
-  return false;
+  return /^(sum|total|totals|subtotal|grand\s+total|average|avg|count)\b/.test(t);
+}
+
+/* For the name column specifically, where blank means there is no row. */
+function wr_isSummary_(name) {
+  var t = String(name == null ? '' : name).trim();
+  if (!t) return true;
+  return wr_looksLikeTotal_(t);
+}
+
+/* A totals row does not always announce itself in the column you are
+   looking at. The real roster had one whose agent cell read like an
+   ordinary label while its manager said "Sum agent revenue" and its
+   office said "Sum targets" - so it survived a name-only check and put a
+   city called "Sum targets" on the board. Judge the row, not one cell. */
+function wr_isSummaryRow_(name, manager, office) {
+  return wr_isSummary_(name) || wr_looksLikeTotal_(manager) || wr_looksLikeTotal_(office);
 }
 
 function wr_str_(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); }
@@ -682,6 +703,22 @@ function warRoomSelfTest() {
   eq('a name starting with All is safe', wr_isSummary_('Alli Raza'), false);
   eq('a name starting with Sum is safe', wr_isSummary_('Sumit Kumar'), false);
   eq('a name starting with Avg is safe', wr_isSummary_('Avgust Petrov'), false);
+
+  /* the row that survived a name-only check on the real roster: its agent
+     cell read like a label, but its manager and office were totals */
+  eq('a totals manager condemns the row',
+     wr_isSummaryRow_('Headcount', 'Sum agent revenue', ''), true);
+  eq('a totals office condemns the row',
+     wr_isSummaryRow_('Headcount', '', 'Sum targets'), true);
+  eq('a numeric office condemns the row',
+     wr_isSummaryRow_('Headcount', '', '52675000'), true);
+  eq('a real agent with a blank manager survives',
+     wr_isSummaryRow_('Alisha Khan', '', 'Hyderabad'), false);
+  eq('a real agent with a blank office survives',
+     wr_isSummaryRow_('Alisha Khan', 'Saeed', ''), false);
+  eq('a fully blank-but-named agent survives',
+     wr_isSummaryRow_('Alisha Khan', '', ''), false);
+  eq('blank is not itself a total', wr_looksLikeTotal_(''), false);
 
   eq('name key ignores case/space',   wr_key_(' Alisha  Khan '), 'alishakhan');
   eq('name key ignores punctuation',  wr_key_('Satyam Aditya-Samant'), 'satyamadityasamant');

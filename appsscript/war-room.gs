@@ -55,7 +55,12 @@
 var WR_PAY_TAB    = 'mdl_Payments';
 var WR_ROSTER_TAB = 'mdl_Roster';
 var WR_TZ         = 'Asia/Kolkata';
-var WR_CACHE_SECS = 45;        // 5 TVs polling every 30s -> ~1 sheet read a minute
+/* mdl_Payments is tens of thousands of rows, so a cold build measured ~14s
+   on the real workbook. The cache is what keeps that off the TVs: at 240s
+   roughly one poll in eight rebuilds and the other seven answer instantly,
+   from any number of screens. Nothing is lost by caching this long - the
+   figures only move when updateAndCheck runs. */
+var WR_CACHE_SECS = 240;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
 
 /* =====================================================================
@@ -220,14 +225,22 @@ function wr_build_(monthKey) {
       rows: pay.rowsScanned,
       buildMs: new Date().getTime() - t0
     },
+    /* The headline is the ROSTER total, because that is what the Management
+       Report calls "Total revenue" and what leadership quotes. Everything
+       below adds up to it exactly: cities, managers and agents all sum to
+       this number, so nothing on the TV can contradict anything else on it.
+
+       Money paid by names not on the roster is reported separately and
+       stays off the screen. It is mostly other business lines - Mastermind
+       and the like - and putting it in the headline would have the TV
+       shouting 4.23 cr while the report says 60.91 L. */
     totals: {
-      revenue:     rosterRev + offRosterRev,   // what leadership quotes
-      rosterRevenue: rosterRev,                // what the boards below add up to
-      unassigned:  offRosterRev,               // paid, but not on this month's roster
-      unassignedUnits: offRosterUnits,
-      units:       rosterUnits + offRosterUnits,
+      revenue:     rosterRev,
+      units:       rosterUnits,
       target:      target,
-      agents:      agentList.length
+      agents:      agentList.length,
+      offRoster:      offRosterRev,      // diagnostics only, never rendered
+      offRosterUnits: offRosterUnits
     },
     teams:    teamList.map(wr_slim_),
     cities:   cityList.map(wr_slim_),
@@ -277,6 +290,7 @@ function wr_roster_(ss, monthKey) {
     var row = grid[r];
     var name = wr_str_(row[cAgent]);
     if (!name) continue;
+    if (wr_isSummary_(name)) continue;   // "Sum agent revenue", "52675000", etc
 
     var rowMonth = (cMonth >= 0) ? wr_monthKey_(row[cMonth]) : monthKey;
     if (rowMonth) out.monthsSeen[rowMonth] = true;
@@ -339,6 +353,7 @@ function wr_payments_(ss, monthKey) {
 
     var name = wr_str_(row[cAgent]);
     if (!name) continue;
+    if (wr_isSummary_(name)) continue;   // totals rows are not people
 
     var key = wr_key_(name);
     if (!out.byAgent[key]) out.byAgent[key] = { name: name, revenue: 0, units: 0 };
@@ -503,6 +518,19 @@ function wr_key_(name) {
   return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+/* Both model tabs carry totals rows at the foot - "Sum agent revenue",
+   "Sum targets", and bare numbers like 52675000 sitting where a name
+   should be. Left alone they become agents, cities and managers of their
+   own and poison every roll-up. A row is not a person if it has no
+   letters in it at all, or if it announces itself as a total. */
+function wr_isSummary_(name) {
+  var t = String(name == null ? '' : name).trim().toLowerCase();
+  if (!t) return true;
+  if (!/[a-z]/.test(t)) return true;
+  if (/^(sum|total|totals|subtotal|grand\s+total|average|avg|count)\b/.test(t)) return true;
+  return false;
+}
+
 function wr_str_(v) { return String(v == null ? '' : v).replace(/\s+/g, ' ').trim(); }
 
 function wr_num_(v) {
@@ -560,12 +588,16 @@ function warRoomPreview() {
   Logger.log('  payment rows in it : ' + p.meta.rows);
   Logger.log('  build took         : ' + p.meta.buildMs + ' ms   (cached ' + WR_CACHE_SECS + 's between TV polls)');
   Logger.log('');
-  Logger.log('  COMPANY');
-  Logger.log('    revenue (all)    : ' + wr_money_(p.totals.revenue));
-  Logger.log('    on the boards    : ' + wr_money_(p.totals.rosterRevenue));
-  Logger.log('    not on roster    : ' + wr_money_(p.totals.unassigned));
-  Logger.log('    target           : ' + wr_money_(p.totals.target));
-  Logger.log('    units / agents   : ' + p.totals.units + ' / ' + p.totals.agents);
+  Logger.log('  COMPANY   <-- compare these to the Management Report');
+  Logger.log('    revenue          : ' + wr_money_(p.totals.revenue) +
+             '        (report: Total revenue / Delivered So Far)');
+  Logger.log('    target           : ' + wr_money_(p.totals.target) +
+             '        (report: Committed For)');
+  Logger.log('    units            : ' + p.totals.units + '        (report: Units)');
+  Logger.log('    agents           : ' + p.totals.agents);
+  Logger.log('');
+  Logger.log('    off roster       : ' + wr_money_(p.totals.offRoster) + ' in ' +
+             p.totals.offRosterUnits + ' units - NOT on the TV, listed under NOTES below');
   Logger.log('');
   Logger.log('  CITIES');
   p.cities.forEach(function (c) {
@@ -636,6 +668,20 @@ function warRoomSelfTest() {
   eq('international stays',           wr_team_('INTERNATIONAL'), 'International');
   eq('India stays',                   wr_team_('india'), 'India');
   eq('Domestic folds to India',       wr_team_('Domestic'), 'India');
+
+  /* the exact strings the real mdl_Roster and mdl_Payments were putting
+     on the boards as if they were people */
+  eq('"Sum agent revenue" is a total',  wr_isSummary_('Sum agent revenue'), true);
+  eq('"Sum targets" is a total',        wr_isSummary_('Sum targets'), true);
+  eq('a bare number is a total',        wr_isSummary_('52675000'), true);
+  eq('another bare number is a total',  wr_isSummary_(6430970), true);
+  eq('"Grand Total" is a total',        wr_isSummary_('Grand Total'), true);
+  eq('blank is a total',                wr_isSummary_(''), true);
+  eq('a real agent is not a total',     wr_isSummary_('Alisha Khan'), false);
+  eq('Mastermind is not a total',       wr_isSummary_('Mastermind'), false);
+  eq('a name starting with All is safe', wr_isSummary_('Alli Raza'), false);
+  eq('a name starting with Sum is safe', wr_isSummary_('Sumit Kumar'), false);
+  eq('a name starting with Avg is safe', wr_isSummary_('Avgust Petrov'), false);
 
   eq('name key ignores case/space',   wr_key_(' Alisha  Khan '), 'alishakhan');
   eq('name key ignores punctuation',  wr_key_('Satyam Aditya-Samant'), 'satyamadityasamant');

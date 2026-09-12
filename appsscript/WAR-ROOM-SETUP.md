@@ -2,31 +2,37 @@
 
 The floor TV board. Live at **https://outskill-garvit.vercel.app/warroom**
 
-Two pieces, nothing else:
+Three pieces, nothing else:
 
 | Piece | Where it lives | What it does |
 |---|---|---|
-| `war-room.gs` | your Inside Sales Apps Script project | publishes the leaderboard as JSON |
+| `war-room.gs` | paste into your Inside Sales Apps Script project | builds the leaderboard JSON |
+| `exec-doget-patched.gs` | replaces the `doGet` in your Exec Web App file | routes the feed without breaking the exec page |
 | `warroom.html` | already deployed to Vercel | the TV page |
 
 The page is already online. It shows **preview data** until you give it the feed URL. That is one step.
 
 ---
 
-## Step 1 — check for a clash (30 seconds)
+## The doGet situation, settled
 
-Apps Script allows only **one `doGet`** per project. In the script editor press **Ctrl+F**, tick "search all files", and search for:
+Apps Script allows only **one `doGet`** per project, and this project's belongs to the **Executive Command Center**. So the war room does not define one. Instead the exec `doGet` routes to the feed when the request asks for it, and serves the exec page for everything else. Both web apps share one URL without fighting.
 
-```
-function doGet
-```
+That is why `war-room.gs` has no `doGet` in it, and why there is a second file, `exec-doget-patched.gs`.
 
-- **No match** → you are clear, continue.
-- **A match** → stop. Do not paste the file in, it would break whatever web app you already have. Tell me and I will fold the war room into your existing `doGet` instead.
-
-## Step 2 — paste the file in
+## Step 1 — paste the WarRoom file in
 
 Apps Script editor → **+ → Script** → name it `WarRoom` → paste the contents of `war-room.gs` → save.
+
+## Step 2 — patch the exec doGet
+
+Open your Exec Web App file. Replace **only** the `doGet` function with the one in `exec-doget-patched.gs`. Two lines are added at the top; the rest is byte-for-byte what you already have.
+
+Leave `onOpen`, `showExecSidebarDialog` and `exec_inject_` alone.
+
+The patched version guards with `typeof wr_serve_ === 'function'`, so if you paste it in before the WarRoom file exists it falls through to the exec page instead of throwing. Order does not matter.
+
+> **While you are in there:** this file also defines `onOpen`. If any other file in the project defines `onOpen` too, Apps Script silently keeps one of them and your Executive menu may already be missing. Same trap as `refreshAndVerify`. Worth a `Ctrl+F` for `function onOpen` across all files.
 
 ## Step 3 — prove the numbers before anyone sees them
 
@@ -39,28 +45,45 @@ warRoomPreview       prints the exact numbers the TV will show
 
 Check `warRoomPreview`'s output against your Management Report. The company total, the city splits and the manager rows should match to the rupee. If they do not, send me the log — do not put it on a TV yet.
 
-## Step 4 — publish the feed
+## Step 4 — redeploy the existing web app
 
-**Deploy → New deployment → Web app**
+You already have a deployment. Do **not** make a new one — reuse it so the exec URL your people have bookmarked keeps working.
+
+**Deploy → Manage deployments → pencil icon on the live one**
 
 | Field | Set to |
 |---|---|
+| Version | **New version** ← without this the URL serves the old code |
 | Execute as | **Me** |
-| Who has access | **Anyone** |
+| Who has access | **Anyone** ← changed from "Anyone with Google account" |
 
-Copy the `/exec` URL it gives you.
+The `/exec` URL stays the same.
 
-> **Why "Anyone".** A TV is not logged into Google. The URL is the password: it is a long random string, and it only ever returns aggregated leaderboard figures — no leads, no phone numbers, no payment rows, no email addresses. If it ever leaks, redeploy and the old URL dies.
+> **Why "Anyone" is unavoidable.** A TV is not signed into Google. With "Anyone with Google account" the TV gets a sign-in page instead of data, forever — I tested that exact case and the board just sits there saying the feed is unreachable.
+>
+> **What that costs you.** Your exec page loses its "must be signed into some Google account" speed bump. Be clear-eyed about what that bump was worth: it was not restricted to your domain, so it already let in anyone on earth with a Gmail address *and* the URL. The real protection was always the unguessable URL, and that does not change. But the exec page does become one step easier to open, so treat that URL as a password from here on and do not paste it into group chats.
+>
+> If you would rather not accept that, tell me — I can put a key on the exec page so it needs `?k=<secret>` to render, and then "Anyone" costs you nothing. It is about ten lines and one re-bookmark.
 
 ## Step 5 — point the TV at it
 
-Open this on the TV, with your `/exec` URL on the end:
+Take your `/exec` URL, add `?feed=warroom`, and put the whole thing on the end of the TV URL:
 
 ```
-https://outskill-garvit.vercel.app/warroom?api=PASTE_YOUR_EXEC_URL_HERE
+https://outskill-garvit.vercel.app/warroom?api=YOUR_EXEC_URL?feed=warroom
 ```
 
-The gold "PREVIEW DATA" chip disappears and the top right turns to **LIVE ● updated 4s ago**. That is it — you never edit a file to change the feed, the URL carries it.
+So it ends up looking like:
+
+```
+https://outskill-garvit.vercel.app/warroom?api=https://script.google.com/macros/s/AKfy.../exec?feed=warroom
+```
+
+Paste it raw — no need to encode anything, the two `?` do not confuse it. I tested that exact shape.
+
+The gold "PREVIEW DATA" chip disappears and the top right turns to **LIVE ● updated 4s ago**.
+
+**Sanity check:** open your plain `/exec` URL in a browser. You should still get the Executive Command Center, exactly as before. If you get JSON, the patch went in wrong.
 
 ---
 
@@ -75,7 +98,7 @@ Any of these work. Ranked by how little they go wrong.
 ```
 chrome --kiosk --noerrdialogs --disable-infobars --incognito \
   --disable-session-crashed-bubble --autoplay-policy=no-user-gesture-required \
-  "https://outskill-garvit.vercel.app/warroom?api=YOUR_EXEC_URL"
+  "https://outskill-garvit.vercel.app/warroom?api=YOUR_EXEC_URL?feed=warroom"
 ```
 
 **A Raspberry Pi** — same Chrome command in `~/.config/autostart`. Add `xset s off; xset -dpms; xset s noblank` so the screen never sleeps.
@@ -114,14 +137,14 @@ Put these on the TV's URL after the `?api=...`:
 | `&refresh=30` | 30 | seconds between data polls (floored at 10 to protect the Apps Script quota) |
 | `&sound=1` | off | a chime on milestones. Off by default — several TVs in one room is a nightmare |
 | `&screens=overall,managers,agents` | all 13 | pick and order the screens yourself |
-| `&api=...` | none | the feed URL |
+| `&api=...` | none | the feed URL, with `?feed=warroom` on it |
 
 Screen names: `overall`, `city:Bangalore`, `city:Hyderabad`, `city:Bhubaneswar`, `managers`, `agents`, `teams`, `targetbattle`, `awards`, `initiative`, `interstitial`.
 
 So a Hyderabad-only board on a 20 second rotation is just:
 
 ```
-...?api=YOUR_URL&rotate=20&screens=city:Hyderabad,managers,awards,interstitial
+...?api=YOUR_EXEC_URL?feed=warroom&rotate=20&screens=city:Hyderabad,managers,awards,interstitial
 ```
 
 Keyboard, if you ever want it: **←/→** step through screens, **F** fullscreen.
@@ -152,7 +175,8 @@ The company total is **every rupee paid in the month**. The city and manager boa
 
 | On screen | What happened | What to do |
 |---|---|---|
-| Gold **PREVIEW DATA** chip | no `?api=` on the URL, or the feed is unreachable | check the URL has `?api=`, and that the deployment is set to "Anyone" |
+| Gold **PREVIEW DATA** chip | no `?api=` on the URL, or the feed is unreachable | check the URL has `?api=` **and `?feed=warroom` on the end of it**, and that the deployment is "Anyone" on a **New version** |
+| The board shows the exec page's HTML, or never leaves PREVIEW | `feed=warroom` missing, so the router served the exec page instead of the feed | add `?feed=warroom` to the `api` value |
 | **updated 3m ago** in amber | a poll or two was missed | usually nothing, it self-corrects |
 | **reconnecting · last 12m ago** in red | the feed has been down a while | run `warRoomPreview` in the editor — if that fails, Apps Script quota or a `#REF!` in `src_Payments` |
 | Numbers frozen but the clock is live | the sheet itself has not refreshed | run `updateAndCheck` |
@@ -168,7 +192,7 @@ The company total is **every rupee paid in the month**. The city and manager boa
 - **Month to date only.** No week or quarter view yet.
 - **It inherits the sheet's accuracy.** It is a window onto `mdl_Payments`, not a second opinion. The 3.24 L CBC gap and the 13 `#N/A` DOJ lookups will show up here exactly as they show up everywhere else.
 - **Rank movement resets at midnight** and is empty on the very first day, because there is no earlier snapshot to compare against. That is honest rather than wrong.
-- **One `doGet` per project** — see step 1.
+- **One `doGet` per project.** The feed is routed through the Executive Command Center's `doGet` rather than owning its own. If that function is ever rewritten, the two routing lines have to survive the rewrite.
 - **No history.** It shows now, not a trend over time.
 
 ## Worth adding later, in the order I would do it

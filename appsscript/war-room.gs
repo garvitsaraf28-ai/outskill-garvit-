@@ -92,22 +92,49 @@ var WR_CONTEST = {
   from:   '2026-09-12',     // inclusive, Asia/Kolkata
   to:     '2026-09-14',     // inclusive
 
-  /* '' = count every unit. This is the live setting. */
-  excludeProduct: '',
+  /* WHAT COUNTS AS ONE
+       'units'    only rows flagged Is Unit = YES. A new close.
+       'payments' EVERY payment row in the window, including a balance or
+                  an instalment against a sale closed weeks ago.
 
-  /* Which column names the PRODUCT, if excludeProduct is ever used. Only
-     read when excludeProduct is non-empty, so it cannot lose a row today.
-     mdl_Payments does not carry it yet; the Payment Tracker calls it
-     "Program" (AIAP C14, AI Bootcamp, EAP C10). */
-  productColumn: 'program'
+     These are genuinely different contests. "Booking or full amount = 1
+     unit" means a close counts whether or not the whole price arrived -
+     which is what Is Unit is for. It does NOT mean an old customer paying
+     off a balance hands their agent another unit. Run warRoomWhatCounts
+     to see which rows each mode would pay before choosing. */
+  countMode: 'units',
+
+  /* WHICH PRODUCT COUNTS
+       onlyProduct    '' = every product. Otherwise ONLY rows whose
+                      productColumn contains this text.
+       excludeProduct '' = bar nothing. Otherwise drop rows that match.
+       productColumn  the header to read. Leave '' and no product column
+                      is read at all, so nothing can be lost to a filter.
+
+     Set the column from evidence, never by guessing. "Batch Family" is
+     the LEAD'S SOURCE CAMPAIGN, not the product - filtering on it once
+     threw away Fahad Nizar (10,000) and Kshitij (28,500), both real
+     Accelerator sales to Mastermind-sourced leads. warRoomWhatCounts
+     prints every candidate column's real values. */
+  onlyProduct:    '',
+  excludeProduct: '',
+  productColumn:  ''
 };
 
-/* Does one row qualify? With excludeProduct empty - the live rule - yes,
-   always. A unit is a unit. */
+/* Does one row's product qualify? With both product settings empty - the
+   live rule - yes, always. */
 function wr_progMatches_(cell) {
-  var bad = String(WR_CONTEST.excludeProduct || '').toLowerCase();
-  if (!bad) return true;
-  return String(cell == null ? '' : cell).toLowerCase().indexOf(bad) === -1;
+  var v    = String(cell == null ? '' : cell).toLowerCase();
+  var only = String(WR_CONTEST.onlyProduct || '').toLowerCase();
+  var bad  = String(WR_CONTEST.excludeProduct || '').toLowerCase();
+  if (only && v.indexOf(only) === -1) return false;
+  if (bad  && v.indexOf(bad)  > -1)   return false;
+  return true;
+}
+
+/* Is a product filter switched on at all? */
+function wr_progFiltering_() {
+  return !!(WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct);
 }
 
 /* =====================================================================
@@ -367,10 +394,11 @@ function wr_contest_(pay, roster) {
        from the board. They exist so that if a future contest ever does bar
        a product, a filter that silently keeps nothing announces itself
        instead of running a whole weekend showing zero. */
-    programme: WR_CONTEST.excludeProduct || '',
-    programmeFiltered: !!(WR_CONTEST.excludeProduct && pay.programmeCol),
-    programmeColumnMissing: !!(WR_CONTEST.excludeProduct && !pay.programmeCol),
-    programmeMatchedNothing: !!(WR_CONTEST.excludeProduct && pay.programmeCol &&
+    countMode: WR_CONTEST.countMode || 'units',
+    programme: WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct || '',
+    programmeFiltered: !!(wr_progFiltering_() && pay.programmeCol),
+    programmeColumnMissing: !!(wr_progFiltering_() && !pay.programmeCol),
+    programmeMatchedNothing: !!(wr_progFiltering_() && pay.programmeCol &&
                                 pay.contestWindowRows > 0 && pay.contestProgMatched === 0),
     windowRows: pay.contestWindowRows,
     matchedRows: pay.contestProgMatched,
@@ -498,7 +526,7 @@ function wr_manMonthCol_(grid, cAgent) {
 function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
               contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
-              contestWindowRows: 0, contestProgMatched: 0, progSamples: {},
+              contestWindowRows: 0, contestProgMatched: 0, contestCounted: 0, progSamples: {},
               refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
               upgradeRows: 0, upgradeAmount: 0 };
   var sh = ss.getSheetByName(WR_PAY_TAB);
@@ -524,7 +552,7 @@ function wr_payments_(ss, monthKey) {
      can be lost to a filter. No fuzzy fallback either: guessing once landed
      on "Batch Family", which is the lead's source campaign and not the
      product, and threw away real sales. */
-  var cProg  = (WR_CONTEST.excludeProduct && WR_CONTEST.productColumn)
+  var cProg  = (wr_progFiltering_() && WR_CONTEST.productColumn)
                  ? wr_col_(H, [String(WR_CONTEST.productColumn).toLowerCase()])
                  : -1;
   var cRef   = wr_col_(H, ['is refund', 'refund']);
@@ -593,7 +621,9 @@ function wr_payments_(ss, monthKey) {
         if (!wr_progMatches_(raw)) continue;
       }
       out.contestProgMatched++;                    // == windowRows when nothing is barred
-      if (!isUnit) continue;                       // the contest counts units only
+      /* 'units' pays a close; 'payments' pays every rupee that lands. */
+      if (WR_CONTEST.countMode !== 'payments' && !isUnit) continue;
+      out.contestCounted++;
       if (!out.contest[key]) out.contest[key] = { name: name, units: 0, revenue: 0 };
       out.contest[key].units += 1;
       out.contest[key].revenue += wr_num_(row[cAmt]);
@@ -1205,6 +1235,147 @@ function wr_dumpWindow_(ss) {
   if (!shown) Logger.log('    nothing is dated inside the window yet.');
 }
 
+/**
+ * warRoomWhatCounts - READ ONLY. Writes nothing.
+ *
+ * Two questions decide who gets paid this weekend, and both are settled by
+ * looking at the sheet rather than by guessing:
+ *
+ *   1. Does "any Accelerator payment counts" mean every payment row, or
+ *      every new close? This prints both totals, and lists the rows that
+ *      differ, so the gap between the two rules is visible in names and
+ *      rupees rather than in the abstract.
+ *
+ *   2. Which column actually names the product? It prints every distinct
+ *      value in each candidate column and marks the ones containing
+ *      "accel". Whichever list names products is the column to use.
+ */
+function warRoomWhatCounts() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) { Logger.log('mdl_Payments is empty.'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var c = {
+    date:  wr_col_(H, ['date', 'payment date', 'paid on']),
+    agent: wr_col_(H, ['lead owner', 'agent', 'owner']),
+    amt:   wr_col_(H, ['amount paid', 'amount']),
+    unit:  wr_col_(H, ['is unit', 'unit']),
+    type:  wr_col_(H, ['payment type']),
+    batch: wr_col_(H, ['batch']),
+    fam:   wr_col_(H, ['batch family']),
+    seg:   wr_col_(H, ['segment']),
+    stat:  wr_col_(H, ['status']),
+    ref:   wr_col_(H, ['is refund', 'refund'])
+  };
+
+  Logger.log('=== WHAT COUNTS ===  ' + WR_CONTEST.name + '   ' +
+             WR_CONTEST.from + ' to ' + WR_CONTEST.to);
+  Logger.log('  current setting   : countMode "' + (WR_CONTEST.countMode || 'units') + '"' +
+             (wr_progFiltering_()
+                ? ('   product filter on column "' + WR_CONTEST.productColumn + '"')
+                : '   no product filter'));
+  Logger.log('');
+
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var roster = wr_roster_(ss, Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM'));
+  var from = wr_dayNum_(WR_CONTEST.from), to = wr_dayNum_(WR_CONTEST.to);
+
+  var rows = [], vals = { Batch: {}, 'Batch Family': {}, Segment: {}, 'Payment Type': {} };
+  var nPay = 0, nUnit = 0, payAmt = 0, unitAmt = 0;
+
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][c.date];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    var dn = wr_dayNumOf_(d);
+    if (dn < from || dn > to) continue;
+
+    var name = wr_str_(grid[r][c.agent]);
+    if (!name || wr_isSummary_(name)) continue;
+
+    var isRefund = (c.ref >= 0 && wr_truthy_(grid[r][c.ref]));
+    var isCancel = (c.stat >= 0 &&
+                    String(grid[r][c.stat] || '').toLowerCase().indexOf('cancel') > -1);
+    if (isRefund || isCancel) continue;      // never counted under either rule
+
+    var amt = c.amt >= 0 ? wr_num_(grid[r][c.amt]) : 0;
+    var isUnit = (c.unit >= 0 && wr_truthy_(grid[r][c.unit]));
+    var onRoster = !!roster.byAgent[wr_key_(name)];
+
+    nPay++; payAmt += amt;
+    if (isUnit) { nUnit++; unitAmt += amt; }
+
+    function tally(label, idx) {
+      if (idx < 0) return;
+      var v = wr_str_(grid[r][idx]) || '(blank)';
+      vals[label][v] = (vals[label][v] || 0) + 1;
+    }
+    tally('Batch', c.batch); tally('Batch Family', c.fam);
+    tally('Segment', c.seg); tally('Payment Type', c.type);
+
+    rows.push({ d: Utilities.formatDate(d, WR_TZ, 'dd MMM'), name: name, amt: amt,
+                unit: isUnit, onRoster: onRoster,
+                type:  c.type  >= 0 ? wr_str_(grid[r][c.type])  : '',
+                batch: c.batch >= 0 ? wr_str_(grid[r][c.batch]) : '',
+                fam:   c.fam   >= 0 ? wr_str_(grid[r][c.fam])   : '',
+                seg:   c.seg   >= 0 ? wr_str_(grid[r][c.seg])   : '' });
+  }
+
+  Logger.log('  THE TWO RULES, SIDE BY SIDE   (refunds and cancellations already out)');
+  Logger.log('    countMode "units"    : ' + nUnit + ' rows   ' + wr_money_(unitAmt));
+  Logger.log('    countMode "payments" : ' + nPay  + ' rows   ' + wr_money_(payAmt));
+  Logger.log('    the difference       : ' + (nPay - nUnit) + ' rows   ' +
+             wr_money_(payAmt - unitAmt) + '  <-- paid only under "payments"');
+  Logger.log('');
+
+  if (nPay > nUnit) {
+    Logger.log('  THE ROWS THAT ONLY "payments" WOULD PAY');
+    Logger.log('  (these are NOT flagged as a close - look at Payment Type: if they');
+    Logger.log('   are balances on older sales, "units" is the rule you want)');
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].unit) continue;
+      Logger.log('    ' + wr_pad_(rows[i].d, 8) + wr_pad_(rows[i].name, 22) +
+                 wr_pad_(wr_money_(rows[i].amt), 11) +
+                 wr_pad_('type ' + (rows[i].type || '-'), 24) +
+                 (rows[i].onRoster ? 'on roster' : 'OFF roster'));
+    }
+    Logger.log('');
+  }
+
+  Logger.log('  EVERY ROW IN THE WINDOW');
+  Logger.log('    ' + wr_pad_('DATE', 8) + wr_pad_('AGENT', 22) + wr_pad_('AMOUNT', 11) +
+             wr_pad_('UNIT', 6) + wr_pad_('BATCH', 16) + wr_pad_('FAMILY', 15) +
+             wr_pad_('SEGMENT', 15) + 'ROSTER');
+  for (var j = 0; j < rows.length && j < 80; j++) {
+    Logger.log('    ' + wr_pad_(rows[j].d, 8) + wr_pad_(rows[j].name, 22) +
+               wr_pad_(wr_money_(rows[j].amt), 11) + wr_pad_(rows[j].unit ? 'YES' : '-', 6) +
+               wr_pad_(rows[j].batch, 16) + wr_pad_(rows[j].fam || '(blank)', 15) +
+               wr_pad_(rows[j].seg || '(blank)', 15) +
+               (rows[j].onRoster ? 'on roster' : 'OFF roster'));
+  }
+  if (!rows.length) Logger.log('    nothing is dated inside the window yet.');
+  Logger.log('');
+
+  Logger.log('  WHICH COLUMN NAMES THE PRODUCT?');
+  Logger.log('  (the one whose values are programmes is the one to filter on)');
+  ['Batch', 'Batch Family', 'Segment', 'Payment Type'].forEach(function (label) {
+    var keys = [], k;
+    for (k in vals[label]) keys.push(k);
+    if (!keys.length) { Logger.log('    "' + label + '"  - not in mdl_Payments'); return; }
+    keys.sort(function (a, b) { return vals[label][b] - vals[label][a]; });
+    Logger.log('    "' + label + '"');
+    keys.slice(0, 20).forEach(function (v) {
+      Logger.log('        ' + wr_pad_(v, 30) + wr_pad_(vals[label][v] + ' rows', 10) +
+                 (/accel/i.test(v) ? '  <<< contains "accel"' : ''));
+    });
+  });
+
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
 /** Checks the pure logic. Touches no sheet, writes nothing. */
 function warRoomSelfTest() {
   var fails = 0;
@@ -1312,25 +1483,34 @@ function warRoomSelfTest() {
      These two are the sales the old Batch Family filter was throwing away:
      Fahad Nizar (10,000) and Kshitij (28,500), real Accelerator sales to
      Mastermind-sourced leads, both verified against the Payment Tracker. */
-  var keepEx = WR_CONTEST.excludeProduct;
-  WR_CONTEST.excludeProduct = '';
-  eq('the live rule bars nothing',        WR_CONTEST.excludeProduct, '');
+  var keepEx = WR_CONTEST.excludeProduct, keepOnly = WR_CONTEST.onlyProduct;
+  WR_CONTEST.excludeProduct = ''; WR_CONTEST.onlyProduct = '';
+  eq('the live rule bars nothing',        wr_progFiltering_(), false);
   eq('AIAP counts',                       wr_progMatches_('AIAP C14'), true);
   eq('AI Bootcamp counts too',            wr_progMatches_('AI Bootcamp'), true);
   eq('a Mastermind lead counts',          wr_progMatches_('Mastermind'), true);
-  eq('a Bootcamp lead counts',            wr_progMatches_('Bootcamp'), true);
   eq('an Unattributed lead counts',       wr_progMatches_('Unattributed'), true);
   eq('a blank cell counts',               wr_progMatches_(''), true);
   eq('a null cell counts',                wr_progMatches_(null), true);
   eq('Fahad Nizar 10,000 counts',         wr_progMatches_('AIAP C15'), true);
   eq('Kshitij 28,500 counts',             wr_progMatches_('AIAP C13+'), true);
-  /* and it can still bar a product if a future contest ever needs it */
+
+  /* onlyProduct - "any payments of accelerator" */
+  WR_CONTEST.onlyProduct = 'accel';
+  eq('onlyProduct turns filtering on',    wr_progFiltering_(), true);
+  eq('AI Accelerator counts',             wr_progMatches_('AI Accelerator'), true);
+  eq('accelerator lower case counts',     wr_progMatches_('accelerator c14'), true);
+  eq('Bootcamp is dropped',               wr_progMatches_('AI Bootcamp'), false);
+  eq('Mastermind is dropped',             wr_progMatches_('Mastermind'), false);
+  eq('a blank is dropped when only= is set', wr_progMatches_(''), false);
+  WR_CONTEST.onlyProduct = '';
+
+  /* excludeProduct - bar one product, keep the rest */
   WR_CONTEST.excludeProduct = 'bootcamp';
   eq('excludeProduct bars Bootcamp',      wr_progMatches_('AI Bootcamp'), false);
-  eq('lower case is barred too',          wr_progMatches_('bootcamp'), false);
   eq('and AIAP still counts',             wr_progMatches_('AIAP C14'), true);
   eq('a blank is not the barred product', wr_progMatches_(''), true);
-  WR_CONTEST.excludeProduct = keepEx;
+  WR_CONTEST.excludeProduct = keepEx; WR_CONTEST.onlyProduct = keepOnly;
 
   /* ---- refunds and cancellations ---- */
   eq('Is Refund YES is truthy',    wr_truthy_('YES'), true);

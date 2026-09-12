@@ -37,6 +37,11 @@ html, body {
   width: 100%; height: 100%;
   background: var(--bg);
   overflow: hidden;
+  /* Belt and braces: the stage is a fixed 1920 wide and scaled down, so a
+     browser that decides to inflate small text on a narrow viewport would
+     reflow a layout that is meant to be rigid. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   font-family: 'Archivo', system-ui, -apple-system, sans-serif;
   color: var(--white);
   -webkit-font-smoothing: antialiased;
@@ -47,6 +52,12 @@ html, body {
 #stage {
   position: relative;
   width: 1920px; height: 1080px;
+  /* The stage must stay exactly 1920x1080 and be SCALED to fit. As a flex
+     item it was being shrunk instead: at a 390px viewport it laid out 390px
+     wide, so the design reflowed and overflowed rather than shrinking as a
+     whole. Every screen narrower than 1920 - which is most laptops - was
+     laying out wrong. flex:none stops the shrink; transform does the fitting. */
+  flex: none;
   transform-origin: center center;
   background:
     radial-gradient(1200px 700px at 50% -10%, rgba(194,238,69,0.07), transparent 70%),
@@ -281,9 +292,13 @@ h1.big .accent { color: var(--lime); }
 var Q = new URLSearchParams(location.search);
 
 var CONFIG = {
-  /* The Apps Script Web App /exec URL. Deploy WarRoom.gs, paste the URL here
-     (or pass ?api=... on the TV's URL so you never edit this file again). */
-  API_URL: Q.get('api') || '',
+  /* The feed. Baked in so ONE address works on every screen - TV, desktop,
+     laptop, phone - with nothing to append and nothing to remember:
+         https://outskill-garvit.vercel.app/warroom
+     ?api=<other /exec URL> still overrides it, for testing a second feed
+     without touching this file. */
+  API_URL: Q.get('api') ||
+    'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec?feed=warroom',
 
   REFRESH_SECONDS: +(Q.get('refresh') || 30),   // how often we poll for new data
   ROTATE_SECONDS:  +(Q.get('rotate')  || 13),   // how long each screen is held

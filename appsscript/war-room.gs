@@ -314,6 +314,13 @@ function wr_contest_(pay, roster) {
     programmeFiltered: !!(WR_CONTEST.programme && pay.programmeCol),
     programmeColumnMissing: !!(WR_CONTEST.programme && !pay.programmeCol),
     totalUnits: pay.contestUnits,
+    /* What the window holds before the programme rule is applied. If the
+       rule is throwing away every single unit, that is almost always a
+       filter pointed at the wrong column, not a quiet weekend - and a
+       board frozen at zero during a contest is the worst failure there
+       is, because it looks like nobody is selling. */
+    unfilteredUnits: pay.contestUnfiltered,
+    filterKillsEverything: !!(pay.contestUnits === 0 && pay.contestUnfiltered > 0),
     agents: list.slice(0, WR_MAX_AGENTS)
   };
 }
@@ -384,7 +391,7 @@ function wr_roster_(ss, monthKey) {
 
 function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
-              contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false };
+              contest: {}, contestUnits: 0, contestUnfiltered: 0, contestRows: 0, programmeCol: false };
   var sh = ss.getSheetByName(WR_PAY_TAB);
   if (!sh || sh.getLastRow() < 2) return out;
 
@@ -440,9 +447,10 @@ function wr_payments_(ss, monthKey) {
     if (cFrom) {
       var day = wr_dayNumOf_(d);
       if (day < cFrom || day > cTo) continue;
+      if (!isUnit) continue;                       // the contest counts units only
+      out.contestUnfiltered++;                     // what the window holds before the rule
       if (want && cProg >= 0 &&
           String(row[cProg] || '').toLowerCase().indexOf(want) === -1) continue;
-      if (!isUnit) continue;                       // the contest counts units only
       if (!out.contest[key]) out.contest[key] = { name: name, units: 0, revenue: 0 };
       out.contest[key].units += 1;
       out.contest[key].revenue += wr_num_(row[cAmt]);
@@ -744,7 +752,13 @@ function warRoomPreview() {
   if (p.contest && p.contest.active) {
     Logger.log('');
     Logger.log('  CONTEST: ' + p.contest.name + '   ' + p.contest.from + ' to ' + p.contest.to);
-    Logger.log('    units counted    : ' + p.contest.totalUnits);
+    Logger.log('    units counted    : ' + p.contest.totalUnits +
+               '   (window holds ' + p.contest.unfilteredUnits + ' before the programme rule)');
+    if (p.contest.filterKillsEverything) {
+      Logger.log('    *** the programme rule is discarding EVERY unit in the window.');
+      Logger.log('    *** That is almost certainly the wrong column. Run warRoomColumns');
+      Logger.log('    *** to see which column actually names the programme.');
+    }
     if (p.contest.programmeColumnMissing) {
       Logger.log('    *** WARNING: the contest excludes all but "' + p.contest.programme +
                  '", but mdl_Payments has no programme/product column.');
@@ -771,6 +785,88 @@ function warRoomPreview() {
 }
 
 function wr_pad_(s, n) { s = String(s == null ? '' : s); while (s.length < n) s += ' '; return s; }
+
+/**
+ * warRoomColumns - READ ONLY. Writes nothing.
+ *
+ * Which column actually tells Accelerator from Bootcamp? The contest
+ * filter is only as good as that answer, and guessing it wrong means the
+ * board reads zero all weekend while people are closing.
+ *
+ * Prints every distinct value in each candidate column for this month,
+ * with how many UNITS sit behind each one. Whichever list contains
+ * something like "Accelerator" is the column to filter on - put its
+ * header in WR_PROG_COLS and the matching text in WR_CONTEST.programme.
+ */
+function warRoomColumns() {
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh) { Logger.log('mdl_Payments not found'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+
+  Logger.log('=== WAR ROOM COLUMNS ===  ' + Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm'));
+  Logger.log('  looking at every ' + monthKey + ' row in mdl_Payments');
+  Logger.log('');
+
+  /* the columns that could plausibly name a programme */
+  var want = ['segment', 'batch family', 'batch', 'team', 'payment type', 'status', 'origin month'];
+  var cols = [];
+  for (var w = 0; w < want.length; w++) {
+    if (H[want[w]] !== undefined) cols.push({ name: head[H[want[w]]], idx: H[want[w]] });
+  }
+  if (!cols.length) { Logger.log('  none of the candidate columns exist'); return; }
+
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var tally = {};
+  cols.forEach(function (c) { tally[c.name] = {}; });
+  var monthRows = 0, monthUnits = 0;
+
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (wr_monthKey_(d) !== monthKey) continue;
+    monthRows++;
+    var isUnit = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+    monthUnits += isUnit;
+    cols.forEach(function (c) {
+      var v = wr_str_(grid[r][c.idx]) || '(blank)';
+      if (!tally[c.name][v]) tally[c.name][v] = { rows: 0, units: 0 };
+      tally[c.name][v].rows++;
+      tally[c.name][v].units += isUnit;
+    });
+  }
+
+  Logger.log('  ' + monthRows + ' rows this month, ' + monthUnits + ' of them units');
+  Logger.log('');
+
+  cols.forEach(function (c) {
+    var vals = [], v;
+    for (v in tally[c.name]) vals.push(v);
+    vals.sort(function (a, b) { return tally[c.name][b].units - tally[c.name][a].units; });
+    Logger.log('  COLUMN "' + c.name + '"   ' + vals.length + ' distinct value(s)');
+    vals.slice(0, 25).forEach(function (x) {
+      var hit = /accel/i.test(x) ? '   <<< contains "accel"' : '';
+      Logger.log('     ' + wr_pad_(x, 34) + wr_pad_(tally[c.name][x].units + 'u', 7) +
+                 tally[c.name][x].rows + ' rows' + hit);
+    });
+    if (vals.length > 25) Logger.log('     ... and ' + (vals.length - 25) + ' more');
+    Logger.log('');
+  });
+
+  Logger.log('  HOW TO READ THIS');
+  Logger.log('  Find the column whose values name programmes. If one is marked');
+  Logger.log('  <<< contains "accel" you are already filtering correctly. If the');
+  Logger.log('  right column is NOT the one being used, tell me its header and I');
+  Logger.log('  will point the contest at it.');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
 
 /**
  * warRoomGap - READ ONLY. Writes nothing.

@@ -410,7 +410,8 @@ var SAMPLE = {
    STATE
    ===================================================================== */
 var DATA = null;            // last VALID payload. Never cleared on failure.
-var LAST_OK = 0;            // ms timestamp of last good fetch
+var LAST_OK = 0;            // ms timestamp of last good fetch - is the CONNECTION alive
+var DATA_AT = 0;            // when the feed BUILT these numbers - how old the DATA is
 var USING_SAMPLE = true;
 var FAILS = 0;
 var prevAgentRank = {};     // client-side movement, a fallback if the API omits prevRank
@@ -584,7 +585,17 @@ function applyData(payload, isSample) {
   }
   DATA = normalise(payload);
   USING_SAMPLE = !!isSample;
-  if (!isSample) { LAST_OK = Date.now(); FAILS = 0; }
+  if (!isSample) {
+    LAST_OK = Date.now(); FAILS = 0;
+    /* The feed caches for four minutes, so a fetch that just succeeded can
+       carry numbers built a few minutes ago. Show the age of the NUMBERS,
+       not of the request - otherwise the board claims to be 2 seconds old
+       when it is really 3 minutes old, which is the one thing a leaderboard
+       must not lie about. Server clock, so ignore it if it looks skewed. */
+    var built = n(DATA.meta && DATA.meta.generatedAt);
+    var skew = Math.abs(Date.now() - built);
+    DATA_AT = (built > 0 && skew < 86400000) ? built : LAST_OK;
+  }
   document.getElementById('banner').className = isSample ? 'on' : '';
   document.getElementById('banner').textContent = isSample
     ? (CONFIG.API_URL ? 'Preview data — live feed unreachable' : 'Preview data — set ?api= to go live')
@@ -668,11 +679,17 @@ function paintChrome() {
 function paintLive() {
   var live = document.getElementById('live'), txt = document.getElementById('livetext');
   if (USING_SAMPLE && !CONFIG.API_URL) { live.className = 'down'; txt.innerHTML = '<b>PREVIEW</b>'; return; }
-  var age = LAST_OK ? Math.round((Date.now() - LAST_OK) / 1000) : null;
-  if (age == null)                    { live.className = 'down';  txt.innerHTML = 'connecting…'; }
-  else if (FAILS > 0 && age > CONFIG.REFRESH_SECONDS * 3) { live.className = 'down';  txt.innerHTML = 'reconnecting · last <b>' + fmtAge(age) + '</b>'; }
-  else if (age > CONFIG.REFRESH_SECONDS * 2)              { live.className = 'stale'; txt.innerHTML = 'updated <b>' + fmtAge(age) + '</b>'; }
-  else                                                    { live.className = '';      txt.innerHTML = 'LIVE · updated <b>' + fmtAge(age) + '</b>'; }
+  /* Two different clocks, deliberately. `link` is how long since a request
+     succeeded - it decides whether the board is healthy. `data` is how old
+     the figures themselves are - it is what gets shown, because that is the
+     question anyone standing in front of a leaderboard is actually asking. */
+  var link = LAST_OK ? Math.round((Date.now() - LAST_OK) / 1000) : null;
+  var data = DATA_AT ? Math.round((Date.now() - DATA_AT) / 1000) : link;
+
+  if (link == null)                  { live.className = 'down';  txt.innerHTML = 'connecting…'; }
+  else if (FAILS > 0 && link > CONFIG.REFRESH_SECONDS * 3) { live.className = 'down';  txt.innerHTML = 'reconnecting &middot; data <b>' + fmtAge(data) + '</b>'; }
+  else if (data > 900)                                     { live.className = 'stale'; txt.innerHTML = 'data <b>' + fmtAge(data) + '</b>'; }
+  else                                                     { live.className = '';      txt.innerHTML = 'LIVE &middot; data <b>' + fmtAge(data) + '</b>'; }
 }
 function fmtAge(s) {
   if (s < 60) return s + 's ago';

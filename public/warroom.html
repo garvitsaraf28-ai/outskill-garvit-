@@ -549,15 +549,20 @@ function stateScreen(kind) {
               esc(CONFIG.API_URL) + '</div>' }
     : { k: 'Cannot reach the feed',
         line: 'NO <span class="accent">DATA</span> YET',
-        note: 'The feed has not answered. Open the address below in a browser tab: ' +
-              'if it shows the Executive Command Center instead of data, the routing ' +
-              'line is missing from doGet. If it asks you to sign in, access is not ' +
-              'set to <b>Anyone</b>.' +
-              '<div style="margin-top:18px;font-family:\'Space Mono\',monospace;font-size:17px;' +
-              'color:var(--gold);word-break:break-all;line-height:1.5;max-width:1500px">' +
-              esc(CONFIG.API_URL) + '</div>' +
-              '<div style="margin-top:14px;font-size:18px">Retrying every ' +
-              Math.max(10, CONFIG.REFRESH_SECONDS) + ' seconds. Attempt ' + FAILS + '.</div>' };
+        note: '<b>Click the address below.</b> What it shows names the fault: the ' +
+              'Executive Command Center means the routing line is missing from doGet; ' +
+              'a Google sign-in means access is not set to <b>Anyone</b>; ' +
+              '"Script function not found" means the deployment is on an old version.' +
+              '<div style="margin-top:18px"><a href="' + esc(CONFIG.API_URL) + '" target="_blank" ' +
+              'rel="noopener" style="font-family:\'Space Mono\',monospace;font-size:17px;' +
+              'color:var(--gold);word-break:break-all;line-height:1.5;max-width:1500px;' +
+              'display:inline-block;text-decoration:underline">' +
+              esc(CONFIG.API_URL) + '</a></div>' +
+              '<div style="margin-top:14px;font-size:18px">' +
+              (FAILS > 0
+                 ? ('No answer after ' + FAILS + ' attempt' + (FAILS === 1 ? '' : 's') + '. Retrying every ')
+                 : 'Trying now, then every ') +
+              Math.max(10, CONFIG.REFRESH_SECONDS) + ' seconds.</div>' };
 
   var host = document.getElementById('screens');
   host.innerHTML = '';

@@ -463,7 +463,10 @@ function loadData() {
   var url = CONFIG.API_URL + (CONFIG.API_URL.indexOf('?') > -1 ? '&' : '?') +
             'callback=' + cb + '&t=' + Date.now();
 
-  var timer = setTimeout(function () { if (!done) { cleanup(); fail(); } }, 15000);
+  /* A cold build on the real workbook takes ~14s (tens of thousands of
+     payment rows). Most polls hit the feed's cache and come back instantly,
+     but the one that rebuilds must not be cut off at the knees. */
+  var timer = setTimeout(function () { if (!done) { cleanup(); fail(); } }, 30000);
 
   window[cb] = function (payload) {
     done = true; clearTimeout(timer); cleanup();
@@ -652,10 +655,6 @@ function scOverall() {
     '<div class="stat"><div class="lbl">Units closed</div><div class="val sm" data-count="' + t.units + '" data-fmt="int">0</div></div>' +
     '<div class="stat"><div class="lbl">Remaining to target</div><div class="val sm">' + money(rem) + '</div><div class="foot">' + (DATA.meta.days ? 'day ' + DATA.meta.day + ' of ' + DATA.meta.days : '') + '</div></div>' +
   '</div>' +
-  (n(t.unassigned) > 0
-    ? '<div style="font-size:15px;color:var(--dim);margin-top:12px">' + money(t.unassigned) +
-      ' of this is paid by names not on the month\'s roster, so it sits in the company total but in no city or manager board below.</div>'
-    : '') +
   '<div class="bar" style="margin:24px 0 26px"><i data-w="' + Math.min(100, a) + '"></i></div>' +
   '<div class="eyebrow" style="margin-bottom:14px">City championship</div>' +
   '<div class="podium" style="flex:1">' + podium + '</div>';

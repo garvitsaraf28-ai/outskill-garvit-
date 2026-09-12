@@ -13,6 +13,14 @@
  *   The only thing it stores is a small daily rank snapshot, and that lives
  *   in Script Properties, not on the sheet.
  *
+ * ONE THING TO CHECK BEFORE YOU PASTE IT IN
+ *   Apps Script allows only ONE doGet in a project. If the Inside Sales
+ *   project already has a doGet somewhere, this file will clash with it and
+ *   the existing web app will stop working. To check: Edit > Find, search
+ *   the project for "function doGet". If one already exists, do NOT paste
+ *   this file in. Tell me and I will wire the war room into the doGet you
+ *   already have instead. If there is no match, you are clear.
+ *
  * HOW TO PUBLISH
  *   1. Paste this file into the Inside Sales script project (new file,
  *      name it WarRoom).
@@ -83,6 +91,7 @@ function doGet(e) {
    ===================================================================== */
 
 function wr_build_(monthKey) {
+  var t0 = new Date().getTime();
   var ss = SpreadsheetApp.getActive();
   var now = new Date();
   if (!monthKey) monthKey = Utilities.formatDate(now, WR_TZ, 'yyyy-MM');
@@ -195,7 +204,8 @@ function wr_build_(monthKey) {
       windowLabel: isCurrentMonth ? ('MTD 1-' + day) : 'full month',
       generatedAt: now.getTime(),
       generatedLabel: Utilities.formatDate(now, WR_TZ, 'dd MMM HH:mm') + ' IST',
-      rows: pay.rowsScanned
+      rows: pay.rowsScanned,
+      buildMs: new Date().getTime() - t0
     },
     totals: {
       revenue:     rosterRev + offRosterRev,   // what leadership quotes
@@ -286,9 +296,15 @@ function wr_payments_(ss, monthKey) {
   var sh = ss.getSheetByName(WR_PAY_TAB);
   if (!sh || sh.getLastRow() < 2) return out;
 
-  var grid = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
-  var H = wr_headers_(grid[0]);
-  out.headers = grid[0];
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+
+  /* Read the header alone first, work out which columns matter, then pull
+     only those. mdl_Payments can be tens of thousands of rows; fetching the
+     full width of every one of them is the difference between a feed that
+     answers in two seconds and one the TV gives up waiting for. */
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  out.headers = head;
 
   var cDate  = wr_col_(H, ['date', 'payment date', 'paid on']);
   var cAgent = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
@@ -299,7 +315,10 @@ function wr_payments_(ss, monthKey) {
 
   if (cDate < 0 || cAgent < 0 || cAmt < 0) return out;
 
-  for (var r = 1; r < grid.length; r++) {
+  var width = Math.max(cDate, cAgent, cAmt, cUnit, cRost) + 1;
+  var grid = sh.getRange(2, 1, lastRow - 1, width).getValues();
+
+  for (var r = 0; r < grid.length; r++) {
     var row = grid[r];
     var rowMonth = wr_monthKey_(row[cDate]);
     if (rowMonth !== monthKey) continue;
@@ -526,6 +545,7 @@ function warRoomPreview() {
   Logger.log('=== WAR ROOM FEED PREVIEW ===  ' + p.meta.generatedLabel);
   Logger.log('  month              : ' + p.meta.month + '  (' + p.meta.windowLabel + ')');
   Logger.log('  payment rows in it : ' + p.meta.rows);
+  Logger.log('  build took         : ' + p.meta.buildMs + ' ms   (cached ' + WR_CACHE_SECS + 's between TV polls)');
   Logger.log('');
   Logger.log('  COMPANY');
   Logger.log('    revenue (all)    : ' + wr_money_(p.totals.revenue));

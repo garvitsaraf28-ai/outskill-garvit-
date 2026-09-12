@@ -525,9 +525,15 @@ function stateScreen(kind) {
               '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
     : { k: 'Cannot reach the feed',
         line: 'NO <span class="accent">DATA</span> YET',
-        note: 'The leaderboard feed has not answered. Check the web app is deployed ' +
-              'with access set to <b>Anyone</b>, on a <b>New version</b>.<br>Retrying every ' +
-              Math.max(10, CONFIG.REFRESH_SECONDS) + ' seconds.' };
+        note: 'The feed has not answered. Open the address below in a browser tab: ' +
+              'if it shows the Executive Command Center instead of data, the routing ' +
+              'line is missing from doGet. If it asks you to sign in, access is not ' +
+              'set to <b>Anyone</b>.' +
+              '<div style="margin-top:18px;font-family:\'Space Mono\',monospace;font-size:17px;' +
+              'color:var(--gold);word-break:break-all;line-height:1.5;max-width:1500px">' +
+              esc(CONFIG.API_URL) + '</div>' +
+              '<div style="margin-top:14px;font-size:18px">Retrying every ' +
+              Math.max(10, CONFIG.REFRESH_SECONDS) + ' seconds. Attempt ' + FAILS + '.</div>' };
 
   var host = document.getElementById('screens');
   host.innerHTML = '';

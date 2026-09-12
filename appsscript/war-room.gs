@@ -62,27 +62,53 @@ var WR_TZ         = 'Asia/Kolkata';
    figures only move when updateAndCheck runs. */
 var WR_CACHE_SECS = 240;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
+var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp column
 
 /* ---------------------------------------------------------------------
    THE RUNNING CONTEST
 
-   A contest counts UNITS over a few days, not revenue over a month, so
-   it needs its own window. Set the dates, save, and the TV picks it up
-   within four minutes. Set active:false when it is over.
+   A contest counts UNITS over a few days, not revenue over a month, so it
+   needs its own window. Set the dates, save, and the TV picks it up within
+   four minutes. Set active:false when it is over.
 
-   programme: only rows whose programme/product cell contains this text
-   are counted, so "accel" keeps Accelerator sales and drops Bootcamp.
-   Leave it '' to count every unit. If the model has no programme column
-   the feed says so, on screen and in warRoomPreview, rather than quietly
-   counting things the contest excludes.
+   THE RULE IS: A UNIT IS A UNIT.
+
+   Every unit a roster agent closes inside the window counts. Where the LEAD
+   came from is irrelevant - a Mastermind lead or a Bootcamp lead who buys is
+   still a unit, and the agent still earns it. That is the whole rule, and it
+   needs no column to enforce.
+
+   This is written down because filtering it cost real sales. "Batch Family"
+   in mdl_Payments is the lead's SOURCE CAMPAIGN, not the product. Filtering
+   on it threw away Fahad Nizar (10,000) and Kshitij (28,500) - both units,
+   both on roster, both verified against the Payment Tracker.
+
+   excludeProduct exists only for a future contest that genuinely bars a
+   product. Leave it '' and nothing whatsoever is filtered.
    --------------------------------------------------------------------- */
 var WR_CONTEST = {
-  active:    true,
-  name:      'THE UNIT RUSH',
-  from:      '2026-09-12',     // inclusive, Asia/Kolkata
-  to:        '2026-09-14',     // inclusive
-  programme: 'accel'
+  active: true,
+  name:   'THE UNIT RUSH',
+  from:   '2026-09-12',     // inclusive, Asia/Kolkata
+  to:     '2026-09-14',     // inclusive
+
+  /* '' = count every unit. This is the live setting. */
+  excludeProduct: '',
+
+  /* Which column names the PRODUCT, if excludeProduct is ever used. Only
+     read when excludeProduct is non-empty, so it cannot lose a row today.
+     mdl_Payments does not carry it yet; the Payment Tracker calls it
+     "Program" (AIAP C14, AI Bootcamp, EAP C10). */
+  productColumn: 'program'
 };
+
+/* Does one row qualify? With excludeProduct empty - the live rule - yes,
+   always. A unit is a unit. */
+function wr_progMatches_(cell) {
+  var bad = String(WR_CONTEST.excludeProduct || '').toLowerCase();
+  if (!bad) return true;
+  return String(cell == null ? '' : cell).toLowerCase().indexOf(bad) === -1;
+}
 
 /* =====================================================================
    WEB APP ENTRY POINT
@@ -136,6 +162,7 @@ function wr_build_(monthKey) {
   if (!monthKey) monthKey = Utilities.formatDate(now, WR_TZ, 'yyyy-MM');
 
   var roster = wr_roster_(ss, monthKey);
+  WR_HAS_MM = roster.mmCol;   // gates every per-man-month figure below
   var pay    = wr_payments_(ss, monthKey);
 
   /* ---- fold payments onto roster agents ---- */
@@ -146,7 +173,8 @@ function wr_build_(monthKey) {
     var r = roster.byAgent[k];
     agents[k] = {
       name: r.name, manager: r.manager, city: r.city, team: r.team,
-      target: r.target, revenue: 0, units: 0
+      target: r.target, revenue: 0, units: 0,
+      mm: r.mm, upgrade: r.upgrade, counted: (r.mm > 0) ? 1 : 0
     };
   }
 
@@ -172,30 +200,37 @@ function wr_build_(monthKey) {
     agentList.push(a);
 
     var cName = a.city || 'Unassigned';
-    if (!cities[cName]) cities[cName] = { name: cName, revenue: 0, units: 0, target: 0, agents: 0 };
+    if (!cities[cName]) cities[cName] = { name: cName, revenue: 0, units: 0, target: 0, agents: 0, mm: 0, counted: 0 };
     cities[cName].revenue += a.revenue;
     cities[cName].units   += a.units;
     cities[cName].target  += a.target;
     cities[cName].agents  += 1;
+    cities[cName].mm      += a.mm;
+    cities[cName].counted += a.counted;
 
     var mName = a.manager || 'Unassigned';
     if (!managers[mName]) managers[mName] = {
       name: mName, city: a.city, team: a.team,
-      revenue: 0, units: 0, target: 0, agents: 0, _teams: {}, _cities: {}
+      revenue: 0, units: 0, target: 0, agents: 0, mm: 0, counted: 0,
+      _teams: {}, _cities: {}
     };
     managers[mName].revenue += a.revenue;
     managers[mName].units   += a.units;
     managers[mName].target  += a.target;
     managers[mName].agents  += 1;
+    managers[mName].mm      += a.mm;
+    managers[mName].counted += a.counted;
     if (a.team) managers[mName]._teams[a.team] = true;
     if (a.city) managers[mName]._cities[a.city] = true;
 
     var tName = a.team || 'Unassigned';
-    if (!teams[tName]) teams[tName] = { name: tName, revenue: 0, units: 0, target: 0, agents: 0 };
+    if (!teams[tName]) teams[tName] = { name: tName, revenue: 0, units: 0, target: 0, agents: 0, mm: 0, counted: 0 };
     teams[tName].revenue += a.revenue;
     teams[tName].units   += a.units;
     teams[tName].target  += a.target;
     teams[tName].agents  += 1;
+    teams[tName].mm      += a.mm;
+    teams[tName].counted += a.counted;
   }
 
   /* a manager who runs both desks should say so, not pick one at random */
@@ -221,11 +256,13 @@ function wr_build_(monthKey) {
   }
 
   /* ---- totals ---- */
-  var rosterRev = 0, rosterUnits = 0, target = 0;
+  var rosterRev = 0, rosterUnits = 0, target = 0, manMonths = 0, countedAgents = 0;
   for (var c = 0; c < cityList.length; c++) {
-    rosterRev   += cityList[c].revenue;
-    rosterUnits += cityList[c].units;
-    target      += cityList[c].target;
+    rosterRev     += cityList[c].revenue;
+    rosterUnits   += cityList[c].units;
+    target        += cityList[c].target;
+    manMonths     += cityList[c].mm;
+    countedAgents += cityList[c].counted;
   }
 
   var day  = Number(Utilities.formatDate(now, WR_TZ, 'd'));
@@ -260,6 +297,11 @@ function wr_build_(monthKey) {
       units:       rosterUnits,
       target:      target,
       agents:      agentList.length,
+      counted:     countedAgents,        // agents whose man-month is above zero
+      manMonths:   Math.round(manMonths * 100) / 100,
+      upgrade:     wr_r2_(roster.upgrade),
+      hasManMonth: roster.mmCol,
+      hasUpgrade:  roster.upCol,
       offRoster:      offRosterRev,      // diagnostics only, never rendered
       offRosterUnits: offRosterUnits
     },
@@ -270,11 +312,12 @@ function wr_build_(monthKey) {
       return {
         name: a.name, manager: a.manager, city: a.city, team: a.team,
         revenue: wr_r2_(a.revenue), units: a.units,
-        target: wr_r2_(a.target), prevRank: a.prevRank
+        target: wr_r2_(a.target), prevRank: a.prevRank,
+        mm: a.mm, counted: a.counted
       };
     }),
     contest: wr_contest_(pay, roster),
-    notes: wr_notes_(roster, pay, offRosterNames, offRosterRev)
+    notes: wr_notes_(roster, pay, offRosterNames, offRosterRev, mgrList)
   };
 }
 
@@ -285,14 +328,26 @@ function wr_build_(monthKey) {
 function wr_contest_(pay, roster) {
   if (!WR_CONTEST.active) return { active: false };
 
-  var list = [], k;
+  /* The contest is for the sales floor, so it counts the same people the
+     month board counts: names on THIS month's mdl_Roster. Anyone else -
+     Mastermind, Anjali, Pratham and the other business lines - is off the
+     revenue board already, and must be off the contest board too, or the
+     two screens disagree about who sold what on the same day. Their units
+     are kept separately so the number is visible, never silently dropped. */
+  var list = [], k, units = 0, offUnits = 0, offNames = {};
   for (k in pay.contest) {
     var c = pay.contest[k];
     var r = roster.byAgent[k];
+    if (!r) {
+      offUnits += c.units;
+      offNames[c.name] = (offNames[c.name] || 0) + c.units;
+      continue;
+    }
+    units += c.units;
     list.push({
       name: c.name,
-      manager: r ? r.manager : '',
-      city:    r ? r.city    : '',
+      manager: r.manager,
+      city:    r.city,
       units:   c.units,
       revenue: wr_r2_(c.revenue)
     });
@@ -307,13 +362,21 @@ function wr_contest_(pay, roster) {
     name: WR_CONTEST.name,
     from: WR_CONTEST.from,
     to: WR_CONTEST.to,
-    programme: WR_CONTEST.programme || '',
-    /* If the contest excludes a programme but the model has no programme
-       column, every unit is being counted. Say so rather than let a board
-       quietly pay out on sales the rules exclude. */
-    programmeFiltered: !!(WR_CONTEST.programme && pay.programmeCol),
-    programmeColumnMissing: !!(WR_CONTEST.programme && !pay.programmeCol),
-    totalUnits: pay.contestUnits,
+    /* These four keys are what the TV reads. With excludeProduct empty -
+       the live rule - all of them are false or blank and nothing is hidden
+       from the board. They exist so that if a future contest ever does bar
+       a product, a filter that silently keeps nothing announces itself
+       instead of running a whole weekend showing zero. */
+    programme: WR_CONTEST.excludeProduct || '',
+    programmeFiltered: !!(WR_CONTEST.excludeProduct && pay.programmeCol),
+    programmeColumnMissing: !!(WR_CONTEST.excludeProduct && !pay.programmeCol),
+    programmeMatchedNothing: !!(WR_CONTEST.excludeProduct && pay.programmeCol &&
+                                pay.contestWindowRows > 0 && pay.contestProgMatched === 0),
+    windowRows: pay.contestWindowRows,
+    matchedRows: pay.contestProgMatched,
+    totalUnits: units,                 // roster agents only - what the TV shows
+    offRosterUnits: offUnits,          // diagnostics, never rendered
+    offRosterNames: offNames,
     agents: list.slice(0, WR_MAX_AGENTS)
   };
 }
@@ -322,7 +385,12 @@ function wr_slim_(x) {
   return {
     name: x.name, city: x.city, team: x.team,
     revenue: wr_r2_(x.revenue), units: x.units,
-    target: wr_r2_(x.target), agents: x.agents
+    target: wr_r2_(x.target), agents: x.agents,
+    counted: x.counted, mm: Math.round((x.mm || 0) * 100) / 100,
+    /* Revenue per man-month, the fair read when half a team is new. Null
+       unless a real ramp column was found - a figure computed off raw
+       headcount would look like capacity and would not be. */
+    revPerMM: (WR_HAS_MM && x.mm > 0) ? wr_r2_(x.revenue / x.mm) : null
   };
 }
 
@@ -331,7 +399,8 @@ function wr_slim_(x) {
    ===================================================================== */
 
 function wr_roster_(ss, monthKey) {
-  var out = { byAgent: {}, count: 0, monthsSeen: {}, headers: [] };
+  var out = { byAgent: {}, count: 0, counted: 0, manMonths: 0, upgrade: 0,
+              mmCol: false, upCol: false, monthsSeen: {}, headers: [] };
   var sh = ss.getSheetByName(WR_ROSTER_TAB);
   if (!sh || sh.getLastRow() < 2) return out;
 
@@ -345,6 +414,12 @@ function wr_roster_(ss, monthKey) {
   var cTeam   = wr_col_(H, ['team', 'segment', 'source', 'desk']);
   var cTarget = wr_col_(H, ['target', 'monthly target', 'target amount']);
   var cMonth  = wr_monthCol_(grid);
+  /* Capacity and upgrade revenue, both optional. If the columns are not
+     carried through from CBC the board simply omits them and says so. */
+  var cMM     = wr_manMonthCol_(grid, cAgent);
+  var cUp     = wr_col_(H, ['aigf upgrade', 'upgrade', 'aigf', 'catalyst']);
+  out.mmCol = cMM >= 0;
+  out.upCol = cUp >= 0;
 
   if (cAgent < 0) return out;
 
@@ -366,16 +441,54 @@ function wr_roster_(ss, monthKey) {
       out.byAgent[key].target = Math.max(out.byAgent[key].target, wr_num_(row[cTarget]));
       continue;
     }
+    /* No ramp column: every agent counts as one. The feed says so in its
+       notes and hasManMonth stays false, so nothing renders a fake capacity. */
+    var mm = (cMM >= 0) ? wr_num_(row[cMM]) : 1;
     out.byAgent[key] = {
       name:    name,
       manager: mgrRaw,
       city:    wr_city_(cityRaw),
       team:    cTeam   >= 0 ? wr_team_(wr_str_(row[cTeam])) : '',
-      target:  cTarget >= 0 ? wr_num_(row[cTarget])         : 0
+      target:  cTarget >= 0 ? wr_num_(row[cTarget])         : 0,
+      mm:      mm,
+      upgrade: (cUp >= 0) ? wr_num_(row[cUp]) : 0
     };
     out.count++;
+    out.manMonths += mm;
+    out.upgrade   += out.byAgent[key].upgrade;
+    if (mm > 0) out.counted++;
   }
   return out;
+}
+
+/* THE CAPACITY COLUMN.
+
+   The business does not count every name as a whole agent. A joiner's
+   first month counts 0, the next 0.5, then 0.75, and 1.0 from the third.
+   CBC records that factor in a column that carries NO HEADER and sits in
+   a different place on different month layouts, so it cannot be found by
+   name. It is found by its values instead: the one column whose agent
+   rows are made of 0.5 / 0.75 / 1.0.
+
+   It matters because per-head numbers are misleading without it. A team
+   of thirteen where six are new is not a team of thirteen. */
+function wr_manMonthCol_(grid, cAgent) {
+  var rows = [];
+  for (var r = 1; r < grid.length && rows.length < 400; r++) {
+    if (cAgent >= 0 && wr_str_(grid[r][cAgent])) rows.push(r);
+  }
+  if (rows.length < 4) return -1;
+
+  var best = -1, bestHits = 0;
+  for (var c = 0; c < grid[0].length; c++) {
+    var hits = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var v = Number(grid[rows[i]][c]);
+      if (v === 0.5 || v === 0.75 || v === 1) hits++;
+    }
+    if (hits >= rows.length * 0.5 && hits > bestHits) { bestHits = hits; best = c; }
+  }
+  return best;
 }
 
 /* =====================================================================
@@ -384,7 +497,10 @@ function wr_roster_(ss, monthKey) {
 
 function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
-              contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false };
+              contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
+              contestWindowRows: 0, contestProgMatched: 0, progSamples: {},
+              refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
+              upgradeRows: 0, upgradeAmount: 0 };
   var sh = ss.getSheetByName(WR_PAY_TAB);
   if (!sh || sh.getLastRow() < 2) return out;
 
@@ -403,19 +519,28 @@ function wr_payments_(ss, monthKey) {
   var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
   var cUnit  = wr_col_(H, ['is unit', 'unit', 'units']);
   var cRost  = wr_col_(H, ['on roster', 'onroster', 'roster']);
-  var cProg  = wr_col_(H, ['programme', 'program', 'product', 'course', 'offering', 'segment']);
+  /* Only looked up when the contest actually bars a product. The live rule
+     bars nothing, so cProg stays -1, no product column is read, and no row
+     can be lost to a filter. No fuzzy fallback either: guessing once landed
+     on "Batch Family", which is the lead's source campaign and not the
+     product, and threw away real sales. */
+  var cProg  = (WR_CONTEST.excludeProduct && WR_CONTEST.productColumn)
+                 ? wr_col_(H, [String(WR_CONTEST.productColumn).toLowerCase()])
+                 : -1;
+  var cRef   = wr_col_(H, ['is refund', 'refund']);
+  var cType  = wr_col_(H, ['payment type']);
+  var cStat  = wr_col_(H, ['status']);
   if (cRost < 0) out.noRosterCol = true;
   out.programmeCol = cProg >= 0;
 
   if (cDate < 0 || cAgent < 0 || cAmt < 0) return out;
 
-  var width = Math.max(cDate, cAgent, cAmt, cUnit, cRost, cProg) + 1;
+  var width = Math.max(cDate, cAgent, cAmt, cUnit, cRost, cProg, cRef, cStat, cType) + 1;
   var grid = sh.getRange(2, 1, lastRow - 1, width).getValues();
 
   /* the contest window, as day numbers so the comparison is a plain integer */
   var cFrom = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
   var cTo   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
-  var want  = String(WR_CONTEST.programme || '').toLowerCase();
 
   for (var r = 0; r < grid.length; r++) {
     var row = grid[r];
@@ -427,8 +552,24 @@ function wr_payments_(ss, monthKey) {
     var key = wr_key_(name);
     var isUnit = (cUnit >= 0 && wr_truthy_(row[cUnit]));
 
+    /* Money that came back is not money earned. mdl_Payments carries both
+       "Is Refund" and a "Status" that says CANCELLED, and neither was being
+       read - so a refunded payment lifted the board exactly like a sale. */
+    var isRefund  = (cRef >= 0 && wr_truthy_(row[cRef]));
+    var statusTxt = (cStat >= 0) ? String(row[cStat] || '').trim().toLowerCase() : '';
+    var isCancel  = (statusTxt.indexOf('cancel') > -1);
+    var thisMonth = (wr_monthKey_(d) === monthKey);
+    if (thisMonth && cType >= 0 &&
+        String(row[cType] || '').toLowerCase().indexOf('upgrade') > -1) {
+      out.upgradeRows++; out.upgradeAmount += wr_num_(row[cAmt]);
+    }
+
+    if (thisMonth && isRefund) { out.refundRows++;    out.refundAmount    += wr_num_(row[cAmt]); }
+    if (thisMonth && isCancel) { out.cancelledRows++; out.cancelledAmount += wr_num_(row[cAmt]); }
+    if (isRefund || isCancel) continue;
+
     /* --- the month-to-date boards --- */
-    if (wr_monthKey_(d) === monthKey) {
+    if (thisMonth) {
       out.rowsScanned++;
       if (!out.byAgent[key]) out.byAgent[key] = { name: name, revenue: 0, units: 0 };
       out.byAgent[key].revenue += wr_num_(row[cAmt]);
@@ -440,8 +581,18 @@ function wr_payments_(ss, monthKey) {
     if (cFrom) {
       var day = wr_dayNumOf_(d);
       if (day < cFrom || day > cTo) continue;
-      if (want && cProg >= 0 &&
-          String(row[cProg] || '').toLowerCase().indexOf(want) === -1) continue;
+      out.contestWindowRows++;
+
+      /* Skipped entirely on the live rule, because cProg is -1 unless a
+         contest bars a product. Judge the RAW cell when it does run:
+         '(blank)' is only a label for the log. */
+      if (cProg >= 0) {
+        var raw = wr_str_(row[cProg]);
+        var label = raw || '(blank)';
+        out.progSamples[label] = (out.progSamples[label] || 0) + 1;
+        if (!wr_progMatches_(raw)) continue;
+      }
+      out.contestProgMatched++;                    // == windowRows when nothing is barred
       if (!isUnit) continue;                       // the contest counts units only
       if (!out.contest[key]) out.contest[key] = { name: name, units: 0, revenue: 0 };
       out.contest[key].units += 1;
@@ -502,8 +653,37 @@ function warRoomResetMovement() {
    NOTES - anything the TV should be honest about
    ===================================================================== */
 
-function wr_notes_(roster, pay, offNames, offRev) {
+function wr_notes_(roster, pay, offNames, offRev, mgrList) {
   var notes = [];
+  if (pay.refundRows) {
+    notes.push(pay.refundRows + ' refunded row(s) worth ' + wr_money_(pay.refundAmount) +
+               ' were excluded from revenue.');
+  }
+  if (pay.cancelledRows) {
+    notes.push(pay.cancelledRows + ' cancelled row(s) worth ' + wr_money_(pay.cancelledAmount) +
+               ' were excluded from revenue.');
+  }
+  if (!roster.mmCol) {
+    notes.push('mdl_Roster carries no capacity (man-month) column, so per-head figures ' +
+               'divide by raw headcount and a team of new joiners looks like a full team.');
+  }
+  /* The AIGF upgrade DOES reach mdl_Payments - it arrives as its own row,
+     Batch "Upgrade", Payment Type "Upgrade (CBC)" - so it is already inside
+     these totals. An earlier version of this file claimed otherwise. */
+  if (pay.upgradeRows) {
+    notes.push(pay.upgradeRows + ' AIGF upgrade row(s) worth ' + wr_money_(pay.upgradeAmount) +
+               ' are included in revenue. They carry no unit, so they win no contest.');
+  }
+  if (mgrList) {
+    var zero = [];
+    for (var i = 0; i < mgrList.length; i++) {
+      if (mgrList[i].agents > 0 && !mgrList[i].target) zero.push(mgrList[i].name);
+    }
+    if (zero.length) {
+      notes.push('No target is set for ' + zero.join(', ') +
+                 ' - their teams are on the boards but cannot appear in any target race.');
+    }
+  }
   if (!roster.count) notes.push('mdl_Roster has no rows for this month - targets and cities are missing.');
   if (!pay.rowsScanned) notes.push('mdl_Payments has no rows dated in this month.');
   if (pay.noRosterCol) notes.push('mdl_Payments has no "On Roster" column - every payment row was counted.');
@@ -714,7 +894,18 @@ function warRoomPreview() {
   Logger.log('    target           : ' + wr_money_(p.totals.target) +
              '        (report: Committed For)');
   Logger.log('    units            : ' + p.totals.units + '        (report: Units)');
-  Logger.log('    agents           : ' + p.totals.agents);
+  Logger.log('    agents           : ' + p.totals.agents +
+             (p.totals.hasManMonth
+                ? ('   of which counted: ' + p.totals.counted +
+                   '   capacity: ' + p.totals.manMonths + ' man-months')
+                : '   (no capacity column found - see NOTES)'));
+  if (p.totals.hasManMonth && p.totals.manMonths > 0) {
+    Logger.log('    revenue / man-mth: ' + wr_money_(p.totals.revenue / p.totals.manMonths) +
+               '        <-- the fair per-head read');
+  }
+  if (p.totals.hasUpgrade) {
+    Logger.log('    AIGF upgrade     : ' + wr_money_(p.totals.upgrade) + ' (included)');
+  }
   Logger.log('');
   Logger.log('    off roster       : ' + wr_money_(p.totals.offRoster) + ' in ' +
              p.totals.offRosterUnits + ' units - NOT on the TV, listed under NOTES below');
@@ -733,7 +924,12 @@ function warRoomPreview() {
   Logger.log('  MANAGERS');
   p.managers.forEach(function (m) {
     Logger.log('    ' + wr_pad_(m.name, 20) + wr_pad_(m.city, 14) + wr_pad_(m.team, 14) +
-               wr_pad_(wr_money_(m.revenue), 12) + 'target ' + wr_money_(m.target));
+               wr_pad_(wr_money_(m.revenue), 12) +
+               wr_pad_('target ' + wr_money_(m.target), 18) +
+               (m.revPerMM != null
+                  ? (wr_pad_(m.counted + '/' + m.agents + ' counted', 16) +
+                     wr_pad_(m.mm + ' mm', 9) + wr_money_(m.revPerMM) + ' per mm')
+                  : wr_pad_(m.agents + ' agents', 16)));
   });
   Logger.log('');
   Logger.log('  TOP 10 AGENTS');
@@ -744,14 +940,28 @@ function warRoomPreview() {
   if (p.contest && p.contest.active) {
     Logger.log('');
     Logger.log('  CONTEST: ' + p.contest.name + '   ' + p.contest.from + ' to ' + p.contest.to);
-    Logger.log('    units counted    : ' + p.contest.totalUnits);
-    if (p.contest.programmeColumnMissing) {
-      Logger.log('    *** WARNING: the contest excludes all but "' + p.contest.programme +
-                 '", but mdl_Payments has no programme/product column.');
-      Logger.log('    *** EVERY unit is being counted, including the ones the rules exclude.');
-      Logger.log('    *** Add the column, or set WR_CONTEST.programme to \'\' and judge by hand.');
-    } else if (p.contest.programmeFiltered) {
-      Logger.log('    filtered to      : programme contains "' + p.contest.programme + '"');
+    Logger.log('    rows in window   : ' + p.contest.windowRows);
+    Logger.log('    units counted    : ' + p.contest.totalUnits + '   (roster agents)');
+    if (p.contest.offRosterUnits) {
+      var offList = [];
+      for (var on in p.contest.offRosterNames) {
+        offList.push(on + ' ' + p.contest.offRosterNames[on] + 'u');
+      }
+      Logger.log('    off roster       : ' + p.contest.offRosterUnits +
+                 ' more units NOT on the board - ' + offList.join(', '));
+    }
+    if (!p.contest.programme) {
+      Logger.log('    rule             : every unit a roster agent closes counts.');
+    } else if (p.contest.programmeMatchedNothing) {
+      Logger.log('    *** THE PRODUCT FILTER IS KEEPING NOTHING ***');
+      Logger.log('    *** ' + p.contest.windowRows + ' rows are dated inside the window and');
+      Logger.log('    *** excludeProduct "' + p.contest.programme + '" dropped every one.');
+      Logger.log('    *** Set WR_CONTEST.excludeProduct back to \'\' to count every unit.');
+    } else if (p.contest.programmeColumnMissing) {
+      Logger.log('    *** excludeProduct is "' + p.contest.programme + '" but mdl_Payments');
+      Logger.log('    *** has no "' + WR_CONTEST.productColumn + '" column, so nothing is filtered.');
+    } else {
+      Logger.log('    rule             : every unit EXCEPT "' + p.contest.programme + '"');
     }
     p.contest.agents.slice(0, 10).forEach(function (a, i) {
       Logger.log('    ' + wr_pad_((i + 1) + '.', 5) + wr_pad_(a.name, 24) +
@@ -802,6 +1012,7 @@ function warRoomGap() {
 
   var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var roster = wr_roster_(ss, monthKey);
+  WR_HAS_MM = roster.mmCol;   // gates every per-man-month figure below
 
   var onRev = 0, onUnits = 0, offRev = 0, offUnits = 0, off = {};
   var latest = null, monthRows = 0, byDay = {};
@@ -872,6 +1083,126 @@ function warRoomGap() {
 
   Logger.log('');
   Logger.log('  Nothing was written. This only reports.');
+}
+
+/**
+ * warRoomContestCheck - READ ONLY. Writes nothing.
+ *
+ * Prints every distinct programme value inside the contest window with its
+ * row count, and says plainly whether the filter keeps any of them. Run it
+ * once whenever a contest starts, and the "it showed zero all weekend"
+ * failure cannot happen quietly.
+ */
+function warRoomContestCheck() {
+  var ss = SpreadsheetApp.getActive();
+  var pay = wr_payments_(ss, Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM'));
+
+  Logger.log('=== CONTEST CHECK ===  ' + WR_CONTEST.name +
+             '   ' + WR_CONTEST.from + ' to ' + WR_CONTEST.to);
+  if (!WR_CONTEST.excludeProduct) {
+    Logger.log('  rule              : EVERY unit a roster agent closes counts.');
+    Logger.log('                      Where the lead came from does not matter.');
+    Logger.log('                      Nothing is filtered out. excludeProduct is empty.');
+  } else {
+    Logger.log('  rule              : every unit EXCEPT "' + WR_CONTEST.excludeProduct + '"');
+    Logger.log('  product column    : "' + WR_CONTEST.productColumn + '" - ' +
+               (pay.programmeCol ? 'found' : '*** NOT IN mdl_Payments - nothing filtered ***'));
+  }
+  /* Judge the roster here too, or this tool and the TV disagree. */
+  var con = wr_contest_(pay, wr_roster_(ss, Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM')));
+  Logger.log('  rows in window    : ' + pay.contestWindowRows);
+  Logger.log('  rows counted      : ' + pay.contestProgMatched);
+  Logger.log('  units, all names  : ' + pay.contestUnits + '   (every Is Unit = YES row)');
+  Logger.log('  UNITS ON THE BOARD: ' + con.totalUnits + '   (roster agents only)');
+  if (con.offRosterUnits) {
+    var offL = [];
+    for (var onm in con.offRosterNames) offL.push(onm + ' ' + con.offRosterNames[onm] + 'u');
+    Logger.log('  off roster        : ' + con.offRosterUnits + ' units held off the board - ' +
+               offL.join(', '));
+    Logger.log('                      (other business lines, same rule as the revenue board)');
+  }
+  Logger.log('');
+  if (WR_CONTEST.excludeProduct && pay.programmeCol) {
+    Logger.log('  EVERY PRODUCT VALUE IN THE WINDOW');
+    var keys = [], v;
+    for (v in pay.progSamples) keys.push(v);
+    keys.sort(function (a, b) { return pay.progSamples[b] - pay.progSamples[a]; });
+    for (var i = 0; i < keys.length; i++) {
+      var v2 = keys[i], raw2 = (v2 === '(blank)') ? '' : v2;
+      Logger.log('    ' + wr_pad_(v2, 26) + wr_pad_(pay.progSamples[v2] + ' rows', 10) +
+                 (wr_progMatches_(raw2) ? 'COUNTS' : 'excluded'));
+    }
+    if (pay.contestWindowRows > 0 && pay.contestProgMatched === 0) {
+      Logger.log('');
+      Logger.log('  *** THE FILTER IS KEEPING NOTHING. THE CONTEST WILL PAY NOBODY. ***');
+      Logger.log('  *** Set WR_CONTEST.excludeProduct to \'\' to count every unit. ***');
+    }
+  } else if (pay.contestWindowRows === 0) {
+    Logger.log('  Nothing is dated inside the contest window yet.');
+  } else {
+    Logger.log('  All ' + pay.contestWindowRows + ' rows in the window are counted - ' +
+               pay.contestUnits + ' are units, ' + con.totalUnits +
+               ' of those by roster agents. No product was filtered out.');
+  }
+
+  Logger.log('');
+  Logger.log('  EVERY ROW IN THE CONTEST WINDOW, ONE BY ONE');
+  Logger.log('  (if an Accelerator sale is sitting here as Unattributed or blank,');
+  Logger.log('   this is where you will see it - look for a roster agent with unit YES)');
+  wr_dumpWindow_(ss);
+
+  Logger.log('');
+  Logger.log('  EXCLUDED FROM REVENUE THIS MONTH');
+  Logger.log('    refunded  : ' + pay.refundRows + ' rows, ' + wr_money_(pay.refundAmount));
+  Logger.log('    cancelled : ' + pay.cancelledRows + ' rows, ' + wr_money_(pay.cancelledAmount));
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Lists the individual payment rows inside the contest window. Read only.
+   Kept separate so warRoomContestCheck stays readable. */
+function wr_dumpWindow_(ss) {
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) { Logger.log('    mdl_Payments is empty.'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var H = wr_headers_(sh.getRange(1, 1, 1, lastCol).getValues()[0]);
+  var cDate  = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cAgent = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit  = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cFam   = wr_col_(H, ['batch family']);
+  var cBatch = wr_col_(H, ['batch']);
+  var cType  = wr_col_(H, ['payment type']);
+  if (cDate < 0 || cAgent < 0) { Logger.log('    no date/agent column.'); return; }
+
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var roster = wr_roster_(ss, Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM'));
+  var from = wr_dayNum_(WR_CONTEST.from), to = wr_dayNum_(WR_CONTEST.to);
+  var shown = 0;
+
+  Logger.log('    ' + wr_pad_('DATE', 8) + wr_pad_('AGENT', 22) + wr_pad_('AMOUNT', 11) +
+             wr_pad_('UNIT', 6) + wr_pad_('BATCH', 16) + wr_pad_('FAMILY', 15) +
+             wr_pad_('TYPE', 20) + 'ROSTER');
+  for (var r = 0; r < grid.length && shown < 60; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    var dn = wr_dayNumOf_(d);
+    if (dn < from || dn > to) continue;
+    var name = wr_str_(grid[r][cAgent]);
+    if (!name || wr_isSummary_(name)) continue;
+    shown++;
+    Logger.log('    ' +
+      wr_pad_(Utilities.formatDate(d, WR_TZ, 'dd MMM'), 8) +
+      wr_pad_(name, 22) +
+      wr_pad_(wr_money_(cAmt >= 0 ? wr_num_(grid[r][cAmt]) : 0), 11) +
+      wr_pad_((cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 'YES' : '-', 6) +
+      wr_pad_(cBatch >= 0 ? wr_str_(grid[r][cBatch]) : '', 16) +
+      wr_pad_(cFam >= 0 ? (wr_str_(grid[r][cFam]) || '(blank)') : '', 15) +
+      wr_pad_(cType >= 0 ? wr_str_(grid[r][cType]) : '', 20) +
+      (roster.byAgent[wr_key_(name)] ? 'on roster' : 'OFF roster'));
+  }
+  if (!shown) Logger.log('    nothing is dated inside the window yet.');
 }
 
 /** Checks the pure logic. Touches no sheet, writes nothing. */
@@ -975,6 +1306,66 @@ function warRoomSelfTest() {
   /* the JSONP callback guard */
   eq('good callback passes',  /^[A-Za-z_$][A-Za-z0-9_$.]{0,60}$/.test('__wr1'), true);
   eq('injection is rejected', /^[A-Za-z_$][A-Za-z0-9_$.]{0,60}$/.test('a();alert(1)'), false);
+
+  /* ---- the contest rule: a unit is a unit ----
+     The live setting filters nothing, so every product value qualifies.
+     These two are the sales the old Batch Family filter was throwing away:
+     Fahad Nizar (10,000) and Kshitij (28,500), real Accelerator sales to
+     Mastermind-sourced leads, both verified against the Payment Tracker. */
+  var keepEx = WR_CONTEST.excludeProduct;
+  WR_CONTEST.excludeProduct = '';
+  eq('the live rule bars nothing',        WR_CONTEST.excludeProduct, '');
+  eq('AIAP counts',                       wr_progMatches_('AIAP C14'), true);
+  eq('AI Bootcamp counts too',            wr_progMatches_('AI Bootcamp'), true);
+  eq('a Mastermind lead counts',          wr_progMatches_('Mastermind'), true);
+  eq('a Bootcamp lead counts',            wr_progMatches_('Bootcamp'), true);
+  eq('an Unattributed lead counts',       wr_progMatches_('Unattributed'), true);
+  eq('a blank cell counts',               wr_progMatches_(''), true);
+  eq('a null cell counts',                wr_progMatches_(null), true);
+  eq('Fahad Nizar 10,000 counts',         wr_progMatches_('AIAP C15'), true);
+  eq('Kshitij 28,500 counts',             wr_progMatches_('AIAP C13+'), true);
+  /* and it can still bar a product if a future contest ever needs it */
+  WR_CONTEST.excludeProduct = 'bootcamp';
+  eq('excludeProduct bars Bootcamp',      wr_progMatches_('AI Bootcamp'), false);
+  eq('lower case is barred too',          wr_progMatches_('bootcamp'), false);
+  eq('and AIAP still counts',             wr_progMatches_('AIAP C14'), true);
+  eq('a blank is not the barred product', wr_progMatches_(''), true);
+  WR_CONTEST.excludeProduct = keepEx;
+
+  /* ---- refunds and cancellations ---- */
+  eq('Is Refund YES is truthy',    wr_truthy_('YES'), true);
+  eq('a CANCELLED status is caught',
+     ('CANCELLED'.toLowerCase().indexOf('cancel') > -1), true);
+  eq('a SHIFT TO status is not',
+     ('SHIFT TO'.toLowerCase().indexOf('cancel') > -1), false);
+
+  /* ---- the capacity column, found by its values ----
+     Column 3 is the ramp. Column 1 is a name, 2 a target, 4 a stray 1. */
+  var rosterGrid = [
+    ['Agent', 'Target', '', 'Note'],
+    ['Alisha Khan',   500000, 1,    1],
+    ['Kshitij',       500000, 0.5,  2],
+    ['Gowtham C',     400000, 0.75, 3],
+    ['J Joel',        300000, 1,    4],
+    ['Salman Rashid', 300000, 0.5,  5],
+    ['Gayana K N',    300000, 1,    6]
+  ];
+  eq('capacity column found by value', wr_manMonthCol_(rosterGrid, 0), 2);
+
+  var noRamp = [
+    ['Agent', 'Target'],
+    ['Alisha Khan', 500000],
+    ['Kshitij',     500000],
+    ['Gowtham C',   400000],
+    ['J Joel',      300000]
+  ];
+  eq('no capacity column returns -1', wr_manMonthCol_(noRamp, 0), -1);
+  eq('too few rows to judge returns -1',
+     wr_manMonthCol_([['Agent'], ['Only One']], 0), -1);
+
+  /* revenue per man-month, the number the ranking should use */
+  eq('13 heads at 4.00 mm on 30.10 L', wr_r2_(3010190 / 4), 752548);
+  eq('14 heads at 11.25 mm on 33.51 L', wr_r2_(3351372 / 11.25), 297900);
 
   Logger.log('');
   Logger.log(fails ? ('=== ' + fails + ' FAILED ===') : '=== ALL PASS ===');

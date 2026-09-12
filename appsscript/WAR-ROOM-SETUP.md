@@ -7,7 +7,7 @@ Three pieces, nothing else:
 | Piece | Where it lives | What it does |
 |---|---|---|
 | `war-room.gs` | paste into your Inside Sales Apps Script project | builds the leaderboard JSON |
-| `exec-doget-patched.gs` | replaces the `doGet` in your Exec Web App file | routes the feed without breaking the exec page |
+| `exec-webapp.gs` | paste over your whole Exec Web App file | routes the feed without breaking the exec page |
 | `warroom.html` | already deployed to Vercel | the TV page |
 
 The page is already online. It shows **preview data** until you give it the feed URL. That is one step.
@@ -26,9 +26,7 @@ Apps Script editor → **+ → Script** → name it `WarRoom` → paste the cont
 
 ## Step 2 — patch the exec doGet
 
-Open your Exec Web App file. Replace **only** the `doGet` function with the one in `exec-doget-patched.gs`. Two lines are added at the top; the rest is byte-for-byte what you already have.
-
-Leave `onOpen`, `showExecSidebarDialog` and `exec_inject_` alone.
+Open your Exec Web App file, select all, and paste `exec-webapp.gs` over it. Every function is byte-for-byte what you already have — the only behaviour change is two lines at the top of `doGet`.
 
 The patched version guards with `typeof wr_serve_ === 'function'`, so if you paste it in before the WarRoom file exists it falls through to the exec page instead of throwing. Order does not matter.
 

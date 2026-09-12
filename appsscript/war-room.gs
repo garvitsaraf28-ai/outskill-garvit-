@@ -101,7 +101,14 @@ var WR_CONTEST = {
      unit" means a close counts whether or not the whole price arrived -
      which is what Is Unit is for. It does NOT mean an old customer paying
      off a balance hands their agent another unit. Run warRoomWhatCounts
-     to see which rows each mode would pay before choosing. */
+     to see which rows each mode would pay before choosing.
+
+     LIVE SETTING: 'units'. Confirmed for this contest - only a first
+     payment or a full payment counts. A balance or an instalment against
+     a sale closed earlier does not, even though the money lands inside
+     the window. That is exactly what the Is Unit flag marks, so the rule
+     needs no extra column. Refunds and cancellations are excluded under
+     both modes. */
   countMode: 'units',
 
   /* WHICH PRODUCT COUNTS

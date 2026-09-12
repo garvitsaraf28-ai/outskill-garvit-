@@ -1119,6 +1119,14 @@ function scSpotOffer() {
   '<div class="eyebrow" style="color:var(--gold)">Running now &middot; ' + esc(I.period) + '</div>' +
   '<h1 class="big" style="font-size:88px;color:var(--gold)">' + esc(C.name) + '</h1>' +
   '<div class="sub" style="font-size:23px;margin-top:6px">' + esc(I.detail) + '</div>' +
+  /* State the counting rule on the board, taken from the feed's own
+     setting rather than typed in beside it. A contest that pays money
+     should not leave anyone working out on Monday what counted. */
+  '<div style="font-size:19px;color:var(--gold);margin-top:6px">' +
+    (C.countMode === 'payments'
+      ? 'Every payment landing in the window counts as one.'
+      : 'First payment or full payment counts as one. Balances on earlier sales do not.') +
+  '</div>' +
 
   /* The three numbers anyone actually looks up for get the height. The
      ladder is a reference strip underneath, not the main event. */

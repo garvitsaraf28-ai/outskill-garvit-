@@ -523,6 +523,15 @@ function stateScreen(kind) {
         line: 'NO <span class="accent">FEED</span> CONNECTED',
         note: 'Open this page with the Apps Script web app URL on the end:<br>' +
               '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
+    : /PASTE|YOUR_EXEC|<|>|example\.com/i.test(CONFIG.API_URL)
+    ? { k: 'The placeholder was not replaced',
+        line: 'THAT IS NOT A <span class="accent">REAL URL</span>',
+        note: 'The address below is the example text, not your web app. Open Apps Script, ' +
+              'go to <b>Deploy &rsaquo; Manage deployments</b>, copy the Web app URL ending in ' +
+              '<b>/exec</b>, and put that in place of it.' +
+              '<div style="margin-top:18px;font-family:\'Space Mono\',monospace;font-size:17px;' +
+              'color:var(--rose);word-break:break-all;line-height:1.5;max-width:1500px">' +
+              esc(CONFIG.API_URL) + '</div>' }
     : { k: 'Cannot reach the feed',
         line: 'NO <span class="accent">DATA</span> YET',
         note: 'The feed has not answered. Open the address below in a browser tab: ' +

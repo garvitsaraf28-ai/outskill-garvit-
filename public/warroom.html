@@ -292,30 +292,48 @@ var CONFIG = {
 
   /* Screen rotation. Remove or reorder freely. "city:X" renders one city. */
   SCREENS: (Q.get('screens') ? Q.get('screens').split(',') : [
+    'contest',            // while a contest is running it leads, and repeats
     'overall',
     'city:Bangalore',
-    'interstitial',
+    'contest',
     'city:Hyderabad',
     'city:Bhubaneswar',
+    'initiative',         // the ladder and the rules
     'managers',
-    'interstitial',
+    'contest',
     'agents',
     'teams',
+    'interstitial',
     'targetbattle',
     'awards',
-    'initiative',
+    'contest',
     'interstitial'
   ]),
 
-  /* Current contest / offer. Set active:false to drop it out of rotation. */
+  /* THE RUNNING CONTEST - the rules screen.
+     The dates and the unit counting live in WR_CONTEST in war-room.gs;
+     this is what the floor reads. Set active:false when it is over. */
   INITIATIVE: {
     active: true,
-    title: 'SEPTEMBER SPRINT',
-    detail: 'Every unit closed before month end counts double on the floor board. Top 3 agents company-wide take the podium at the monthly town hall.',
-    eligibility: 'All agents, all cities',
-    period: '1 – 30 September',
-    reward: 'Podium + spot incentive',
+    title: 'THE UNIT RUSH IS ON',
+    detail: 'This weekend we count UNITS, not revenue. Booking or full amount = 1 unit. Just close.',
+    eligibility: 'Accelerator sales only',
+    period: 'Sat 12 - Mon 14 Sept - 72 hours',
+    reward: 'Up to no cap - see the ladder',
     goalRevenue: 0        // optional: shows a progress bar toward this number
+  },
+
+  /* The payout ladder. Keep it in step with the message on Slack.
+     Below `perUnitFrom` the payout is looked up in `steps`; from there
+     on it is `perUnit` for every unit, which is what makes 4 -> 5 double. */
+  LADDER: {
+    steps: { 2: 1000, 3: 1500, 4: 2500 },
+    perUnitFrom: 5,
+    perUnit: 1000,
+    rules: [
+      'ONLY Accelerator sales count. Bootcamp sales from workshop leads do NOT count.',
+      'Zero tolerance: mis-selling or false commitments means immediate termination.'
+    ]
   },
 
   /* Milestones celebrated when company revenue crosses them. */
@@ -384,6 +402,7 @@ var prevAgentRank = {};     // client-side movement, a fallback if the API omits
 var seenMilestone = 0;
 var lastSig = '';
 var screenIdx = -1, rotTimer = null, progTimer = null;
+var running = false;   // false while a setup / outage screen is up
 var interIdx = -1;                          // advanced on arrival, not on every repaint
 var agentFrom = 0, agentShown = 0, agentTotal = 0;   // rolling window over the agent list
 
@@ -455,7 +474,7 @@ document.addEventListener('keydown', function (e) {
    ===================================================================== */
 var jsonpSeq = 0;
 function loadData() {
-  if (!CONFIG.API_URL) { applyData(SAMPLE, true); return; }
+  if (!CONFIG.API_URL) { stateScreen('not-configured'); return; }
 
   var cb = '__wr' + (++jsonpSeq);
   var done = false;
@@ -482,9 +501,43 @@ function loadData() {
   document.head.appendChild(s);
 }
 
+/* A board with no real data must SAY so. It must never fall back to
+   plausible-looking numbers - a wrong figure read confidently off a wall
+   is worse than an obviously broken screen, because nobody checks it. */
 function fail() {
   FAILS++;
-  if (!DATA) { applyData(SAMPLE, true); return; }   // never show a blank screen
+  if (!DATA) { stateScreen('unreachable'); return; }
+  paintLive();   // we have real figures; keep them up, labelled with their age
+}
+
+/* Full-screen, unmistakable, and it stops the rotation. */
+function stateScreen(kind) {
+  running = false;
+  clearTimeout(rotTimer); clearInterval(progTimer);
+  document.getElementById('progress').style.width = '0%';
+  document.getElementById('screenname').textContent = 'not connected';
+  document.getElementById('dots').innerHTML = '';
+
+  var body = (kind === 'not-configured')
+    ? { k: 'Setup needed',
+        line: 'NO <span class="accent">FEED</span> CONNECTED',
+        note: 'Open this page with the Apps Script web app URL on the end:<br>' +
+              '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
+    : { k: 'Cannot reach the feed',
+        line: 'NO <span class="accent">DATA</span> YET',
+        note: 'The leaderboard feed has not answered. Check the web app is deployed ' +
+              'with access set to <b>Anyone</b>, on a <b>New version</b>.<br>Retrying every ' +
+              Math.max(10, CONFIG.REFRESH_SECONDS) + ' seconds.' };
+
+  var host = document.getElementById('screens');
+  host.innerHTML = '';
+  var sc = document.createElement('div');
+  sc.className = 'screen on';
+  sc.innerHTML = '<div class="center">' +
+    '<div class="kicker" style="color:var(--rose)">' + body.k + '</div>' +
+    '<div class="line">' + body.line + '</div>' +
+    '<div class="note">' + body.note + '</div></div>';
+  host.appendChild(sc);
   paintLive();
 }
 
@@ -506,13 +559,18 @@ function applyData(payload, isSample) {
 
   /* Only repaint when the numbers actually moved. A poll that returns the
      same figures should not make the board flicker and re-animate. */
+  /* First real payload after a setup or outage screen: start the rotation. */
+  if (!running) { running = true; screenIdx = 0; lastSig = signature(DATA); show(); return; }
+
   var sig = signature(DATA);
-  if (sig !== lastSig) { lastSig = sig; if (screenIdx >= 0) render(); }
+  if (sig !== lastSig) { lastSig = sig; render(); }
 }
 
 function signature(d) {
-  return [d.totals.revenue, d.totals.units, d.totals.target, d.cities.length, d.managers.length]
+  return [d.totals.revenue, d.totals.units, d.totals.target, d.cities.length, d.managers.length,
+          d.contest.active ? d.contest.totalUnits : 'x']
     .concat(d.agents.slice(0, 40).map(function (a) { return a.name + ':' + a.revenue + ':' + a.units; }))
+    .concat((d.contest.agents || []).slice(0, 40).map(function (a) { return 'c' + a.name + ':' + a.units; }))
     .join('|');
 }
 
@@ -526,6 +584,7 @@ function normalise(p) {
     cities: (p.cities || []).filter(function (c) { return c && c.name; }),
     managers: (p.managers || []).filter(function (m) { return m && m.name; }),
     agents: (p.agents || []).filter(function (a) { return a && a.name; }),
+    contest: p.contest || { active: false },
     sample: !!p.sample
   };
   /* Every field is forced to a usable type here, once, so no screen below
@@ -536,6 +595,11 @@ function normalise(p) {
     return x;
   }
   out.cities.forEach(clean); out.managers.forEach(clean); out.teams.forEach(clean); out.agents.forEach(clean);
+  if (out.contest.active) {
+    out.contest.agents = (out.contest.agents || []).filter(function (a) { return a && a.name; });
+    out.contest.agents.forEach(clean);
+    out.contest.totalUnits = n(out.contest.totalUnits);
+  }
 
   // sort everything by revenue desc, then assign rank
   function bySales(a, b) { return b.revenue - a.revenue || b.units - a.units; }
@@ -871,6 +935,112 @@ function scAwards() {
     '</div>';
 }
 
+/* What this agent has earned so far, straight off the ladder. */
+function payout(units) {
+  var L = CONFIG.LADDER;
+  units = n(units);
+  if (units >= L.perUnitFrom) return units * L.perUnit;
+  return n(L.steps[units]);
+}
+/* What one more close is worth right now - the number that actually moves people. */
+function nextStep(units) {
+  var u = n(units) + 1;
+  return Math.max(0, payout(u) - payout(units));
+}
+
+/* Below the first rung the payout is zero, and a big gold 0 on a wall reads
+   as broken and kills exactly the person who most needs pushing. Show them
+   the rung they are one close away from instead. */
+function earnedLine(units) {
+  var earned = payout(units);
+  if (earned > 0) {
+    return 'units &middot; <b style="color:var(--gold)">' + money(earned) + '</b> earned' +
+           ' &middot; +' + money(nextStep(units)) + ' for the next';
+  }
+  return 'units &middot; <b style="color:var(--gold)">' + money(payout(n(units) + 1)) +
+         '</b> at ' + (n(units) + 1);
+}
+
+/* The ladder, drawn from the same numbers that pay people, so the board
+   can never advertise a rung the leaderboard does not actually pay. */
+function ladderHtml() {
+  var L = CONFIG.LADDER;
+  if (!L) return '';
+  var rungs = [];
+  Object.keys(L.steps).sort(function (a, b) { return a - b; }).forEach(function (u) {
+    rungs.push({ u: u, v: money(L.steps[u]), hot: false });
+  });
+  rungs.push({ u: L.perUnitFrom + '+', v: money(L.perUnit) + ' PER UNIT', hot: true });
+
+  return '<div style="margin-top:18px">' +
+    '<div style="font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:10px">Payout ladder</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
+      rungs.map(function (r) {
+        return '<div style="flex:1;min-width:150px;border-radius:14px;padding:14px 18px;' +
+          'border:1px solid ' + (r.hot ? 'rgba(255,215,110,.6)' : 'var(--line)') + ';' +
+          'background:' + (r.hot ? 'rgba(255,215,110,.12)' : 'rgba(255,255,255,.04)') + '">' +
+          '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:34px;line-height:1">' + r.u + '</div>' +
+          '<div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:2px">units</div>' +
+          '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:26px;margin-top:8px;color:' +
+            (r.hot ? 'var(--gold)' : 'var(--white)') + '">' + r.v + '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>' +
+    (L.rules || []).map(function (t) {
+      return '<div style="font-size:17px;color:var(--muted);margin-top:10px">' + esc(t) + '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function scContest() {
+  var C = DATA.contest;
+  if (!C || !C.active) return scAgents();
+  var list = C.agents || [];
+  var pot = list.reduce(function (s2, a) { return s2 + payout(a.units); }, 0);
+
+  var pods = list.slice(0, 3).map(function (x, i) {
+    return '<div class="pod ' + ['gold', 'silver', 'bronze'][i] + '">' +
+      '<div class="medal">' + medal(i) + '</div>' +
+      '<div class="nm">' + esc(x.name) + '</div>' +
+      '<div class="meta">' + esc(joinDot(x.manager, x.city)) + '</div>' +
+      '<div class="rev" style="font-size:66px">' + x.units + '</div>' +
+      '<div class="u" style="font-size:18px">' + earnedLine(x.units) + '</div>' +
+      '</div>';
+  }).join('') ||
+    '<div class="pod" style="grid-column:1/-1"><div class="nm">NOBODY HAS OPENED THE BOARD YET</div>' +
+    '<div class="meta" style="margin-top:8px">First unit takes the top spot.</div></div>';
+
+  var rows = list.slice(3).map(function (x, i) {
+    return '<div class="row" style="grid-template-columns:64px 1fr 170px 130px 90px 150px">' +
+      '<div class="rk">' + (i + 4) + '</div>' +
+      '<div class="nm2"><span class="tx">' + esc(x.name) + '</span></div>' +
+      '<div class="meta2">' + esc(x.manager) + '</div>' +
+      '<div class="meta2">' + esc(x.city) + '</div>' +
+      '<div class="num">' + x.units + '</div>' +
+      (payout(x.units) > 0
+        ? '<div class="num" style="color:var(--gold)">' + money(payout(x.units)) + '</div>'
+        : '<div class="meta2" style="text-align:right;font-size:15px">' +
+            money(payout(x.units + 1)) + ' at ' + (x.units + 1) + '</div>') +
+      '</div>';
+  }).join('');
+
+  var warn = C.programmeColumnMissing
+    ? '<div style="font-size:15px;color:var(--rose);margin-top:10px">Counting every unit - ' +
+      'the model has no programme column, so the Accelerator-only rule is being judged by hand.</div>'
+    : '';
+
+  return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) + ' &middot; ' +
+      esc(CONFIG.INITIATIVE.period) + '</div>' +
+    '<div style="display:flex;align-items:baseline;gap:36px">' +
+      '<h1 class="big">UNITS <span class="accent">ON THE BOARD</span></h1>' +
+      '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:112px;line-height:1;color:var(--gold)"' +
+        ' data-count="' + n(C.totalUnits) + '" data-fmt="int">0</div>' +
+      '<div style="font-size:20px;color:var(--muted)">' + money(pot) + ' earned so far</div>' +
+    '</div>' + warn +
+    '<div class="podium" style="margin-top:18px">' + pods + '</div>' +
+    '<div class="lb" style="margin-top:14px">' + rows + '</div>';
+}
+
 function scInitiative() {
   var I = CONFIG.INITIATIVE;
   var prog = I.goalRevenue > 0 ? Math.min(100, pct(DATA.totals.revenue, I.goalRevenue)) : null;
@@ -886,6 +1056,7 @@ function scInitiative() {
       (prog == null ? '' :
         '<div style="margin-top:16px"><div class="bar gold"><i data-w="' + prog + '"></i></div>' +
         '<div style="font-size:20px;color:var(--muted);margin-top:10px">' + money(DATA.totals.revenue) + ' of ' + money(I.goalRevenue) + ' · ' + prog.toFixed(1) + '%</div></div>') +
+      ladderHtml() +
     '</div>';
 }
 
@@ -938,11 +1109,13 @@ function activeScreens() {
       return DATA && DATA.cities.some(function (c) { return c.name === nm; });
     }
     if (s === 'teams') return DATA && DATA.teams.length > 1;
+    if (s === 'contest') return !!(DATA && DATA.contest && DATA.contest.active);
     return true;
   });
 }
 
 function buildScreen(key) {
+  if (key === 'contest') return { name: (DATA.contest && DATA.contest.name) || 'Contest', html: scContest() };
   if (key === 'overall') return { name: 'Company championship', html: scOverall() };
   if (key.indexOf('city:') === 0) { var c = key.slice(5); return { name: c + ' leaderboard', html: scCity(c) }; }
   if (key === 'managers') return { name: 'Manager leaderboard', html: scManagers() };
@@ -1082,9 +1255,15 @@ function runProgress(secs) {
    BOOT
    ===================================================================== */
 fit();
-applyData(SAMPLE, true);          // paint instantly; live data replaces it
-screenIdx = 0;
-show();                           // start ON the company screen, not past it
+if (Q.get('demo') === '1') {
+  /* Layout preview only, for checking a TV before the feed exists.
+     Never reached in normal use - a board with no feed says so instead. */
+  applyData(SAMPLE, true);
+  screenIdx = 0;
+  show();
+} else {
+  stateScreen(CONFIG.API_URL ? 'unreachable' : 'not-configured');
+}
 loadData();
 setInterval(loadData, Math.max(10, CONFIG.REFRESH_SECONDS) * 1000);
 

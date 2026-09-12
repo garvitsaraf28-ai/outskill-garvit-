@@ -63,6 +63,27 @@ var WR_TZ         = 'Asia/Kolkata';
 var WR_CACHE_SECS = 240;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
 
+/* ---------------------------------------------------------------------
+   THE RUNNING CONTEST
+
+   A contest counts UNITS over a few days, not revenue over a month, so
+   it needs its own window. Set the dates, save, and the TV picks it up
+   within four minutes. Set active:false when it is over.
+
+   programme: only rows whose programme/product cell contains this text
+   are counted, so "accel" keeps Accelerator sales and drops Bootcamp.
+   Leave it '' to count every unit. If the model has no programme column
+   the feed says so, on screen and in warRoomPreview, rather than quietly
+   counting things the contest excludes.
+   --------------------------------------------------------------------- */
+var WR_CONTEST = {
+  active:    true,
+  name:      'THE UNIT RUSH',
+  from:      '2026-09-12',     // inclusive, Asia/Kolkata
+  to:        '2026-09-14',     // inclusive
+  programme: 'accel'
+};
+
 /* =====================================================================
    WEB APP ENTRY POINT
 
@@ -252,7 +273,48 @@ function wr_build_(monthKey) {
         target: wr_r2_(a.target), prevRank: a.prevRank
       };
     }),
+    contest: wr_contest_(pay, roster),
     notes: wr_notes_(roster, pay, offRosterNames, offRosterRev)
+  };
+}
+
+/* The contest board. Units only, its own date window, ranked by units
+   with revenue breaking ties - so the person who closed four small ones
+   beats the person who closed three big ones, which is the whole point
+   of a unit contest. */
+function wr_contest_(pay, roster) {
+  if (!WR_CONTEST.active) return { active: false };
+
+  var list = [], k;
+  for (k in pay.contest) {
+    var c = pay.contest[k];
+    var r = roster.byAgent[k];
+    list.push({
+      name: c.name,
+      manager: r ? r.manager : '',
+      city:    r ? r.city    : '',
+      units:   c.units,
+      revenue: wr_r2_(c.revenue)
+    });
+  }
+  list.sort(function (a, b) {
+    return (b.units - a.units) || (b.revenue - a.revenue) ||
+           String(a.name).localeCompare(String(b.name));
+  });
+
+  return {
+    active: true,
+    name: WR_CONTEST.name,
+    from: WR_CONTEST.from,
+    to: WR_CONTEST.to,
+    programme: WR_CONTEST.programme || '',
+    /* If the contest excludes a programme but the model has no programme
+       column, every unit is being counted. Say so rather than let a board
+       quietly pay out on sales the rules exclude. */
+    programmeFiltered: !!(WR_CONTEST.programme && pay.programmeCol),
+    programmeColumnMissing: !!(WR_CONTEST.programme && !pay.programmeCol),
+    totalUnits: pay.contestUnits,
+    agents: list.slice(0, WR_MAX_AGENTS)
   };
 }
 
@@ -321,7 +383,8 @@ function wr_roster_(ss, monthKey) {
    ===================================================================== */
 
 function wr_payments_(ss, monthKey) {
-  var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false };
+  var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
+              contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false };
   var sh = ss.getSheetByName(WR_PAY_TAB);
   if (!sh || sh.getLastRow() < 2) return out;
 
@@ -340,30 +403,66 @@ function wr_payments_(ss, monthKey) {
   var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
   var cUnit  = wr_col_(H, ['is unit', 'unit', 'units']);
   var cRost  = wr_col_(H, ['on roster', 'onroster', 'roster']);
+  var cProg  = wr_col_(H, ['programme', 'program', 'product', 'course', 'offering', 'segment']);
   if (cRost < 0) out.noRosterCol = true;
+  out.programmeCol = cProg >= 0;
 
   if (cDate < 0 || cAgent < 0 || cAmt < 0) return out;
 
-  var width = Math.max(cDate, cAgent, cAmt, cUnit, cRost) + 1;
+  var width = Math.max(cDate, cAgent, cAmt, cUnit, cRost, cProg) + 1;
   var grid = sh.getRange(2, 1, lastRow - 1, width).getValues();
+
+  /* the contest window, as day numbers so the comparison is a plain integer */
+  var cFrom = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
+  var cTo   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
+  var want  = String(WR_CONTEST.programme || '').toLowerCase();
 
   for (var r = 0; r < grid.length; r++) {
     var row = grid[r];
-    var rowMonth = wr_monthKey_(row[cDate]);
-    if (rowMonth !== monthKey) continue;
-    out.rowsScanned++;
+    var d = row[cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
 
     var name = wr_str_(row[cAgent]);
-    if (!name) continue;
-    if (wr_isSummary_(name)) continue;   // totals rows are not people
-
+    if (!name || wr_isSummary_(name)) continue;   // totals rows are not people
     var key = wr_key_(name);
-    if (!out.byAgent[key]) out.byAgent[key] = { name: name, revenue: 0, units: 0 };
-    out.byAgent[key].revenue += wr_num_(row[cAmt]);
-    if (cUnit >= 0 && wr_truthy_(row[cUnit])) out.byAgent[key].units += 1;
-    out.rowsCounted++;
+    var isUnit = (cUnit >= 0 && wr_truthy_(row[cUnit]));
+
+    /* --- the month-to-date boards --- */
+    if (wr_monthKey_(d) === monthKey) {
+      out.rowsScanned++;
+      if (!out.byAgent[key]) out.byAgent[key] = { name: name, revenue: 0, units: 0 };
+      out.byAgent[key].revenue += wr_num_(row[cAmt]);
+      if (isUnit) out.byAgent[key].units += 1;
+      out.rowsCounted++;
+    }
+
+    /* --- the contest window, counted independently --- */
+    if (cFrom) {
+      var day = wr_dayNumOf_(d);
+      if (day < cFrom || day > cTo) continue;
+      if (want && cProg >= 0 &&
+          String(row[cProg] || '').toLowerCase().indexOf(want) === -1) continue;
+      if (!isUnit) continue;                       // the contest counts units only
+      if (!out.contest[key]) out.contest[key] = { name: name, units: 0, revenue: 0 };
+      out.contest[key].units += 1;
+      out.contest[key].revenue += wr_num_(row[cAmt]);
+      out.contestUnits++;
+      out.contestRows++;
+    }
   }
   return out;
+}
+
+/* 'yyyy-MM-dd' -> a comparable integer, 0 if it is not a date */
+function wr_dayNum_(s) {
+  var m = String(s || '').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (!m) return 0;
+  return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+}
+function wr_dayNumOf_(d) {
+  return Number(Utilities.formatDate(d, WR_TZ, 'yyyy')) * 10000 +
+         Number(Utilities.formatDate(d, WR_TZ, 'MM')) * 100 +
+         Number(Utilities.formatDate(d, WR_TZ, 'dd'));
 }
 
 /* =====================================================================
@@ -642,6 +741,25 @@ function warRoomPreview() {
     Logger.log('    ' + wr_pad_((i + 1) + '.', 5) + wr_pad_(a.name, 24) +
                wr_pad_(a.manager, 18) + wr_pad_(wr_money_(a.revenue), 12) + a.units + 'u');
   });
+  if (p.contest && p.contest.active) {
+    Logger.log('');
+    Logger.log('  CONTEST: ' + p.contest.name + '   ' + p.contest.from + ' to ' + p.contest.to);
+    Logger.log('    units counted    : ' + p.contest.totalUnits);
+    if (p.contest.programmeColumnMissing) {
+      Logger.log('    *** WARNING: the contest excludes all but "' + p.contest.programme +
+                 '", but mdl_Payments has no programme/product column.');
+      Logger.log('    *** EVERY unit is being counted, including the ones the rules exclude.');
+      Logger.log('    *** Add the column, or set WR_CONTEST.programme to \'\' and judge by hand.');
+    } else if (p.contest.programmeFiltered) {
+      Logger.log('    filtered to      : programme contains "' + p.contest.programme + '"');
+    }
+    p.contest.agents.slice(0, 10).forEach(function (a, i) {
+      Logger.log('    ' + wr_pad_((i + 1) + '.', 5) + wr_pad_(a.name, 24) +
+                 wr_pad_(a.units + 'u', 6) + wr_money_(a.revenue));
+    });
+    if (!p.contest.agents.length) Logger.log('    nobody has closed a qualifying unit yet.');
+  }
+
   if (p.notes && p.notes.length) {
     Logger.log('');
     Logger.log('  NOTES');
@@ -653,6 +771,108 @@ function warRoomPreview() {
 }
 
 function wr_pad_(s, n) { s = String(s == null ? '' : s); while (s.length < n) s += ' '; return s; }
+
+/**
+ * warRoomGap - READ ONLY. Writes nothing.
+ *
+ * Answers one question: the report says 60.91 L, the floor says about
+ * 65 L, where is the difference. It splits every September rupee in
+ * mdl_Payments into what the boards count and what they drop, names
+ * every dropped payer with their amount, and shows the last date the
+ * model actually has - which is how a stale import gives itself away.
+ */
+function warRoomGap() {
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh) { Logger.log('mdl_Payments not found'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate  = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cAgent = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit  = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cRost  = wr_col_(H, ['on roster', 'onroster', 'roster']);
+
+  Logger.log('=== WAR ROOM GAP ===  ' + Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm'));
+  Logger.log('  mdl_Payments headers : ' + head.join(' | '));
+  Logger.log('');
+
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var roster = wr_roster_(ss, monthKey);
+
+  var onRev = 0, onUnits = 0, offRev = 0, offUnits = 0, off = {};
+  var latest = null, monthRows = 0, byDay = {};
+
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (!latest || d.getTime() > latest.getTime()) latest = d;
+    if (wr_monthKey_(d) !== monthKey) continue;
+
+    var name = wr_str_(grid[r][cAgent]);
+    if (!name || wr_isSummary_(name)) continue;
+    monthRows++;
+
+    var amt = wr_num_(grid[r][cAmt]);
+    var isUnit = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+    var day = Utilities.formatDate(d, WR_TZ, 'dd MMM');
+    if (!byDay[day]) byDay[day] = { rev: 0, units: 0 };
+    byDay[day].rev += amt; byDay[day].units += isUnit;
+
+    if (roster.byAgent[wr_key_(name)]) { onRev += amt; onUnits += isUnit; }
+    else {
+      offRev += amt; offUnits += isUnit;
+      if (!off[name]) off[name] = { rev: 0, units: 0, roster: 0 };
+      off[name].rev += amt; off[name].units += isUnit;
+      if (cRost >= 0 && wr_truthy_(grid[r][cRost])) off[name].roster++;
+    }
+  }
+
+  Logger.log('  SEPTEMBER IN mdl_Payments');
+  Logger.log('    counted on the boards  : ' + wr_pad_(wr_money_(onRev), 12) + onUnits + ' units');
+  Logger.log('    dropped (not on roster): ' + wr_pad_(wr_money_(offRev), 12) + offUnits + ' units');
+  Logger.log('    every September rupee   : ' + wr_pad_(wr_money_(onRev + offRev), 12) +
+             (onUnits + offUnits) + ' units   across ' + monthRows + ' rows');
+  Logger.log('');
+
+  Logger.log('  WHO IS BEING DROPPED  (each of these is missing from the report too)');
+  var names = [];
+  for (var n2 in off) names.push(n2);
+  names.sort(function (a, b) { return off[b].rev - off[a].rev; });
+  for (var i = 0; i < names.length; i++) {
+    var o = off[names[i]];
+    Logger.log('    ' + wr_pad_(names[i], 26) + wr_pad_(wr_money_(o.rev), 12) +
+               wr_pad_(o.units + 'u', 6) +
+               (o.roster ? '  <-- flagged On Roster = YES, but no roster row for this month' : ''));
+  }
+  if (!names.length) Logger.log('    nobody. Every September payment belongs to a roster agent.');
+  Logger.log('');
+
+  Logger.log('  IS THE IMPORT CURRENT?');
+  Logger.log('    last payment date anywhere in mdl_Payments : ' +
+             (latest ? Utilities.formatDate(latest, WR_TZ, 'dd MMM yyyy') : 'none'));
+  Logger.log('    today : ' + Utilities.formatDate(new Date(), WR_TZ, 'dd MMM yyyy'));
+  Logger.log('    If the last date is days behind today, the gap is the IMPORTRANGE,');
+  Logger.log('    not the roster - run updateAndCheck and check src_Payments for #REF!.');
+  Logger.log('');
+
+  Logger.log('  SEPTEMBER DAY BY DAY  (a missing tail means a stale import)');
+  var days = [];
+  for (var dd in byDay) days.push(dd);
+  days.sort(function (a, b) {
+    return new Date(a + ' 2026').getTime() - new Date(b + ' 2026').getTime();
+  });
+  for (var j = 0; j < days.length; j++) {
+    Logger.log('    ' + wr_pad_(days[j], 10) + wr_pad_(wr_money_(byDay[days[j]].rev), 12) +
+               byDay[days[j]].units + 'u');
+  }
+
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
 
 /** Checks the pure logic. Touches no sheet, writes nothing. */
 function warRoomSelfTest() {

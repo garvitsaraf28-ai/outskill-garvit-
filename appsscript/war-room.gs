@@ -13,36 +13,43 @@
  *   The only thing it stores is a small daily rank snapshot, and that lives
  *   in Script Properties, not on the sheet.
  *
- * ONE THING TO CHECK BEFORE YOU PASTE IT IN
- *   Apps Script allows only ONE doGet in a project. If the Inside Sales
- *   project already has a doGet somewhere, this file will clash with it and
- *   the existing web app will stop working. To check: Edit > Find, search
- *   the project for "function doGet". If one already exists, do NOT paste
- *   this file in. Tell me and I will wire the war room into the doGet you
- *   already have instead. If there is no match, you are clear.
+ * THIS FILE DEFINES NO doGet, ON PURPOSE
+ *   Apps Script allows only ONE doGet per project, and this project already
+ *   has one: the Executive Command Center. So the war room does not claim
+ *   it. Instead the Exec file's doGet routes to wr_serve_() when the request
+ *   carries feed=warroom, and serves the exec page for everything else.
+ *   Both web apps then live behind the same URL without fighting.
+ *
+ *   The one line to add to the EXISTING doGet, as its first statement:
+ *
+ *     var p = (e && e.parameter) || {};
+ *     if (p.feed === 'warroom') return wr_serve_(p);
  *
  * HOW TO PUBLISH
  *   1. Paste this file into the Inside Sales script project (new file,
  *      name it WarRoom).
- *   2. Run  warRoomSelfTest  once. It prints PASS/FAIL and never writes.
- *   3. Run  warRoomPreview   once. It prints the numbers the TV will show,
+ *   2. Add the two lines above to the Exec file's doGet.
+ *   3. Run  warRoomSelfTest  once. It prints PASS/FAIL and never writes.
+ *   4. Run  warRoomPreview   once. It prints the numbers the TV will show,
  *      so you can eyeball them against the Management Report first.
- *   4. Deploy > New deployment > type "Web app"
+ *   5. Deploy > Manage deployments > edit the existing deployment
+ *        Version           : New version   (or the URL serves the old code)
  *        Execute as        : Me
  *        Who has access    : Anyone
- *      Copy the /exec URL.
- *   5. Open the TV page with that URL on the end:
- *        https://outskill-garvit.vercel.app/warroom?api=<PASTE THE /exec URL>
+ *      Keep the same /exec URL.
+ *   6. Open the TV page with that URL plus feed=warroom on the end:
+ *        https://outskill-garvit.vercel.app/warroom?api=<EXEC URL>?feed=warroom
  *
- *   "Anyone" is required because a TV is not logged in. The URL is the
- *   password - it is a long random string and it only ever returns
- *   aggregated leaderboard numbers. No lead data, no phone numbers,
- *   no payment rows. If it ever leaks, redeploy for a fresh URL.
+ *   "Anyone" is required because a TV is not logged into Google. A TV that
+ *   has to sign in gets a login page instead of data, every time. The URL is
+ *   the password - it is a long random string, and the feed only ever returns
+ *   aggregated leaderboard numbers. No lead data, no phone numbers, no
+ *   payment rows. If it ever leaks, redeploy for a fresh URL.
  *
  * QUERY OPTIONS (all optional)
- *   ?month=2026-09   a specific month instead of today's
- *   ?nocache=1       skip the 45 second cache
- *   ?callback=fn     JSONP, which is what the TV page uses
+ *   &month=2026-09   a specific month instead of today's
+ *   &nocache=1       skip the 45 second cache
+ *   &callback=fn     JSONP, which is what the TV page uses
  */
 
 var WR_PAY_TAB    = 'mdl_Payments';
@@ -53,10 +60,16 @@ var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
 
 /* =====================================================================
    WEB APP ENTRY POINT
+
+   Deliberately NOT called doGet. The Executive Command Center owns the
+   project's one and only doGet; it hands us the request when the caller
+   asks for feed=warroom. Taking doGet for ourselves would have silently
+   broken the exec page, which is the same trap that once cost a day on
+   refreshAndVerify.
    ===================================================================== */
 
-function doGet(e) {
-  var p = (e && e.parameter) || {};
+function wr_serve_(p) {
+  p = p || {};
   var json;
 
   try {

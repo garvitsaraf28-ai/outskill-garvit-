@@ -35,7 +35,7 @@ const pay = [
   [D(15),'Kshitij','YES',70000,'YES','AIAP C14','International','','','Full Payment'],  // after window
   [D(5),'Kshitij','YES',500000,'YES','AIAP C14','International','','YES','Full Payment'], // REFUND
   [D(6),'J Joel','YES',400000,'YES','AIAP C14','India','CANCELLED','','Full Payment'],  // CANCELLED
-  [D(7),'Mastermind','NO',8300000,'YES','AIAP C14','India','','','Full Payment'],          // off roster
+  [D(13),'Mastermind','NO',8300000,'YES','AIAP C14','India','','','Full Payment'],         // off roster, INSIDE the window
   [D(8),'Total','', 999999,'','','','','','']                                        // totals row
 ];
 const mk = rows => ({
@@ -74,9 +74,10 @@ eq('Bengaluru folded to Bangalore',     p.cities.filter(c=>c.name==='Bangalore')
 /* THE CONTEST RULE: a unit is a unit. All four rows dated inside
    12-14 Sep are units by roster agents, so all four count - the Bootcamp
    sale and the one with no product named included. Nothing is filtered. */
-eq('contest window saw all 4 rows',     p.contest.windowRows, 4);
-eq('every row in the window counts',    p.contest.matchedRows, 4);
-eq('every unit in the window counts',   p.contest.totalUnits, 4);
+eq('contest window saw all 5 rows',     p.contest.windowRows, 5);
+eq('every row in the window counts',    p.contest.matchedRows, 5);
+eq('4 of the 5 units are roster units', p.contest.totalUnits, 4);
+eq('the 5th is held off, not lost',     p.contest.offRosterUnits, 1);
 eq('a Bootcamp sale still counts',
    p.contest.agents.filter(a => a.name === 'Kshitij').length, 1);
 eq('a row with no product still counts',
@@ -84,6 +85,11 @@ eq('a row with no product still counts',
 eq('rows before the window stay out',
    p.contest.agents.filter(a => a.name === 'Salman Rashid').length, 0);
 eq('no filter, so no alarm',            p.contest.programmeMatchedNothing, false);
+/* Off-roster names are off the revenue board, so they are off the contest
+   board too - otherwise the two TVs disagree about the same day's sales.
+   Mastermind's 83.00 L unit sits inside the window and must not appear. */
+eq('an off-roster unit never reaches the board',
+   p.contest.agents.filter(a => a.name === 'Mastermind').length, 0);
 eq('contest leader is Kshitij on 3.00 L', p.contest.agents[0].name, 'Kshitij');
 eq('revenue per man-month present',     p.managers[0].revPerMM !== null, true);
 const notes = p.notes.join(' | ');
@@ -111,7 +117,7 @@ WR_CONTEST.excludeProduct = 'ai';
 const bad = wr_build_('2026-09');
 eq('a filter keeping nothing raises the alarm', bad.contest.programmeMatchedNothing, true);
 eq('and counts zero units',             bad.contest.totalUnits, 0);
-eq('the window rows are still seen',    bad.contest.windowRows, 4);
+eq('the window rows are still seen',    bad.contest.windowRows, 5);
 WR_CONTEST.excludeProduct = '';
 global.SpreadsheetApp = saved;
 console.log(fails ? `\n=== ${fails} FAILED ===` : '\n=== ALL PASS ===');

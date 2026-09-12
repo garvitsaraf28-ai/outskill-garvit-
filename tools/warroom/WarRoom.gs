@@ -328,14 +328,26 @@ function wr_build_(monthKey) {
 function wr_contest_(pay, roster) {
   if (!WR_CONTEST.active) return { active: false };
 
-  var list = [], k;
+  /* The contest is for the sales floor, so it counts the same people the
+     month board counts: names on THIS month's mdl_Roster. Anyone else -
+     Mastermind, Anjali, Pratham and the other business lines - is off the
+     revenue board already, and must be off the contest board too, or the
+     two screens disagree about who sold what on the same day. Their units
+     are kept separately so the number is visible, never silently dropped. */
+  var list = [], k, units = 0, offUnits = 0, offNames = {};
   for (k in pay.contest) {
     var c = pay.contest[k];
     var r = roster.byAgent[k];
+    if (!r) {
+      offUnits += c.units;
+      offNames[c.name] = (offNames[c.name] || 0) + c.units;
+      continue;
+    }
+    units += c.units;
     list.push({
       name: c.name,
-      manager: r ? r.manager : '',
-      city:    r ? r.city    : '',
+      manager: r.manager,
+      city:    r.city,
       units:   c.units,
       revenue: wr_r2_(c.revenue)
     });
@@ -362,7 +374,9 @@ function wr_contest_(pay, roster) {
                                 pay.contestWindowRows > 0 && pay.contestProgMatched === 0),
     windowRows: pay.contestWindowRows,
     matchedRows: pay.contestProgMatched,
-    totalUnits: pay.contestUnits,
+    totalUnits: units,                 // roster agents only - what the TV shows
+    offRosterUnits: offUnits,          // diagnostics, never rendered
+    offRosterNames: offNames,
     agents: list.slice(0, WR_MAX_AGENTS)
   };
 }
@@ -927,7 +941,15 @@ function warRoomPreview() {
     Logger.log('');
     Logger.log('  CONTEST: ' + p.contest.name + '   ' + p.contest.from + ' to ' + p.contest.to);
     Logger.log('    rows in window   : ' + p.contest.windowRows);
-    Logger.log('    units counted    : ' + p.contest.totalUnits);
+    Logger.log('    units counted    : ' + p.contest.totalUnits + '   (roster agents)');
+    if (p.contest.offRosterUnits) {
+      var offList = [];
+      for (var on in p.contest.offRosterNames) {
+        offList.push(on + ' ' + p.contest.offRosterNames[on] + 'u');
+      }
+      Logger.log('    off roster       : ' + p.contest.offRosterUnits +
+                 ' more units NOT on the board - ' + offList.join(', '));
+    }
     if (!p.contest.programme) {
       Logger.log('    rule             : every unit a roster agent closes counts.');
     } else if (p.contest.programmeMatchedNothing) {
@@ -1086,10 +1108,19 @@ function warRoomContestCheck() {
     Logger.log('  product column    : "' + WR_CONTEST.productColumn + '" - ' +
                (pay.programmeCol ? 'found' : '*** NOT IN mdl_Payments - nothing filtered ***'));
   }
+  /* Judge the roster here too, or this tool and the TV disagree. */
+  var con = wr_contest_(pay, wr_roster_(ss, Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM')));
   Logger.log('  rows in window    : ' + pay.contestWindowRows);
   Logger.log('  rows counted      : ' + pay.contestProgMatched);
-  Logger.log('  qualifying units  : ' + pay.contestUnits +
-             '   (rows marked Is Unit = YES by a roster agent)');
+  Logger.log('  units, all names  : ' + pay.contestUnits + '   (every Is Unit = YES row)');
+  Logger.log('  UNITS ON THE BOARD: ' + con.totalUnits + '   (roster agents only)');
+  if (con.offRosterUnits) {
+    var offL = [];
+    for (var onm in con.offRosterNames) offL.push(onm + ' ' + con.offRosterNames[onm] + 'u');
+    Logger.log('  off roster        : ' + con.offRosterUnits + ' units held off the board - ' +
+               offL.join(', '));
+    Logger.log('                      (other business lines, same rule as the revenue board)');
+  }
   Logger.log('');
   if (WR_CONTEST.excludeProduct && pay.programmeCol) {
     Logger.log('  EVERY PRODUCT VALUE IN THE WINDOW');
@@ -1110,7 +1141,8 @@ function warRoomContestCheck() {
     Logger.log('  Nothing is dated inside the contest window yet.');
   } else {
     Logger.log('  All ' + pay.contestWindowRows + ' rows in the window are counted - ' +
-               pay.contestUnits + ' of them are units. Nothing was filtered out.');
+               pay.contestUnits + ' are units, ' + con.totalUnits +
+               ' of those by roster agents. No product was filtered out.');
   }
 
   Logger.log('');

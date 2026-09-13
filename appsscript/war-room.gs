@@ -1383,6 +1383,120 @@ function warRoomWhatCounts() {
   Logger.log('  Nothing was written. This only reports.');
 }
 
+/**
+ * warRoomWhyStale - READ ONLY. Writes nothing, fixes nothing, and never
+ * opens CBC or the Payment Tracker. It reads two tabs of your own sheet.
+ *
+ * "Revenue shows the same every time" has three possible causes and they
+ * need three different fixes. Guessing wastes an afternoon. This walks
+ * the chain and names the broken link:
+ *
+ *   Payment Tracker -> src_Payments -> mdl_Payments -> the feed -> the TV
+ *
+ * If src_Payments is behind, the IMPORTRANGE is broken and no amount of
+ * running updateAndCheck will help. If src is current but mdl is behind,
+ * the model build has not run. Those are opposite problems.
+ */
+function warRoomWhyStale() {
+  var ss = SpreadsheetApp.getActive();
+  var today = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM-dd');
+  Logger.log('=== WHY IS IT STALE ===   today is ' + today + ' (' + WR_TZ + ')');
+  Logger.log('');
+
+  /* ---------- link 1: the import tab ---------- */
+  var src = ss.getSheetByName('src_Payments');
+  var srcLast = null, srcRows = 0, srcErr = '';
+  if (!src) {
+    Logger.log('  1. src_Payments   *** TAB NOT FOUND ***');
+  } else {
+    srcRows = src.getLastRow();
+    /* An IMPORTRANGE that has lost authorisation shows #REF! in the top
+       left. That is the single most common cause here, and it comes back
+       every time the formula's row bound is rewritten. */
+    var corner = src.getRange(1, 1, Math.min(6, srcRows || 1), 1).getDisplayValues();
+    for (var i = 0; i < corner.length; i++) {
+      var v = String(corner[i][0] || '');
+      if (v.indexOf('#REF') > -1 || v.indexOf('#N/A') > -1 || v.indexOf('#ERROR') > -1) {
+        srcErr = v; break;
+      }
+    }
+    srcLast = wr_lastDateIn_(src);
+    Logger.log('  1. src_Payments   ' + srcRows + ' rows' +
+               (srcErr ? ('   *** SHOWS ' + srcErr + ' ***') : '') +
+               '   last payment date: ' + (srcLast || 'none found'));
+    var f = src.getRange(1, 1).getFormula() || src.getRange(5, 1).getFormula();
+    if (f) Logger.log('     formula: ' + f.substring(0, 160));
+  }
+
+  /* ---------- link 2: the model ---------- */
+  var mdl = ss.getSheetByName(WR_PAY_TAB);
+  var mdlLast = null, mdlRows = 0;
+  if (!mdl) {
+    Logger.log('  2. mdl_Payments   *** TAB NOT FOUND ***');
+  } else {
+    mdlRows = mdl.getLastRow();
+    mdlLast = wr_lastDateIn_(mdl);
+    Logger.log('  2. mdl_Payments   ' + mdlRows + ' rows   last payment date: ' +
+               (mdlLast || 'none found'));
+  }
+
+  /* ---------- link 3: the feed ---------- */
+  Logger.log('  3. the feed       rebuilds every ' + WR_CACHE_SECS +
+             's, so the TV is at most ' + Math.ceil(WR_CACHE_SECS / 60) +
+             ' min behind mdl_Payments');
+  Logger.log('  4. the TV         polls every 30s');
+  Logger.log('');
+
+  /* ---------- the verdict ---------- */
+  Logger.log('  VERDICT');
+  if (srcErr) {
+    Logger.log('    src_Payments is showing ' + srcErr + '. The import from the Payment');
+    Logger.log('    Tracker is BROKEN, so nothing downstream can be current and running');
+    Logger.log('    updateAndCheck will not help.');
+    Logger.log('');
+    Logger.log('    FIX: open src_Payments, click cell A1 (or A5 - whichever holds the');
+    Logger.log('    IMPORTRANGE), and press the blue "Allow access" button. Wait for the');
+    Logger.log('    rows to fill, THEN run updateAndCheck once. Do not run it twice.');
+  } else if (!srcLast) {
+    Logger.log('    src_Payments has no readable payment dates. Send me the formula above.');
+  } else if (srcLast < today && mdlLast === srcLast) {
+    Logger.log('    Both tabs agree, and both stop at ' + srcLast + '. Your sheet is');
+    Logger.log('    consistent - it simply has no payment dated today yet.');
+    Logger.log('    If the Payment Tracker DOES have one, the IMPORTRANGE is lagging:');
+    Logger.log('    open src_Payments and check the tracker against it row for row.');
+  } else if (mdlLast && srcLast && mdlLast < srcLast) {
+    Logger.log('    src_Payments is current to ' + srcLast + ' but mdl_Payments only');
+    Logger.log('    reaches ' + mdlLast + '. The import is fine; the MODEL BUILD has not run.');
+    Logger.log('');
+    Logger.log('    FIX: run updateAndCheck once and wait for it to finish.');
+  } else {
+    Logger.log('    The chain looks healthy. src and mdl both reach ' + (mdlLast || srcLast) + '.');
+    Logger.log('    If the TV still shows an old figure, give it ' +
+               Math.ceil(WR_CACHE_SECS / 60) + ' minutes for the feed cache,');
+    Logger.log('    then check the pill top right - it shows the true age of the numbers.');
+  }
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Latest real date anywhere in a sheet's date column, as yyyy-MM-dd. */
+function wr_lastDateIn_(sh) {
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (lastRow < 2) return null;
+  var H = wr_headers_(sh.getRange(1, 1, 1, lastCol).getValues()[0]);
+  var c = wr_col_(H, ['date', 'payment date', 'paid on']);
+  if (c < 0) return null;
+  var col = sh.getRange(2, c + 1, lastRow - 1, 1).getValues();
+  var best = null;
+  for (var i = 0; i < col.length; i++) {
+    var d = col[i][0];
+    if (d instanceof Date && !isNaN(d.getTime())) {
+      if (!best || d.getTime() > best.getTime()) best = d;
+    }
+  }
+  return best ? Utilities.formatDate(best, WR_TZ, 'yyyy-MM-dd') : null;
+}
+
 /** Checks the pure logic. Touches no sheet, writes nothing. */
 function warRoomSelfTest() {
   var fails = 0;

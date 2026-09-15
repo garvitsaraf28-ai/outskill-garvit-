@@ -2084,7 +2084,12 @@ function warRoomWhoIsMissing() {
     if (cType >= 0) Logger.log('      payment type         : ' + wr_topKeys_(P2.types));
     if (nearR) {
       Logger.log('      *** looks like roster agent "' + nearR.name + '" (' +
-                 (nearR.manager || 'no manager') + ') - ' + nearR.why);
+                 (nearR.manager || 'no manager') + ')');
+      Logger.log('          roster spells it   : ' + nearR.name);
+      Logger.log('          payments spell it  : ' + P2.name);
+      Logger.log('          difference         : ' + wr_nameDiff_(nearR.name, P2.name));
+      Logger.log('          if those look the same to you, check for a trailing space');
+      Logger.log('          or a double space - this compares every character.');
     }
     for (var s = 0; s < P2.sample.length; s++) Logger.log('      eg  ' + P2.sample[s]);
   }
@@ -2112,10 +2117,28 @@ function wr_nearestRosterName_(key, roster) {
     if (sc > bestScore) { bestScore = sc; best = roster.byAgent[k]; }
   }
   if (bestScore < 0.72 || !best) return null;
-  return { name: best.name, manager: best.manager,
-           why: bestScore >= 0.99 ? 'exact' :
-                bestScore >= 0.85 ? 'one is contained in the other' :
-                                    'close spelling' };
+  return { name: best.name, manager: best.manager, score: bestScore };
+}
+
+/* Show WHERE two names differ, in their own spelling, so nobody has to
+   take the match on trust. An earlier version reported the reason from
+   the score band, which labelled a two-character spelling difference as
+   containment - it described its own arithmetic instead of the names.
+   This quotes the characters. */
+function wr_nameDiff_(a, b) {
+  a = String(a || ''); b = String(b || '');
+  if (a === b) return 'identical';
+  var i = 0;
+  while (i < a.length && i < b.length && a.charAt(i) === b.charAt(i)) i++;
+  var j = 0;
+  while (j < a.length - i && j < b.length - i &&
+         a.charAt(a.length - 1 - j) === b.charAt(b.length - 1 - j)) j++;
+  var midA = a.substring(i, a.length - j);
+  var midB = b.substring(i, b.length - j);
+  var head = a.substring(0, i), tail = a.substring(a.length - j);
+  if (!midA && !midB) return 'identical';
+  return head + '[' + (midA || '-') + '|' + (midB || '-') + ']' + tail +
+         '   (first spelling is the roster, second is payments)';
 }
 
 /* 1 identical, ~0.9 containment, otherwise similarity by edit distance.

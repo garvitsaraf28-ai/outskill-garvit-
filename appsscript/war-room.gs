@@ -195,9 +195,12 @@ function wr_build_(monthKey) {
   var now = new Date();
   if (!monthKey) monthKey = Utilities.formatDate(now, WR_TZ, 'yyyy-MM');
 
+  var tA = new Date().getTime();
   var roster = wr_roster_(ss, monthKey);
   WR_HAS_MM = roster.mmCol;   // gates every per-man-month figure below
+  var tB = new Date().getTime();
   var pay    = wr_payments_(ss, monthKey);
+  var tC = new Date().getTime();
 
   /* ---- fold payments onto roster agents ---- */
   var agents = {};   // lowercase name -> record
@@ -315,7 +318,13 @@ function wr_build_(monthKey) {
       generatedAt: now.getTime(),
       generatedLabel: Utilities.formatDate(now, WR_TZ, 'dd MMM HH:mm') + ' IST',
       rows: pay.rowsScanned,
-      buildMs: new Date().getTime() - t0
+      buildMs: new Date().getTime() - t0,
+      /* where the time actually went, so a slow build is diagnosed rather
+         than guessed at */
+      rosterMs: tB - tA,
+      paymentsMs: tC - tB,
+      scanRows: pay.scanRows,
+      blockRows: pay.blockRows
     },
     /* The headline is the ROSTER total, because that is what the Management
        Report calls "Total revenue" and what leadership quotes. Everything
@@ -534,6 +543,7 @@ function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
               contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
               contestWindowRows: 0, contestProgMatched: 0, contestCounted: 0, progSamples: {},
+              scanRows: 0, blockRows: 0,
               refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
               upgradeRows: 0, upgradeAmount: 0 };
   var sh = ss.getSheetByName(WR_PAY_TAB);
@@ -570,50 +580,74 @@ function wr_payments_(ss, monthKey) {
 
   if (cDate < 0 || cAgent < 0 || cAmt < 0) return out;
 
-  /* Pull ONLY the columns this actually reads, one narrow range each,
-     instead of every column up to the rightmost one it needs.
+  /* THE EXPENSIVE PART, AND WHY IT IS DONE THIS WAY.
 
-     mdl_Payments runs to the IMPORTRANGE's pinned bound whether or not
-     those rows hold anything, so the full-width read was fetching roughly
-     three times the cells for no gain, and a cold build had climbed to 34
-     seconds - past the point where the TV gives up waiting and shows
-     "NO DATA YET". Note that "On Roster" is deliberately not among them:
-     roster membership is decided by matching mdl_Roster, not by that flag. */
+     mdl_Payments runs to the IMPORTRANGE's pinned bound - tens of thousands
+     of rows covering every month there has ever been - while a build needs
+     only this month's few hundred. Reading the whole sheet to find them cost
+     34 seconds, past the point where the TV gives up waiting.
+
+     Narrowing the columns barely helped: the cost is per row, not per cell.
+     So read the DATE column alone first, work out which block of rows is
+     actually in scope, and then fetch only that block. Payments arrive in
+     date order, so September is a contiguous run near the end and the second
+     read is a few hundred rows instead of tens of thousands.
+
+     If the dates ever are not in order the block simply widens - at worst
+     back to the whole sheet, which is where this started. It cannot return
+     wrong numbers, only do more work. */
   var n = lastRow - 1;
-  function col(idx) {
-    if (idx < 0) return null;
-    var v = sh.getRange(2, idx + 1, n, 1).getValues();
-    for (var q = 0; q < v.length; q++) v[q] = v[q][0];
-    return v;
+  var vDateRaw = sh.getRange(2, cDate + 1, n, 1).getValues();
+
+  var cFromScan = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
+  var cToScan   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
+  var first = -1, last = -1;
+  for (var s0 = 0; s0 < n; s0++) {
+    var dScan = vDateRaw[s0][0];
+    if (!(dScan instanceof Date) || isNaN(dScan.getTime())) continue;
+    var inScope = (wr_monthKey_(dScan) === monthKey);
+    if (!inScope && cFromScan) {
+      var dayScan = wr_dayNumOf_(dScan);
+      inScope = (dayScan >= cFromScan && dayScan <= cToScan);
+    }
+    if (inScope) { if (first < 0) first = s0; last = s0; }
   }
-  var vDate = col(cDate), vAgent = col(cAgent), vAmt = col(cAmt);
-  var vUnit = col(cUnit), vProg = col(cProg), vRef = col(cRef);
-  var vType = col(cType), vStat = col(cStat);
-  function at(v, i) { return v ? v[i] : ''; }
+  out.scanRows = n;
+  if (first < 0) { out.blockRows = 0; return out; }   // nothing dated in scope
+  var blockN = last - first + 1;
+  out.blockRows = blockN;
+
+  /* one read of the block, spanning only the columns that get used */
+  var need = [cDate, cAgent, cAmt, cUnit, cProg, cRef, cType, cStat]
+               .filter(function (x) { return x >= 0; });
+  var lo = Math.min.apply(null, need), hi = Math.max.apply(null, need);
+  var block = sh.getRange(2 + first, lo + 1, blockN, hi - lo + 1).getValues();
+  function cell(row, idx) { return idx < 0 ? '' : row[idx - lo]; }
 
   /* the contest window, as day numbers so the comparison is a plain integer */
   var cFrom = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
   var cTo   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
 
-  for (var r = 0; r < n; r++) {
-    var d = vDate[r];
+  for (var r = 0; r < blockN; r++) {
+    var row = block[r];
+    var d = cell(row, cDate);
     if (!(d instanceof Date) || isNaN(d.getTime())) continue;
 
-    var name = wr_str_(vAgent[r]);
+    var name = wr_str_(cell(row, cAgent));
     if (!name || wr_isSummary_(name)) continue;   // totals rows are not people
     var key = wr_key_(name);
-    var isUnit = (cUnit >= 0 && wr_truthy_(at(vUnit, r)));
+    var isUnit = (cUnit >= 0 && wr_truthy_(cell(row, cUnit)));
 
     /* Money that came back is not money earned. mdl_Payments carries both
        "Is Refund" and a "Status" that says CANCELLED, and neither was being
        read - so a refunded payment lifted the board exactly like a sale. */
-    var isRefund  = (cRef >= 0 && wr_truthy_(at(vRef, r)));
-    var statusTxt = (cStat >= 0) ? String(at(vStat, r) || '').trim().toLowerCase() : '';
+    var isRefund  = (cRef >= 0 && wr_truthy_(cell(row, cRef)));
+    var statusTxt = (cStat >= 0) ? String(cell(row, cStat) || '').trim().toLowerCase() : '';
     var isCancel  = (statusTxt.indexOf('cancel') > -1);
     var thisMonth = (wr_monthKey_(d) === monthKey);
-    var amt = wr_num_(vAmt[r]);
+    var amt = wr_num_(cell(row, cAmt));
     if (thisMonth && cType >= 0 &&
-        String(at(vType, r) || '').toLowerCase().indexOf('upgrade') > -1) {
+        String(cell(row, cType) || '').toLowerCase().indexOf('upgrade') > -1) {
       out.upgradeRows++; out.upgradeAmount += amt;
     }
 
@@ -640,7 +674,7 @@ function wr_payments_(ss, monthKey) {
          contest bars a product. Judge the RAW cell when it does run:
          '(blank)' is only a label for the log. */
       if (cProg >= 0) {
-        var raw = wr_str_(at(vProg, r));
+        var raw = wr_str_(cell(row, cProg));
         var label = raw || '(blank)';
         out.progSamples[label] = (out.progSamples[label] || 0) + 1;
         if (!wr_progMatches_(raw)) continue;
@@ -942,6 +976,9 @@ function warRoomPreview() {
   Logger.log('  month              : ' + p.meta.month + '  (' + p.meta.windowLabel + ')');
   Logger.log('  payment rows in it : ' + p.meta.rows);
   Logger.log('  build took         : ' + p.meta.buildMs + ' ms   (cached ' + WR_CACHE_SECS + 's between TV polls)');
+  Logger.log('    of which          : roster ' + p.meta.rosterMs + ' ms, payments ' +
+             p.meta.paymentsMs + ' ms   (scanned ' + p.meta.scanRows +
+             ' rows, read a block of ' + p.meta.blockRows + ')');
   if (p.meta.buildMs > 60000) {
     Logger.log('  *** THAT IS SLOW ENOUGH TO MATTER. The TV waits 90s for a cold build.');
     Logger.log('  *** Above that it gives up and shows NO DATA YET on every cache miss.');

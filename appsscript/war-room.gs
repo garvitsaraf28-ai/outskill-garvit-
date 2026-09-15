@@ -2151,3 +2151,135 @@ function wr_topKeys_(obj) {
   if (a.length > 4) s.push('+' + (a.length - 4) + ' more');
   return s.join(', ');
 }
+
+
+/* ============================================================
+   warRoomBatches - what product is each sale, really?
+
+   The contest counts Accelerator only, and the board currently counts
+   everything, because nothing has ever positively identified the product.
+   Guessing once cost two real sales: "Batch Family" looked like the
+   product column and is in fact the lead's source campaign, so filtering
+   on it threw away an Accelerator sale to a Mastermind-sourced lead.
+
+   The Batch column looks like the real answer - BC17, EBC4, CL WS IND,
+   166 - but "looks like" is exactly what went wrong last time. So this
+   function does not decide anything. It tabulates every batch code
+   against its family and segment and lets you read the mapping off real
+   revenue, and it prints the exact config line for whatever you conclude.
+
+   READ ONLY. mdl_Payments and mdl_Roster, writes nowhere, never opens
+   CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomBatches() {
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) { Logger.log('mdl_Payments not found or empty'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cName = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt  = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cMgr  = wr_col_(H, ['manager', 'reporting manager', 'tl']);
+  var cOff  = wr_col_(H, ['office', 'city', 'location', 'branch']);
+  var cBatch= wr_col_(H, ['batch']);
+  var cFam  = wr_col_(H, ['batch family']);
+  var cSeg  = wr_col_(H, ['segment']);
+  if (cDate < 0 || cName < 0 || cBatch < 0) {
+    Logger.log('need Date, Lead Owner and Batch columns; Batch found: ' + (cBatch >= 0));
+    return;
+  }
+
+  var roster = wr_roster_(ss, monthKey);
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  var byBatch = {}, byClass = {};
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (wr_monthKeyOf_(d) !== monthKey) continue;
+    var nm = wr_str_(grid[r][cName]);
+    var mgrRaw = cMgr >= 0 ? wr_str_(grid[r][cMgr]) : '';
+    var offRaw = cOff >= 0 ? wr_str_(grid[r][cOff]) : '';
+    if (!nm || wr_isSummaryRow_(nm, mgrRaw, offRaw)) continue;
+
+    var onRoster = !!roster.byAgent[wr_key_(nm)];
+    var batch = wr_str_(grid[r][cBatch]) || '(blank)';
+    var fam   = cFam >= 0 ? (wr_str_(grid[r][cFam]) || '(blank)') : '';
+    var seg   = cSeg >= 0 ? (wr_str_(grid[r][cSeg]) || '(blank)') : '';
+    var amt   = wr_num_(grid[r][cAmt]);
+    var unit  = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+
+    if (!byBatch[batch]) byBatch[batch] = { batch: batch, rows: 0, rev: 0, units: 0,
+                                            onRows: 0, onRev: 0, onUnits: 0, fams: {}, segs: {} };
+    var B = byBatch[batch];
+    B.rows++; B.rev += amt; B.units += unit;
+    if (onRoster) { B.onRows++; B.onRev += amt; B.onUnits += unit; }
+    if (fam) B.fams[fam] = (B.fams[fam] || 0) + 1;
+    if (seg) B.segs[seg] = (B.segs[seg] || 0) + 1;
+
+    var cls = wr_batchClass_(batch);
+    if (!byClass[cls]) byClass[cls] = { rows: 0, rev: 0, units: 0, onRev: 0, onUnits: 0, codes: {} };
+    var C = byClass[cls];
+    C.rows++; C.rev += amt; C.units += unit;
+    if (onRoster) { C.onRev += amt; C.onUnits += unit; }
+    C.codes[batch] = (C.codes[batch] || 0) + 1;
+  }
+
+  Logger.log('=== BATCHES ===   ' + monthKey + '   (read only, nothing is written)');
+  Logger.log('  "on board" = the roster agents the TV actually shows.');
+  Logger.log('');
+  Logger.log('  BY BATCH CODE SHAPE   <-- this is the one to read');
+  Logger.log('    ' + wr_pad_('shape', 20) + wr_pad_('on board', 12) + wr_pad_('units', 7) +
+             wr_pad_('all rows', 12) + 'example codes');
+  var classes = [];
+  for (var cl in byClass) classes.push({ k: cl, v: byClass[cl] });
+  classes.sort(function (a, b) { return b.v.onRev - a.v.onRev; });
+  for (var i = 0; i < classes.length; i++) {
+    var V = classes[i].v;
+    Logger.log('    ' + wr_pad_(classes[i].k, 20) +
+               wr_pad_(wr_money_(V.onRev), 12) + wr_pad_(String(V.onUnits), 7) +
+               wr_pad_(wr_money_(V.rev), 12) + wr_topKeys_(V.codes));
+  }
+  Logger.log('');
+
+  var list = [];
+  for (var b2 in byBatch) list.push(byBatch[b2]);
+  list.sort(function (a, b) { return b.onRev - a.onRev; });
+  Logger.log('  EVERY BATCH CODE, biggest on-board revenue first');
+  Logger.log('    ' + wr_pad_('batch', 14) + wr_pad_('on board', 12) + wr_pad_('units', 7) +
+             wr_pad_('family', 22) + 'segment');
+  for (var j = 0; j < list.length && j < 40; j++) {
+    var L = list[j];
+    Logger.log('    ' + wr_pad_(L.batch, 14) + wr_pad_(wr_money_(L.onRev), 12) +
+               wr_pad_(String(L.onUnits), 7) + wr_pad_(wr_topKeys_(L.fams), 22) +
+               wr_topKeys_(L.segs));
+  }
+  if (list.length > 40) Logger.log('    ... and ' + (list.length - 40) + ' more codes');
+  Logger.log('');
+
+  Logger.log('  IF YOU WANT THE CONTEST TO COUNT ACCELERATOR ONLY');
+  Logger.log('    Decide from the table above which shapes are Accelerator, then set');
+  Logger.log('    in WR_CONTEST:');
+  Logger.log('      productColumn : \'Batch\'');
+  Logger.log('      excludeBatchPrefixes : [\'BC\', \'EBC\', \'CL WS\']     <-- edit to match');
+  Logger.log('    Nothing is filtered until you set it. Every unit counts today.');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Group batch codes by shape, not by guessing at meaning: "BC12" and
+   "BC13B" are one shape, "165" and "166" another. The shapes are what a
+   human can then map to products. */
+function wr_batchClass_(batch) {
+  var t = String(batch || '').trim();
+  if (!t) return '(blank)';
+  if (/^\d+$/.test(t)) return 'plain number';
+  var m = t.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)*)/);
+  if (!m) return 'other';
+  return m[1].toUpperCase().replace(/\s+/g, ' ') + '*';
+}

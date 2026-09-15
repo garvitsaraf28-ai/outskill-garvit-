@@ -2550,3 +2550,128 @@ function wr_ladderPays_(units) {
   if (u === 4) return 2500;
   return u * 1000;
 }
+
+
+/* ============================================================
+   warRoomAutoUpdate - what is actually keeping this sheet fresh?
+
+   Three clocks decide how old a number on the TV is: how often
+   IMPORTRANGE pulls from the Payment Tracker and CBC, how often this
+   project rebuilds the model tabs, and how long the feed caches. Only
+   the middle one is yours to set, and it is the one nobody can see,
+   because triggers live in the project settings rather than in any file.
+
+   So this lists them: every trigger, what it calls, and where the
+   duplicates are. A handler with several clock triggers on it is doing
+   the same work several times over and burning the daily runtime quota
+   for nothing.
+
+   READ ONLY. It reads the trigger list and the two model tabs. It
+   creates no trigger, deletes none, writes to no sheet, and never opens
+   CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomAutoUpdate() {
+  Logger.log('=== AUTO UPDATE ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log('  (read only - no trigger is created, changed or deleted here)');
+  Logger.log('');
+
+  /* ---- 1. the triggers ---- */
+  var trigs = [];
+  try {
+    trigs = ScriptApp.getProjectTriggers();
+  } catch (e) {
+    Logger.log('  Could not read the trigger list: ' + e.message);
+    Logger.log('  Run it once from the editor and accept the permission prompt.');
+    return;
+  }
+
+  var byHandler = {};
+  for (var i = 0; i < trigs.length; i++) {
+    var h = trigs[i].getHandlerFunction();
+    var src = String(trigs[i].getTriggerSource());
+    if (!byHandler[h]) byHandler[h] = { clock: 0, sheet: 0, other: 0 };
+    if (src.indexOf('CLOCK') > -1) byHandler[h].clock++;
+    else if (src.indexOf('SPREADSHEET') > -1) byHandler[h].sheet++;
+    else byHandler[h].other++;
+  }
+
+  Logger.log('  TRIGGERS   (' + trigs.length + ' in this project)');
+  if (!trigs.length) {
+    Logger.log('    NONE. Nothing rebuilds the model tabs on its own, so the');
+    Logger.log('    sheet only updates when somebody runs it by hand.');
+  }
+  var dupes = [];
+  var names = [];
+  for (var k in byHandler) names.push(k);
+  names.sort();
+  for (var n = 0; n < names.length; n++) {
+    var H = byHandler[names[n]], total = H.clock + H.sheet + H.other;
+    var bits = [];
+    if (H.clock) bits.push(H.clock + ' on a timer');
+    if (H.sheet) bits.push(H.sheet + ' on sheet edits');
+    if (H.other) bits.push(H.other + ' other');
+    Logger.log('    ' + wr_pad_(names[n], 30) + bits.join(', ') +
+               (total > 1 ? '   <-- ' + total + ' triggers on ONE function' : ''));
+    if (total > 1) dupes.push(names[n] + ' x' + total);
+  }
+  if (dupes.length) {
+    Logger.log('');
+    Logger.log('    *** DUPLICATES: ' + dupes.join(', '));
+    Logger.log('        Each one runs the whole rebuild again. They do not make');
+    Logger.log('        the sheet fresher, they just spend the daily runtime');
+    Logger.log('        quota faster, and when it runs out the sheet stops');
+    Logger.log('        updating for the rest of the day.');
+  }
+  Logger.log('');
+
+  /* ---- 2. how old the data actually is ---- */
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var latest = wr_latestPaymentDate_(ss);
+  Logger.log('  FRESHNESS');
+  Logger.log('    newest payment in ' + WR_PAY_TAB + ' : ' + (latest || 'none found'));
+  Logger.log('    today                          : ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM-dd'));
+  Logger.log('    feed cache                     : ' + WR_CACHE_SECS +
+             's, so the TV is at most ' + Math.ceil(WR_CACHE_SECS / 60) +
+             ' min behind the sheet');
+  Logger.log('');
+
+  /* ---- 3. what to do ---- */
+  Logger.log('  WHAT A HEALTHY SETUP LOOKS LIKE');
+  Logger.log('    ONE time-driven trigger, on updateAndCheck, every 15 minutes.');
+  Logger.log('    That is it. updateAndCheck guards against overlapping runs;');
+  Logger.log('    calling refreshEverything directly skips that guard, so two');
+  Logger.log('    runs can collide and leave a tab half written.');
+  Logger.log('');
+  Logger.log('    To set it up:  Triggers (the clock icon, left edge)');
+  Logger.log('      - delete every existing rebuild trigger');
+  Logger.log('      - Add Trigger -> updateAndCheck -> Time-driven');
+  Logger.log('                    -> Minutes timer -> Every 15 minutes');
+  Logger.log('');
+  Logger.log('    IMPORTRANGE is not on your clock. Google refreshes it about');
+  Logger.log('    hourly and there is no setting for it, so a payment entered');
+  Logger.log('    in the Payment Tracker can take that long to reach this sheet');
+  Logger.log('    no matter how often the rebuild runs.');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* The most recent payment date in the sheet, as a plain yyyy-MM-dd
+   string. Reads the date column alone. */
+function wr_latestPaymentDate_(ss) {
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) return null;
+  var H = wr_headers_(sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  if (cDate < 0) return null;
+  var v = sh.getRange(2, cDate + 1, sh.getLastRow() - 1, 1).getValues();
+  var best = null;
+  for (var i = 0; i < v.length; i++) {
+    var d = v[i][0];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (!best || d.getTime() > best.getTime()) best = d;
+  }
+  return best ? Utilities.formatDate(best, WR_TZ, 'yyyy-MM-dd') : null;
+}

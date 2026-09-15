@@ -2445,6 +2445,21 @@ function warRoomContestWhatIf() {
                wr_money_(rows[j].ar) + '   pays ' + wr_money_(rows[j].ap));
   }
   Logger.log('');
+  /* The whole point: an exclusion is judged on the rows it actually
+     drops, not on an average. Averages hid that this proposal bars a
+     1.52 L unit alongside a 9,405 one. */
+  Logger.log('  EVERY UNIT THIS WOULD BAR   (check these are really not Accelerator)');
+  Logger.log('    ' + wr_pad_('agent', 24) + wr_pad_('date', 8) + wr_pad_('amount', 11) +
+             wr_pad_('batch', 13) + wr_pad_('family', 15) + wr_pad_('segment', 15) + 'payment type');
+  var bar = after.barred.slice(0).sort(function (x, y) { return y.amt - x.amt; });
+  for (var q = 0; q < bar.length; q++) {
+    var Bq = bar[q];
+    Logger.log('    ' + wr_pad_(Bq.name, 24) + wr_pad_(Bq.day, 8) +
+               wr_pad_(wr_money_(Bq.amt), 11) + wr_pad_(Bq.batch, 13) +
+               wr_pad_(Bq.fam, 15) + wr_pad_(Bq.seg, 15) + Bq.type);
+  }
+  if (!bar.length) Logger.log('    none');
+  Logger.log('');
   Logger.log('  To apply it, set in WR_CONTEST:');
   Logger.log('      excludeBatchPrefixes: [' +
              TRY.map(function (t) { return "'" + t + "'"; }).join(', ') + ']');
@@ -2454,7 +2469,7 @@ function warRoomContestWhatIf() {
 /* The contest board on its own, so it can be built twice and compared.
    Same window, same countMode and same exclusions as the live board. */
 function wr_contestBoard_(ss, monthKey) {
-  var out = { byAgent: {}, units: 0, rev: 0, payout: 0, colFound: false };
+  var out = { byAgent: {}, units: 0, rev: 0, payout: 0, colFound: false, barred: [] };
   var sh = ss.getSheetByName(WR_PAY_TAB);
   if (!sh || sh.getLastRow() < 2) return out;
   var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
@@ -2469,6 +2484,9 @@ function wr_contestBoard_(ss, monthKey) {
   var cRef  = wr_col_(H, ['is refund', 'refund']);
   var cStat = wr_col_(H, ['status']);
   var cBat  = wr_col_(H, ['batch']);
+  var cFam  = wr_col_(H, ['batch family']);
+  var cSeg  = wr_col_(H, ['segment']);
+  var cType = wr_col_(H, ['payment type']);
   out.colFound = cBat >= 0;
   if (cDate < 0 || cName < 0) return out;
 
@@ -2493,11 +2511,25 @@ function wr_contestBoard_(ss, monthKey) {
     if (cRef >= 0 && wr_truthy_(grid[r][cRef])) continue;
     var statusTxt = (cStat >= 0) ? String(grid[r][cStat] || '').trim().toLowerCase() : '';
     if (statusTxt.indexOf('cancel') > -1) continue;
-    if (!wr_progMatches_(cBat >= 0 ? grid[r][cBat] : '')) continue;
-
     var isUnit = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
     var counts = (WR_CONTEST.countMode === 'payments') ? 1 : isUnit;
     if (!counts) continue;
+
+    /* Barred AFTER the counting tests, so the list holds only rows that
+       would really have paid out. A row dropped for being a refund or a
+       balance was never in the contest and does not belong in a list of
+       what an exclusion costs. */
+    if (!wr_progMatches_(cBat >= 0 ? grid[r][cBat] : '')) {
+      out.barred.push({
+        name: nm, day: Utilities.formatDate(d, WR_TZ, 'dd MMM'),
+        amt: wr_num_(grid[r][cAmt]),
+        batch: cBat >= 0 ? wr_str_(grid[r][cBat]) : '',
+        fam: cFam >= 0 ? wr_str_(grid[r][cFam]) : '',
+        seg: cSeg >= 0 ? wr_str_(grid[r][cSeg]) : '',
+        type: cType >= 0 ? wr_str_(grid[r][cType]) : ''
+      });
+      continue;
+    }
     if (!out.byAgent[key]) out.byAgent[key] = { name: nm, units: 0, rev: 0 };
     out.byAgent[key].units += counts;
     out.byAgent[key].rev   += wr_num_(grid[r][cAmt]);

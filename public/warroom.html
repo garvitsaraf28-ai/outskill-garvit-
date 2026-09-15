@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Outskill — Sales War Room</title>
+<title>Outskill — Sales Dangal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap"/>
 <style>
 /* =====================================================================
-   OUTSKILL SALES WAR ROOM
+   OUTSKILL SALES DANGAL
    Built for a 1920x1080 stage, scaled to fit any TV. Never scrolls,
    never clips. See the JS CONFIG block for everything tunable.
    ===================================================================== */
@@ -65,6 +65,39 @@ html, body {
     var(--bg);
   overflow: hidden;
 }
+/* ---------- the arena ----------
+   This board is on a wall all day, so a dead flat background reads as a
+   frozen screen. Three slow lights drift behind everything and a faint
+   beam crosses the room. Every one of these animates transform or opacity
+   only, so the compositor handles them on the GPU and a cheap TV stick is
+   not re-laying-out the page every frame for the next six months. Nothing
+   moves fast enough to pull an eye off a number. */
+#stage::before {
+  content: ''; position: absolute; inset: -25%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(42% 42% at 22% 28%, rgba(194,238,69,0.11), transparent 62%),
+    radial-gradient(38% 38% at 78% 72%, rgba(77,216,192,0.09), transparent 62%),
+    radial-gradient(34% 34% at 62% 18%, rgba(255,215,110,0.07), transparent 62%);
+  filter: blur(46px);
+  animation: arena 54s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes arena {
+  0%   { transform: translate3d(-3%, -2%, 0) scale(1.04) rotate(0deg); }
+  50%  { transform: translate3d(3%, 2%, 0)   scale(1.13) rotate(4deg); }
+  100% { transform: translate3d(-2%, 3%, 0)  scale(1.06) rotate(-3deg); }
+}
+
+/* a single beam crossing the floor, the width of a spotlight */
+#beam { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+#beam i {
+  position: absolute; top: -60%; left: -35%; width: 26%; height: 220%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.038), transparent);
+  transform: rotate(13deg); animation: beam 17s linear infinite; will-change: transform;
+}
+@keyframes beam { from { transform: rotate(13deg) translate3d(0,0,0); }
+                  to   { transform: rotate(13deg) translate3d(560%,0,0); } }
+
 #stage::after {  /* film grain, keeps large flat areas from banding on TVs */
   content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .035; z-index: 60;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -147,6 +180,25 @@ h1.big .accent { color: var(--lime); }
 .pod.gold { background: linear-gradient(150deg, rgba(255,215,110,0.20), rgba(255,215,110,0.03)); border-color: rgba(255,215,110,0.55); box-shadow: 0 0 50px rgba(255,215,110,.10) inset; }
 .pod.gold .rev { color: var(--gold); }
 .pod.gold::before { content:''; position:absolute; inset:-40% -20% auto; height:70%; background: radial-gradient(circle, rgba(255,215,110,.22), transparent 70%); pointer-events:none; }
+/* the leader's card breathes, so first place is the thing that catches an
+   eye from across the floor even when the numbers have not moved */
+.pod.gold::after {
+  content: ''; position: absolute; inset: 0; border-radius: 22px; pointer-events: none;
+  box-shadow: inset 0 0 70px rgba(255,215,110,0.20);
+  animation: champ 3.8s ease-in-out infinite;
+}
+@keyframes champ { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+
+/* cards and rows arrive in sequence rather than all at once - the delay is
+   set per element in render(), so it works on every screen without each
+   one having to know its own row count */
+.screen.on .pod, .screen.on .row, .screen.on .award, .screen.on .stat {
+  animation: liftIn .5s cubic-bezier(.2,.75,.25,1) backwards;
+}
+@keyframes liftIn {
+  from { opacity: 0; transform: translate3d(0, 16px, 0); }
+  to   { opacity: 1; transform: none; }
+}
 .pod.silver { border-color: rgba(215,222,230,0.34); }
 .pod.bronze { border-color: rgba(224,160,106,0.34); }
 .pod.sm { padding: 20px 22px 18px; }
@@ -257,7 +309,7 @@ h1.big .accent { color: var(--lime); }
   <div id="stage">
 
     <div id="topbar">
-      <div class="brand"><span class="mark">OUTSKILL</span><span class="sub" id="boardName">Sales War Room</span></div>
+      <div class="brand"><span class="mark">OUTSKILL</span><span class="sub" id="boardName">Sales Dangal</span></div>
       <div id="clockwrap">
         <div class="period">
           <div class="big" id="periodBig">—</div>
@@ -267,6 +319,7 @@ h1.big .accent { color: var(--lime); }
       </div>
     </div>
 
+    <div id="beam"><i></i></div>
     <div id="screens"></div>
 
     <div id="flash"><div class="inner">
@@ -1097,7 +1150,7 @@ function scSpotClosed() {
     '<div class="kicker">Spot board</div>' +
     '<div class="line">NO CONTEST <span class="accent">RUNNING</span></div>' +
     '<div class="note">Set <b>WR_CONTEST.active</b> in war-room.gs when the next one starts. ' +
-    'The month board is on <b>/warroom</b>.</div></div>';
+    'The Dangal board is on <b>/warroom</b>.</div></div>';
 }
 
 /* SCREEN 1 - the offer, the count, the clock, the ladder. */
@@ -1404,6 +1457,14 @@ function render() {
   autofit(sc);
   if (key === 'agents') relabel(sc);
 
+  /* Stagger the arrival. Done here rather than in CSS nth-child so it
+     covers every screen whatever it is made of, and caps out so a long
+     board does not take two seconds to finish appearing. */
+  var seq = sc.querySelectorAll('.pod, .row, .award, .stat');
+  for (var q = 0; q < seq.length; q++) {
+    seq[q].style.animationDelay = Math.min(q * 45, 520) + 'ms';
+  }
+
   document.getElementById('screenname').textContent = built.name || '';
   paintDots(list.length, pos);
 
@@ -1511,7 +1572,7 @@ function runProgress(secs) {
    ===================================================================== */
 /* Say which of the two boards this screen is, so nobody has to guess. */
 document.getElementById('boardName').textContent =
-  (BOARD === 'spot') ? 'Spot Offer Board' : 'Sales War Room';
+  (BOARD === 'spot') ? 'Dangal - Spot Offer' : 'Sales Dangal';
 
 fit();
 if (Q.get('demo') === '1') {

@@ -1,4 +1,4 @@
-# Sales War Room — setup and operation
+# Sales Dangal — setup and operation
 
 The floor TV board. Live at **https://outskill-garvit.vercel.app/warroom**
 

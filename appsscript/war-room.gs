@@ -1383,6 +1383,272 @@ function warRoomWhatCounts() {
   Logger.log('  Nothing was written. This only reports.');
 }
 
+/**
+ * warRoomWhyStale - READ ONLY. Writes nothing, fixes nothing, and never
+ * opens CBC or the Payment Tracker. It reads two tabs of your own sheet.
+ *
+ * "Revenue shows the same every time" has three possible causes and they
+ * need three different fixes. Guessing wastes an afternoon. This walks
+ * the chain and names the broken link:
+ *
+ *   Payment Tracker -> src_Payments -> mdl_Payments -> the feed -> the TV
+ *
+ * If src_Payments is behind, the IMPORTRANGE is broken and no amount of
+ * running updateAndCheck will help. If src is current but mdl is behind,
+ * the model build has not run. Those are opposite problems.
+ */
+function warRoomWhyStale() {
+  var ss = SpreadsheetApp.getActive();
+  var today = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM-dd');
+  Logger.log('=== WHY IS IT STALE ===   today is ' + today + ' (' + WR_TZ + ')');
+  Logger.log('');
+
+  /* ---------- link 1: the import tab ---------- */
+  var src = ss.getSheetByName('src_Payments');
+  var srcLast = null, srcRows = 0, srcErr = '';
+  if (!src) {
+    Logger.log('  1. src_Payments   *** TAB NOT FOUND ***');
+  } else {
+    srcRows = src.getLastRow();
+    /* An IMPORTRANGE that has lost authorisation shows #REF! in the top
+       left. That is the single most common cause here, and it comes back
+       every time the formula's row bound is rewritten. */
+    var corner = src.getRange(1, 1, Math.min(6, srcRows || 1), 1).getDisplayValues();
+    for (var i = 0; i < corner.length; i++) {
+      var v = String(corner[i][0] || '');
+      if (v.indexOf('#REF') > -1 || v.indexOf('#N/A') > -1 || v.indexOf('#ERROR') > -1) {
+        srcErr = v; break;
+      }
+    }
+    srcLast = wr_lastDateIn_(src);
+    Logger.log('  1. src_Payments   ' + srcRows + ' rows' +
+               (srcErr ? ('   *** SHOWS ' + srcErr + ' ***') : '') +
+               '   last payment date: ' + (srcLast || 'none found'));
+    var f = src.getRange(1, 1).getFormula() || src.getRange(5, 1).getFormula();
+    if (f) Logger.log('     formula: ' + f.substring(0, 160));
+  }
+
+  /* ---------- link 2: the model ---------- */
+  var mdl = ss.getSheetByName(WR_PAY_TAB);
+  var mdlLast = null, mdlRows = 0;
+  if (!mdl) {
+    Logger.log('  2. mdl_Payments   *** TAB NOT FOUND ***');
+  } else {
+    mdlRows = mdl.getLastRow();
+    mdlLast = wr_lastDateIn_(mdl);
+    Logger.log('  2. mdl_Payments   ' + mdlRows + ' rows   last payment date: ' +
+               (mdlLast || 'none found'));
+  }
+
+  /* ---------- link 3: the feed ---------- */
+  Logger.log('  3. the feed       rebuilds every ' + WR_CACHE_SECS +
+             's, so the TV is at most ' + Math.ceil(WR_CACHE_SECS / 60) +
+             ' min behind mdl_Payments');
+  Logger.log('  4. the TV         polls every 30s');
+  Logger.log('');
+
+  /* ---------- the verdict ---------- */
+  Logger.log('  VERDICT');
+  if (srcErr) {
+    Logger.log('    src_Payments is showing ' + srcErr + '. The import from the Payment');
+    Logger.log('    Tracker is BROKEN, so nothing downstream can be current and running');
+    Logger.log('    updateAndCheck will not help.');
+    Logger.log('');
+    Logger.log('    FIX: open src_Payments, click cell A1 (or A5 - whichever holds the');
+    Logger.log('    IMPORTRANGE), and press the blue "Allow access" button. Wait for the');
+    Logger.log('    rows to fill, THEN run updateAndCheck once. Do not run it twice.');
+  } else if (!srcLast) {
+    Logger.log('    src_Payments has no readable payment dates. Send me the formula above.');
+  } else if (srcLast < today && mdlLast === srcLast) {
+    Logger.log('    Both tabs agree, and both stop at ' + srcLast + '. Your sheet is');
+    Logger.log('    consistent - it simply has no payment dated today yet.');
+    Logger.log('    If the Payment Tracker DOES have one, the IMPORTRANGE is lagging:');
+    Logger.log('    open src_Payments and check the tracker against it row for row.');
+  } else if (mdlLast && srcLast && mdlLast < srcLast) {
+    Logger.log('    src_Payments is current to ' + srcLast + ' but mdl_Payments only');
+    Logger.log('    reaches ' + mdlLast + '. The import is fine; the MODEL BUILD has not run.');
+    Logger.log('');
+    Logger.log('    FIX: run updateAndCheck once and wait for it to finish.');
+  } else {
+    Logger.log('    The chain looks healthy. src and mdl both reach ' + (mdlLast || srcLast) + '.');
+    Logger.log('    If the TV still shows an old figure, give it ' +
+               Math.ceil(WR_CACHE_SECS / 60) + ' minutes for the feed cache,');
+    Logger.log('    then check the pill top right - it shows the true age of the numbers.');
+  }
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Latest real date anywhere in a sheet's date column, as yyyy-MM-dd. */
+function wr_lastDateIn_(sh) {
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (lastRow < 2) return null;
+  var H = wr_headers_(sh.getRange(1, 1, 1, lastCol).getValues()[0]);
+  var c = wr_col_(H, ['date', 'payment date', 'paid on']);
+  if (c < 0) return null;
+  var col = sh.getRange(2, c + 1, lastRow - 1, 1).getValues();
+  var best = null;
+  for (var i = 0; i < col.length; i++) {
+    var d = col[i][0];
+    if (d instanceof Date && !isNaN(d.getTime())) {
+      if (!best || d.getTime() > best.getTime()) best = d;
+    }
+  }
+  return best ? Utilities.formatDate(best, WR_TZ, 'yyyy-MM-dd') : null;
+}
+
+/* Which tab holds the report leadership actually quotes. The board is
+   checked against this, never sourced from it: the report holds rounded
+   display strings like "53.05 L", while mdl_Payments holds the rupee. */
+var WR_REPORT_TAB = 'Management Report';
+
+/**
+ * warRoomVsReport - READ ONLY. Writes nothing.
+ *
+ * Puts the board's figures next to the Management Report's, line by line,
+ * and says PASS or MISMATCH on each. The two are computed independently -
+ * the report by its own code, the board from mdl_Payments - so agreement
+ * is real evidence rather than a claim.
+ *
+ * It also refuses to be fooled by a stale tab: it prints the report's own
+ * "Report Dated" cell, so a frozen copy announces itself instead of
+ * quietly passing.
+ */
+function warRoomVsReport() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(WR_REPORT_TAB);
+  if (!sh) {
+    Logger.log('Tab "' + WR_REPORT_TAB + '" not found. Set WR_REPORT_TAB to its exact name.');
+    return;
+  }
+
+  /* Wide enough for the report's indented blocks - it runs to column L
+     today, and a cap that clips the revenue column would compare against
+     blanks and call everything a mismatch. */
+  var grid = sh.getRange(1, 1, Math.min(sh.getLastRow(), 200),
+                         Math.min(sh.getLastColumn(), 30)).getDisplayValues();
+  var p = wr_build_('');
+  var today = Utilities.formatDate(new Date(), WR_TZ, 'dd-MMM-yyyy');
+
+  Logger.log('=== BOARD vs MANAGEMENT REPORT ===  ' + p.meta.generatedLabel);
+  var dated = wr_findRight_(grid, 'Report Dated');
+  Logger.log('  report says it was built : ' + (dated || '(no Report Dated cell)'));
+  Logger.log('  today is                 : ' + today);
+  if (dated && dated.indexOf(today.substring(0, 6)) === -1) {
+    Logger.log('  *** THE REPORT ITSELF IS NOT FROM TODAY. Re-run whatever builds it');
+    Logger.log('  *** before trusting anything below.');
+  }
+  Logger.log('');
+
+  var fails = 0;
+  function cmp(label, reportRaw, boardNum) {
+    var r = wr_num_(wr_reportNum_(reportRaw));
+    var b = Number(boardNum) || 0;
+    /* The report rounds to two decimals in lakh, so 1,000 of slack is
+       rounding, not disagreement. */
+    var ok = Math.abs(r - b) <= Math.max(1000, Math.abs(b) * 0.001);
+    if (!ok) fails++;
+    Logger.log('  ' + (ok ? 'PASS     ' : 'MISMATCH ') + wr_pad_(label, 22) +
+               wr_pad_('report ' + (reportRaw || '-'), 20) +
+               'board ' + wr_money_(b) +
+               (ok ? '' : '     <-- differs by ' + wr_money_(Math.abs(r - b))));
+  }
+  function cmpN(label, reportRaw, boardNum) {
+    var r = wr_num_(reportRaw), b = Number(boardNum) || 0;
+    var ok = (r === b);
+    if (!ok) fails++;
+    Logger.log('  ' + (ok ? 'PASS     ' : 'MISMATCH ') + wr_pad_(label, 22) +
+               wr_pad_('report ' + (reportRaw || '-'), 20) + 'board ' + b);
+  }
+
+  cmp ('Total revenue',  wr_findRight_(grid, 'Total revenue'),  p.totals.revenue);
+  cmp ('Committed For',  wr_findRight_(grid, 'Committed For'),  p.totals.target);
+  cmpN('Units',          wr_findRight_(grid, 'Units'),          p.totals.units);
+  Logger.log('');
+
+  Logger.log('  BY CITY');
+  p.cities.forEach(function (c) {
+    cmp(c.name, wr_revenueOf_(wr_findRow_(grid, c.name)), c.revenue);
+  });
+  Logger.log('');
+
+  Logger.log('  BY MANAGER');
+  p.managers.forEach(function (m) {
+    cmp(m.name, wr_revenueOf_(wr_findRow_(grid, m.name)), m.revenue);
+  });
+
+  Logger.log('');
+  if (fails) {
+    Logger.log('  === ' + fails + ' LINE(S) DISAGREE ===');
+    Logger.log('  Both read the same workbook, so a mismatch means one of them ran');
+    Logger.log('  against older data. Run updateAndCheck, rebuild the report, then');
+    Logger.log('  run this again. If it still disagrees, send me this log.');
+  } else {
+    Logger.log('  === EVERY LINE AGREES ===');
+    Logger.log('  The TV and the Management Report are showing the same numbers.');
+  }
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* The cell to the right of a label, anywhere in the grid. Labels on the
+   report carry the month - "Committed For Sep", not "Committed For" - so
+   these are matched on the opening words. Names never are: a prefix match
+   would hand Saeed's line to a "Saeed Khan". */
+function wr_findRight_(grid, label) {
+  var row = wr_findRow_(grid, label, true);
+  if (!row) return '';
+  for (var i = row._at + 1; i < row.length; i++) {
+    if (String(row[i]).trim()) return String(row[i]).trim();
+  }
+  return '';
+}
+
+/* The first row carrying this label, tagged with the column it sat in.
+   Exact match always wins; prefixOk then allows "Committed For Sep" to
+   answer to "Committed For". */
+function wr_findRow_(grid, label, prefixOk) {
+  var want = String(label).trim().toLowerCase();
+  var loose = null;
+  for (var r = 0; r < grid.length; r++) {
+    for (var c = 0; c < grid[r].length; c++) {
+      var cell = String(grid[r][c]).trim().toLowerCase();
+      if (cell === want) { var row = grid[r].slice(); row._at = c; return row; }
+      if (prefixOk && !loose && cell.indexOf(want) === 0) {
+        loose = grid[r].slice(); loose._at = c;
+      }
+    }
+  }
+  return loose;
+}
+
+/* The revenue cell on a city or manager line. The report indents its
+   blocks, so the label is not in column 0 - both blocks run
+   Name | Agents | Revenue, so revenue sits two right of wherever the name
+   was found. If that cell is empty, scan on for the first lakh or crore
+   figure rather than silently comparing against a blank. */
+function wr_revenueOf_(row) {
+  if (!row) return '';
+  var at = row._at;
+  var direct = String(row[at + 2] == null ? '' : row[at + 2]).trim();
+  if (direct) return direct;
+  for (var i = at + 1; i < row.length; i++) {
+    var v = String(row[i] == null ? '' : row[i]).trim();
+    if (/\d/.test(v) && /\b(l|cr)\b/i.test(v)) return v;
+  }
+  return '';
+}
+
+/* "53.05 L" -> 5305000, "1.02 cr" -> 10200000, "4,865,206" -> 4865206. */
+function wr_reportNum_(s) {
+  var t = String(s == null ? '' : s).trim().toLowerCase();
+  if (!t) return 0;
+  var n = wr_num_(t);
+  if (/\bcr\b/.test(t)) return n * 10000000;
+  if (/\bl\b/.test(t))  return n * 100000;
+  return n;
+}
+
 /** Checks the pure logic. Touches no sheet, writes nothing. */
 function warRoomSelfTest() {
   var fails = 0;

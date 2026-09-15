@@ -125,23 +125,73 @@ var WR_CONTEST = {
      prints every candidate column's real values. */
   onlyProduct:    '',
   excludeProduct: '',
-  productColumn:  ''
+  productColumn:  '',
+
+  /* BARRING WHOLE PRODUCTS BY BATCH CODE
+
+     warRoomBatches showed the Batch column carries the product - BC18,
+     EBC4, CL WS IND, and bare cohort numbers for Accelerator. It also
+     showed the column is NOT purely a product: "Referral" and "Website"
+     are lead SOURCES sitting in the same column, and Referral runs at
+     about 155,000 a unit, higher than the Accelerator cohorts. Barring
+     "anything that is not a number" would have dropped 7.77 L of real
+     Accelerator business - the Batch Family mistake over again.
+
+     So this is an explicit list, never a pattern. Each entry is matched
+     as a PREFIX of the batch code, not a substring: "EBC4" contains "BC"
+     but is not a Bootcamp code under a "BC" rule, and a substring match
+     would also catch unrelated future codes by accident.
+
+     Empty bars nothing, which is the live setting. When it is set, the
+     Batch column is read automatically - warRoomContestWhatIf shows
+     exactly who gains and loses before you commit to it. */
+  excludeBatchPrefixes: []
 };
 
-/* Does one row's product qualify? With both product settings empty - the
+/* Does one row's product qualify? With every product setting empty - the
    live rule - yes, always. */
 function wr_progMatches_(cell) {
-  var v    = String(cell == null ? '' : cell).toLowerCase();
+  var raw  = String(cell == null ? '' : cell).trim();
+  var v    = raw.toLowerCase();
   var only = String(WR_CONTEST.onlyProduct || '').toLowerCase();
   var bad  = String(WR_CONTEST.excludeProduct || '').toLowerCase();
   if (only && v.indexOf(only) === -1) return false;
   if (bad  && v.indexOf(bad)  > -1)   return false;
+
+  /* PREFIX, not substring. "EBC4" contains "BC" and must not be barred by
+     a "BC" rule; only a code that STARTS with the entry is barred. */
+  var pref = wr_excludedPrefixes_();
+  for (var i = 0; i < pref.length; i++) {
+    if (pref[i] && v.indexOf(pref[i]) === 0) return false;
+  }
   return true;
+}
+
+/* The exclusion list, lowercased and trimmed, empties dropped. */
+function wr_excludedPrefixes_() {
+  var raw = WR_CONTEST.excludeBatchPrefixes;
+  if (!raw || !raw.length) return [];
+  var out = [];
+  for (var i = 0; i < raw.length; i++) {
+    var t = String(raw[i] == null ? '' : raw[i]).trim().toLowerCase();
+    if (t) out.push(t);
+  }
+  return out;
 }
 
 /* Is a product filter switched on at all? */
 function wr_progFiltering_() {
-  return !!(WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct);
+  return !!(WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct ||
+            wr_excludedPrefixes_().length);
+}
+
+/* Which column carries the product. An explicit productColumn always
+   wins; a bare prefix list means the Batch column, because that is what
+   the prefixes are codes from. Resolving it here rather than leaving it
+   blank stops a set exclusion list from silently barring nothing. */
+function wr_productColumnName_() {
+  if (WR_CONTEST.productColumn) return String(WR_CONTEST.productColumn);
+  return wr_excludedPrefixes_().length ? 'batch' : '';
 }
 
 /* =====================================================================
@@ -411,7 +461,9 @@ function wr_contest_(pay, roster) {
        a product, a filter that silently keeps nothing announces itself
        instead of running a whole weekend showing zero. */
     countMode: WR_CONTEST.countMode || 'units',
-    programme: WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct || '',
+    programme: WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct ||
+               (wr_excludedPrefixes_().length
+                  ? 'excluding ' + wr_excludedPrefixes_().join(', ').toUpperCase() : ''),
     programmeFiltered: !!(wr_progFiltering_() && pay.programmeCol),
     programmeColumnMissing: !!(wr_progFiltering_() && !pay.programmeCol),
     programmeMatchedNothing: !!(wr_progFiltering_() && pay.programmeCol &&
@@ -569,8 +621,9 @@ function wr_payments_(ss, monthKey) {
      can be lost to a filter. No fuzzy fallback either: guessing once landed
      on "Batch Family", which is the lead's source campaign and not the
      product, and threw away real sales. */
-  var cProg  = (wr_progFiltering_() && WR_CONTEST.productColumn)
-                 ? wr_col_(H, [String(WR_CONTEST.productColumn).toLowerCase()])
+  var progColName = wr_productColumnName_();
+  var cProg  = (wr_progFiltering_() && progColName)
+                 ? wr_col_(H, [progColName.toLowerCase()])
                  : -1;
   var cRef   = wr_col_(H, ['is refund', 'refund']);
   var cType  = wr_col_(H, ['payment type']);
@@ -2305,4 +2358,163 @@ function wr_batchClass_(batch) {
   var m = t.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)*)/);
   if (!m) return 'other';
   return m[1].toUpperCase().replace(/\s+/g, ' ') + '*';
+}
+
+
+/* ============================================================
+   warRoomContestWhatIf - see the exclusion before you commit to it
+
+   Barring a product changes who wins money, so it should never be
+   switched on blind. This builds the contest board twice, once as
+   configured and once with a proposed exclusion list, and shows the
+   difference per agent: who drops, who moves up, and what the ladder
+   pays either way.
+
+   Edit TRY below, run it, read it. It changes no setting - the live
+   config is restored before it returns, including if it throws.
+
+   READ ONLY. Writes nowhere, never opens CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomContestWhatIf() {
+
+  /* -------- edit this, then run -------- */
+  var TRY = ['BC', 'EBC', 'CL WS'];
+  /* ------------------------------------- */
+
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var was = WR_CONTEST.excludeBatchPrefixes;
+  var before, after;
+  try {
+    WR_CONTEST.excludeBatchPrefixes = [];
+    before = wr_contestBoard_(ss, monthKey);
+    WR_CONTEST.excludeBatchPrefixes = TRY;
+    after  = wr_contestBoard_(ss, monthKey);
+  } finally {
+    WR_CONTEST.excludeBatchPrefixes = was;   // never leave the config changed
+  }
+
+  Logger.log('=== CONTEST WHAT IF ===   ' + WR_CONTEST.name + '   ' +
+             WR_CONTEST.from + ' to ' + WR_CONTEST.to);
+  Logger.log('  proposal: bar batch codes starting with  ' + TRY.join(', '));
+  Logger.log('  (prefix, not substring - EBC4 is not barred by a BC rule)');
+  Logger.log('');
+  if (!after.colFound) {
+    Logger.log('  *** NO BATCH COLUMN FOUND in ' + WR_PAY_TAB + '.');
+    Logger.log('      Nothing would be barred. Check the header spelling.');
+    return;
+  }
+  Logger.log('  units counted : ' + before.units + '   ->   ' + after.units +
+             '   (' + (before.units - after.units) + ' barred)');
+  Logger.log('  payout        : ' + wr_money_(before.payout) + '   ->   ' +
+             wr_money_(after.payout));
+  Logger.log('');
+
+  var names = {}, k;
+  for (k in before.byAgent) names[k] = true;
+  for (k in after.byAgent)  names[k] = true;
+  var rows = [];
+  for (k in names) {
+    var b = before.byAgent[k] || { name: k, units: 0, rev: 0 };
+    var a = after.byAgent[k]  || { name: b.name, units: 0, rev: 0 };
+    rows.push({ name: b.name || a.name, bu: b.units, au: a.units,
+                br: b.rev, ar: a.rev,
+                bp: wr_ladderPays_(b.units), ap: wr_ladderPays_(a.units) });
+  }
+  rows.sort(function (x, y) { return (y.bu - y.au) - (x.bu - x.au) || y.bu - x.bu; });
+
+  Logger.log('  WHO IS AFFECTED   (biggest change first)');
+  Logger.log('    ' + wr_pad_('agent', 24) + wr_pad_('units', 12) +
+             wr_pad_('ladder pays', 20) + 'barred revenue');
+  var shown = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var R = rows[i];
+    if (R.bu === R.au) continue;
+    shown++;
+    Logger.log('    ' + wr_pad_(R.name, 24) +
+               wr_pad_(R.bu + ' -> ' + R.au, 12) +
+               wr_pad_(wr_money_(R.bp) + ' -> ' + wr_money_(R.ap), 20) +
+               wr_money_(R.br - R.ar));
+  }
+  if (!shown) Logger.log('    nobody - the exclusion changes nothing');
+  Logger.log('');
+  Logger.log('  UNCHANGED');
+  for (var j = 0; j < rows.length; j++) {
+    if (rows[j].bu !== rows[j].au || !rows[j].au) continue;
+    Logger.log('    ' + wr_pad_(rows[j].name, 24) + rows[j].au + 'u   ' +
+               wr_money_(rows[j].ar) + '   pays ' + wr_money_(rows[j].ap));
+  }
+  Logger.log('');
+  Logger.log('  To apply it, set in WR_CONTEST:');
+  Logger.log('      excludeBatchPrefixes: [' +
+             TRY.map(function (t) { return "'" + t + "'"; }).join(', ') + ']');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* The contest board on its own, so it can be built twice and compared.
+   Same window, same countMode and same exclusions as the live board. */
+function wr_contestBoard_(ss, monthKey) {
+  var out = { byAgent: {}, units: 0, rev: 0, payout: 0, colFound: false };
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) return out;
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cName = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt  = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cMgr  = wr_col_(H, ['manager', 'reporting manager', 'tl']);
+  var cOff  = wr_col_(H, ['office', 'city', 'location', 'branch']);
+  var cRef  = wr_col_(H, ['is refund', 'refund']);
+  var cStat = wr_col_(H, ['status']);
+  var cBat  = wr_col_(H, ['batch']);
+  out.colFound = cBat >= 0;
+  if (cDate < 0 || cName < 0) return out;
+
+  var roster = wr_roster_(ss, monthKey);
+  var from = wr_dayNum_(WR_CONTEST.from), to = wr_dayNum_(WR_CONTEST.to);
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    var day = wr_dayNumOf_(d);
+    if (day < from || day > to) continue;
+    var nm = wr_str_(grid[r][cName]);
+    var mgrRaw = cMgr >= 0 ? wr_str_(grid[r][cMgr]) : '';
+    var offRaw = cOff >= 0 ? wr_str_(grid[r][cOff]) : '';
+    if (!nm || wr_isSummaryRow_(nm, mgrRaw, offRaw)) continue;
+    var key = wr_key_(nm);
+    if (!roster.byAgent[key]) continue;                        // roster agents only
+    /* Exactly the live board's test, not a parallel one: a status
+       containing "cancel" is out, and so is Is Refund. Keeping the two
+       in step matters more than keeping this function short. */
+    if (cRef >= 0 && wr_truthy_(grid[r][cRef])) continue;
+    var statusTxt = (cStat >= 0) ? String(grid[r][cStat] || '').trim().toLowerCase() : '';
+    if (statusTxt.indexOf('cancel') > -1) continue;
+    if (!wr_progMatches_(cBat >= 0 ? grid[r][cBat] : '')) continue;
+
+    var isUnit = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+    var counts = (WR_CONTEST.countMode === 'payments') ? 1 : isUnit;
+    if (!counts) continue;
+    if (!out.byAgent[key]) out.byAgent[key] = { name: nm, units: 0, rev: 0 };
+    out.byAgent[key].units += counts;
+    out.byAgent[key].rev   += wr_num_(grid[r][cAmt]);
+    out.units += counts;
+    out.rev   += wr_num_(grid[r][cAmt]);
+  }
+  for (var k in out.byAgent) out.payout += wr_ladderPays_(out.byAgent[k].units);
+  return out;
+}
+
+/* The published ladder: 2 -> 1,000, 3 -> 1,500, 4 -> 2,500, 5+ -> 1,000
+   per unit with no cap. Below 2 pays nothing. */
+function wr_ladderPays_(units) {
+  var u = Number(units) || 0;
+  if (u < 2) return 0;
+  if (u === 2) return 1000;
+  if (u === 3) return 1500;
+  if (u === 4) return 2500;
+  return u * 1000;
 }

@@ -60,7 +60,7 @@ var WR_TZ         = 'Asia/Kolkata';
    roughly one poll in eight rebuilds and the other seven answer instantly,
    from any number of screens. Nothing is lost by caching this long - the
    figures only move when updateAndCheck runs. */
-var WR_CACHE_SECS = 240;
+var WR_CACHE_SECS = 420;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
 var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp column
 
@@ -570,44 +570,62 @@ function wr_payments_(ss, monthKey) {
 
   if (cDate < 0 || cAgent < 0 || cAmt < 0) return out;
 
-  var width = Math.max(cDate, cAgent, cAmt, cUnit, cRost, cProg, cRef, cStat, cType) + 1;
-  var grid = sh.getRange(2, 1, lastRow - 1, width).getValues();
+  /* Pull ONLY the columns this actually reads, one narrow range each,
+     instead of every column up to the rightmost one it needs.
+
+     mdl_Payments runs to the IMPORTRANGE's pinned bound whether or not
+     those rows hold anything, so the full-width read was fetching roughly
+     three times the cells for no gain, and a cold build had climbed to 34
+     seconds - past the point where the TV gives up waiting and shows
+     "NO DATA YET". Note that "On Roster" is deliberately not among them:
+     roster membership is decided by matching mdl_Roster, not by that flag. */
+  var n = lastRow - 1;
+  function col(idx) {
+    if (idx < 0) return null;
+    var v = sh.getRange(2, idx + 1, n, 1).getValues();
+    for (var q = 0; q < v.length; q++) v[q] = v[q][0];
+    return v;
+  }
+  var vDate = col(cDate), vAgent = col(cAgent), vAmt = col(cAmt);
+  var vUnit = col(cUnit), vProg = col(cProg), vRef = col(cRef);
+  var vType = col(cType), vStat = col(cStat);
+  function at(v, i) { return v ? v[i] : ''; }
 
   /* the contest window, as day numbers so the comparison is a plain integer */
   var cFrom = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
   var cTo   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
 
-  for (var r = 0; r < grid.length; r++) {
-    var row = grid[r];
-    var d = row[cDate];
+  for (var r = 0; r < n; r++) {
+    var d = vDate[r];
     if (!(d instanceof Date) || isNaN(d.getTime())) continue;
 
-    var name = wr_str_(row[cAgent]);
+    var name = wr_str_(vAgent[r]);
     if (!name || wr_isSummary_(name)) continue;   // totals rows are not people
     var key = wr_key_(name);
-    var isUnit = (cUnit >= 0 && wr_truthy_(row[cUnit]));
+    var isUnit = (cUnit >= 0 && wr_truthy_(at(vUnit, r)));
 
     /* Money that came back is not money earned. mdl_Payments carries both
        "Is Refund" and a "Status" that says CANCELLED, and neither was being
        read - so a refunded payment lifted the board exactly like a sale. */
-    var isRefund  = (cRef >= 0 && wr_truthy_(row[cRef]));
-    var statusTxt = (cStat >= 0) ? String(row[cStat] || '').trim().toLowerCase() : '';
+    var isRefund  = (cRef >= 0 && wr_truthy_(at(vRef, r)));
+    var statusTxt = (cStat >= 0) ? String(at(vStat, r) || '').trim().toLowerCase() : '';
     var isCancel  = (statusTxt.indexOf('cancel') > -1);
     var thisMonth = (wr_monthKey_(d) === monthKey);
+    var amt = wr_num_(vAmt[r]);
     if (thisMonth && cType >= 0 &&
-        String(row[cType] || '').toLowerCase().indexOf('upgrade') > -1) {
-      out.upgradeRows++; out.upgradeAmount += wr_num_(row[cAmt]);
+        String(at(vType, r) || '').toLowerCase().indexOf('upgrade') > -1) {
+      out.upgradeRows++; out.upgradeAmount += amt;
     }
 
-    if (thisMonth && isRefund) { out.refundRows++;    out.refundAmount    += wr_num_(row[cAmt]); }
-    if (thisMonth && isCancel) { out.cancelledRows++; out.cancelledAmount += wr_num_(row[cAmt]); }
+    if (thisMonth && isRefund) { out.refundRows++;    out.refundAmount    += amt; }
+    if (thisMonth && isCancel) { out.cancelledRows++; out.cancelledAmount += amt; }
     if (isRefund || isCancel) continue;
 
     /* --- the month-to-date boards --- */
     if (thisMonth) {
       out.rowsScanned++;
       if (!out.byAgent[key]) out.byAgent[key] = { name: name, revenue: 0, units: 0 };
-      out.byAgent[key].revenue += wr_num_(row[cAmt]);
+      out.byAgent[key].revenue += amt;
       if (isUnit) out.byAgent[key].units += 1;
       out.rowsCounted++;
     }
@@ -622,7 +640,7 @@ function wr_payments_(ss, monthKey) {
          contest bars a product. Judge the RAW cell when it does run:
          '(blank)' is only a label for the log. */
       if (cProg >= 0) {
-        var raw = wr_str_(row[cProg]);
+        var raw = wr_str_(at(vProg, r));
         var label = raw || '(blank)';
         out.progSamples[label] = (out.progSamples[label] || 0) + 1;
         if (!wr_progMatches_(raw)) continue;
@@ -633,7 +651,7 @@ function wr_payments_(ss, monthKey) {
       out.contestCounted++;
       if (!out.contest[key]) out.contest[key] = { name: name, units: 0, revenue: 0 };
       out.contest[key].units += 1;
-      out.contest[key].revenue += wr_num_(row[cAmt]);
+      out.contest[key].revenue += amt;
       out.contestUnits++;
       out.contestRows++;
     }
@@ -924,6 +942,11 @@ function warRoomPreview() {
   Logger.log('  month              : ' + p.meta.month + '  (' + p.meta.windowLabel + ')');
   Logger.log('  payment rows in it : ' + p.meta.rows);
   Logger.log('  build took         : ' + p.meta.buildMs + ' ms   (cached ' + WR_CACHE_SECS + 's between TV polls)');
+  if (p.meta.buildMs > 60000) {
+    Logger.log('  *** THAT IS SLOW ENOUGH TO MATTER. The TV waits 90s for a cold build.');
+    Logger.log('  *** Above that it gives up and shows NO DATA YET on every cache miss.');
+    Logger.log('  *** Tell me and I will cut what the feed reads.');
+  }
   Logger.log('');
   Logger.log('  COMPANY   <-- compare these to the Management Report');
   Logger.log('    revenue          : ' + wr_money_(p.totals.revenue) +

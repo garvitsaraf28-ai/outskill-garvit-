@@ -560,10 +560,12 @@ function loadData() {
   var url = CONFIG.API_URL + (CONFIG.API_URL.indexOf('?') > -1 ? '&' : '?') +
             'callback=' + cb + '&t=' + Date.now();
 
-  /* A cold build on the real workbook takes ~14s (tens of thousands of
-     payment rows). Most polls hit the feed's cache and come back instantly,
-     but the one that rebuilds must not be cut off at the knees. */
-  var timer = setTimeout(function () { if (!done) { cleanup(); fail(); } }, 30000);
+  /* A cold build has to walk every payment row in the workbook, and on the
+     real sheet that was measured at 34 seconds - past the 30s this used to
+     allow, so every cache miss timed out and the board read "NO DATA YET"
+     while the feed was in fact answering. Most polls hit the feed's cache
+     and return instantly; the one that rebuilds gets as long as it needs. */
+  var timer = setTimeout(function () { if (!done) { cleanup(); fail(); } }, 90000);
 
   window[cb] = function (payload) {
     done = true; clearTimeout(timer); cleanup();

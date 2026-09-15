@@ -602,14 +602,15 @@ function wr_payments_(ss, monthKey) {
   var cFromScan = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
   var cToScan   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
   var first = -1, last = -1;
+  /* One day number per row, compared as integers. The month is a prefix of
+     it, so this needs no month key and no second pass. */
+  var wantYM = Number(monthKey.substring(0, 4)) * 100 + Number(monthKey.substring(5, 7));
   for (var s0 = 0; s0 < n; s0++) {
     var dScan = vDateRaw[s0][0];
     if (!(dScan instanceof Date) || isNaN(dScan.getTime())) continue;
-    var inScope = (wr_monthKey_(dScan) === monthKey);
-    if (!inScope && cFromScan) {
-      var dayScan = wr_dayNumOf_(dScan);
-      inScope = (dayScan >= cFromScan && dayScan <= cToScan);
-    }
+    var dayScan = wr_dayNumOf_(dScan);
+    var inScope = (Math.floor(dayScan / 100) === wantYM) ||
+                  (cFromScan && dayScan >= cFromScan && dayScan <= cToScan);
     if (inScope) { if (first < 0) first = s0; last = s0; }
   }
   out.scanRows = n;
@@ -693,6 +694,62 @@ function wr_payments_(ss, monthKey) {
   return out;
 }
 
+/* FORMATTING DATES IS THE EXPENSIVE THING.
+
+   Utilities.formatDate is a bridge call out of JavaScript, and the scan
+   loop was making about 35,000 of them - one per row for the month key,
+   three more per out-of-month row for the day number. Measured on the real
+   sheet that was 27.5 of the build's 29 seconds. Everything else put
+   together was 1.5.
+
+   A plain JS Date already carries the right calendar fields when the
+   script's own timezone is the one we report in, so ask once, cache the
+   answer, and only fall back to formatDate when they differ. Asking once
+   per execution rather than per row is the whole optimisation. */
+var WR_FAST_DATES = null;
+function wr_fastDates_() {
+  if (WR_FAST_DATES !== null) return WR_FAST_DATES;
+  WR_FAST_DATES = false;            /* set first, so a probe can never recurse */
+  try {
+    /* Do not compare timezone NAMES. Google reports Indian projects as
+       'Asia/Calcutta' at least as often as 'Asia/Kolkata', and a name compare
+       would quietly fall through to the slow path - a no-op optimisation that
+       still costs 29 seconds. Prove the arithmetic instead.
+
+       Compare the whole timestamp, not just the calendar date. If the hour
+       and the minute agree as well, the two zones are at the same offset at
+       that instant, which is the only thing being relied on. An earlier
+       version of this probe compared dates alone at half-hour steps, and a
+       quarter-hour zone such as Asia/Kathmandu slipped through it - the
+       offset never pushed any probe across midnight. Comparing the time
+       closes that: any difference at all shows up directly.
+
+       Twelve instants across the year, so a zone that keeps IST's offset in
+       winter and drifts in summer is caught by the summer probes. Twelve
+       formatDate calls, once, against the 35,000 this replaces. */
+    for (var mo = 0; mo < 12; mo++) {
+      var probe = new Date(2026, mo, 15, 13, 47, 0);
+      var p2 = function (x) { return x < 10 ? '0' + x : '' + x; };
+      var localStamp = probe.getFullYear() + p2(probe.getMonth() + 1) + p2(probe.getDate()) +
+                       p2(probe.getHours()) + p2(probe.getMinutes());
+      if (Utilities.formatDate(probe, WR_TZ, 'yyyyMMddHHmm') !== localStamp) return false;
+    }
+    WR_FAST_DATES = true;
+  } catch (e) {
+    WR_FAST_DATES = false;          /* anything unexpected: take the slow, correct road */
+  }
+  return WR_FAST_DATES;
+}
+
+/* Month key of a Date, the fast way where that has been proven safe. */
+function wr_monthKeyOf_(d) {
+  if (wr_fastDates_()) {
+    var y = d.getFullYear(), m = d.getMonth() + 1;
+    if (y >= 1000) return y + '-' + (m < 10 ? '0' + m : m);
+  }
+  return Utilities.formatDate(d, WR_TZ, 'yyyy-MM');
+}
+
 /* 'yyyy-MM-dd' -> a comparable integer, 0 if it is not a date */
 function wr_dayNum_(s) {
   var m = String(s || '').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
@@ -700,6 +757,10 @@ function wr_dayNum_(s) {
   return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
 }
 function wr_dayNumOf_(d) {
+  if (wr_fastDates_()) {
+    var yf = d.getFullYear();
+    if (yf >= 1000) return yf * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  }
   return Number(Utilities.formatDate(d, WR_TZ, 'yyyy')) * 10000 +
          Number(Utilities.formatDate(d, WR_TZ, 'MM')) * 100 +
          Number(Utilities.formatDate(d, WR_TZ, 'dd'));
@@ -829,7 +890,7 @@ function wr_monthCol_(grid) {
 function wr_monthKey_(v) {
   if (v instanceof Date) {
     if (isNaN(v.getTime())) return '';
-    return Utilities.formatDate(v, WR_TZ, 'yyyy-MM');
+    return wr_monthKeyOf_(v);
   }
   var s = String(v == null ? '' : v).trim();
   if (!s) return '';
@@ -979,6 +1040,11 @@ function warRoomPreview() {
   Logger.log('    of which          : roster ' + p.meta.rosterMs + ' ms, payments ' +
              p.meta.paymentsMs + ' ms   (scanned ' + p.meta.scanRows +
              ' rows, read a block of ' + p.meta.blockRows + ')');
+  /* If this says no, the date scan is formatting every row and the build will
+     be tens of seconds. It means this project's timezone is not IST, which is
+     worth knowing on its own - every date on the board is reported in IST. */
+  Logger.log('    fast dates        : ' + (wr_fastDates_() ? 'yes' : 'NO - script timezone is not ' + WR_TZ +
+             ', so dates are formatted one row at a time. Fix it in Project Settings.'));
   if (p.meta.buildMs > 60000) {
     Logger.log('  *** THAT IS SLOW ENOUGH TO MATTER. The TV waits 90s for a cold build.');
     Logger.log('  *** Above that it gives up and shows NO DATA YET on every cache miss.');

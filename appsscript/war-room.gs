@@ -1951,3 +1951,203 @@ function warRoomSelfTest() {
   Logger.log('Nothing was written.');
   return fails;
 }
+
+
+/* ============================================================
+   warRoomWhoIsMissing - why is a team blank, and who are these
+   off-roster names?
+
+   Two questions the preview raises but cannot answer. A manager showing
+   zero is either a genuinely quiet fortnight or a name that does not line
+   up between mdl_Roster and mdl_Payments, and those two want opposite
+   responses. Same for the off-roster money: some of it is real outside
+   business, and some of it is a roster agent spelled differently.
+
+   mdl_Payments carries its own Manager and Office columns, so a payment
+   row already states which team it belongs to. Where that disagrees with
+   the roster, the row says so itself and there is nothing to guess at.
+
+   READ ONLY. Touches mdl_Payments and mdl_Roster and nothing else, writes
+   nowhere, and never opens CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomWhoIsMissing() {
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) { Logger.log('mdl_Payments not found or empty'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cName = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt  = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cMgr  = wr_col_(H, ['manager', 'reporting manager', 'tl']);
+  var cOff  = wr_col_(H, ['office', 'city', 'location', 'branch']);
+  var cType = wr_col_(H, ['payment type']);
+  var cBatch= wr_col_(H, ['batch']);
+  var cFam  = wr_col_(H, ['batch family']);
+  var cSeg  = wr_col_(H, ['segment']);
+  if (cDate < 0 || cName < 0) { Logger.log('no date or owner column'); return; }
+
+  var roster = wr_roster_(ss, monthKey);
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  Logger.log('=== WHO IS MISSING ===   ' + monthKey +
+             '   (read only, nothing is written)');
+  Logger.log('');
+
+  /* ---- gather this month's payments by owner name ---- */
+  var payBy = {};
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (wr_monthKeyOf_(d) !== monthKey) continue;
+    var nm = wr_str_(grid[r][cName]);
+    var mgrRaw = cMgr >= 0 ? wr_str_(grid[r][cMgr]) : '';
+    var offRaw = cOff >= 0 ? wr_str_(grid[r][cOff]) : '';
+    if (!nm || wr_isSummaryRow_(nm, mgrRaw, offRaw)) continue;
+    var k = wr_key_(nm);
+    if (!payBy[k]) payBy[k] = { name: nm, rev: 0, units: 0, rows: 0,
+                                mgrs: {}, offs: {}, types: {}, fams: {},
+                                segs: {}, batches: {}, sample: [] };
+    var P = payBy[k];
+    P.rows++;
+    P.rev += wr_num_(grid[r][cAmt]);
+    P.units += (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+    if (mgrRaw) P.mgrs[mgrRaw] = (P.mgrs[mgrRaw] || 0) + 1;
+    if (offRaw) P.offs[offRaw] = (P.offs[offRaw] || 0) + 1;
+    if (cType >= 0) { var t = wr_str_(grid[r][cType]); if (t) P.types[t] = (P.types[t] || 0) + 1; }
+    if (cFam  >= 0) { var f = wr_str_(grid[r][cFam]);  if (f) P.fams[f]  = (P.fams[f]  || 0) + 1; }
+    if (cSeg  >= 0) { var g = wr_str_(grid[r][cSeg]);  if (g) P.segs[g]  = (P.segs[g]  || 0) + 1; }
+    if (cBatch>= 0) { var b = wr_str_(grid[r][cBatch]);if (b) P.batches[b]=(P.batches[b]||0)+ 1; }
+    if (P.sample.length < 4) {
+      P.sample.push(Utilities.formatDate(d, WR_TZ, 'dd MMM') + '  ' +
+                    wr_money_(wr_num_(grid[r][cAmt])) +
+                    (cType  >= 0 ? '  ' + wr_str_(grid[r][cType])  : '') +
+                    (cBatch >= 0 ? '  batch ' + wr_str_(grid[r][cBatch]) : ''));
+    }
+  }
+
+  /* ---- 1. teams reading zero ---- */
+  var byMgr = {};
+  for (var ak in roster.byAgent) {
+    var a = roster.byAgent[ak];
+    var m = a.manager || '(no manager)';
+    if (!byMgr[m]) byMgr[m] = [];
+    byMgr[m].push(a);
+  }
+  Logger.log('  TEAMS WITH NO REVENUE THIS MONTH');
+  var anySilent = false;
+  for (var mgr in byMgr) {
+    var team = byMgr[mgr], teamRev = 0;
+    for (var i = 0; i < team.length; i++) {
+      var pk = wr_key_(team[i].name);
+      if (payBy[pk]) teamRev += payBy[pk].rev;
+    }
+    if (teamRev > 0) continue;
+    anySilent = true;
+    Logger.log('    ' + mgr + '   ' + team.length + ' agents, nothing matched');
+    for (var j = 0; j < team.length; j++) {
+      var nm2 = team[j].name, k2 = wr_key_(nm2);
+      var near = wr_nearestPayName_(k2, payBy);
+      Logger.log('      ' + wr_pad_(nm2, 26) +
+                 (payBy[k2] ? 'has payments (so revenue is genuinely 0)'
+                            : near ? 'NO EXACT MATCH  ->  closest in payments: "' + near.name +
+                                     '"  ' + wr_money_(near.rev) + '  ' + near.units + 'u'
+                                   : 'no payment row at all this month'));
+    }
+  }
+  if (!anySilent) Logger.log('    none - every team has revenue');
+  Logger.log('');
+
+  /* ---- 2. off-roster money, biggest first ---- */
+  var off = [];
+  for (var pk2 in payBy) {
+    if (roster.byAgent[pk2]) continue;
+    off.push(payBy[pk2]);
+  }
+  off.sort(function (a, b) { return b.rev - a.rev; });
+  Logger.log('  PAID BUT NOT ON THE ROSTER   (' + off.length + ' names)');
+  Logger.log('    these are in the company total but on no city, manager or agent board');
+  for (var o = 0; o < off.length && o < 15; o++) {
+    var P2 = off[o];
+    var nearR = wr_nearestRosterName_(wr_key_(P2.name), roster);
+    Logger.log('');
+    Logger.log('    ' + wr_pad_(P2.name, 24) + wr_pad_(wr_money_(P2.rev), 11) +
+               P2.units + 'u in ' + P2.rows + ' rows');
+    Logger.log('      payments say manager : ' + wr_topKeys_(P2.mgrs));
+    Logger.log('      payments say office  : ' + wr_topKeys_(P2.offs));
+    if (cSeg  >= 0) Logger.log('      segment              : ' + wr_topKeys_(P2.segs));
+    if (cFam  >= 0) Logger.log('      batch family         : ' + wr_topKeys_(P2.fams));
+    if (cType >= 0) Logger.log('      payment type         : ' + wr_topKeys_(P2.types));
+    if (nearR) {
+      Logger.log('      *** looks like roster agent "' + nearR.name + '" (' +
+                 (nearR.manager || 'no manager') + ') - ' + nearR.why);
+    }
+    for (var s = 0; s < P2.sample.length; s++) Logger.log('      eg  ' + P2.sample[s]);
+  }
+  if (off.length > 15) Logger.log('');
+  if (off.length > 15) Logger.log('    ... and ' + (off.length - 15) + ' more, smaller');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* closest payment name to a roster key, for spotting spelling drift */
+function wr_nearestPayName_(key, payBy) {
+  var best = null, bestScore = 0;
+  for (var k in payBy) {
+    var sc = wr_nameScore_(key, k);
+    if (sc > bestScore) { bestScore = sc; best = payBy[k]; }
+  }
+  return bestScore >= 0.72 ? best : null;
+}
+
+/* closest roster agent to a payment key, and why it matched */
+function wr_nearestRosterName_(key, roster) {
+  var best = null, bestScore = 0;
+  for (var k in roster.byAgent) {
+    var sc = wr_nameScore_(key, k);
+    if (sc > bestScore) { bestScore = sc; best = roster.byAgent[k]; }
+  }
+  if (bestScore < 0.72 || !best) return null;
+  return { name: best.name, manager: best.manager,
+           why: bestScore >= 0.99 ? 'exact' :
+                bestScore >= 0.85 ? 'one is contained in the other' :
+                                    'close spelling' };
+}
+
+/* 1 identical, ~0.9 containment, otherwise similarity by edit distance.
+   Deliberately blunt: this only ever SUGGESTS a match in a log for a human
+   to judge. Nothing on the board is matched this way. */
+function wr_nameScore_(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length >= 4 && b.length >= 4 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)) return 0.9;
+  var la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 4) return 0;
+  var prev = [], cur = [], i, j;
+  for (j = 0; j <= lb; j++) prev[j] = j;
+  for (i = 1; i <= la; i++) {
+    cur[0] = i;
+    for (j = 1; j <= lb; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1,
+                        prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+    }
+    for (j = 0; j <= lb; j++) prev[j] = cur[j];
+  }
+  return 1 - (prev[lb] / Math.max(la, lb));
+}
+
+/* "Saboo x12, Prasanth x3" - what a set of values actually contains */
+function wr_topKeys_(obj) {
+  var a = [];
+  for (var k in obj) a.push({ k: k, n: obj[k] });
+  if (!a.length) return '(blank)';
+  a.sort(function (x, y) { return y.n - x.n; });
+  var s = [];
+  for (var i = 0; i < a.length && i < 4; i++) s.push(a[i].k + ' x' + a[i].n);
+  if (a.length > 4) s.push('+' + (a.length - 4) + ' more');
+  return s.join(', ');
+}

@@ -1497,6 +1497,158 @@ function wr_lastDateIn_(sh) {
   return best ? Utilities.formatDate(best, WR_TZ, 'yyyy-MM-dd') : null;
 }
 
+/* Which tab holds the report leadership actually quotes. The board is
+   checked against this, never sourced from it: the report holds rounded
+   display strings like "53.05 L", while mdl_Payments holds the rupee. */
+var WR_REPORT_TAB = 'Management Report';
+
+/**
+ * warRoomVsReport - READ ONLY. Writes nothing.
+ *
+ * Puts the board's figures next to the Management Report's, line by line,
+ * and says PASS or MISMATCH on each. The two are computed independently -
+ * the report by its own code, the board from mdl_Payments - so agreement
+ * is real evidence rather than a claim.
+ *
+ * It also refuses to be fooled by a stale tab: it prints the report's own
+ * "Report Dated" cell, so a frozen copy announces itself instead of
+ * quietly passing.
+ */
+function warRoomVsReport() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(WR_REPORT_TAB);
+  if (!sh) {
+    Logger.log('Tab "' + WR_REPORT_TAB + '" not found. Set WR_REPORT_TAB to its exact name.');
+    return;
+  }
+
+  /* Wide enough for the report's indented blocks - it runs to column L
+     today, and a cap that clips the revenue column would compare against
+     blanks and call everything a mismatch. */
+  var grid = sh.getRange(1, 1, Math.min(sh.getLastRow(), 200),
+                         Math.min(sh.getLastColumn(), 30)).getDisplayValues();
+  var p = wr_build_('');
+  var today = Utilities.formatDate(new Date(), WR_TZ, 'dd-MMM-yyyy');
+
+  Logger.log('=== BOARD vs MANAGEMENT REPORT ===  ' + p.meta.generatedLabel);
+  var dated = wr_findRight_(grid, 'Report Dated');
+  Logger.log('  report says it was built : ' + (dated || '(no Report Dated cell)'));
+  Logger.log('  today is                 : ' + today);
+  if (dated && dated.indexOf(today.substring(0, 6)) === -1) {
+    Logger.log('  *** THE REPORT ITSELF IS NOT FROM TODAY. Re-run whatever builds it');
+    Logger.log('  *** before trusting anything below.');
+  }
+  Logger.log('');
+
+  var fails = 0;
+  function cmp(label, reportRaw, boardNum) {
+    var r = wr_num_(wr_reportNum_(reportRaw));
+    var b = Number(boardNum) || 0;
+    /* The report rounds to two decimals in lakh, so 1,000 of slack is
+       rounding, not disagreement. */
+    var ok = Math.abs(r - b) <= Math.max(1000, Math.abs(b) * 0.001);
+    if (!ok) fails++;
+    Logger.log('  ' + (ok ? 'PASS     ' : 'MISMATCH ') + wr_pad_(label, 22) +
+               wr_pad_('report ' + (reportRaw || '-'), 20) +
+               'board ' + wr_money_(b) +
+               (ok ? '' : '     <-- differs by ' + wr_money_(Math.abs(r - b))));
+  }
+  function cmpN(label, reportRaw, boardNum) {
+    var r = wr_num_(reportRaw), b = Number(boardNum) || 0;
+    var ok = (r === b);
+    if (!ok) fails++;
+    Logger.log('  ' + (ok ? 'PASS     ' : 'MISMATCH ') + wr_pad_(label, 22) +
+               wr_pad_('report ' + (reportRaw || '-'), 20) + 'board ' + b);
+  }
+
+  cmp ('Total revenue',  wr_findRight_(grid, 'Total revenue'),  p.totals.revenue);
+  cmp ('Committed For',  wr_findRight_(grid, 'Committed For'),  p.totals.target);
+  cmpN('Units',          wr_findRight_(grid, 'Units'),          p.totals.units);
+  Logger.log('');
+
+  Logger.log('  BY CITY');
+  p.cities.forEach(function (c) {
+    cmp(c.name, wr_revenueOf_(wr_findRow_(grid, c.name)), c.revenue);
+  });
+  Logger.log('');
+
+  Logger.log('  BY MANAGER');
+  p.managers.forEach(function (m) {
+    cmp(m.name, wr_revenueOf_(wr_findRow_(grid, m.name)), m.revenue);
+  });
+
+  Logger.log('');
+  if (fails) {
+    Logger.log('  === ' + fails + ' LINE(S) DISAGREE ===');
+    Logger.log('  Both read the same workbook, so a mismatch means one of them ran');
+    Logger.log('  against older data. Run updateAndCheck, rebuild the report, then');
+    Logger.log('  run this again. If it still disagrees, send me this log.');
+  } else {
+    Logger.log('  === EVERY LINE AGREES ===');
+    Logger.log('  The TV and the Management Report are showing the same numbers.');
+  }
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* The cell to the right of a label, anywhere in the grid. Labels on the
+   report carry the month - "Committed For Sep", not "Committed For" - so
+   these are matched on the opening words. Names never are: a prefix match
+   would hand Saeed's line to a "Saeed Khan". */
+function wr_findRight_(grid, label) {
+  var row = wr_findRow_(grid, label, true);
+  if (!row) return '';
+  for (var i = row._at + 1; i < row.length; i++) {
+    if (String(row[i]).trim()) return String(row[i]).trim();
+  }
+  return '';
+}
+
+/* The first row carrying this label, tagged with the column it sat in.
+   Exact match always wins; prefixOk then allows "Committed For Sep" to
+   answer to "Committed For". */
+function wr_findRow_(grid, label, prefixOk) {
+  var want = String(label).trim().toLowerCase();
+  var loose = null;
+  for (var r = 0; r < grid.length; r++) {
+    for (var c = 0; c < grid[r].length; c++) {
+      var cell = String(grid[r][c]).trim().toLowerCase();
+      if (cell === want) { var row = grid[r].slice(); row._at = c; return row; }
+      if (prefixOk && !loose && cell.indexOf(want) === 0) {
+        loose = grid[r].slice(); loose._at = c;
+      }
+    }
+  }
+  return loose;
+}
+
+/* The revenue cell on a city or manager line. The report indents its
+   blocks, so the label is not in column 0 - both blocks run
+   Name | Agents | Revenue, so revenue sits two right of wherever the name
+   was found. If that cell is empty, scan on for the first lakh or crore
+   figure rather than silently comparing against a blank. */
+function wr_revenueOf_(row) {
+  if (!row) return '';
+  var at = row._at;
+  var direct = String(row[at + 2] == null ? '' : row[at + 2]).trim();
+  if (direct) return direct;
+  for (var i = at + 1; i < row.length; i++) {
+    var v = String(row[i] == null ? '' : row[i]).trim();
+    if (/\d/.test(v) && /\b(l|cr)\b/i.test(v)) return v;
+  }
+  return '';
+}
+
+/* "53.05 L" -> 5305000, "1.02 cr" -> 10200000, "4,865,206" -> 4865206. */
+function wr_reportNum_(s) {
+  var t = String(s == null ? '' : s).trim().toLowerCase();
+  if (!t) return 0;
+  var n = wr_num_(t);
+  if (/\bcr\b/.test(t)) return n * 10000000;
+  if (/\bl\b/.test(t))  return n * 100000;
+  return n;
+}
+
 /** Checks the pure logic. Touches no sheet, writes nothing. */
 function warRoomSelfTest() {
   var fails = 0;

@@ -375,8 +375,17 @@ function wr_build_(monthKey) {
       rosterMs: tB - tA,
       paymentsMs: tC - tB,
       scanRows: pay.scanRows,
-      blockRows: pay.blockRows
+      blockRows: pay.blockRows,
+      /* The date of the newest payment the sheet holds. This is the only
+         honest answer to "is the board up to date" - the feed can rebuild
+         every seven minutes and still be serving yesterday, if nothing has
+         refreshed mdl_Payments since. Showing the build time alone hides
+         exactly that failure. */
+      latestPayment: pay.latestDay ? wr_dayNumToISO_(pay.latestDay) : '',
+      today: Utilities.formatDate(now, WR_TZ, 'yyyy-MM-dd')
     },
+    /* revenue and units for each day of the month so far */
+    byDay: wr_byDay_(pay, day, isCurrentMonth ? day : days),
     /* The headline is the ROSTER total, because that is what the Management
        Report calls "Total revenue" and what leadership quotes. Everything
        below adds up to it exactly: cities, managers and agents all sum to
@@ -599,7 +608,7 @@ function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
               contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
               contestWindowRows: 0, contestProgMatched: 0, contestCounted: 0, progSamples: {},
-              recent: [],
+              recent: [], byDay: {}, latestDay: 0,
               scanRows: 0, blockRows: 0,
               refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
               upgradeRows: 0, upgradeAmount: 0 };
@@ -722,6 +731,17 @@ function wr_payments_(ss, monthKey) {
       if (isUnit) out.byAgent[key].units += 1;
       out.rowsCounted++;
 
+      /* DAILY SHAPE. A month-to-date total cannot show momentum - 1.02 cr
+         reads the same whether it arrived steadily or all in one week. The
+         per-day series is what turns a number into a trend, and it is free
+         here because the rows are already in hand. */
+      var dayNo = d.getDate();
+      if (!out.byDay[dayNo]) out.byDay[dayNo] = { rev: 0, units: 0 };
+      out.byDay[dayNo].rev += amt;
+      if (isUnit) out.byDay[dayNo].units += 1;
+      var dn = wr_dayNumOf_(d);
+      if (dn > out.latestDay) out.latestDay = dn;
+
       /* THE TICKER. A board that only shows month-to-date totals has
          nothing to say between sales - the numbers sit still for hours and
          the floor stops looking at it. Individual closes are what make it
@@ -764,6 +784,25 @@ function wr_payments_(ss, monthKey) {
       out.contestUnits++;
       out.contestRows++;
     }
+  }
+  return out;
+}
+
+/* 20260916 -> '2026-09-16' */
+function wr_dayNumToISO_(dn) {
+  dn = Number(dn) || 0;
+  if (dn < 10000000) return '';
+  var y = Math.floor(dn / 10000), m = Math.floor(dn / 100) % 100, d = dn % 100;
+  return y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+}
+
+/* A dense array, one entry per day up to today, so a day with no sales is
+   a visible gap rather than a missing bar. */
+function wr_byDay_(pay, today, upTo) {
+  var out = [];
+  for (var d = 1; d <= upTo; d++) {
+    var v = pay.byDay[d];
+    out.push({ d: d, rev: v ? wr_r2_(v.rev) : 0, units: v ? v.units : 0 });
   }
   return out;
 }

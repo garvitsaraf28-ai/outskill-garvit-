@@ -2920,7 +2920,25 @@ function warRoomLiveCheck() {
        again for a Google error page - naming a fix that had nothing to do
        with either, and sending someone to edit a doGet that was fine. */
     var t = (title + ' ' + raw).toLowerCase();
-    if (raw.indexOf('accounts.google.com') > -1 || t.indexOf('servicelogin') > -1 ||
+    /* Tested FIRST, because it is not a failure at all. Apps Script serves
+       a keepalive shell while a request is still running, and it carries
+       heartbeatRate and ppConfig. An earlier version read that as a Google
+       error page and reported the web app as crashed when it was simply
+       still building - the browser showed the same request still spinning. */
+    if (t.indexOf('heartbeatrate') > -1 ||
+        (t.indexOf('ppconfig') > -1 && t.indexOf('error') === -1)) {
+      Logger.log('      STILL RUNNING, NOT BROKEN. That is Apps Script\'s keepalive');
+      Logger.log('      page, which it serves while a request is still working.');
+      Logger.log('      The build has not finished inside the web app request.');
+      Logger.log('');
+      Logger.log('      The TV is probably fine: it waits 90 seconds and holds the');
+      Logger.log('      last good figures if a poll is missed, so a slow build shows');
+      Logger.log('      as a slightly older timestamp rather than an empty screen.');
+      Logger.log('');
+      Logger.log('      Run warRoomPreview for a clean single-build timing. Under ten');
+      Logger.log('      seconds means this was contention and will pass. Consistently');
+      Logger.log('      above thirty means the build itself has got slower.');
+    } else if (raw.indexOf('accounts.google.com') > -1 || t.indexOf('servicelogin') > -1 ||
         t.indexOf('sign in') > -1) {
       Logger.log('      A GOOGLE SIGN-IN PAGE. Access is not set to "Anyone".');
       Logger.log('      Deploy > Manage deployments > pencil > Who has access: Anyone.');

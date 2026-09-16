@@ -63,6 +63,31 @@ var WR_TZ         = 'Asia/Kolkata';
 var WR_CACHE_SECS = 420;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
 var WR_MAX_RECENT = 40;        // closes kept for the running ticker
+
+/* The function that rebuilds the model tabs, and when it should run.
+   updateAndCheck rather than refreshEverything: it guards against
+   overlapping runs, and two colliding rebuilds can leave a tab half
+   written. Times are 24h, Asia/Kolkata. Google fires a time trigger
+   within about fifteen minutes of the hour asked for, so treat these as
+   "around then" rather than to the minute. */
+var WR_UPDATE_FN    = 'updateAndCheck';
+var WR_UPDATE_TIMES = [[10, 0], [13, 30], [17, 0], [20, 30], [0, 0], [3, 30]];
+
+/* NAMES SPELLED DIFFERENTLY IN CBC AND THE PAYMENT TRACKER.
+
+   Each entry is one pair a person has confirmed, written as
+     'how payments spell it' : 'how the roster spells it'
+   and nothing is matched that is not listed here. This is deliberately
+   not fuzzy matching: warRoomWhoIsMissing SUGGESTS near misses in a log
+   for a human to judge, and only what that human confirms ends up in
+   this table. A guess that silently merges two real people is worse than
+   a name that visibly fails to match.
+
+   Remove an entry once the underlying spelling is fixed at source. It
+   does no harm if left - it simply stops matching anything. */
+var WR_ALIASES = {
+  'baishali bhattacharjee': 'Baishali Bhattercharjee'   // CBC has 'Bhatter', payments have 'Bhatta'
+};
 var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp column
 
 /* ---------------------------------------------------------------------
@@ -1079,7 +1104,16 @@ function wr_team_(s) {
 }
 
 function wr_key_(name) {
-  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  /* Whitespace is collapsed BEFORE the alias lookup, not after. A name
+     typed with a double space would otherwise miss the table - which it
+     did, and only passed the build because wr_str_ happens to tidy the
+     value first. A lookup that depends on its caller having normalised
+     the input is a trap for the next call site. */
+  var t = String(name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  /* Applied here rather than at each call site, so the boards, the
+     contest, the ticker and every diagnostic resolve a name the same way. */
+  if (WR_ALIASES && WR_ALIASES.hasOwnProperty(t)) t = String(WR_ALIASES[t]).toLowerCase();
+  return t.replace(/[^a-z0-9]/g, '');
 }
 
 /* Both model tabs carry totals rows at the foot - "Sum agent revenue",
@@ -2697,14 +2731,16 @@ function warRoomAutoUpdate() {
   }
   if (dupes.length) {
     Logger.log('');
-    Logger.log('    *** DUPLICATES: ' + dupes.join(', '));
-    Logger.log('        Each one runs the whole rebuild again. They do not make');
-    Logger.log('        the sheet fresher, they just spend the daily runtime');
-    Logger.log('        quota faster, and when it runs out the sheet stops');
-    Logger.log('        updating for the rest of the day.');
+    Logger.log('    SEVERAL TRIGGERS ON ONE FUNCTION: ' + dupes.join(', '));
+    Logger.log('        This is NOT necessarily wrong, and it is not something this');
+    Logger.log('        function can judge. Apps Script exposes no way to read a');
+    Logger.log('        trigger\'s schedule, so five triggers on one handler may be');
+    Logger.log('        five runs spread across the day - a deliberate schedule - or');
+    Logger.log('        five copies of the same one.');
+    Logger.log('        Open the Triggers page and read the LAST RUN column. Spread');
+    Logger.log('        out means a schedule: leave it alone. All within a few minutes');
+    Logger.log('        of each other means copies, and the extras can go.');
   }
-  Logger.log('');
-
   /* ---- 2. how old the data actually is ---- */
   var ss = SpreadsheetApp.getActive();
   var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
@@ -2719,16 +2755,15 @@ function warRoomAutoUpdate() {
   Logger.log('');
 
   /* ---- 3. what to do ---- */
-  Logger.log('  WHAT A HEALTHY SETUP LOOKS LIKE');
-  Logger.log('    ONE time-driven trigger, on updateAndCheck, every 15 minutes.');
-  Logger.log('    That is it. updateAndCheck guards against overlapping runs;');
-  Logger.log('    calling refreshEverything directly skips that guard, so two');
-  Logger.log('    runs can collide and leave a tab half written.');
-  Logger.log('');
-  Logger.log('    To set it up:  Triggers (the clock icon, left edge)');
-  Logger.log('      - delete every existing rebuild trigger');
-  Logger.log('      - Add Trigger -> updateAndCheck -> Time-driven');
-  Logger.log('                    -> Minutes timer -> Every 15 minutes');
+  var hasUpdate = !!byHandler[WR_UPDATE_FN];
+  Logger.log('  THE REBUILD');
+  if (hasUpdate) {
+    Logger.log('    ' + WR_UPDATE_FN + ' is on a timer - good.');
+  } else {
+    Logger.log('    *** NOTHING RUNS ' + WR_UPDATE_FN + ' ON A TIMER.');
+    Logger.log('        The model tabs only rebuild as a side effect of the other');
+    Logger.log('        schedules. Run warRoomAddUpdateTriggers to set it up.');
+  }
   Logger.log('');
   Logger.log('    IMPORTRANGE is not on your clock. Google refreshes it about');
   Logger.log('    hourly and there is no setting for it, so a payment entered');
@@ -2966,4 +3001,88 @@ function wr_cmpList_(liveList, mineList) {
     }
   }
   return bad;
+}
+
+
+/* ============================================================
+   warRoomAddUpdateTriggers - put the rebuild on a timer
+
+   Adds one time-driven trigger per entry in WR_UPDATE_TIMES, all calling
+   WR_UPDATE_FN. Any existing trigger on that same function is removed
+   first, so running this twice leaves six triggers rather than twelve.
+
+   IT TOUCHES ONLY TRIGGERS FOR THAT ONE FUNCTION. Every other trigger in
+   the project is left exactly as it is - including handlers that carry
+   several triggers, because Apps Script gives no way to read a trigger's
+   schedule, so several triggers on one function may be a deliberate
+   spread across the day rather than copies. Deleting those on a guess
+   would tear out a working schedule.
+
+   Run warRoomAddUpdateTriggersPreview first to see what it will do.
+   ============================================================ */
+function warRoomAddUpdateTriggers() { wr_updateTriggers_(true); }
+function warRoomAddUpdateTriggersPreview() { wr_updateTriggers_(false); }
+
+function wr_updateTriggers_(apply) {
+  Logger.log('=== REBUILD TRIGGERS ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log(apply ? '  APPLYING' : '  PREVIEW ONLY - nothing will be created or deleted');
+  Logger.log('');
+
+  var all;
+  try { all = ScriptApp.getProjectTriggers(); }
+  catch (e) {
+    Logger.log('  Could not read the trigger list: ' + e.message);
+    Logger.log('  Run it once from the editor and accept the permission prompt.');
+    return;
+  }
+
+  var mine = [], others = 0;
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].getHandlerFunction() === WR_UPDATE_FN) mine.push(all[i]);
+    else others++;
+  }
+  Logger.log('  existing ' + WR_UPDATE_FN + ' triggers : ' + mine.length + '  (these get replaced)');
+  Logger.log('  every other trigger              : ' + others + '  (left untouched)');
+  Logger.log('');
+
+  Logger.log('  WILL RUN ' + WR_UPDATE_FN + ' AT');
+  for (var t = 0; t < WR_UPDATE_TIMES.length; t++) {
+    Logger.log('    ' + wr_hhmm_(WR_UPDATE_TIMES[t][0], WR_UPDATE_TIMES[t][1]) + ' IST daily');
+  }
+  Logger.log('    (Google fires these within about 15 minutes of the time asked for)');
+  Logger.log('');
+
+  if (!apply) {
+    Logger.log('  Nothing was changed. Run warRoomAddUpdateTriggers to apply.');
+    return;
+  }
+
+  for (var d = 0; d < mine.length; d++) ScriptApp.deleteTrigger(mine[d]);
+  if (mine.length) Logger.log('  removed ' + mine.length + ' old ' + WR_UPDATE_FN + ' trigger(s)');
+
+  var made = 0, failed = [];
+  for (var c = 0; c < WR_UPDATE_TIMES.length; c++) {
+    var h = WR_UPDATE_TIMES[c][0], m = WR_UPDATE_TIMES[c][1];
+    try {
+      ScriptApp.newTrigger(WR_UPDATE_FN).timeBased()
+        .atHour(h).nearMinute(m).everyDays(1).inTimezone(WR_TZ).create();
+      made++;
+    } catch (e2) {
+      failed.push(wr_hhmm_(h, m) + ' (' + e2.message + ')');
+    }
+  }
+  Logger.log('  created ' + made + ' trigger(s)');
+  if (failed.length) {
+    Logger.log('  *** FAILED: ' + failed.join(', '));
+    Logger.log('      A "function not found" here means ' + WR_UPDATE_FN + ' does not');
+    Logger.log('      exist in this project under that name. Check the spelling in');
+    Logger.log('      WR_UPDATE_FN at the top of this file.');
+  }
+  Logger.log('');
+  Logger.log('  Check the Triggers page (clock icon) to see them.');
+}
+
+function wr_hhmm_(h, m) {
+  return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
 }

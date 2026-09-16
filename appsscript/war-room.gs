@@ -2779,12 +2779,37 @@ function warRoomLiveCheck() {
   Logger.log('  comparing THE DEPLOYED WEB APP against THE CODE IN THIS EDITOR');
   Logger.log('');
 
-  var url;
-  try { url = ScriptApp.getService().getUrl(); }
-  catch (e) { Logger.log('  Could not read the web app URL: ' + e.message); return; }
+  /* ---------------------------------------------------------------
+     THE URL THE TV ACTUALLY USES. Paste your /exec URL here, from
+     Deploy > Manage deployments. Prefilled with the one already on the
+     TV; if you ever create a NEW deployment rather than editing the
+     existing one, update this line or this check tests the wrong thing.
+     --------------------------------------------------------------- */
+  var EXEC_URL = 'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec';
+  /* --------------------------------------------------------------- */
+
+  var url = EXEC_URL;
   if (!url) {
-    Logger.log('  *** THIS PROJECT HAS NO ACTIVE DEPLOYMENT.');
-    Logger.log('      Deploy > Manage deployments > pencil > Version: New version.');
+    /* Fallback only. getUrl() hands back the /dev test URL in the editor,
+       which is a different deployment id, always runs head code, and always
+       demands a Google sign-in - so it answers with a login page and tells
+       you nothing about what the TV sees. Worth reporting rather than
+       silently comparing against the wrong thing. */
+    try { url = ScriptApp.getService().getUrl(); }
+    catch (e) { Logger.log('  Could not read the web app URL: ' + e.message); return; }
+  }
+  if (!url) {
+    Logger.log('  *** NO URL. Paste your /exec URL into EXEC_URL at the top of');
+    Logger.log('      warRoomLiveCheck. Deploy > Manage deployments > copy Web app URL.');
+    return;
+  }
+  if (url.indexOf('/dev') === url.length - 4) {
+    Logger.log('  *** THAT IS THE /dev TEST URL, NOT THE ONE ON THE TV.');
+    Logger.log('      ' + url);
+    Logger.log('      /dev always runs head code and always requires a Google sign-in,');
+    Logger.log('      so it answers with a login page and proves nothing about the');
+    Logger.log('      deployment. It is also a different deployment id from /exec.');
+    Logger.log('      Paste your /exec URL into EXEC_URL at the top of this function.');
     return;
   }
   Logger.log('  web app : ' + url);
@@ -2801,9 +2826,22 @@ function warRoomLiveCheck() {
   }
   if (!live || !live.ok) {
     Logger.log('  *** THE WEB APP DID NOT RETURN A FEED.');
-    Logger.log('      It answered with: ' + String(live && live._raw).substring(0, 300));
-    Logger.log('      The Executive Command Center HTML here means the routing line is');
-    Logger.log('      missing from doGet. A sign-in page means access is not "Anyone".');
+    var raw = String((live && live._raw) || '');
+    Logger.log('      It answered with: ' + raw.substring(0, 220));
+    Logger.log('');
+    if (raw.indexOf('accounts.google.com') > -1 || raw.indexOf('ServiceLogin') > -1) {
+      Logger.log('      THAT IS A GOOGLE SIGN-IN PAGE. Access is not set to "Anyone".');
+      Logger.log('      Deploy > Manage deployments > pencil > Who has access: Anyone.');
+      Logger.log('      A TV is not signed in to Google, so it gets this page forever.');
+    } else if (raw.indexOf('Executive') > -1 || raw.indexOf('<!doctype') === 0 ||
+               raw.indexOf('<!DOCTYPE') === 0) {
+      Logger.log('      THAT IS A WEB PAGE, NOT THE FEED. The routing line is missing');
+      Logger.log('      from doGet - the exec page was served instead. Check that doGet');
+      Logger.log('      still begins with the feed=warroom check.');
+    } else {
+      Logger.log('      Not JSON and not a page this recognises. Open the URL above with');
+      Logger.log('      &feed=warroom on the end and see what it returns.');
+    }
     return;
   }
 

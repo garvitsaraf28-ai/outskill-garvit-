@@ -3418,3 +3418,179 @@ function wr_colLetter_(n) {
   while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
   return s;
 }
+
+
+/* ============================================================
+   warRoomRosterAudit - does mdl_Roster match what CBC sent?
+
+   Every other check in this file compares the workbook with itself. That
+   proves consistency, not correctness: if src_Roster_Sep is missing
+   agents CBC has, or its IMPORTRANGE clips a column, all of them still
+   pass and every figure downstream is quietly wrong.
+
+   CBC cannot be opened from here, and should not be. But the hop from
+   src_Roster_* into mdl_Roster is visible, and so is the import formula -
+   a range bounded short of the man-month column, or short of the last
+   agent row, is the one CBC-side fault that can be seen from inside this
+   sheet. Both are reported.
+
+   Agent by agent: who is in the import and not in the model, who is in
+   the model and not the import, and whether manager, target and
+   man-month survived the hop unchanged.
+
+   READ ONLY. Reads the roster tabs of this workbook. Writes nothing, and
+   does not open CBC.
+   ============================================================ */
+function warRoomRosterAudit() {
+  var ss = SpreadsheetApp.getActive();
+  Logger.log('=== ROSTER AUDIT ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log('  src_Roster_* (the CBC copy)  vs  mdl_Roster (what everything reads)');
+  Logger.log('');
+
+  /* ---- what mdl_Roster holds, by month ---- */
+  var mdl = ss.getSheetByName(WR_ROSTER_TAB);
+  if (!mdl || mdl.getLastRow() < 2) { Logger.log('  mdl_Roster is empty.'); return; }
+  var mg = mdl.getRange(1, 1, mdl.getLastRow(), mdl.getLastColumn()).getValues();
+  var mh = wr_headers_(mg[0]);
+  var mMonth = wr_col_(mh, ['month']), mAgent = wr_col_(mh, ['agent']);
+  var mMgr = wr_col_(mh, ['manager']), mTgt = wr_col_(mh, ['target']);
+  var mMM = wr_col_(mh, ['man month', 'manmonth', 'man-month']);
+  if (mAgent < 0) { Logger.log('  mdl_Roster has no Agent column.'); return; }
+  Logger.log('  mdl_Roster man-month column : ' +
+             (mMM >= 0 ? wr_colLetter_(mMM + 1) + ' "' + wr_str_(mg[0][mMM]) + '"'
+                       : '*** NOT PRESENT - per-head figures divide by headcount ***'));
+  Logger.log('');
+
+  var byMonth = {};
+  for (var r = 1; r < mg.length; r++) {
+    var mo = mMonth >= 0 ? wr_str_(mg[r][mMonth]) : '';
+    var nm = wr_str_(mg[r][mAgent]);
+    if (!nm || wr_isSummaryRow_(nm, mMgr >= 0 ? wr_str_(mg[r][mMgr]) : '', '')) continue;
+    if (!byMonth[mo]) byMonth[mo] = {};
+    byMonth[mo][wr_key_(nm)] = {
+      name: nm,
+      mgr: mMgr >= 0 ? wr_str_(mg[r][mMgr]) : '',
+      tgt: mTgt >= 0 ? wr_num_(mg[r][mTgt]) : 0,
+      /* Blank is NOT zero here. An empty capacity cell means the value
+         never arrived; a zero means the agent had no capacity that month.
+         Reporting both as 0 would hide the import failure inside a
+         legitimate figure. */
+      mm:  (mMM >= 0 && String(mg[r][mMM]).trim() !== '') ? wr_num_(mg[r][mMM]) : null
+    };
+  }
+
+  /* ---- each import tab, against the month it feeds ---- */
+  var tabs = ss.getSheets(), totalBad = 0;
+  for (var t = 0; t < tabs.length; t++) {
+    var sh = tabs[t], nameT = sh.getName();
+    if (!/^src_Roster/i.test(nameT)) continue;
+
+    var g = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+    var hRow = -1;
+    for (var rr = 0; rr < g.length && hRow < 0; rr++) {
+      for (var cc = 0; cc < g[rr].length; cc++) {
+        if (String(g[rr][cc]).trim() === 'Agent') { hRow = rr; break; }
+      }
+    }
+    Logger.log('  --- ' + nameT + ' ---');
+    /* The import formula. A range ending before the man-month column, or
+       before the last agent row, is a CBC-side loss that is invisible
+       everywhere else. */
+    var f = '';
+    for (var fr = 1; fr <= Math.min(8, sh.getLastRow()) && !f; fr++) {
+      f = sh.getRange(fr, 1).getFormula();
+    }
+    if (f) Logger.log('      import : ' + f.substring(0, 170));
+    if (hRow < 0) { Logger.log('      *** no "Agent" header row - this tab feeds nothing'); continue; }
+
+    var col = {};
+    g[hRow].forEach(function (h, i) {
+      var k = String(h).trim().toLowerCase();
+      if (k === 'agent') col.agent = i;
+      else if (k === 'manager') col.manager = i;
+      else if (k.indexOf('target') > -1 && col.target === undefined) col.target = i;
+    });
+    if (col.agent === undefined) { Logger.log('      *** no Agent column'); continue; }
+    var cMM = wr_manMonthCol_(g.slice(hRow), col.agent);
+    if (cMM >= 0) cMM = cMM;   // index is into the same width, header row shifted only
+
+    var src = {}, srcN = 0, skipped = [];
+    for (var r2 = hRow + 1; r2 < g.length; r2++) {
+      var an = String(g[r2][col.agent] == null ? '' : g[r2][col.agent]).trim();
+      if (!an) continue;
+      if (an === 'Total' || an === 'Agent') { skipped.push(an); continue; }
+      srcN++;
+      src[wr_key_(an)] = {
+        name: an,
+        mgr: col.manager !== undefined ? String(g[r2][col.manager]).trim() : '',
+        tgt: col.target !== undefined ? wr_num_(g[r2][col.target]) : 0,
+        mm:  (cMM >= 0 && String(g[r2][cMM]).trim() !== '') ? wr_num_(g[r2][cMM]) : null
+      };
+    }
+
+    /* which month in mdl_Roster does this tab feed? the one that overlaps most */
+    var bestMo = '', bestHit = 0;
+    for (var mo2 in byMonth) {
+      var hit = 0;
+      for (var k2 in src) if (byMonth[mo2][k2]) hit++;
+      if (hit > bestHit) { bestHit = hit; bestMo = mo2; }
+    }
+    var dst = byMonth[bestMo] || {};
+    var dstN = 0; for (var dk in dst) dstN++;
+
+    Logger.log('      agents in the import : ' + srcN);
+    Logger.log('      agents in mdl_Roster : ' + dstN + (bestMo ? '   (as "' + bestMo + '")' : '   *** no matching month ***'));
+
+    var missing = [], extra = [], diff = [];
+    for (var sk in src) {
+      if (!dst[sk]) { missing.push(src[sk].name); continue; }
+      var a = src[sk], b = dst[sk];
+      if (a.mgr && b.mgr && wr_key_(a.mgr) !== wr_key_(b.mgr) &&
+          b.mgr !== '(unassigned)') diff.push(a.name + ': manager "' + a.mgr + '" -> "' + b.mgr + '"');
+      if (Math.abs(a.tgt - b.tgt) > 1) diff.push(a.name + ': target ' + wr_money_(a.tgt) + ' -> ' + wr_money_(b.tgt));
+      if (a.mm !== null && b.mm !== null && Math.abs(a.mm - b.mm) > 0.001) {
+        diff.push(a.name + ': man-month ' + a.mm + ' -> ' + b.mm);
+      }
+      if (a.mm !== null && b.mm === null) {
+        diff.push(a.name + ': man-month ' + a.mm + ' -> EMPTY (it did not arrive)');
+      }
+    }
+    for (var dk2 in dst) if (!src[dk2]) extra.push(dst[dk2].name);
+
+    if (missing.length) {
+      totalBad += missing.length;
+      Logger.log('      *** ' + missing.length + ' IN THE IMPORT BUT NOT IN mdl_Roster:');
+      Logger.log('          ' + missing.slice(0, 20).join(', ') +
+                 (missing.length > 20 ? ' +' + (missing.length - 20) + ' more' : ''));
+    }
+    if (extra.length) {
+      totalBad += extra.length;
+      Logger.log('      *** ' + extra.length + ' IN mdl_Roster BUT NOT IN THE IMPORT:');
+      Logger.log('          ' + extra.slice(0, 20).join(', ') +
+                 (extra.length > 20 ? ' +' + (extra.length - 20) + ' more' : ''));
+    }
+    if (diff.length) {
+      totalBad += diff.length;
+      Logger.log('      *** ' + diff.length + ' VALUE(S) CHANGED IN THE HOP:');
+      for (var dd = 0; dd < diff.length && dd < 15; dd++) Logger.log('          ' + diff[dd]);
+      if (diff.length > 15) Logger.log('          +' + (diff.length - 15) + ' more');
+    }
+    if (!missing.length && !extra.length && !diff.length && srcN) {
+      Logger.log('      every agent, manager, target and man-month came through unchanged');
+    }
+    Logger.log('');
+  }
+
+  Logger.log('  WHAT THIS DOES NOT PROVE');
+  Logger.log('    CBC itself is never read here. If the IMPORTRANGE above is bounded');
+  Logger.log('    short - a row limit below CBC\'s last agent, or a column limit before');
+  Logger.log('    the man-month column - then the import is already incomplete and this');
+  Logger.log('    audit compares against the shortfall. Read the formula: an open range');
+  Logger.log('    like A:AZ cannot clip, a fixed one like A1:AA200 can.');
+  Logger.log('');
+  Logger.log(totalBad ? ('  === ' + totalBad + ' DIFFERENCE(S) - listed above ===')
+                      : '  === EVERY IMPORTED AGENT REACHED mdl_Roster UNCHANGED ===');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}

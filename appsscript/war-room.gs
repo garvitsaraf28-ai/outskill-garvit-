@@ -3324,3 +3324,97 @@ function wr_listHandlers_(all) {
 function wr_hhmm_(h, m) {
   return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
 }
+
+
+/* ============================================================
+   warRoomCapacity - where does man-month stop?
+
+   CBC holds it in column AA, and in W for April, May and June. The board
+   never sees it: the roster loader scans mdl_Roster for a column of
+   values like 1, 0.75 and 0.5 and finds none, so every agent counts as a
+   full month and revenue per head divides by raw headcount.
+
+   The column has to survive two hops - CBC into src_Roster_*, then
+   src_Roster_* into mdl_Roster - and it is only worth guessing which hop
+   drops it once. This prints both, so the break is visible rather than
+   inferred.
+
+   READ ONLY. Reads the roster tabs in this workbook. Writes nothing, and
+   does not open CBC.
+   ============================================================ */
+function warRoomCapacity() {
+  var ss = SpreadsheetApp.getActive();
+  Logger.log('=== CAPACITY (MAN-MONTH) ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log('  looking for a column of values like 1, 0.75, 0.5');
+  Logger.log('');
+
+  var tabs = [];
+  var all = ss.getSheets();
+  for (var i = 0; i < all.length; i++) {
+    var nm = all[i].getName();
+    if (/^src_Roster/i.test(nm) || nm === WR_ROSTER_TAB) tabs.push(all[i]);
+  }
+  if (!tabs.length) { Logger.log('  No roster tabs found.'); return; }
+
+  for (var t = 0; t < tabs.length; t++) {
+    var sh = tabs[t], name = sh.getName();
+    var lastRow = Math.min(sh.getLastRow(), 60), lastCol = sh.getLastColumn();
+    if (lastRow < 2) { Logger.log('  ' + name + ' : empty'); continue; }
+    var grid = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+    Logger.log('  --- ' + name + '  (' + sh.getLastRow() + ' rows, ' + lastCol + ' columns) ---');
+
+    /* Judge by CONTENT, not by position. CBC moves the column between AA
+       and W depending on the month, so a fixed letter would be wrong half
+       the year. A capacity column is fractions between 0 and 1. */
+    var found = 0;
+    for (var c = 0; c < lastCol; c++) {
+      var vals = [], frac = 0, ones = 0;
+      for (var r = 1; r < grid.length; r++) {
+        var v = grid[r][c];
+        if (v === '' || v === null) continue;
+        var n = Number(v);
+        if (!isFinite(n)) continue;
+        vals.push(n);
+        if (n > 0 && n < 1) frac++;
+        if (n === 1) ones++;
+      }
+      if (vals.length < 4) continue;
+      var looks = (frac + ones) >= vals.length * 0.6 && (frac + ones) > 0 &&
+                  vals.every(function (x) { return x >= 0 && x <= 1.0001; });
+      if (!looks) continue;
+      found++;
+      Logger.log('      column ' + wr_colLetter_(c + 1) +
+                 '  header "' + wr_str_(grid[0][c]) + '"' +
+                 '   ' + vals.length + ' values, ' + frac + ' fractional, ' + ones + ' exactly 1' +
+                 '   eg ' + vals.slice(0, 6).join(', '));
+    }
+    if (!found) Logger.log('      NOTHING that looks like man-months in this tab.');
+    Logger.log('      headers: ' + grid[0].slice(0, 40).map(function (h, idx) {
+      var s = wr_str_(h); return s ? wr_colLetter_(idx + 1) + '=' + s : '';
+    }).filter(String).join(' | '));
+    Logger.log('');
+  }
+
+  Logger.log('  WHAT THIS MEANS');
+  Logger.log('    Found in src_Roster_* but NOT in ' + WR_ROSTER_TAB + ':');
+  Logger.log('      the import works, the model build drops it. The column has to');
+  Logger.log('      be carried into ' + WR_ROSTER_TAB + ' before anything can use it.');
+  Logger.log('    Found in NEITHER:');
+  Logger.log('      src_Roster_* is not importing that far across. CBC keeps it in');
+  Logger.log('      AA, and in W for April, May and June, so an IMPORTRANGE that');
+  Logger.log('      stops short of AA never sees it.');
+  Logger.log('    Found in BOTH:');
+  Logger.log('      the board will pick it up on the next build with no change at');
+  Logger.log('      all - warRoomPreview will stop saying "no capacity column".');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* 1 -> A, 27 -> AA */
+function wr_colLetter_(n) {
+  var s = '';
+  while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m - 1) / 26; }
+  return s;
+}

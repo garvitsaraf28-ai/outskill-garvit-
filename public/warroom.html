@@ -31,6 +31,12 @@ html,body{height:100%}
 body{
   margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
   font-family:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+/* Fixed to the viewport rather than centred by body height. A host page
+   that gives body no height - an Apps Script iframe, for one - would
+   otherwise collapse the centring and strand the stage in the corner. */
+#wrap{
+  position:fixed; inset:0; overflow:hidden;
   display:flex; align-items:center; justify-content:center;
 }
 
@@ -352,6 +358,7 @@ body{
 }
 </style>
 
+<div id="wrap">
 <div id="stage">
   <div id="banner"></div>
 
@@ -394,6 +401,7 @@ body{
   </div>
 
   <div id="state"></div>
+</div>
 </div>
 
 <script>
@@ -493,11 +501,35 @@ function barHTML(p){
 /* =====================================================================
    STAGE SCALING
    ===================================================================== */
+/* THE STAGE MUST RE-FIT WHENEVER THE WINDOW REALLY CHANGES SIZE.
+
+   Relying on the resize event alone is not enough. Served inside an
+   iframe - which is how Apps Script serves a page - the frame can be laid
+   out small and grown afterwards without the inner window ever hearing a
+   resize. The board then stays scaled for the size it first saw: a
+   postage stamp in the corner with the blocks overlapping, which is
+   exactly what happened.
+
+   So: observe the element, and re-fit on a few delays after boot as a
+   backstop where ResizeObserver is missing. Both are idempotent - fitting
+   twice at the same size costs one style write and changes nothing. */
 function fit(){
-  var k = Math.min(window.innerWidth/1920, window.innerHeight/1080);
-  document.getElementById('stage').style.transform='scale('+k+')';
+  var w = document.documentElement.clientWidth  || window.innerWidth  || 1920;
+  var h = document.documentElement.clientHeight || window.innerHeight || 1080;
+  var k = Math.min(w/1920, h/1080);
+  if (!(k > 0)) k = 1;
+  var st = document.getElementById('stage');
+  if (st) st.style.transform = 'scale(' + k + ')';
+  /* The blocks are positioned as percentages of a box whose size is only
+     known after the fit, so they are placed again here. */
+  if (running) layout();
 }
 window.addEventListener('resize', fit);
+window.addEventListener('load', fit);
+if (typeof ResizeObserver === 'function') {
+  try { new ResizeObserver(fit).observe(document.documentElement); } catch (e) {}
+}
+[60, 250, 800, 2000].forEach(function(ms){ setTimeout(fit, ms); });
 function goFull(){ var e=document.documentElement;
   if(document.fullscreenElement) document.exitFullscreen();
   else if(e.requestFullscreen) e.requestFullscreen().catch(function(){}); }

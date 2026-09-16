@@ -263,6 +263,35 @@ function wr_productColumnName_() {
 
 function wr_serve_(p) {
   p = p || {};
+
+  /* SERVE THE BOARD ITSELF.
+
+     The page has to be hosted somewhere a TV can reach, and every host is
+     one more thing to go wrong - a static file cannot be opened from the
+     desktop because a file:// page is not allowed to call out, and an
+     external deployment is a second place for the code to be stale.
+
+     Apps Script can serve it. The HTML lives in this project as a file
+     named 'board', beside this one, and the same URL that answers with
+     the feed answers with the page. One deployment, one version, nothing
+     else to keep in step. */
+  if (p.page === 'board') {
+    try {
+      return HtmlService.createHtmlOutputFromFile('board')
+        .setTitle('Sales Dangal')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    } catch (eHtml) {
+      return HtmlService.createHtmlOutput(
+        '<div style="font:16px system-ui;padding:40px;line-height:1.6">' +
+        '<h2>No file named &quot;board&quot; in this project.</h2>' +
+        '<p>Add one: Apps Script &rsaquo; the <b>+</b> beside Files &rsaquo; <b>HTML</b> &rsaquo; ' +
+        'name it <b>board</b> (Apps Script adds the .html itself), paste the board page into ' +
+        'it, save, then deploy a new version.</p>' +
+        '<p style="color:#888">' + eHtml.message + '</p></div>');
+    }
+  }
+
   var json;
 
   try {

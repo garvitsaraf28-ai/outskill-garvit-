@@ -62,6 +62,46 @@ var WR_TZ         = 'Asia/Kolkata';
    figures only move when updateAndCheck runs. */
 var WR_CACHE_SECS = 420;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
+var WR_MAX_RECENT = 40;        // closes kept for the running ticker
+
+/* The function that rebuilds the model tabs, and when it should run.
+   updateAndCheck rather than refreshEverything: it guards against
+   overlapping runs, and two colliding rebuilds can leave a tab half
+   written. Times are 24h, Asia/Kolkata. Google fires a time trigger
+   within about fifteen minutes of the hour asked for, so treat these as
+   "around then" rather than to the minute. */
+/* BATCHES THAT EARN REVENUE BUT ARE NOT A UNIT.
+
+   The Management Report counts every rupee, and so does this board. But a
+   workshop batch - CL WS IND, CL WS INTL - is Bootcamp being sold, not an
+   Accelerator unit, so the money counts and the unit does not.
+
+   Matched as a PREFIX of the Batch cell, so CL WS IND and CL WS INTL are
+   both covered by one entry and nothing else is caught by accident. This
+   applies to the daily board. The weekend spot offer counts everything,
+   which is what WR_CONTEST is for and why the two are separate settings.
+
+   Empty this array and every paid row counts as a unit again. */
+var WR_UNIT_EXCLUDE = ['CL WS'];
+
+var WR_UPDATE_FN    = 'updateAndCheck';
+var WR_UPDATE_TIMES = [[10, 0], [13, 30], [17, 0], [20, 30], [0, 0], [3, 30]];
+
+/* NAMES SPELLED DIFFERENTLY IN CBC AND THE PAYMENT TRACKER.
+
+   Each entry is one pair a person has confirmed, written as
+     'how payments spell it' : 'how the roster spells it'
+   and nothing is matched that is not listed here. This is deliberately
+   not fuzzy matching: warRoomWhoIsMissing SUGGESTS near misses in a log
+   for a human to judge, and only what that human confirms ends up in
+   this table. A guess that silently merges two real people is worse than
+   a name that visibly fails to match.
+
+   Remove an entry once the underlying spelling is fixed at source. It
+   does no harm if left - it simply stops matching anything. */
+var WR_ALIASES = {
+  'baishali bhattacharjee': 'Baishali Bhattercharjee'   // CBC has 'Bhatter', payments have 'Bhatta'
+};
 var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp column
 
 /* ---------------------------------------------------------------------
@@ -87,7 +127,11 @@ var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp col
    product. Leave it '' and nothing whatsoever is filtered.
    --------------------------------------------------------------------- */
 var WR_CONTEST = {
-  active: true,
+  /* THE UNIT RUSH ran 12-14 September and is over. Left switched off
+     rather than deleted: the window, the count rule and the exclusion
+     list are the hard part, and the next spot offer only needs the three
+     dates changed and this set back to true. */
+  active: false,
   name:   'THE UNIT RUSH',
   from:   '2026-09-12',     // inclusive, Asia/Kolkata
   to:     '2026-09-14',     // inclusive
@@ -125,23 +169,86 @@ var WR_CONTEST = {
      prints every candidate column's real values. */
   onlyProduct:    '',
   excludeProduct: '',
-  productColumn:  ''
+  productColumn:  '',
+
+  /* BARRING WHOLE PRODUCTS BY BATCH CODE
+
+     warRoomBatches showed the Batch column carries the product - BC18,
+     EBC4, CL WS IND, and bare cohort numbers for Accelerator. It also
+     showed the column is NOT purely a product: "Referral" and "Website"
+     are lead SOURCES sitting in the same column, and Referral runs at
+     about 155,000 a unit, higher than the Accelerator cohorts. Barring
+     "anything that is not a number" would have dropped 7.77 L of real
+     Accelerator business - the Batch Family mistake over again.
+
+     So this is an explicit list, never a pattern. Each entry is matched
+     as a PREFIX of the batch code, not a substring: "EBC4" contains "BC"
+     but is not a Bootcamp code under a "BC" rule, and a substring match
+     would also catch unrelated future codes by accident.
+
+     Empty bars nothing, which is the live setting. When it is set, the
+     Batch column is read automatically - warRoomContestWhatIf shows
+     exactly who gains and loses before you commit to it. */
+  excludeBatchPrefixes: []
 };
 
-/* Does one row's product qualify? With both product settings empty - the
+/* Does one row's product qualify? With every product setting empty - the
    live rule - yes, always. */
 function wr_progMatches_(cell) {
-  var v    = String(cell == null ? '' : cell).toLowerCase();
+  var raw  = String(cell == null ? '' : cell).trim();
+  var v    = raw.toLowerCase();
   var only = String(WR_CONTEST.onlyProduct || '').toLowerCase();
   var bad  = String(WR_CONTEST.excludeProduct || '').toLowerCase();
   if (only && v.indexOf(only) === -1) return false;
   if (bad  && v.indexOf(bad)  > -1)   return false;
+
+  /* PREFIX, not substring. "EBC4" contains "BC" and must not be barred by
+     a "BC" rule; only a code that STARTS with the entry is barred. */
+  var pref = wr_excludedPrefixes_();
+  for (var i = 0; i < pref.length; i++) {
+    if (pref[i] && v.indexOf(pref[i]) === 0) return false;
+  }
   return true;
+}
+
+/* Does this batch earn revenue without earning a unit? Prefix match, so
+   'CL WS' covers CL WS IND and CL WS INTL together. */
+function wr_unitBarred_(batch) {
+  if (!WR_UNIT_EXCLUDE || !WR_UNIT_EXCLUDE.length) return false;
+  var v = String(batch == null ? '' : batch).trim().toLowerCase();
+  if (!v) return false;
+  for (var i = 0; i < WR_UNIT_EXCLUDE.length; i++) {
+    var p = String(WR_UNIT_EXCLUDE[i] || '').trim().toLowerCase();
+    if (p && v.indexOf(p) === 0) return true;
+  }
+  return false;
+}
+
+/* The exclusion list, lowercased and trimmed, empties dropped. */
+function wr_excludedPrefixes_() {
+  var raw = WR_CONTEST.excludeBatchPrefixes;
+  if (!raw || !raw.length) return [];
+  var out = [];
+  for (var i = 0; i < raw.length; i++) {
+    var t = String(raw[i] == null ? '' : raw[i]).trim().toLowerCase();
+    if (t) out.push(t);
+  }
+  return out;
 }
 
 /* Is a product filter switched on at all? */
 function wr_progFiltering_() {
-  return !!(WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct);
+  return !!(WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct ||
+            wr_excludedPrefixes_().length);
+}
+
+/* Which column carries the product. An explicit productColumn always
+   wins; a bare prefix list means the Batch column, because that is what
+   the prefixes are codes from. Resolving it here rather than leaving it
+   blank stops a set exclusion list from silently barring nothing. */
+function wr_productColumnName_() {
+  if (WR_CONTEST.productColumn) return String(WR_CONTEST.productColumn);
+  return wr_excludedPrefixes_().length ? 'batch' : '';
 }
 
 /* =====================================================================
@@ -156,6 +263,35 @@ function wr_progFiltering_() {
 
 function wr_serve_(p) {
   p = p || {};
+
+  /* SERVE THE BOARD ITSELF.
+
+     The page has to be hosted somewhere a TV can reach, and every host is
+     one more thing to go wrong - a static file cannot be opened from the
+     desktop because a file:// page is not allowed to call out, and an
+     external deployment is a second place for the code to be stale.
+
+     Apps Script can serve it. The HTML lives in this project as a file
+     named 'board', beside this one, and the same URL that answers with
+     the feed answers with the page. One deployment, one version, nothing
+     else to keep in step. */
+  if (p.page === 'board') {
+    try {
+      return HtmlService.createHtmlOutputFromFile('board')
+        .setTitle('Sales Dangal')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    } catch (eHtml) {
+      return HtmlService.createHtmlOutput(
+        '<div style="font:16px system-ui;padding:40px;line-height:1.6">' +
+        '<h2>No file named &quot;board&quot; in this project.</h2>' +
+        '<p>Add one: Apps Script &rsaquo; the <b>+</b> beside Files &rsaquo; <b>HTML</b> &rsaquo; ' +
+        'name it <b>board</b> (Apps Script adds the .html itself), paste the board page into ' +
+        'it, save, then deploy a new version.</p>' +
+        '<p style="color:#888">' + eHtml.message + '</p></div>');
+    }
+  }
+
   var json;
 
   try {
@@ -324,8 +460,18 @@ function wr_build_(monthKey) {
       rosterMs: tB - tA,
       paymentsMs: tC - tB,
       scanRows: pay.scanRows,
-      blockRows: pay.blockRows
+      blockRows: pay.blockRows,
+      /* The date of the newest payment the sheet holds. This is the only
+         honest answer to "is the board up to date" - the feed can rebuild
+         every seven minutes and still be serving yesterday, if nothing has
+         refreshed mdl_Payments since. Showing the build time alone hides
+         exactly that failure. */
+      latestPayment: pay.latestDay ? wr_dayNumToISO_(pay.latestDay) : '',
+      today: Utilities.formatDate(now, WR_TZ, 'yyyy-MM-dd')
     },
+    /* revenue and units for each day of the month so far, roster agents
+       only, so the chart and the headline agree */
+    byDay: wr_byDay_(pay, roster, isCurrentMonth ? day : days),
     /* The headline is the ROSTER total, because that is what the Management
        Report calls "Total revenue" and what leadership quotes. Everything
        below adds up to it exactly: cities, managers and agents all sum to
@@ -360,6 +506,9 @@ function wr_build_(monthKey) {
       };
     }),
     contest: wr_contest_(pay, roster),
+    /* Newest closes first, for the running ticker. Roster agents only, so
+       the ticker can never announce a name the boards do not show. */
+    recent: wr_recent_(pay, roster),
     notes: wr_notes_(roster, pay, offRosterNames, offRosterRev, mgrList)
   };
 }
@@ -411,7 +560,9 @@ function wr_contest_(pay, roster) {
        a product, a filter that silently keeps nothing announces itself
        instead of running a whole weekend showing zero. */
     countMode: WR_CONTEST.countMode || 'units',
-    programme: WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct || '',
+    programme: WR_CONTEST.onlyProduct || WR_CONTEST.excludeProduct ||
+               (wr_excludedPrefixes_().length
+                  ? 'excluding ' + wr_excludedPrefixes_().join(', ').toUpperCase() : ''),
     programmeFiltered: !!(wr_progFiltering_() && pay.programmeCol),
     programmeColumnMissing: !!(wr_progFiltering_() && !pay.programmeCol),
     programmeMatchedNothing: !!(wr_progFiltering_() && pay.programmeCol &&
@@ -543,6 +694,8 @@ function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
               contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
               contestWindowRows: 0, contestProgMatched: 0, contestCounted: 0, progSamples: {},
+              recent: [], byDay: {}, latestDay: 0,
+              unitBarredRows: 0, unitBarredAmount: 0,
               scanRows: 0, blockRows: 0,
               refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
               upgradeRows: 0, upgradeAmount: 0 };
@@ -569,12 +722,16 @@ function wr_payments_(ss, monthKey) {
      can be lost to a filter. No fuzzy fallback either: guessing once landed
      on "Batch Family", which is the lead's source campaign and not the
      product, and threw away real sales. */
-  var cProg  = (wr_progFiltering_() && WR_CONTEST.productColumn)
-                 ? wr_col_(H, [String(WR_CONTEST.productColumn).toLowerCase()])
+  var progColName = wr_productColumnName_();
+  var cProg  = (wr_progFiltering_() && progColName)
+                 ? wr_col_(H, [progColName.toLowerCase()])
                  : -1;
   var cRef   = wr_col_(H, ['is refund', 'refund']);
   var cType  = wr_col_(H, ['payment type']);
   var cStat  = wr_col_(H, ['status']);
+  /* Read unconditionally: WR_UNIT_EXCLUDE needs it on every build, not
+     only when a contest bars a product. */
+  var cBatch = wr_col_(H, ['batch']);
   if (cRost < 0) out.noRosterCol = true;
   out.programmeCol = cProg >= 0;
 
@@ -602,14 +759,15 @@ function wr_payments_(ss, monthKey) {
   var cFromScan = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.from) : 0;
   var cToScan   = WR_CONTEST.active ? wr_dayNum_(WR_CONTEST.to)   : 0;
   var first = -1, last = -1;
+  /* One day number per row, compared as integers. The month is a prefix of
+     it, so this needs no month key and no second pass. */
+  var wantYM = Number(monthKey.substring(0, 4)) * 100 + Number(monthKey.substring(5, 7));
   for (var s0 = 0; s0 < n; s0++) {
     var dScan = vDateRaw[s0][0];
     if (!(dScan instanceof Date) || isNaN(dScan.getTime())) continue;
-    var inScope = (wr_monthKey_(dScan) === monthKey);
-    if (!inScope && cFromScan) {
-      var dayScan = wr_dayNumOf_(dScan);
-      inScope = (dayScan >= cFromScan && dayScan <= cToScan);
-    }
+    var dayScan = wr_dayNumOf_(dScan);
+    var inScope = (Math.floor(dayScan / 100) === wantYM) ||
+                  (cFromScan && dayScan >= cFromScan && dayScan <= cToScan);
     if (inScope) { if (first < 0) first = s0; last = s0; }
   }
   out.scanRows = n;
@@ -618,7 +776,7 @@ function wr_payments_(ss, monthKey) {
   out.blockRows = blockN;
 
   /* one read of the block, spanning only the columns that get used */
-  var need = [cDate, cAgent, cAmt, cUnit, cProg, cRef, cType, cStat]
+  var need = [cDate, cAgent, cAmt, cUnit, cProg, cRef, cType, cStat, cBatch]
                .filter(function (x) { return x >= 0; });
   var lo = Math.min.apply(null, need), hi = Math.max.apply(null, need);
   var block = sh.getRange(2 + first, lo + 1, blockN, hi - lo + 1).getValues();
@@ -637,6 +795,13 @@ function wr_payments_(ss, monthKey) {
     if (!name || wr_isSummary_(name)) continue;   // totals rows are not people
     var key = wr_key_(name);
     var isUnit = (cUnit >= 0 && wr_truthy_(cell(row, cUnit)));
+    /* Revenue keeps this row; the unit count does not. A workshop batch is
+       Bootcamp sold, not an Accelerator unit. */
+    if (isUnit && cBatch >= 0 && wr_unitBarred_(cell(row, cBatch))) {
+      isUnit = false;
+      out.unitBarredRows++;
+      out.unitBarredAmount += wr_num_(cell(row, cAmt));
+    }
 
     /* Money that came back is not money earned. mdl_Payments carries both
        "Is Refund" and a "Status" that says CANCELLED, and neither was being
@@ -662,6 +827,40 @@ function wr_payments_(ss, monthKey) {
       out.byAgent[key].revenue += amt;
       if (isUnit) out.byAgent[key].units += 1;
       out.rowsCounted++;
+
+      /* DAILY SHAPE. A month-to-date total cannot show momentum - 1.02 cr
+         reads the same whether it arrived steadily or all in one week. The
+         per-day series is what turns a number into a trend, and it is free
+         here because the rows are already in hand. */
+      /* Kept PER AGENT, not just per day. wr_payments_ does not know the
+         roster, and the headline counts roster agents only - so a flat
+         per-day total would include the other teams' money and the chart
+         would contradict the number above it. It did: one day read 2.82 cr
+         against a month total of 1.18 cr. wr_build_ folds this down once
+         it knows who is on the roster. */
+      var dayNo = d.getDate();
+      if (!out.byDay[dayNo]) out.byDay[dayNo] = {};
+      if (!out.byDay[dayNo][key]) out.byDay[dayNo][key] = { rev: 0, units: 0 };
+      out.byDay[dayNo][key].rev += amt;
+      if (isUnit) out.byDay[dayNo][key].units += 1;
+      var dn = wr_dayNumOf_(d);
+      if (dn > out.latestDay) out.latestDay = dn;
+
+      /* THE TICKER. A board that only shows month-to-date totals has
+         nothing to say between sales - the numbers sit still for hours and
+         the floor stops looking at it. Individual closes are what make it
+         worth glancing up at, so keep the newest ones.
+
+         Units only: a balance payment against a sale closed weeks ago is
+         not news, and announcing it would credit the same close twice. */
+      if (isUnit) {
+        out.recent.push({ name: name, amt: amt, at: d.getTime() });
+        /* Trimmed rather than sorted at the end: the sheet is in date
+           order so this is nearly always a straight append, and an
+           unbounded array over a big month is a lot of memory for rows
+           that will be thrown away. */
+        if (out.recent.length > 400) out.recent.splice(0, 200);
+      }
     }
 
     /* --- the contest window, counted independently --- */
@@ -693,6 +892,106 @@ function wr_payments_(ss, monthKey) {
   return out;
 }
 
+/* 20260916 -> '2026-09-16' */
+function wr_dayNumToISO_(dn) {
+  dn = Number(dn) || 0;
+  if (dn < 10000000) return '';
+  var y = Math.floor(dn / 10000), m = Math.floor(dn / 100) % 100, d = dn % 100;
+  return y + '-' + (m < 10 ? '0' + m : m) + '-' + (d < 10 ? '0' + d : d);
+}
+
+/* A dense array, one entry per day up to today, so a day with no sales is
+   a visible gap rather than a missing bar.
+
+   Only roster agents count, matching the headline exactly. Everything on
+   this board sums to the same total; a chart that did not would be the
+   one thing on screen contradicting the number above it. */
+function wr_byDay_(pay, roster, upTo) {
+  var out = [];
+  for (var d = 1; d <= upTo; d++) {
+    var rev = 0, units = 0, byKey = pay.byDay[d];
+    for (var k in byKey) {
+      if (!roster.byAgent[k]) continue;          // other teams stay off the chart
+      rev += byKey[k].rev;
+      units += byKey[k].units;
+    }
+    out.push({ d: d, rev: wr_r2_(rev), units: units });
+  }
+  return out;
+}
+
+/* The newest closes, newest first, ready for the ticker. */
+function wr_recent_(pay, roster) {
+  var src = pay.recent || [], out = [];
+  for (var i = 0; i < src.length; i++) {
+    var r = src[i];
+    var who = roster.byAgent[wr_key_(r.name)];
+    if (!who) continue;                 // off-roster names stay off the board
+    out.push({
+      name: r.name, amt: wr_r2_(r.amt), at: r.at,
+      city: who.city || '', team: who.team || '', manager: who.manager || ''
+    });
+  }
+  out.sort(function (a, b) { return b.at - a.at; });
+  return out.slice(0, WR_MAX_RECENT);
+}
+
+/* FORMATTING DATES IS THE EXPENSIVE THING.
+
+   Utilities.formatDate is a bridge call out of JavaScript, and the scan
+   loop was making about 35,000 of them - one per row for the month key,
+   three more per out-of-month row for the day number. Measured on the real
+   sheet that was 27.5 of the build's 29 seconds. Everything else put
+   together was 1.5.
+
+   A plain JS Date already carries the right calendar fields when the
+   script's own timezone is the one we report in, so ask once, cache the
+   answer, and only fall back to formatDate when they differ. Asking once
+   per execution rather than per row is the whole optimisation. */
+var WR_FAST_DATES = null;
+function wr_fastDates_() {
+  if (WR_FAST_DATES !== null) return WR_FAST_DATES;
+  WR_FAST_DATES = false;            /* set first, so a probe can never recurse */
+  try {
+    /* Do not compare timezone NAMES. Google reports Indian projects as
+       'Asia/Calcutta' at least as often as 'Asia/Kolkata', and a name compare
+       would quietly fall through to the slow path - a no-op optimisation that
+       still costs 29 seconds. Prove the arithmetic instead.
+
+       Compare the whole timestamp, not just the calendar date. If the hour
+       and the minute agree as well, the two zones are at the same offset at
+       that instant, which is the only thing being relied on. An earlier
+       version of this probe compared dates alone at half-hour steps, and a
+       quarter-hour zone such as Asia/Kathmandu slipped through it - the
+       offset never pushed any probe across midnight. Comparing the time
+       closes that: any difference at all shows up directly.
+
+       Twelve instants across the year, so a zone that keeps IST's offset in
+       winter and drifts in summer is caught by the summer probes. Twelve
+       formatDate calls, once, against the 35,000 this replaces. */
+    for (var mo = 0; mo < 12; mo++) {
+      var probe = new Date(2026, mo, 15, 13, 47, 0);
+      var p2 = function (x) { return x < 10 ? '0' + x : '' + x; };
+      var localStamp = probe.getFullYear() + p2(probe.getMonth() + 1) + p2(probe.getDate()) +
+                       p2(probe.getHours()) + p2(probe.getMinutes());
+      if (Utilities.formatDate(probe, WR_TZ, 'yyyyMMddHHmm') !== localStamp) return false;
+    }
+    WR_FAST_DATES = true;
+  } catch (e) {
+    WR_FAST_DATES = false;          /* anything unexpected: take the slow, correct road */
+  }
+  return WR_FAST_DATES;
+}
+
+/* Month key of a Date, the fast way where that has been proven safe. */
+function wr_monthKeyOf_(d) {
+  if (wr_fastDates_()) {
+    var y = d.getFullYear(), m = d.getMonth() + 1;
+    if (y >= 1000) return y + '-' + (m < 10 ? '0' + m : m);
+  }
+  return Utilities.formatDate(d, WR_TZ, 'yyyy-MM');
+}
+
 /* 'yyyy-MM-dd' -> a comparable integer, 0 if it is not a date */
 function wr_dayNum_(s) {
   var m = String(s || '').match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
@@ -700,6 +999,10 @@ function wr_dayNum_(s) {
   return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
 }
 function wr_dayNumOf_(d) {
+  if (wr_fastDates_()) {
+    var yf = d.getFullYear();
+    if (yf >= 1000) return yf * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  }
   return Number(Utilities.formatDate(d, WR_TZ, 'yyyy')) * 10000 +
          Number(Utilities.formatDate(d, WR_TZ, 'MM')) * 100 +
          Number(Utilities.formatDate(d, WR_TZ, 'dd'));
@@ -747,6 +1050,11 @@ function wr_notes_(roster, pay, offNames, offRev, mgrList) {
   if (pay.refundRows) {
     notes.push(pay.refundRows + ' refunded row(s) worth ' + wr_money_(pay.refundAmount) +
                ' were excluded from revenue.');
+  }
+  if (pay.unitBarredRows) {
+    notes.push(pay.unitBarredRows + ' workshop row(s) worth ' + wr_money_(pay.unitBarredAmount) +
+               ' count in revenue but not in units - ' + WR_UNIT_EXCLUDE.join(', ') +
+               ' is Bootcamp, not an Accelerator unit.');
   }
   if (pay.cancelledRows) {
     notes.push(pay.cancelledRows + ' cancelled row(s) worth ' + wr_money_(pay.cancelledAmount) +
@@ -829,7 +1137,7 @@ function wr_monthCol_(grid) {
 function wr_monthKey_(v) {
   if (v instanceof Date) {
     if (isNaN(v.getTime())) return '';
-    return Utilities.formatDate(v, WR_TZ, 'yyyy-MM');
+    return wr_monthKeyOf_(v);
   }
   var s = String(v == null ? '' : v).trim();
   if (!s) return '';
@@ -885,7 +1193,16 @@ function wr_team_(s) {
 }
 
 function wr_key_(name) {
-  return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  /* Whitespace is collapsed BEFORE the alias lookup, not after. A name
+     typed with a double space would otherwise miss the table - which it
+     did, and only passed the build because wr_str_ happens to tidy the
+     value first. A lookup that depends on its caller having normalised
+     the input is a trap for the next call site. */
+  var t = String(name || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  /* Applied here rather than at each call site, so the boards, the
+     contest, the ticker and every diagnostic resolve a name the same way. */
+  if (WR_ALIASES && WR_ALIASES.hasOwnProperty(t)) t = String(WR_ALIASES[t]).toLowerCase();
+  return t.replace(/[^a-z0-9]/g, '');
 }
 
 /* Both model tabs carry totals rows at the foot - "Sum agent revenue",
@@ -979,6 +1296,11 @@ function warRoomPreview() {
   Logger.log('    of which          : roster ' + p.meta.rosterMs + ' ms, payments ' +
              p.meta.paymentsMs + ' ms   (scanned ' + p.meta.scanRows +
              ' rows, read a block of ' + p.meta.blockRows + ')');
+  /* If this says no, the date scan is formatting every row and the build will
+     be tens of seconds. It means this project's timezone is not IST, which is
+     worth knowing on its own - every date on the board is reported in IST. */
+  Logger.log('    fast dates        : ' + (wr_fastDates_() ? 'yes' : 'NO - script timezone is not ' + WR_TZ +
+             ', so dates are formatted one row at a time. Fix it in Project Settings.'));
   if (p.meta.buildMs > 60000) {
     Logger.log('  *** THAT IS SLOW ENOUGH TO MATTER. The TV waits 90s for a cold build.');
     Logger.log('  *** Above that it gives up and shows NO DATA YET on every cache miss.');
@@ -1884,4 +2206,1121 @@ function warRoomSelfTest() {
   Logger.log(fails ? ('=== ' + fails + ' FAILED ===') : '=== ALL PASS ===');
   Logger.log('Nothing was written.');
   return fails;
+}
+
+
+/* ============================================================
+   warRoomWhoIsMissing - why is a team blank, and who are these
+   off-roster names?
+
+   Two questions the preview raises but cannot answer. A manager showing
+   zero is either a genuinely quiet fortnight or a name that does not line
+   up between mdl_Roster and mdl_Payments, and those two want opposite
+   responses. Same for the off-roster money: some of it is real outside
+   business, and some of it is a roster agent spelled differently.
+
+   mdl_Payments carries its own Manager and Office columns, so a payment
+   row already states which team it belongs to. Where that disagrees with
+   the roster, the row says so itself and there is nothing to guess at.
+
+   READ ONLY. Touches mdl_Payments and mdl_Roster and nothing else, writes
+   nowhere, and never opens CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomWhoIsMissing() {
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) { Logger.log('mdl_Payments not found or empty'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cName = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt  = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cMgr  = wr_col_(H, ['manager', 'reporting manager', 'tl']);
+  var cOff  = wr_col_(H, ['office', 'city', 'location', 'branch']);
+  var cType = wr_col_(H, ['payment type']);
+  var cBatch= wr_col_(H, ['batch']);
+  var cFam  = wr_col_(H, ['batch family']);
+  var cSeg  = wr_col_(H, ['segment']);
+  if (cDate < 0 || cName < 0) { Logger.log('no date or owner column'); return; }
+
+  var roster = wr_roster_(ss, monthKey);
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  Logger.log('=== WHO IS MISSING ===   ' + monthKey +
+             '   (read only, nothing is written)');
+  Logger.log('');
+
+  /* ---- gather this month's payments by owner name ---- */
+  var payBy = {};
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (wr_monthKeyOf_(d) !== monthKey) continue;
+    var nm = wr_str_(grid[r][cName]);
+    var mgrRaw = cMgr >= 0 ? wr_str_(grid[r][cMgr]) : '';
+    var offRaw = cOff >= 0 ? wr_str_(grid[r][cOff]) : '';
+    if (!nm || wr_isSummaryRow_(nm, mgrRaw, offRaw)) continue;
+    var k = wr_key_(nm);
+    if (!payBy[k]) payBy[k] = { name: nm, rev: 0, units: 0, rows: 0,
+                                mgrs: {}, offs: {}, types: {}, fams: {},
+                                segs: {}, batches: {}, sample: [] };
+    var P = payBy[k];
+    P.rows++;
+    P.rev += wr_num_(grid[r][cAmt]);
+    P.units += (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+    if (mgrRaw) P.mgrs[mgrRaw] = (P.mgrs[mgrRaw] || 0) + 1;
+    if (offRaw) P.offs[offRaw] = (P.offs[offRaw] || 0) + 1;
+    if (cType >= 0) { var t = wr_str_(grid[r][cType]); if (t) P.types[t] = (P.types[t] || 0) + 1; }
+    if (cFam  >= 0) { var f = wr_str_(grid[r][cFam]);  if (f) P.fams[f]  = (P.fams[f]  || 0) + 1; }
+    if (cSeg  >= 0) { var g = wr_str_(grid[r][cSeg]);  if (g) P.segs[g]  = (P.segs[g]  || 0) + 1; }
+    if (cBatch>= 0) { var b = wr_str_(grid[r][cBatch]);if (b) P.batches[b]=(P.batches[b]||0)+ 1; }
+    if (P.sample.length < 4) {
+      P.sample.push(Utilities.formatDate(d, WR_TZ, 'dd MMM') + '  ' +
+                    wr_money_(wr_num_(grid[r][cAmt])) +
+                    (cType  >= 0 ? '  ' + wr_str_(grid[r][cType])  : '') +
+                    (cBatch >= 0 ? '  batch ' + wr_str_(grid[r][cBatch]) : ''));
+    }
+  }
+
+  /* ---- 1. teams reading zero ---- */
+  var byMgr = {};
+  for (var ak in roster.byAgent) {
+    var a = roster.byAgent[ak];
+    var m = a.manager || '(no manager)';
+    if (!byMgr[m]) byMgr[m] = [];
+    byMgr[m].push(a);
+  }
+  Logger.log('  TEAMS WITH NO REVENUE THIS MONTH');
+  var anySilent = false;
+  for (var mgr in byMgr) {
+    var team = byMgr[mgr], teamRev = 0;
+    for (var i = 0; i < team.length; i++) {
+      var pk = wr_key_(team[i].name);
+      if (payBy[pk]) teamRev += payBy[pk].rev;
+    }
+    if (teamRev > 0) continue;
+    anySilent = true;
+    Logger.log('    ' + mgr + '   ' + team.length + ' agents, nothing matched');
+    for (var j = 0; j < team.length; j++) {
+      var nm2 = team[j].name, k2 = wr_key_(nm2);
+      var near = wr_nearestPayName_(k2, payBy);
+      Logger.log('      ' + wr_pad_(nm2, 26) +
+                 (payBy[k2] ? 'has payments (so revenue is genuinely 0)'
+                            : near ? 'NO EXACT MATCH  ->  closest in payments: "' + near.name +
+                                     '"  ' + wr_money_(near.rev) + '  ' + near.units + 'u'
+                                   : 'no payment row at all this month'));
+    }
+  }
+  if (!anySilent) Logger.log('    none - every team has revenue');
+  Logger.log('');
+
+  /* ---- 2. off-roster money, biggest first ---- */
+  var off = [];
+  for (var pk2 in payBy) {
+    if (roster.byAgent[pk2]) continue;
+    off.push(payBy[pk2]);
+  }
+  off.sort(function (a, b) { return b.rev - a.rev; });
+  Logger.log('  PAID BUT NOT ON THE ROSTER   (' + off.length + ' names)');
+  Logger.log('    these are in the company total but on no city, manager or agent board');
+  for (var o = 0; o < off.length && o < 15; o++) {
+    var P2 = off[o];
+    var nearR = wr_nearestRosterName_(wr_key_(P2.name), roster);
+    Logger.log('');
+    Logger.log('    ' + wr_pad_(P2.name, 24) + wr_pad_(wr_money_(P2.rev), 11) +
+               P2.units + 'u in ' + P2.rows + ' rows');
+    Logger.log('      payments say manager : ' + wr_topKeys_(P2.mgrs));
+    Logger.log('      payments say office  : ' + wr_topKeys_(P2.offs));
+    if (cSeg  >= 0) Logger.log('      segment              : ' + wr_topKeys_(P2.segs));
+    if (cFam  >= 0) Logger.log('      batch family         : ' + wr_topKeys_(P2.fams));
+    if (cType >= 0) Logger.log('      payment type         : ' + wr_topKeys_(P2.types));
+    if (nearR) {
+      Logger.log('      *** looks like roster agent "' + nearR.name + '" (' +
+                 (nearR.manager || 'no manager') + ')');
+      Logger.log('          roster spells it   : ' + nearR.name);
+      Logger.log('          payments spell it  : ' + P2.name);
+      Logger.log('          difference         : ' + wr_nameDiff_(nearR.name, P2.name));
+      Logger.log('          if those look the same to you, check for a trailing space');
+      Logger.log('          or a double space - this compares every character.');
+    }
+    for (var s = 0; s < P2.sample.length; s++) Logger.log('      eg  ' + P2.sample[s]);
+  }
+  if (off.length > 15) Logger.log('');
+  if (off.length > 15) Logger.log('    ... and ' + (off.length - 15) + ' more, smaller');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* closest payment name to a roster key, for spotting spelling drift */
+function wr_nearestPayName_(key, payBy) {
+  var best = null, bestScore = 0;
+  for (var k in payBy) {
+    var sc = wr_nameScore_(key, k);
+    if (sc > bestScore) { bestScore = sc; best = payBy[k]; }
+  }
+  return bestScore >= 0.72 ? best : null;
+}
+
+/* closest roster agent to a payment key, and why it matched */
+function wr_nearestRosterName_(key, roster) {
+  var best = null, bestScore = 0;
+  for (var k in roster.byAgent) {
+    var sc = wr_nameScore_(key, k);
+    if (sc > bestScore) { bestScore = sc; best = roster.byAgent[k]; }
+  }
+  if (bestScore < 0.72 || !best) return null;
+  return { name: best.name, manager: best.manager, score: bestScore };
+}
+
+/* Show WHERE two names differ, in their own spelling, so nobody has to
+   take the match on trust. An earlier version reported the reason from
+   the score band, which labelled a two-character spelling difference as
+   containment - it described its own arithmetic instead of the names.
+   This quotes the characters. */
+function wr_nameDiff_(a, b) {
+  a = String(a || ''); b = String(b || '');
+  if (a === b) return 'identical';
+  var i = 0;
+  while (i < a.length && i < b.length && a.charAt(i) === b.charAt(i)) i++;
+  var j = 0;
+  while (j < a.length - i && j < b.length - i &&
+         a.charAt(a.length - 1 - j) === b.charAt(b.length - 1 - j)) j++;
+  var midA = a.substring(i, a.length - j);
+  var midB = b.substring(i, b.length - j);
+  var head = a.substring(0, i), tail = a.substring(a.length - j);
+  if (!midA && !midB) return 'identical';
+  return head + '[' + (midA || '-') + '|' + (midB || '-') + ']' + tail +
+         '   (first spelling is the roster, second is payments)';
+}
+
+/* 1 identical, ~0.9 containment, otherwise similarity by edit distance.
+   Deliberately blunt: this only ever SUGGESTS a match in a log for a human
+   to judge. Nothing on the board is matched this way. */
+function wr_nameScore_(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length >= 4 && b.length >= 4 && (a.indexOf(b) >= 0 || b.indexOf(a) >= 0)) return 0.9;
+  var la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 4) return 0;
+  var prev = [], cur = [], i, j;
+  for (j = 0; j <= lb; j++) prev[j] = j;
+  for (i = 1; i <= la; i++) {
+    cur[0] = i;
+    for (j = 1; j <= lb; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1,
+                        prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1));
+    }
+    for (j = 0; j <= lb; j++) prev[j] = cur[j];
+  }
+  return 1 - (prev[lb] / Math.max(la, lb));
+}
+
+/* "Saboo x12, Prasanth x3" - what a set of values actually contains */
+function wr_topKeys_(obj) {
+  var a = [];
+  for (var k in obj) a.push({ k: k, n: obj[k] });
+  if (!a.length) return '(blank)';
+  a.sort(function (x, y) { return y.n - x.n; });
+  var s = [];
+  for (var i = 0; i < a.length && i < 4; i++) s.push(a[i].k + ' x' + a[i].n);
+  if (a.length > 4) s.push('+' + (a.length - 4) + ' more');
+  return s.join(', ');
+}
+
+
+/* ============================================================
+   warRoomBatches - what product is each sale, really?
+
+   The contest counts Accelerator only, and the board currently counts
+   everything, because nothing has ever positively identified the product.
+   Guessing once cost two real sales: "Batch Family" looked like the
+   product column and is in fact the lead's source campaign, so filtering
+   on it threw away an Accelerator sale to a Mastermind-sourced lead.
+
+   The Batch column looks like the real answer - BC17, EBC4, CL WS IND,
+   166 - but "looks like" is exactly what went wrong last time. So this
+   function does not decide anything. It tabulates every batch code
+   against its family and segment and lets you read the mapping off real
+   revenue, and it prints the exact config line for whatever you conclude.
+
+   READ ONLY. mdl_Payments and mdl_Roster, writes nowhere, never opens
+   CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomBatches() {
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) { Logger.log('mdl_Payments not found or empty'); return; }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cName = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt  = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cMgr  = wr_col_(H, ['manager', 'reporting manager', 'tl']);
+  var cOff  = wr_col_(H, ['office', 'city', 'location', 'branch']);
+  var cBatch= wr_col_(H, ['batch']);
+  var cFam  = wr_col_(H, ['batch family']);
+  var cSeg  = wr_col_(H, ['segment']);
+  if (cDate < 0 || cName < 0 || cBatch < 0) {
+    Logger.log('need Date, Lead Owner and Batch columns; Batch found: ' + (cBatch >= 0));
+    return;
+  }
+
+  var roster = wr_roster_(ss, monthKey);
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  var byBatch = {}, byClass = {};
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (wr_monthKeyOf_(d) !== monthKey) continue;
+    var nm = wr_str_(grid[r][cName]);
+    var mgrRaw = cMgr >= 0 ? wr_str_(grid[r][cMgr]) : '';
+    var offRaw = cOff >= 0 ? wr_str_(grid[r][cOff]) : '';
+    if (!nm || wr_isSummaryRow_(nm, mgrRaw, offRaw)) continue;
+
+    var onRoster = !!roster.byAgent[wr_key_(nm)];
+    var batch = wr_str_(grid[r][cBatch]) || '(blank)';
+    var fam   = cFam >= 0 ? (wr_str_(grid[r][cFam]) || '(blank)') : '';
+    var seg   = cSeg >= 0 ? (wr_str_(grid[r][cSeg]) || '(blank)') : '';
+    var amt   = wr_num_(grid[r][cAmt]);
+    var unit  = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+
+    if (!byBatch[batch]) byBatch[batch] = { batch: batch, rows: 0, rev: 0, units: 0,
+                                            onRows: 0, onRev: 0, onUnits: 0, fams: {}, segs: {} };
+    var B = byBatch[batch];
+    B.rows++; B.rev += amt; B.units += unit;
+    if (onRoster) { B.onRows++; B.onRev += amt; B.onUnits += unit; }
+    if (fam) B.fams[fam] = (B.fams[fam] || 0) + 1;
+    if (seg) B.segs[seg] = (B.segs[seg] || 0) + 1;
+
+    var cls = wr_batchClass_(batch);
+    if (!byClass[cls]) byClass[cls] = { rows: 0, rev: 0, units: 0, onRev: 0, onUnits: 0, codes: {} };
+    var C = byClass[cls];
+    C.rows++; C.rev += amt; C.units += unit;
+    if (onRoster) { C.onRev += amt; C.onUnits += unit; }
+    C.codes[batch] = (C.codes[batch] || 0) + 1;
+  }
+
+  Logger.log('=== BATCHES ===   ' + monthKey + '   (read only, nothing is written)');
+  Logger.log('  "on board" = the roster agents the TV actually shows.');
+  Logger.log('');
+  Logger.log('  BY BATCH CODE SHAPE   <-- this is the one to read');
+  Logger.log('    ' + wr_pad_('shape', 20) + wr_pad_('on board', 12) + wr_pad_('units', 7) +
+             wr_pad_('all rows', 12) + 'example codes');
+  var classes = [];
+  for (var cl in byClass) classes.push({ k: cl, v: byClass[cl] });
+  classes.sort(function (a, b) { return b.v.onRev - a.v.onRev; });
+  for (var i = 0; i < classes.length; i++) {
+    var V = classes[i].v;
+    Logger.log('    ' + wr_pad_(classes[i].k, 20) +
+               wr_pad_(wr_money_(V.onRev), 12) + wr_pad_(String(V.onUnits), 7) +
+               wr_pad_(wr_money_(V.rev), 12) + wr_topKeys_(V.codes));
+  }
+  Logger.log('');
+
+  var list = [];
+  for (var b2 in byBatch) list.push(byBatch[b2]);
+  list.sort(function (a, b) { return b.onRev - a.onRev; });
+  Logger.log('  EVERY BATCH CODE, biggest on-board revenue first');
+  Logger.log('    ' + wr_pad_('batch', 14) + wr_pad_('on board', 12) + wr_pad_('units', 7) +
+             wr_pad_('family', 22) + 'segment');
+  for (var j = 0; j < list.length && j < 40; j++) {
+    var L = list[j];
+    Logger.log('    ' + wr_pad_(L.batch, 14) + wr_pad_(wr_money_(L.onRev), 12) +
+               wr_pad_(String(L.onUnits), 7) + wr_pad_(wr_topKeys_(L.fams), 22) +
+               wr_topKeys_(L.segs));
+  }
+  if (list.length > 40) Logger.log('    ... and ' + (list.length - 40) + ' more codes');
+  Logger.log('');
+
+  Logger.log('  IF YOU WANT THE CONTEST TO COUNT ACCELERATOR ONLY');
+  Logger.log('    Decide from the table above which shapes are Accelerator, then set');
+  Logger.log('    in WR_CONTEST:');
+  Logger.log('      productColumn : \'Batch\'');
+  Logger.log('      excludeBatchPrefixes : [\'BC\', \'EBC\', \'CL WS\']     <-- edit to match');
+  Logger.log('    Nothing is filtered until you set it. Every unit counts today.');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Group batch codes by shape, not by guessing at meaning: "BC12" and
+   "BC13B" are one shape, "165" and "166" another. The shapes are what a
+   human can then map to products. */
+function wr_batchClass_(batch) {
+  var t = String(batch || '').trim();
+  if (!t) return '(blank)';
+  if (/^\d+$/.test(t)) return 'plain number';
+  var m = t.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)*)/);
+  if (!m) return 'other';
+  return m[1].toUpperCase().replace(/\s+/g, ' ') + '*';
+}
+
+
+/* ============================================================
+   warRoomContestWhatIf - see the exclusion before you commit to it
+
+   Barring a product changes who wins money, so it should never be
+   switched on blind. This builds the contest board twice, once as
+   configured and once with a proposed exclusion list, and shows the
+   difference per agent: who drops, who moves up, and what the ladder
+   pays either way.
+
+   Edit TRY below, run it, read it. It changes no setting - the live
+   config is restored before it returns, including if it throws.
+
+   READ ONLY. Writes nowhere, never opens CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomContestWhatIf() {
+
+  /* -------- edit this, then run -------- */
+  var TRY = ['BC', 'EBC', 'CL WS'];
+  /* ------------------------------------- */
+
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var was = WR_CONTEST.excludeBatchPrefixes;
+  var before, after;
+  try {
+    WR_CONTEST.excludeBatchPrefixes = [];
+    before = wr_contestBoard_(ss, monthKey);
+    WR_CONTEST.excludeBatchPrefixes = TRY;
+    after  = wr_contestBoard_(ss, monthKey);
+  } finally {
+    WR_CONTEST.excludeBatchPrefixes = was;   // never leave the config changed
+  }
+
+  Logger.log('=== CONTEST WHAT IF ===   ' + WR_CONTEST.name + '   ' +
+             WR_CONTEST.from + ' to ' + WR_CONTEST.to);
+  Logger.log('  proposal: bar batch codes starting with  ' + TRY.join(', '));
+  Logger.log('  (prefix, not substring - EBC4 is not barred by a BC rule)');
+  Logger.log('');
+  if (!after.colFound) {
+    Logger.log('  *** NO BATCH COLUMN FOUND in ' + WR_PAY_TAB + '.');
+    Logger.log('      Nothing would be barred. Check the header spelling.');
+    return;
+  }
+  Logger.log('  units counted : ' + before.units + '   ->   ' + after.units +
+             '   (' + (before.units - after.units) + ' barred)');
+  Logger.log('  payout        : ' + wr_money_(before.payout) + '   ->   ' +
+             wr_money_(after.payout));
+  Logger.log('');
+
+  var names = {}, k;
+  for (k in before.byAgent) names[k] = true;
+  for (k in after.byAgent)  names[k] = true;
+  var rows = [];
+  for (k in names) {
+    var b = before.byAgent[k] || { name: k, units: 0, rev: 0 };
+    var a = after.byAgent[k]  || { name: b.name, units: 0, rev: 0 };
+    rows.push({ name: b.name || a.name, bu: b.units, au: a.units,
+                br: b.rev, ar: a.rev,
+                bp: wr_ladderPays_(b.units), ap: wr_ladderPays_(a.units) });
+  }
+  rows.sort(function (x, y) { return (y.bu - y.au) - (x.bu - x.au) || y.bu - x.bu; });
+
+  Logger.log('  WHO IS AFFECTED   (biggest change first)');
+  Logger.log('    ' + wr_pad_('agent', 24) + wr_pad_('units', 12) +
+             wr_pad_('ladder pays', 20) + 'barred revenue');
+  var shown = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var R = rows[i];
+    if (R.bu === R.au) continue;
+    shown++;
+    Logger.log('    ' + wr_pad_(R.name, 24) +
+               wr_pad_(R.bu + ' -> ' + R.au, 12) +
+               wr_pad_(wr_money_(R.bp) + ' -> ' + wr_money_(R.ap), 20) +
+               wr_money_(R.br - R.ar));
+  }
+  if (!shown) Logger.log('    nobody - the exclusion changes nothing');
+  Logger.log('');
+  Logger.log('  UNCHANGED');
+  for (var j = 0; j < rows.length; j++) {
+    if (rows[j].bu !== rows[j].au || !rows[j].au) continue;
+    Logger.log('    ' + wr_pad_(rows[j].name, 24) + rows[j].au + 'u   ' +
+               wr_money_(rows[j].ar) + '   pays ' + wr_money_(rows[j].ap));
+  }
+  Logger.log('');
+  /* The whole point: an exclusion is judged on the rows it actually
+     drops, not on an average. Averages hid that this proposal bars a
+     1.52 L unit alongside a 9,405 one. */
+  Logger.log('  EVERY UNIT THIS WOULD BAR   (check these are really not Accelerator)');
+  Logger.log('    ' + wr_pad_('agent', 24) + wr_pad_('date', 8) + wr_pad_('amount', 11) +
+             wr_pad_('batch', 13) + wr_pad_('family', 15) + wr_pad_('segment', 15) + 'payment type');
+  var bar = after.barred.slice(0).sort(function (x, y) { return y.amt - x.amt; });
+  for (var q = 0; q < bar.length; q++) {
+    var Bq = bar[q];
+    Logger.log('    ' + wr_pad_(Bq.name, 24) + wr_pad_(Bq.day, 8) +
+               wr_pad_(wr_money_(Bq.amt), 11) + wr_pad_(Bq.batch, 13) +
+               wr_pad_(Bq.fam, 15) + wr_pad_(Bq.seg, 15) + Bq.type);
+  }
+  if (!bar.length) Logger.log('    none');
+  Logger.log('');
+  Logger.log('  To apply it, set in WR_CONTEST:');
+  Logger.log('      excludeBatchPrefixes: [' +
+             TRY.map(function (t) { return "'" + t + "'"; }).join(', ') + ']');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* The contest board on its own, so it can be built twice and compared.
+   Same window, same countMode and same exclusions as the live board. */
+function wr_contestBoard_(ss, monthKey) {
+  var out = { byAgent: {}, units: 0, rev: 0, payout: 0, colFound: false, barred: [] };
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) return out;
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var H = wr_headers_(head);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  var cName = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
+  var cAmt  = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
+  var cUnit = wr_col_(H, ['is unit', 'unit', 'units']);
+  var cMgr  = wr_col_(H, ['manager', 'reporting manager', 'tl']);
+  var cOff  = wr_col_(H, ['office', 'city', 'location', 'branch']);
+  var cRef  = wr_col_(H, ['is refund', 'refund']);
+  var cStat = wr_col_(H, ['status']);
+  var cBat  = wr_col_(H, ['batch']);
+  var cFam  = wr_col_(H, ['batch family']);
+  var cSeg  = wr_col_(H, ['segment']);
+  var cType = wr_col_(H, ['payment type']);
+  out.colFound = cBat >= 0;
+  if (cDate < 0 || cName < 0) return out;
+
+  var roster = wr_roster_(ss, monthKey);
+  var from = wr_dayNum_(WR_CONTEST.from), to = wr_dayNum_(WR_CONTEST.to);
+  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][cDate];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    var day = wr_dayNumOf_(d);
+    if (day < from || day > to) continue;
+    var nm = wr_str_(grid[r][cName]);
+    var mgrRaw = cMgr >= 0 ? wr_str_(grid[r][cMgr]) : '';
+    var offRaw = cOff >= 0 ? wr_str_(grid[r][cOff]) : '';
+    if (!nm || wr_isSummaryRow_(nm, mgrRaw, offRaw)) continue;
+    var key = wr_key_(nm);
+    if (!roster.byAgent[key]) continue;                        // roster agents only
+    /* Exactly the live board's test, not a parallel one: a status
+       containing "cancel" is out, and so is Is Refund. Keeping the two
+       in step matters more than keeping this function short. */
+    if (cRef >= 0 && wr_truthy_(grid[r][cRef])) continue;
+    var statusTxt = (cStat >= 0) ? String(grid[r][cStat] || '').trim().toLowerCase() : '';
+    if (statusTxt.indexOf('cancel') > -1) continue;
+    var isUnit = (cUnit >= 0 && wr_truthy_(grid[r][cUnit])) ? 1 : 0;
+    var counts = (WR_CONTEST.countMode === 'payments') ? 1 : isUnit;
+    if (!counts) continue;
+
+    /* Barred AFTER the counting tests, so the list holds only rows that
+       would really have paid out. A row dropped for being a refund or a
+       balance was never in the contest and does not belong in a list of
+       what an exclusion costs. */
+    if (!wr_progMatches_(cBat >= 0 ? grid[r][cBat] : '')) {
+      out.barred.push({
+        name: nm, day: Utilities.formatDate(d, WR_TZ, 'dd MMM'),
+        amt: wr_num_(grid[r][cAmt]),
+        batch: cBat >= 0 ? wr_str_(grid[r][cBat]) : '',
+        fam: cFam >= 0 ? wr_str_(grid[r][cFam]) : '',
+        seg: cSeg >= 0 ? wr_str_(grid[r][cSeg]) : '',
+        type: cType >= 0 ? wr_str_(grid[r][cType]) : ''
+      });
+      continue;
+    }
+    if (!out.byAgent[key]) out.byAgent[key] = { name: nm, units: 0, rev: 0 };
+    out.byAgent[key].units += counts;
+    out.byAgent[key].rev   += wr_num_(grid[r][cAmt]);
+    out.units += counts;
+    out.rev   += wr_num_(grid[r][cAmt]);
+  }
+  for (var k in out.byAgent) out.payout += wr_ladderPays_(out.byAgent[k].units);
+  return out;
+}
+
+/* The published ladder: 2 -> 1,000, 3 -> 1,500, 4 -> 2,500, 5+ -> 1,000
+   per unit with no cap. Below 2 pays nothing. */
+function wr_ladderPays_(units) {
+  var u = Number(units) || 0;
+  if (u < 2) return 0;
+  if (u === 2) return 1000;
+  if (u === 3) return 1500;
+  if (u === 4) return 2500;
+  return u * 1000;
+}
+
+
+/* ============================================================
+   warRoomAutoUpdate - what is actually keeping this sheet fresh?
+
+   Three clocks decide how old a number on the TV is: how often
+   IMPORTRANGE pulls from the Payment Tracker and CBC, how often this
+   project rebuilds the model tabs, and how long the feed caches. Only
+   the middle one is yours to set, and it is the one nobody can see,
+   because triggers live in the project settings rather than in any file.
+
+   So this lists them: every trigger, what it calls, and where the
+   duplicates are. A handler with several clock triggers on it is doing
+   the same work several times over and burning the daily runtime quota
+   for nothing.
+
+   READ ONLY. It reads the trigger list and the two model tabs. It
+   creates no trigger, deletes none, writes to no sheet, and never opens
+   CBC or the Payment Tracker.
+   ============================================================ */
+function warRoomAutoUpdate() {
+  Logger.log('=== AUTO UPDATE ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log('  (read only - no trigger is created, changed or deleted here)');
+  Logger.log('');
+
+  /* ---- 1. the triggers ---- */
+  var trigs = [];
+  try {
+    trigs = ScriptApp.getProjectTriggers();
+  } catch (e) {
+    Logger.log('  Could not read the trigger list: ' + e.message);
+    Logger.log('  Run it once from the editor and accept the permission prompt.');
+    return;
+  }
+
+  var byHandler = {};
+  for (var i = 0; i < trigs.length; i++) {
+    var h = trigs[i].getHandlerFunction();
+    var src = String(trigs[i].getTriggerSource());
+    if (!byHandler[h]) byHandler[h] = { clock: 0, sheet: 0, other: 0 };
+    if (src.indexOf('CLOCK') > -1) byHandler[h].clock++;
+    else if (src.indexOf('SPREADSHEET') > -1) byHandler[h].sheet++;
+    else byHandler[h].other++;
+  }
+
+  Logger.log('  TRIGGERS   (' + trigs.length + ' in this project)');
+  if (!trigs.length) {
+    Logger.log('    NONE. Nothing rebuilds the model tabs on its own, so the');
+    Logger.log('    sheet only updates when somebody runs it by hand.');
+  }
+  var dupes = [];
+  var names = [];
+  for (var k in byHandler) names.push(k);
+  names.sort();
+  for (var n = 0; n < names.length; n++) {
+    var H = byHandler[names[n]], total = H.clock + H.sheet + H.other;
+    var bits = [];
+    if (H.clock) bits.push(H.clock + ' on a timer');
+    if (H.sheet) bits.push(H.sheet + ' on sheet edits');
+    if (H.other) bits.push(H.other + ' other');
+    Logger.log('    ' + wr_pad_(names[n], 30) + bits.join(', ') +
+               (total > 1 ? '   <-- ' + total + ' triggers on ONE function' : ''));
+    if (total > 1) dupes.push(names[n] + ' x' + total);
+  }
+  if (dupes.length) {
+    Logger.log('');
+    Logger.log('    SEVERAL TRIGGERS ON ONE FUNCTION: ' + dupes.join(', '));
+    Logger.log('        This is NOT necessarily wrong, and it is not something this');
+    Logger.log('        function can judge. Apps Script exposes no way to read a');
+    Logger.log('        trigger\'s schedule, so five triggers on one handler may be');
+    Logger.log('        five runs spread across the day - a deliberate schedule - or');
+    Logger.log('        five copies of the same one.');
+    Logger.log('        Open the Triggers page and read the LAST RUN column. Spread');
+    Logger.log('        out means a schedule: leave it alone. All within a few minutes');
+    Logger.log('        of each other means copies, and the extras can go.');
+  }
+  /* ---- 2. how old the data actually is ---- */
+  var ss = SpreadsheetApp.getActive();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var latest = wr_latestPaymentDate_(ss);
+  Logger.log('  FRESHNESS');
+  Logger.log('    newest payment in ' + WR_PAY_TAB + ' : ' + (latest || 'none found'));
+  Logger.log('    today                          : ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM-dd'));
+  Logger.log('    feed cache                     : ' + WR_CACHE_SECS +
+             's, so the TV is at most ' + Math.ceil(WR_CACHE_SECS / 60) +
+             ' min behind the sheet');
+  Logger.log('');
+
+  /* ---- 3. what to do ---- */
+  var hasUpdate = !!byHandler[WR_UPDATE_FN];
+  Logger.log('  THE REBUILD');
+  if (hasUpdate) {
+    Logger.log('    ' + WR_UPDATE_FN + ' is on a timer - good.');
+  } else {
+    Logger.log('    *** NOTHING RUNS ' + WR_UPDATE_FN + ' ON A TIMER.');
+    Logger.log('        The model tabs only rebuild as a side effect of the other');
+    Logger.log('        schedules. Run warRoomAddUpdateTriggers to set it up.');
+  }
+  Logger.log('');
+  Logger.log('    IMPORTRANGE is not on your clock. Google refreshes it about');
+  Logger.log('    hourly and there is no setting for it, so a payment entered');
+  Logger.log('    in the Payment Tracker can take that long to reach this sheet');
+  Logger.log('    no matter how often the rebuild runs.');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* The most recent payment date in the sheet, as a plain yyyy-MM-dd
+   string. Reads the date column alone. */
+function wr_latestPaymentDate_(ss) {
+  var sh = ss.getSheetByName(WR_PAY_TAB);
+  if (!sh || sh.getLastRow() < 2) return null;
+  var H = wr_headers_(sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]);
+  var cDate = wr_col_(H, ['date', 'payment date', 'paid on']);
+  if (cDate < 0) return null;
+  var v = sh.getRange(2, cDate + 1, sh.getLastRow() - 1, 1).getValues();
+  var best = null;
+  for (var i = 0; i < v.length; i++) {
+    var d = v[i][0];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (!best || d.getTime() > best.getTime()) best = d;
+  }
+  return best ? Utilities.formatDate(best, WR_TZ, 'yyyy-MM-dd') : null;
+}
+
+
+/* ============================================================
+   warRoomLiveCheck - does the TV show what this sheet says?
+
+   Every other check here runs the code in the editor. The TV does not.
+   It reads the DEPLOYED web app, which is pinned to a version, so editing
+   and saving changes nothing until a new version is deployed. That is the
+   one fault where all the diagnostics pass and the wall is still wrong,
+   and until now there was no way to see it from inside the project.
+
+   So this fetches the deployed URL exactly as the TV does and compares it,
+   figure by figure, with a build from the code as it stands right now.
+   Anything that disagrees is named.
+
+   It also fetches once through the cache and once around it, because a
+   board showing older figures than the sheet is usually just the cache and
+   should not be mistaken for a wrong number.
+
+   READ ONLY. Writes to no sheet. It makes one outbound request, to this
+   project's own web app.
+   ============================================================ */
+function warRoomLiveCheck() {
+  Logger.log('=== LIVE CHECK ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log('  comparing THE DEPLOYED WEB APP against THE CODE IN THIS EDITOR');
+  Logger.log('');
+
+  /* ---------------------------------------------------------------
+     THE URL THE TV ACTUALLY USES. Paste your /exec URL here, from
+     Deploy > Manage deployments. Prefilled with the one already on the
+     TV; if you ever create a NEW deployment rather than editing the
+     existing one, update this line or this check tests the wrong thing.
+     --------------------------------------------------------------- */
+  var EXEC_URL = 'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec';
+  /* --------------------------------------------------------------- */
+
+  var url = EXEC_URL;
+  if (!url) {
+    /* Fallback only. getUrl() hands back the /dev test URL in the editor,
+       which is a different deployment id, always runs head code, and always
+       demands a Google sign-in - so it answers with a login page and tells
+       you nothing about what the TV sees. Worth reporting rather than
+       silently comparing against the wrong thing. */
+    try { url = ScriptApp.getService().getUrl(); }
+    catch (e) { Logger.log('  Could not read the web app URL: ' + e.message); return; }
+  }
+  if (!url) {
+    Logger.log('  *** NO URL. Paste your /exec URL into EXEC_URL at the top of');
+    Logger.log('      warRoomLiveCheck. Deploy > Manage deployments > copy Web app URL.');
+    return;
+  }
+  if (url.indexOf('/dev') === url.length - 4) {
+    Logger.log('  *** THAT IS THE /dev TEST URL, NOT THE ONE ON THE TV.');
+    Logger.log('      ' + url);
+    Logger.log('      /dev always runs head code and always requires a Google sign-in,');
+    Logger.log('      so it answers with a login page and proves nothing about the');
+    Logger.log('      deployment. It is also a different deployment id from /exec.');
+    Logger.log('      Paste your /exec URL into EXEC_URL at the top of this function.');
+    return;
+  }
+  Logger.log('  web app : ' + url);
+
+  var live, fresh;
+  try {
+    live  = wr_fetchFeed_(url, false);   // as the TV sees it, cache and all
+    fresh = wr_fetchFeed_(url, true);    // same deployment, cache bypassed
+  } catch (e) {
+    Logger.log('  *** COULD NOT REACH THE WEB APP: ' + e.message);
+    Logger.log('      If this says Unauthorized, the deployment is not set to "Anyone".');
+    Logger.log('      A TV is not signed in to Google, so it would fail the same way.');
+    return;
+  }
+  if (!live || !live.ok) {
+    Logger.log('  *** THE WEB APP DID NOT RETURN A FEED.');
+    var raw = String((live && live._raw) || '');
+    var title = wr_pageTitle_(raw);
+    Logger.log('      HTTP status : ' + (live && live._code ? live._code : 'unknown'));
+    if (title) Logger.log('      page title  : ' + title);
+    Logger.log('      first bytes : ' + raw.substring(0, 160));
+    Logger.log('');
+    /* Order matters: the specific markers are tested before the generic
+       "it is HTML" one. An earlier version checked for HTML first and so
+       reported a missing doGet routing line for a Google sign-in page and
+       again for a Google error page - naming a fix that had nothing to do
+       with either, and sending someone to edit a doGet that was fine. */
+    var t = (title + ' ' + raw).toLowerCase();
+    /* Tested FIRST, because it is not a failure at all. Apps Script serves
+       a keepalive shell while a request is still running, and it carries
+       heartbeatRate and ppConfig. An earlier version read that as a Google
+       error page and reported the web app as crashed when it was simply
+       still building - the browser showed the same request still spinning. */
+    if (t.indexOf('heartbeatrate') > -1 ||
+        (t.indexOf('ppconfig') > -1 && t.indexOf('error') === -1)) {
+      Logger.log('      STILL RUNNING, NOT BROKEN. That is Apps Script\'s keepalive');
+      Logger.log('      page, which it serves while a request is still working.');
+      Logger.log('      The build has not finished inside the web app request.');
+      Logger.log('');
+      Logger.log('      The TV is probably fine: it waits 90 seconds and holds the');
+      Logger.log('      last good figures if a poll is missed, so a slow build shows');
+      Logger.log('      as a slightly older timestamp rather than an empty screen.');
+      Logger.log('');
+      Logger.log('      Run warRoomPreview for a clean single-build timing. Under ten');
+      Logger.log('      seconds means this was contention and will pass. Consistently');
+      Logger.log('      above thirty means the build itself has got slower.');
+    } else if (raw.indexOf('accounts.google.com') > -1 || t.indexOf('servicelogin') > -1 ||
+        t.indexOf('sign in') > -1) {
+      Logger.log('      A GOOGLE SIGN-IN PAGE. Access is not set to "Anyone".');
+      Logger.log('      Deploy > Manage deployments > pencil > Who has access: Anyone.');
+      Logger.log('      A TV is not signed in to Google, so it gets this forever.');
+    } else if (t.indexOf('script function not found') > -1) {
+      Logger.log('      SCRIPT FUNCTION NOT FOUND. The deployed version has no doGet.');
+      Logger.log('      Usually this means the Exec Web App file was overwritten -');
+      Logger.log('      check that the file holding doGet still holds it, and that');
+      Logger.log('      war-room.gs went into its OWN file rather than over that one.');
+    } else if (t.indexOf('exception') > -1 || t.indexOf('error') > -1 ||
+               t.indexOf('sorry, unable') > -1 || t.indexOf('ppconfig') > -1) {
+      Logger.log('      A GOOGLE ERROR PAGE, not your page and not a sign-in.');
+      Logger.log('      The web app ran and threw, or the deployment is broken.');
+      Logger.log('      Do this, in order:');
+      Logger.log('        1. Open the URL above in a browser. The message names it.');
+      Logger.log('        2. Apps Script > Executions (left edge). A failed doGet is');
+      Logger.log('           listed there with its stack trace.');
+      Logger.log('        3. Check for TWO doGet functions in the project. Apps Script');
+      Logger.log('           keeps one silently and it may not be the one you want.');
+    } else if (raw.indexOf('Executive') > -1) {
+      Logger.log('      YOUR EXEC PAGE, not the feed. The routing line is missing from');
+      Logger.log('      doGet - check it still begins with the feed=warroom check.');
+    } else {
+      Logger.log('      Not JSON and not a page this recognises. Open the URL above');
+      Logger.log('      with &feed=warroom on the end and see what it returns.');
+    }
+    return;
+  }
+
+  var mine = wr_build_('');
+  Logger.log('');
+
+  /* Is the deployment even running this code? Fields added since the last
+     deploy are the giveaway - they cannot appear in an older version. */
+  var missing = [];
+  if (!live.byDay)             missing.push('byDay');
+  if (!live.recent)            missing.push('recent');
+  if (!live.meta.latestPayment) missing.push('meta.latestPayment');
+  if (missing.length) {
+    Logger.log('  *** THE DEPLOYMENT IS RUNNING OLDER CODE.');
+    Logger.log('      Missing from its reply: ' + missing.join(', '));
+    Logger.log('      Deploy > Manage deployments > pencil > Version: NEW VERSION.');
+    Logger.log('      Until that is done the TV cannot show what this editor computes,');
+    Logger.log('      however many times the sheet is refreshed.');
+    Logger.log('');
+  } else {
+    Logger.log('  deployment is running current code (byDay, recent, latestPayment all present)');
+    Logger.log('');
+  }
+
+  var bad = 0;
+  Logger.log('  COMPANY');
+  bad += wr_cmp_('    revenue', fresh.totals.revenue, mine.totals.revenue, true);
+  bad += wr_cmp_('    units',   fresh.totals.units,   mine.totals.units,   false);
+  bad += wr_cmp_('    target',  fresh.totals.target,  mine.totals.target,  true);
+
+  Logger.log('  CITIES');
+  bad += wr_cmpList_(fresh.cities, mine.cities);
+  Logger.log('  MANAGERS');
+  bad += wr_cmpList_(fresh.managers, mine.managers);
+
+  Logger.log('');
+  if (bad === 0) {
+    Logger.log('  THE DEPLOYED FEED AND THIS CODE AGREE ON EVERY FIGURE.');
+  } else {
+    Logger.log('  *** ' + bad + ' FIGURE(S) DISAGREE - listed above.');
+  }
+
+  /* Cache lag is not an error, but it explains a board that looks behind. */
+  Logger.log('');
+  Logger.log('  CACHE');
+  var lr = wr_r2_(live.totals.revenue), fr = wr_r2_(fresh.totals.revenue);
+  if (lr === fr) {
+    Logger.log('    the cached reply matches the fresh one - nothing in flight');
+  } else {
+    Logger.log('    cached ' + wr_money_(lr) + '  vs  fresh ' + wr_money_(fr));
+    Logger.log('    the TV shows the cached figure for up to ' + WR_CACHE_SECS +
+               's (' + Math.ceil(WR_CACHE_SECS / 60) + ' min) after a change. Not an error.');
+  }
+
+  Logger.log('');
+  Logger.log('  SHEET FRESHNESS');
+  Logger.log('    newest payment in ' + WR_PAY_TAB + ' : ' + (mine.meta.latestPayment || 'none'));
+  Logger.log('    today                          : ' + mine.meta.today);
+  if (mine.meta.latestPayment && mine.meta.latestPayment < mine.meta.today) {
+    Logger.log('    *** the sheet itself has nothing for today. The feed is reporting');
+    Logger.log('        what it was given. Run updateAndCheck, and if it stays behind,');
+    Logger.log('        check src_Payments for a #REF!.');
+  } else {
+    Logger.log('    the sheet has today covered');
+  }
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Fetch the feed as the TV does. Returns the parsed payload, with the raw
+   text attached so a non-JSON answer can be reported rather than thrown. */
+function wr_fetchFeed_(url, bypassCache) {
+  var u = url + (url.indexOf('?') > -1 ? '&' : '?') + 'feed=warroom' +
+          (bypassCache ? '&nocache=1' : '') + '&t=' + new Date().getTime();
+  var res = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
+  var txt = res.getContentText();
+  var code = 0;
+  try { code = res.getResponseCode(); } catch (ignore) {}
+  try {
+    var o = JSON.parse(txt);
+    o._raw = txt; o._code = code;
+    return o;
+  } catch (e) {
+    return { ok: false, _raw: txt, _code: code };
+  }
+}
+
+/* The <title> of an error page usually names the fault outright, and is
+   far more use than the first 200 bytes of Google's page scaffolding. */
+function wr_pageTitle_(html) {
+  var m = String(html || '').match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i);
+  if (!m) return '';
+  return m[1].replace(/\s+/g, ' ').trim();
+}
+
+/* One figure, both sides. Returns 1 when they differ. */
+function wr_cmp_(label, live, mine, isMoney) {
+  var a = wr_r2_(live), b = wr_r2_(mine);
+  var same = (Math.abs(a - b) < 1);
+  var fmt = isMoney ? wr_money_ : function (x) { return String(Math.round(x)); };
+  Logger.log(wr_pad_(label, 26) + wr_pad_(fmt(a), 14) +
+             (same ? 'matches' : '<-- DIFFERS, editor says ' + fmt(b)));
+  return same ? 0 : 1;
+}
+
+/* Two lists of named rows, matched by name rather than position - a
+   reordering is not a disagreement. */
+function wr_cmpList_(liveList, mineList) {
+  var byName = {}, i, bad = 0;
+  for (i = 0; i < mineList.length; i++) byName[wr_key_(mineList[i].name)] = mineList[i];
+  var seen = {};
+  for (i = 0; i < liveList.length; i++) {
+    var L = liveList[i], M = byName[wr_key_(L.name)];
+    seen[wr_key_(L.name)] = true;
+    if (!M) {
+      Logger.log(wr_pad_('    ' + L.name, 26) + wr_pad_(wr_money_(L.revenue), 14) +
+                 '<-- on the TV but not in this build');
+      bad++; continue;
+    }
+    bad += wr_cmp_('    ' + L.name, L.revenue, M.revenue, true);
+  }
+  for (i = 0; i < mineList.length; i++) {
+    if (!seen[wr_key_(mineList[i].name)]) {
+      Logger.log(wr_pad_('    ' + mineList[i].name, 26) +
+                 wr_pad_(wr_money_(mineList[i].revenue), 14) +
+                 '<-- in this build but NOT on the TV');
+      bad++;
+    }
+  }
+  return bad;
+}
+
+
+/* ============================================================
+   warRoomAddUpdateTriggers - put the rebuild on a timer
+
+   Adds one time-driven trigger per entry in WR_UPDATE_TIMES, all calling
+   WR_UPDATE_FN. Any existing trigger on that same function is removed
+   first, so running this twice leaves six triggers rather than twelve.
+
+   IT TOUCHES ONLY TRIGGERS FOR THAT ONE FUNCTION. Every other trigger in
+   the project is left exactly as it is - including handlers that carry
+   several triggers, because Apps Script gives no way to read a trigger's
+   schedule, so several triggers on one function may be a deliberate
+   spread across the day rather than copies. Deleting those on a guess
+   would tear out a working schedule.
+
+   Run warRoomAddUpdateTriggersPreview first to see what it will do.
+   ============================================================ */
+function warRoomAddUpdateTriggers() { wr_updateTriggers_(true); }
+function warRoomAddUpdateTriggersPreview() { wr_updateTriggers_(false); }
+
+/* ONE TRIGGER, SIX TIMES.
+
+   Apps Script allows a script twenty triggers. This project already has
+   twenty, so six daily triggers cannot be created - the first attempt
+   made one and the rest were refused.
+
+   So a single trigger runs every thirty minutes and decides for itself
+   whether this is one of the wanted times. Six slots, one slot used. It
+   also survives Google's scheduling jitter: a trigger fires within about
+   fifteen minutes of its hour, and a half-hourly dispatcher that records
+   which slots it has already served cannot double-run or skip one. */
+function wr_updateTriggers_(apply) {
+  Logger.log('=== REBUILD TRIGGERS ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log(apply ? '  APPLYING' : '  PREVIEW ONLY - nothing will be created or deleted');
+  Logger.log('');
+
+  var all;
+  try { all = ScriptApp.getProjectTriggers(); }
+  catch (e) {
+    Logger.log('  Could not read the trigger list: ' + e.message);
+    Logger.log('  Run it once from the editor and accept the permission prompt.');
+    return;
+  }
+
+  var ours = [], others = 0;
+  for (var i = 0; i < all.length; i++) {
+    var h = all[i].getHandlerFunction();
+    if (h === WR_UPDATE_FN || h === 'warRoomScheduledUpdate') ours.push(all[i]);
+    else others++;
+  }
+  Logger.log('  triggers in this project : ' + all.length);
+  Logger.log('  ours (replaced)          : ' + ours.length);
+  Logger.log('  everything else          : ' + others + '  (left untouched)');
+  Logger.log('');
+  /* No pre-flight limit check. An earlier version refused when twenty
+     triggers belonged to other functions - but it refused BEFORE deleting
+     our own, which would have freed the slot it wanted, and it did so
+     against a hard-coded twenty when this project was sitting at
+     twenty-one. Apps Script's real ceiling is not worth guessing at from
+     here. Delete ours, attempt it, and report what actually comes back. */
+
+  Logger.log('  ONE trigger every 30 minutes, which runs ' + WR_UPDATE_FN + ' at:');
+  for (var t = 0; t < WR_UPDATE_TIMES.length; t++) {
+    Logger.log('    ' + wr_hhmm_(WR_UPDATE_TIMES[t][0], WR_UPDATE_TIMES[t][1]) + ' IST');
+  }
+  Logger.log('    Six times a day from one trigger, because twenty is the limit');
+  Logger.log('    and this project is at it.');
+  Logger.log('');
+
+  if (!apply) {
+    Logger.log('  Nothing was changed. Run warRoomAddUpdateTriggers to apply.');
+    return;
+  }
+
+  for (var d = 0; d < ours.length; d++) ScriptApp.deleteTrigger(ours[d]);
+  if (ours.length) Logger.log('  removed ' + ours.length + ' of our old trigger(s)');
+
+  try {
+    ScriptApp.newTrigger('warRoomScheduledUpdate').timeBased().everyMinutes(30).create();
+    Logger.log('  created 1 dispatcher trigger, every 30 minutes');
+    Logger.log('  it will run ' + WR_UPDATE_FN + ' at the six times above');
+  } catch (e2) {
+    Logger.log('  *** COULD NOT CREATE IT: ' + e2.message);
+    if (String(e2.message).toLowerCase().indexOf('too many') > -1) {
+      Logger.log('');
+      Logger.log('      This project is at the trigger ceiling, so one has to go');
+      Logger.log('      before another can be added. Two honest options:');
+      Logger.log('');
+      Logger.log('      1. DO NOTHING. The sheet is already being rebuilt - your');
+      Logger.log('         day and night schedules fire about ten times a day');
+      Logger.log('         between them, and warRoomLiveCheck reports the sheet has');
+      Logger.log('         today covered. Six more rebuilds may buy nothing.');
+      Logger.log('');
+      Logger.log('      2. FREE A SLOT. On the Triggers page, look for a handler');
+      Logger.log('         whose Last run times sit within minutes of each other -');
+      Logger.log('         those are real copies. Remove one and run this again.');
+      Logger.log('         Do NOT remove triggers whose Last run times are spread');
+      Logger.log('         across the day; that is a schedule, not duplication.');
+      wr_listHandlers_(all);
+    }
+    return;
+  }
+  Logger.log('');
+  Logger.log('  Check the Triggers page (clock icon) to see it.');
+}
+
+/* The dispatcher. Fires every half hour; runs the rebuild only when a
+   wanted time has arrived and has not already been served today.
+
+   The marker lives in Script Properties, not on a sheet, and is keyed by
+   date so it resets itself at midnight without any cleanup. */
+function warRoomScheduledUpdate() {
+  var now = new Date();
+  var today = Utilities.formatDate(now, WR_TZ, 'yyyy-MM-dd');
+  var mins = Number(Utilities.formatDate(now, WR_TZ, 'H')) * 60 +
+             Number(Utilities.formatDate(now, WR_TZ, 'm'));
+
+  /* The latest slot whose time has passed. */
+  var slot = -1, best = -1;
+  for (var i = 0; i < WR_UPDATE_TIMES.length; i++) {
+    var at = WR_UPDATE_TIMES[i][0] * 60 + WR_UPDATE_TIMES[i][1];
+    if (mins >= at && at > best) { best = at; slot = i; }
+  }
+  if (slot < 0) return;                       // before the first slot of the day
+
+  var props = PropertiesService.getScriptProperties();
+  var key = 'wr_upd_' + today;
+  var done = props.getProperty(key) || '';
+  if (done.indexOf('|' + slot + '|') > -1) return;   // this slot already ran
+
+  /* Mark BEFORE running. A rebuild that throws should not be retried every
+     thirty minutes for the rest of the day - the next slot will come. */
+  props.setProperty(key, done + '|' + slot + '|');
+
+  /* Resolving the handler by name is the fragile part. Under the V8
+     runtime `this` inside a plain function call can be undefined, so
+     this[WR_UPDATE_FN] throws on property access rather than returning
+     undefined - and because the slot is marked served above, that throw
+     would skip the rebuild silently, every day, with nothing in the log
+     to say why. So: globalThis where it exists, `this` where it does not,
+     the direct reference as a last resort, and a complaint if none of
+     them find it. */
+  var g = (typeof globalThis !== 'undefined') ? globalThis
+        : (typeof this !== 'undefined') ? this : null;
+  var fn = null;
+  try { if (g) fn = g[WR_UPDATE_FN]; } catch (eLookup) { fn = null; }
+  if (typeof fn !== 'function' && typeof updateAndCheck === 'function') fn = updateAndCheck;
+
+  if (typeof fn !== 'function') {
+    Logger.log('warRoomScheduledUpdate: no function named "' + WR_UPDATE_FN +
+               '" in this project. Nothing was rebuilt. Fix WR_UPDATE_FN.');
+    return;
+  }
+  /* Logged either side, so the Executions list shows whether a slot ran
+     and whether it finished. A trigger that fails leaves the first line
+     and not the second. */
+  Logger.log('warRoomScheduledUpdate: slot ' + wr_hhmm_(WR_UPDATE_TIMES[slot][0],
+             WR_UPDATE_TIMES[slot][1]) + ' - running ' + WR_UPDATE_FN);
+  fn();
+  Logger.log('warRoomScheduledUpdate: ' + WR_UPDATE_FN + ' finished');
+}
+
+/* Every handler and how many triggers it carries, so a decision about
+   which to remove is made against the list rather than from memory. */
+function wr_listHandlers_(all) {
+  var by = {};
+  for (var i = 0; i < all.length; i++) {
+    var h = all[i].getHandlerFunction();
+    by[h] = (by[h] || 0) + 1;
+  }
+  Logger.log('');
+  Logger.log('      WHAT IS ON THE CLOCK NOW');
+  for (var k in by) {
+    Logger.log('        ' + wr_pad_(k, 30) + by[k] + (by[k] === 1 ? ' trigger' : ' triggers'));
+  }
+}
+
+function wr_hhmm_(h, m) {
+  return (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
 }

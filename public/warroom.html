@@ -1,1614 +1,1111 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Outskill — Sales Dangal</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap"/>
+<title>Sales Dangal</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+
 <style>
 /* =====================================================================
-   OUTSKILL SALES DANGAL
-   Built for a 1920x1080 stage, scaled to fit any TV. Never scrolls,
-   never clips. See the JS CONFIG block for everything tunable.
+   SALES DANGAL - a single live screen, built like a news channel.
+
+   The old board was eleven slides on a 13 second rotation. On a wall that
+   meant any given number was visible for 13 seconds in every 143, most of
+   the screen was empty most of the time, and nobody could answer "how is
+   Hyderabad doing" without waiting. This replaces it with one screen where
+   everything is present at once and only the EMPHASIS moves.
    ===================================================================== */
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:      #06080a;
-  --bg2:     #0b0f12;
-  --panel:   rgba(255,255,255,0.035);
-  --line:    rgba(255,255,255,0.10);
-  --lime:    #c2ee45;
-  --lime-dk: #8fb62b;
-  --gold:    #ffd76e;
-  --silver:  #d7dee6;
-  --bronze:  #e0a06a;
-  --teal:    #4dd8c0;
-  --rose:    #ff6b8a;
-  --white:   #f2f6ef;
-  --muted:   #7d8a93;
-  --dim:     #4d585f;
+:root{
+  /* Outskill's own tokens, taken from programs.html and
+     accelerator-india.html so the wall matches everything else the team
+     already looks at. Lime is the brand's, and it earns its place here by
+     also being the natural colour for "ahead of pace". */
+  --bg:#070905; --ink:#f0f4e8; --dim:#818f6c; --line:#1c2416;
+  --lime:#c2ee45; --lime-dim:#a8d930; --teal:#4dd8c0;
+  --gold:#ffd76e; --amber:#e8b24b; --rose:#ff6b8a; --violet:#b39bff;
+  --mint:var(--lime); --sky:var(--teal);        /* old names, one source */
+  --panel:rgba(16,21,12,.84);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
+  font-family:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+/* Fixed to the viewport rather than centred by body height. A host page
+   that gives body no height - an Apps Script iframe, for one - would
+   otherwise collapse the centring and strand the stage in the corner. */
+#wrap{
+  position:fixed; inset:0; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
 }
 
-html, body {
-  width: 100%; height: 100%;
-  background: var(--bg);
-  overflow: hidden;
-  /* Belt and braces: the stage is a fixed 1920 wide and scaled down, so a
-     browser that decides to inflate small text on a narrow viewport would
-     reflow a layout that is meant to be rigid. */
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  font-family: 'Archivo', system-ui, -apple-system, sans-serif;
-  color: var(--white);
-  -webkit-font-smoothing: antialiased;
-}
-
-/* ---------- the stage: everything is designed at exactly 1920x1080 ---------- */
-#viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
-#stage {
-  position: relative;
-  width: 1920px; height: 1080px;
-  /* The stage must stay exactly 1920x1080 and be SCALED to fit. As a flex
-     item it was being shrunk instead: at a 390px viewport it laid out 390px
-     wide, so the design reflowed and overflowed rather than shrinking as a
-     whole. Every screen narrower than 1920 - which is most laptops - was
-     laying out wrong. flex:none stops the shrink; transform does the fitting. */
-  flex: none;
-  transform-origin: center center;
+/* The stage is a fixed 1920x1080 canvas scaled to whatever screen it lands
+   on. flex:none is load-bearing - without it the flex parent squeezes the
+   stage to the viewport width and it gets scaled twice. */
+#stage{
+  width:1920px; height:1080px; flex:none; position:relative; overflow:hidden;
+  transform-origin:center center;
+  display:flex; flex-direction:column;
   background:
-    radial-gradient(1200px 700px at 50% -10%, rgba(194,238,69,0.07), transparent 70%),
-    radial-gradient(900px 600px at 100% 110%, rgba(77,216,192,0.05), transparent 70%),
+    radial-gradient(1200px 700px at 12% -10%, rgba(194,238,69,.09), transparent 60%),
+    radial-gradient(1000px 600px at 88% 110%, rgba(77,216,192,.09), transparent 60%),
     var(--bg);
-  overflow: hidden;
 }
-/* ---------- the arena ----------
-   This board is on a wall all day, so a dead flat background reads as a
-   frozen screen. Three slow lights drift behind everything and a faint
-   beam crosses the room. Every one of these animates transform or opacity
-   only, so the compositor handles them on the GPU and a cheap TV stick is
-   not re-laying-out the page every frame for the next six months. Nothing
-   moves fast enough to pull an eye off a number. */
-#stage::before {
-  content: ''; position: absolute; inset: -25%; z-index: 0; pointer-events: none;
+/* slow drifting light, GPU only, so it costs nothing over months of uptime */
+#stage::before{
+  content:''; position:absolute; inset:-25%; pointer-events:none; z-index:0;
   background:
-    radial-gradient(42% 42% at 22% 28%, rgba(194,238,69,0.11), transparent 62%),
-    radial-gradient(38% 38% at 78% 72%, rgba(77,216,192,0.09), transparent 62%),
-    radial-gradient(34% 34% at 62% 18%, rgba(255,215,110,0.07), transparent 62%);
-  filter: blur(46px);
-  animation: arena 54s ease-in-out infinite alternate;
-  will-change: transform;
+    radial-gradient(520px 520px at 20% 30%, rgba(194,238,69,.10), transparent 60%),
+    radial-gradient(620px 620px at 78% 62%, rgba(77,216,192,.09), transparent 60%),
+    radial-gradient(480px 480px at 50% 88%, rgba(232,178,75,.07), transparent 60%);
+  animation:arena 54s ease-in-out infinite alternate;
 }
-@keyframes arena {
-  0%   { transform: translate3d(-3%, -2%, 0) scale(1.04) rotate(0deg); }
-  50%  { transform: translate3d(3%, 2%, 0)   scale(1.13) rotate(4deg); }
-  100% { transform: translate3d(-2%, 3%, 0)  scale(1.06) rotate(-3deg); }
+@keyframes arena{
+  0%  {transform:translate3d(-2%,-1%,0) scale(1)}
+  50% {transform:translate3d(2%,2%,0) scale(1.06)}
+  100%{transform:translate3d(-1%,1%,0) scale(1.02)}
 }
+#stage > *{position:relative; z-index:1}
 
-/* a single beam crossing the floor, the width of a spotlight */
-#beam { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
-#beam i {
-  position: absolute; top: -60%; left: -35%; width: 26%; height: 220%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.038), transparent);
-  transform: rotate(13deg); animation: beam 17s linear infinite; will-change: transform;
+/* ------------------------------- TOP BAR ---------------------------- */
+#top{
+  height:112px; flex:none; display:flex; align-items:center; gap:26px;
+  padding:0 26px; border-bottom:2px solid var(--line);
+  background:linear-gradient(180deg, rgba(10,14,7,.95), rgba(10,14,7,.6));
 }
-@keyframes beam { from { transform: rotate(13deg) translate3d(0,0,0); }
-                  to   { transform: rotate(13deg) translate3d(560%,0,0); } }
-
-#stage::after {  /* film grain, keeps large flat areas from banding on TVs */
-  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .035; z-index: 60;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+#brand{display:flex; flex-direction:column; line-height:1; flex:none}
+#brand b{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:40px; letter-spacing:-.01em;
+  background:linear-gradient(92deg,var(--lime),var(--teal) 70%,var(--teal));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
 }
+#brand span{font-size:13px; color:var(--dim); letter-spacing:.34em; margin-top:6px; font-weight:700}
 
-/* ---------- persistent chrome ---------- */
-#topbar {
-  position: absolute; top: 0; left: 0; right: 0; height: 96px; z-index: 40;
-  display: flex; align-items: center; padding: 0 64px; gap: 32px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0));
+.hero{display:flex; align-items:baseline; gap:14px; flex:none}
+.hero .v{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:58px; letter-spacing:.01em; line-height:1}
+.hero .k{font-size:12px; color:var(--dim); letter-spacing:.2em; font-weight:800; text-transform:uppercase}
+.sep{width:2px; height:52px; background:var(--line); flex:none}
+
+/* the company attainment bar, with a marker for where the month should be */
+#coBar{flex:1 1 auto; min-width:260px}
+#coBar .top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px}
+#coBar .lab{font-size:12px; color:var(--dim); letter-spacing:.2em; font-weight:800}
+#coBar .val{font-size:22px; font-weight:900; font-variant-numeric:tabular-nums}
+.track{position:relative; height:16px; border-radius:9px; background:#141a0e; overflow:visible}
+.track > i{
+  position:absolute; left:0; top:0; bottom:0; border-radius:9px; display:block;
+  background:linear-gradient(90deg,var(--teal),var(--lime));
+  transition:width 1.1s cubic-bezier(.22,1,.36,1);
 }
-.brand { display: flex; align-items: baseline; gap: 14px; }
-.brand .mark { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 34px; letter-spacing: 1px; color: var(--lime); }
-.brand .sub  { font-size: 15px; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-
-#clockwrap { margin-left: auto; display: flex; align-items: center; gap: 40px; }
-.period { text-align: right; }
-.period .big { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 30px; letter-spacing: .5px; }
-.period .small { font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
-
-#live { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border: 1px solid var(--line); border-radius: 100px; background: var(--panel); }
-#dot { width: 11px; height: 11px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 14px var(--lime); animation: pulse 2.2s ease-in-out infinite; }
-#live.stale #dot { background: var(--gold); box-shadow: 0 0 14px var(--gold); }
-#live.down  #dot { background: var(--rose); box-shadow: 0 0 14px var(--rose); animation: none; }
-#livetext { font-family: 'Space Mono', monospace; font-size: 14px; letter-spacing: 1px; color: var(--muted); }
-#livetext b { color: var(--white); font-weight: 700; }
-@keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
-
-#botbar { position: absolute; bottom: 0; left: 0; right: 0; height: 64px; z-index: 40; display: flex; align-items: center; padding: 0 64px; gap: 22px; border-top: 1px solid var(--line); }
-#screenname { font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); font-weight: 700; min-width: 300px; }
-#dots { display: flex; gap: 8px; margin-left: auto; }
-#dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); display: block; transition: all .3s; }
-#dots i.on { background: var(--lime); width: 26px; border-radius: 4px; }
-#progress { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--lime); width: 0%; box-shadow: 0 0 10px var(--lime); }
-
-/* ---------- screens ---------- */
-.screen {
-  position: absolute; top: 96px; left: 0; right: 0; bottom: 64px; z-index: 10;
-  padding: 44px 64px 28px; opacity: 0; pointer-events: none;
-  transform: translateY(22px) scale(.995);
-  transition: opacity .55s cubic-bezier(.2,.7,.2,1), transform .55s cubic-bezier(.2,.7,.2,1);
-  display: flex; flex-direction: column; overflow: hidden;
+.track > u{                       /* the pace marker - where we SHOULD be */
+  position:absolute; top:-5px; bottom:-5px; width:3px; background:var(--gold);
+  border-radius:2px; box-shadow:0 0 10px rgba(255,215,110,.85);
 }
-.screen.on { opacity: 1; transform: none; pointer-events: auto; }
+.track.behind > i{background:linear-gradient(90deg,var(--amber),var(--rose))}
 
-.eyebrow { font-size: 15px; letter-spacing: 6px; text-transform: uppercase; color: var(--lime); font-weight: 700; margin-bottom: 10px; }
-h1.big { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 78px; line-height: .96; letter-spacing: -.5px; }
-h1.big .accent { color: var(--lime); }
-.sub { font-size: 20px; color: var(--muted); margin-top: 10px; }
+#live{display:flex; align-items:center; gap:10px; flex:none; font-size:15px; color:var(--dim); font-weight:700}
+#live .dot{width:12px; height:12px; border-radius:50%; background:var(--mint); box-shadow:0 0 14px var(--mint); animation:pulse 2s infinite}
+#live.stale .dot{background:var(--gold); box-shadow:0 0 14px var(--gold)}
+#live.down  .dot{background:var(--rose); box-shadow:0 0 14px var(--rose)}
+#live b{color:var(--ink)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
-/* number blocks */
-.statrow { display: flex; gap: 22px; }
-.stat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 24px 28px; }
-.stat .lbl { font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-.stat .val { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 62px; line-height: 1.04; margin-top: 8px; letter-spacing: -.5px; }
-.stat .val.sm { font-size: 48px; }
-.stat.hero { background: linear-gradient(135deg, rgba(194,238,69,0.16), rgba(194,238,69,0.04)); border-color: rgba(194,238,69,0.42); }
-.stat.hero .val { color: var(--lime); }
-.stat .foot { font-size: 15px; color: var(--muted); margin-top: 6px; }
-/* The spot board's three headline numbers stretch to fill the height they
-   are given, so the figures dominate rather than the reference material. */
-.spotstats .stat { display: flex; flex-direction: column; justify-content: center; }
+/* ------------------------------- BODY ------------------------------- */
+#body{flex:1 1 auto; display:flex; gap:16px; padding:16px 26px; min-height:0}
 
-/* attainment bar */
-.bar { height: 16px; border-radius: 10px; background: rgba(255,255,255,0.07); overflow: hidden; position: relative; }
-.bar > i { display: block; height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--lime-dk), var(--lime)); width: 0%; transition: width 1.1s cubic-bezier(.2,.7,.2,1); box-shadow: 0 0 16px rgba(194,238,69,.45); }
-.bar.thin { height: 10px; }
-.bar.gold > i { background: linear-gradient(90deg, #c69a35, var(--gold)); box-shadow: 0 0 16px rgba(255,215,110,.45); }
-
-/* podium */
-.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.pod { border-radius: 22px; padding: 26px 26px 22px; border: 1px solid var(--line); background: var(--panel);
-  position: relative; overflow: hidden; display: flex; flex-direction: column; }
-.pod .medal { font-size: 40px; line-height: 1; }
-.pod .nm { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 40px; line-height: 1.02; margin-top: 12px; letter-spacing: -.3px; }
-.pod .meta { font-size: 15px; color: var(--muted); margin-top: 6px; }
-.pod .rev { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 46px; margin-top: 14px; color: var(--lime); }
-.pod .u { font-size: 16px; color: var(--muted); margin-top: 2px; }
-.pod.gold { background: linear-gradient(150deg, rgba(255,215,110,0.20), rgba(255,215,110,0.03)); border-color: rgba(255,215,110,0.55); box-shadow: 0 0 50px rgba(255,215,110,.10) inset; }
-.pod.gold .rev { color: var(--gold); }
-.pod.gold::before { content:''; position:absolute; inset:-40% -20% auto; height:70%; background: radial-gradient(circle, rgba(255,215,110,.22), transparent 70%); pointer-events:none; }
-/* the leader's card breathes, so first place is the thing that catches an
-   eye from across the floor even when the numbers have not moved */
-.pod.gold::after {
-  content: ''; position: absolute; inset: 0; border-radius: 22px; pointer-events: none;
-  box-shadow: inset 0 0 70px rgba(255,215,110,0.20);
-  animation: champ 3.8s ease-in-out infinite;
+/* ---- left rail: a vertical stat ticker that never stops moving ---- */
+#rail{
+  width:352px; flex:none; border:1px solid var(--line); border-radius:16px;
+  background:var(--panel); overflow:hidden; display:flex; flex-direction:column;
 }
-@keyframes champ { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
-
-/* cards and rows arrive in sequence rather than all at once - the delay is
-   set per element in render(), so it works on every screen without each
-   one having to know its own row count */
-.screen.on .pod, .screen.on .row, .screen.on .award, .screen.on .stat {
-  animation: liftIn .5s cubic-bezier(.2,.75,.25,1) backwards;
+#rail .hd{
+  padding:13px 18px; border-bottom:1px solid var(--line); flex:none;
+  font-size:12px; letter-spacing:.24em; color:var(--dim); font-weight:800;
+  display:flex; justify-content:space-between; align-items:center;
 }
-@keyframes liftIn {
-  from { opacity: 0; transform: translate3d(0, 16px, 0); }
-  to   { opacity: 1; transform: none; }
+#rail .hd em{font-style:normal; color:var(--gold)}
+/* The rail is a fixed-height window over a taller list, so whatever tile
+   straddles the bottom edge gets sliced. Fading both edges makes that read
+   as a list continuing rather than as a clipped panel. */
+#railView{
+  flex:1 1 auto; overflow:hidden; position:relative;
+  -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 22px,
+                     #000 calc(100% - 34px), transparent 100%);
+  mask-image:linear-gradient(180deg, transparent 0, #000 22px,
+             #000 calc(100% - 34px), transparent 100%);
 }
-.pod.silver { border-color: rgba(215,222,230,0.34); }
-.pod.bronze { border-color: rgba(224,160,106,0.34); }
-.pod.sm { padding: 20px 22px 18px; }
-.pod.sm .medal { font-size: 30px; }
-.pod.sm .nm { font-size: 30px; margin-top: 8px; }
-.pod.sm .rev { font-size: 38px; margin-top: 10px; }
-.pod.sm .meta, .pod.sm .u { font-size: 14px; }
-
-/* leaderboard rows */
-/* Rows share out the height they are given, so a board of 5 and a board of
-   12 both fill the screen instead of leaving a hole under the last row.
-   The min/max keep them readable at 10m and stop 3 rows becoming slabs. */
-.lb { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; overflow: hidden; justify-content: center; }
-.lb > .row { flex: 1 1 auto; min-height: 62px; max-height: 96px; }
-.lb > .row.head, .lb > .more { flex: none; }
-.row {
-  display: grid; align-items: center; gap: 18px;
-  grid-template-columns: 74px 1fr 190px 150px 110px 230px;
-  padding: 13px 20px; border-radius: 14px; background: var(--panel); border: 1px solid transparent;
+#railTrack{position:absolute; left:0; right:0; top:0; transition:transform .9s cubic-bezier(.22,1,.36,1)}
+.stat{
+  height:104px; padding:0 18px; display:flex; flex-direction:column; justify-content:center;
+  gap:7px; border-bottom:1px solid rgba(28,36,22,.75);
 }
-.row.head { background: none; border: none; padding-top: 0; padding-bottom: 6px; }
-.row.head span { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--dim); font-weight: 700; }
-.row.lead { background: linear-gradient(90deg, rgba(255,215,110,0.16), rgba(255,215,110,0.02)); border-color: rgba(255,215,110,0.42); }
-.rk { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 30px; color: var(--muted); }
-.row.lead .rk { color: var(--gold); }
-.nm2 { font-size: 26px; font-weight: 700; letter-spacing: -.2px; display: flex; align-items: center; gap: 12px; min-width: 0; }
-.nm2 .tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nm2 .mv { flex: none; }
-.tag { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 100px; padding: 4px 11px; font-weight: 700; }
-.mv { font-family: 'Space Mono', monospace; font-size: 15px; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
-.mv.up { color: #0b0f12; background: var(--lime); }
-.mv.down { color: var(--rose); background: rgba(255,107,138,.12); }
-.mv.new { color: #0b0f12; background: var(--gold); }
-.meta2 { font-size: 16px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.more { font-size: 15px; letter-spacing: 3px; text-transform: uppercase; color: var(--dim); font-weight: 700; padding: 6px 20px 0; }
-.num { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 32px; text-align: right; }
-.num.lime { color: var(--lime); }
-.pct { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 26px; text-align: right; color: var(--muted); }
+.stat .k{font-size:12px; letter-spacing:.16em; color:var(--dim); font-weight:800; text-transform:uppercase;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.stat .r{display:flex; align-items:baseline; gap:10px}
+/* the figure never wraps; the label beside it gives way instead */
+.stat .v{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:34px;
+  line-height:1; flex:none; white-space:nowrap}
+.stat .u{font-size:14px; color:var(--dim); font-weight:700; flex:1 1 auto; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.stat .p{margin-left:auto; font-size:17px; font-weight:900; font-variant-numeric:tabular-nums}
+.stat.ahead .p{color:var(--mint)} .stat.behind .p{color:var(--rose)} .stat.flat .p{color:var(--gold)}
+.stat .mini{height:6px; border-radius:4px; background:#141a0e; overflow:hidden; position:relative}
+.stat .mini i{position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:var(--sky)}
+.stat.ahead .mini i{background:var(--mint)} .stat.behind .mini i{background:var(--rose)}
 
-/* target-battle columns: blocks spread over whatever height they are given,
-   so 3 cities and 7 managers both reach the bottom of the screen */
-.barwrap { display: flex; flex-direction: column; min-height: 0; }
-.barcol { display: flex; flex-direction: column; justify-content: space-evenly; flex: 1; min-height: 0; overflow: hidden; }
+/* ---- the four blocks ---- */
+#arena{flex:1 1 auto; position:relative; min-width:0}
+.blk{
+  position:absolute; border:1px solid var(--line); border-radius:16px;
+  background:var(--panel); overflow:hidden; display:flex; flex-direction:column;
+  transition:left .95s cubic-bezier(.22,1,.36,1), top .95s cubic-bezier(.22,1,.36,1),
+             width .95s cubic-bezier(.22,1,.36,1), height .95s cubic-bezier(.22,1,.36,1),
+             border-color .5s, box-shadow .5s;
+  will-change:left,top,width,height;
+}
+.blk.big{border-color:rgba(194,238,69,.38); box-shadow:0 0 0 1px rgba(194,238,69,.14), 0 26px 70px rgba(0,0,0,.6)}
+.blk .hd{
+  flex:none; padding:14px 18px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:12px;
+}
+.blk .hd h3{
+  margin:0; font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700;
+  font-size:22px; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+}
+.blk.big .hd h3{font-size:31px; color:var(--gold)}
+.blk .hd .sub{margin-left:auto; font-size:12px; color:var(--dim); font-weight:700;
+  letter-spacing:.12em; white-space:nowrap; text-transform:uppercase}
+.blk.sm .hd .sub{display:none}
+.blk .bd{flex:1 1 auto; padding:8px 18px 14px; overflow:hidden; display:flex; flex-direction:column}
 
-/* two-column head to head */
-.h2h { display: grid; grid-template-columns: 1fr 130px 1fr; gap: 26px; align-items: stretch; flex: 1; min-height: 0; }
-.side { border-radius: 24px; border: 1px solid var(--line); background: var(--panel); padding: 38px 40px; display: flex; flex-direction: column; justify-content: center; }
-.side.win { background: linear-gradient(150deg, rgba(194,238,69,0.14), rgba(194,238,69,0.02)); border-color: rgba(194,238,69,0.45); }
-.side .t { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 56px; letter-spacing: -.5px; }
-.side .r { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 104px; line-height: 1; margin: 16px 0 6px; }
-.side.win .r { color: var(--lime); }
-.vs { display: flex; align-items: center; justify-content: center; font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 44px; color: var(--dim); }
+/* one comparison row: rank, name, bar, figure */
+.row{
+  display:flex; align-items:center; gap:13px; padding:9px 0;
+  border-bottom:1px solid rgba(28,36,22,.6); flex:1 1 auto; min-height:0;
+}
+.row:last-child{border-bottom:0}
+.row .rk{
+  width:34px; flex:none; text-align:center; font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700;
+  font-size:22px; color:var(--dim);
+}
+.row.p1 .rk{color:var(--gold)} .row.p2 .rk{color:#dfe6cf} .row.p3 .rk{color:var(--amber)}
+.row .who{flex:1 1 auto; min-width:0}
+.row .who b{display:block; font-size:19px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.row .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.blk.sm .row .who span{display:none}
+.row .bar{width:210px; flex:none}
+.blk.sm .row .bar{width:92px}
+.row .fig{width:126px; flex:none; text-align:right}
+.blk.sm .row .fig{width:88px}
+.row .fig b{display:block; font-size:20px; font-weight:900; font-variant-numeric:tabular-nums}
+.row .fig span{display:block; font-size:12px; color:var(--dim); font-weight:700; margin-top:2px}
+.blk.sm .row .fig span{display:none}
+.blk.big .row{padding:11px 0}
+.blk.big .row .who b{font-size:23px}
+.blk.big .row .rk{font-size:27px; width:40px}
 
-/* award cards */
-.awards { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 18px; flex: 1; min-height: 0; }
-.award { border-radius: 20px; border: 1px solid var(--line); background: var(--panel); padding: 24px 26px;
-  display: flex; flex-direction: column; justify-content: center; gap: 16px; overflow: hidden; position: relative; }
-.award .k { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--lime); font-weight: 800; }
-.award .who { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 42px; line-height: 1.05; margin-top: 10px; letter-spacing: -.3px; }
-.award .v { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 34px; color: var(--gold); }
-.award .n { font-size: 16px; color: var(--muted); margin-top: 4px; }
-.award .ic { font-size: 30px; position: absolute; top: 20px; right: 22px; opacity: .85; }
+/* A row with only three cities in it would otherwise be 286px of empty
+   panel - the exact fault this redesign exists to fix. When a block is big
+   its rows carry their own breakdown underneath, so the space is filled
+   with more information rather than more air. */
+.row.deep{flex-direction:column; align-items:stretch; gap:9px; justify-content:center}
+.row.deep .lead{display:flex; align-items:center; gap:13px}
+.row.deep .kids{display:flex; flex-direction:column; gap:5px; padding-left:53px}
+.blk.sm .row.deep .kids{display:none}
+.blk.sm .row.deep{flex-direction:row; align-items:center; gap:13px}
+.kid{display:flex; align-items:center; gap:11px; font-size:15px}
+.kid .kn{width:230px; flex:none; color:#d3dcc2; font-weight:700; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis}
+.kid .kn i{font-style:normal; color:var(--dim); font-weight:600; font-size:13px}
+.kid .kb{flex:1 1 auto; min-width:0}
+.kid .kv{width:66px; flex:none; text-align:right; font-weight:800; font-variant-numeric:tabular-nums}
+.kid .kr{width:76px; flex:none; text-align:right; color:var(--dim); font-weight:700; font-size:13px}
 
-/* full-bleed message screens */
-.center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 26px; }
-.center .kicker { font-size: 17px; letter-spacing: 8px; text-transform: uppercase; color: var(--lime); font-weight: 800; }
-.center .line { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 92px; line-height: 1.04; max-width: 1560px; letter-spacing: -1px; }
-.center .line .accent { color: var(--lime); }
-.center .line.sm { font-size: 68px; }
-.center .note { font-size: 24px; color: var(--muted); max-width: 1200px; }
+/* small blocks show fewer rows - the detail belongs to whichever block is big */
+.blk.sm .row:nth-child(n+5){display:none}
 
-/* initiative */
-.offer { border-radius: 28px; border: 1px solid rgba(255,215,110,.5); background: linear-gradient(150deg, rgba(255,215,110,.14), rgba(255,215,110,.02)); padding: 46px 54px; display: flex; flex-direction: column; gap: 18px; flex: 1; justify-content: center; }
-.offer .t { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 76px; line-height: 1.02; color: var(--gold); letter-spacing: -.5px; }
-.offer .d { font-size: 30px; line-height: 1.45; max-width: 1400px; }
-.offer .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 10px; }
-.offer .cell .k { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); font-weight: 800; }
-.offer .cell .v { font-size: 26px; font-weight: 700; margin-top: 6px; }
+.pcttag{font-variant-numeric:tabular-nums}
+.ahead{color:var(--mint)} .behind{color:var(--rose)} .flat{color:var(--gold)}
 
-/* flash / celebration overlay */
-#flash { position: absolute; inset: 0; z-index: 55; display: none; align-items: center; justify-content: center; background: rgba(6,8,10,.86); backdrop-filter: blur(6px); }
-#flash.on { display: flex; animation: flashin .5s ease; }
-@keyframes flashin { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: none; } }
-#flash .inner { text-align: center; }
-#flash .k { font-size: 20px; letter-spacing: 10px; text-transform: uppercase; color: var(--gold); font-weight: 800; }
-#flash .n { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 128px; line-height: 1.02; margin-top: 14px; }
-#flash .v { font-family: 'Anton', 'Archivo Black', Impact, sans-serif; font-size: 54px; color: var(--lime); margin-top: 10px; }
+/* pace block */
+.pacegrid{display:flex; flex-wrap:wrap; gap:12px; align-content:flex-start; padding-top:6px}
+.pcard{
+  flex:1 1 44%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
+  background:rgba(9,13,6,.55);
+}
+.pcard .k{font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:800; text-transform:uppercase}
+.pcard .v{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:34px; margin-top:7px; line-height:1}
+.pcard .n{font-size:12px; color:var(--dim); margin-top:6px; font-weight:600}
+.blk.sm .pacegrid{gap:8px}
+.blk.sm .pcard{flex:1 1 46%; padding:8px 10px}
+.blk.sm .pcard .k{font-size:10px; letter-spacing:.1em}
+.blk.sm .pcard .v{font-size:21px; margin-top:4px}
+.blk.sm .pcard .n{display:none}
+.blk.sm .pushlist, .blk.sm .citypace{display:none}
+.citypace{margin-top:8px; border-top:1px solid var(--line); padding-top:8px}
+.pl-h{font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:800;
+  text-transform:uppercase; margin-bottom:8px}
+.pl-r{display:flex; align-items:baseline; gap:12px; padding:3px 0; font-size:16px}
+.pl-r b{flex:none; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pl-m{flex:1 1 auto; color:var(--dim); font-size:13px; font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pl-v{flex:none; color:var(--rose); font-weight:800}
 
-/* preview / banner chips */
-/* Banner lives in the bottom bar so it can never sit on top of a number. */
-#banner { background: rgba(255,215,110,.15); border: 1px solid rgba(255,215,110,.5); color: var(--gold);
-  padding: 6px 16px; border-radius: 100px; font-size: 13px; letter-spacing: 3px;
-  text-transform: uppercase; font-weight: 800; display: none; white-space: nowrap; }
-#banner.on { display: block; }
+/* ------------------------------ TICKER ------------------------------ */
+#tick{
+  height:78px; flex:none; border-top:2px solid var(--line); display:flex; align-items:stretch;
+  background:linear-gradient(180deg, rgba(10,14,7,.7), rgba(10,14,7,.96)); overflow:hidden;
+}
+#tickLab{
+  flex:none; width:228px; display:flex; align-items:center; justify-content:center; gap:10px;
+  background:linear-gradient(92deg,var(--lime),var(--teal));
+  font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:20px;
+  letter-spacing:.13em; text-transform:uppercase; color:#0a1004; white-space:nowrap;
+}
+#tickLab i{width:11px; height:11px; border-radius:50%; background:#0a1004; animation:pulse 1.4s infinite; font-style:normal}
+#tickView{flex:1 1 auto; overflow:hidden; display:flex; align-items:center; position:relative}
+#tickTrack{display:inline-flex; white-space:nowrap; will-change:transform; animation:tick 64s linear infinite}
+#tick:hover #tickTrack{animation-play-state:paused}
+@keyframes tick{from{transform:translate3d(0,0,0)} to{transform:translate3d(-50%,0,0)}}
+.ti{display:inline-flex; align-items:center; gap:13px; padding:0 34px; font-size:23px; flex:none}
+.ti em{font-style:normal; color:var(--gold); font-weight:900; font-size:15px; letter-spacing:.14em}
+.ti b{font-weight:800}
+.ti .amt{font-family:Space Mono,monospace; font-weight:700; color:var(--mint)}
+.ti .mt{color:var(--dim); font-size:15px; font-weight:600}
+.ti .dv{color:var(--line)}
 
-/* A TV has no mouse, so the only control on screen hides itself until one moves. */
-#fsbtn { position: fixed; left: 18px; bottom: 18px; z-index: 90; background: rgba(255,255,255,.10); color: #fff;
-  border: 1px solid rgba(255,255,255,.25); border-radius: 100px; padding: 10px 18px; font-family: inherit;
-  font-size: 13px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
-  opacity: 0; pointer-events: none; transition: opacity .25s; }
-#fsbtn.show { opacity: .8; pointer-events: auto; }
-#fsbtn:hover { opacity: 1; }
+/* ---------------------------- STATE SCREEN -------------------------- */
+#state{
+  position:absolute; inset:0; z-index:40; display:none; align-items:center; justify-content:center;
+  background:rgba(7,9,5,.97); padding:70px; text-align:center;
+}
+#state.on{display:flex}
+#state .kicker{font-size:17px; letter-spacing:.3em; color:var(--rose); font-weight:800; text-transform:uppercase}
+#state .line{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:94px; margin:20px 0 26px; line-height:1}
+#state .accent{color:var(--gold)}
+#state .note{font-size:21px; color:var(--dim); line-height:1.6; max-width:1250px; margin:0 auto}
+#state code{font-family:Space Mono,monospace; color:var(--sky); font-size:19px}
+/* The freshness chip. Silent when the sheet is current; loud when it is
+   not, because a board that is confidently a day out is worse than one
+   that is obviously broken. */
+#fresh{
+  flex:none; display:none; align-items:center; justify-content:center; gap:10px;
+  height:34px; font-size:14px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+}
+/* In the flex flow rather than floating: a warning that covers a panel
+   header is a second bug, not a louder warning. The body gives up 34px. */
+#fresh.warn{display:flex; background:var(--rose); color:#1a0509;
+  animation:nudge 2.6s ease-in-out infinite}
+@keyframes nudge{0%,100%{opacity:1}50%{opacity:.62}}
+
+/* A close that lands while the board is up should be seen landing - but in
+   the bar that already exists for exactly this, not as a panel dropped over
+   the numbers. The whole strip lifts for a few seconds instead. */
+#tick.hot{box-shadow:inset 0 0 0 2px var(--lime), 0 -16px 46px rgba(194,238,69,.16)}
+#tick.hot #tickLab{animation:hotlab .7s ease-in-out infinite alternate}
+@keyframes hotlab{from{filter:brightness(1)} to{filter:brightness(1.35)}}
+#hot{
+  position:absolute; inset:0; display:none; align-items:center; gap:16px; padding-left:34px;
+  background:linear-gradient(90deg, rgba(10,14,7,.98) 78%, rgba(10,14,7,0));
+  font-size:26px; font-weight:800;
+}
+#hot.on{display:flex; animation:hotIn .45s cubic-bezier(.22,1,.36,1)}
+#hot em{font-style:normal; font-size:13px; letter-spacing:.2em; color:var(--lime); font-weight:900}
+#hot .amt{font-family:'Space Mono',monospace; color:var(--lime)}
+#hot .mt{font-size:16px; color:var(--dim); font-weight:600}
+@keyframes hotIn{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+
+/* rank movement */
+.mv{font-size:12px; font-weight:800; margin-left:7px}
+.mv.up{color:var(--lime)} .mv.dn{color:var(--rose)} .mv.nu{color:var(--gold)}
+
+/* the momentum chart */
+.spark{display:flex; align-items:flex-end; gap:3px; height:104px; padding-top:4px}
+.spark .bar{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;
+  justify-content:flex-end; height:100%; position:relative}
+.spark .bar i{display:block; border-radius:3px 3px 0 0; background:var(--teal); opacity:.75;
+  transition:height .8s cubic-bezier(.22,1,.36,1)}
+.spark .bar.best i{background:var(--lime); opacity:1}
+.spark .bar.today i{background:var(--gold); opacity:1}
+.spark .bar.zero i{background:var(--line); opacity:1; min-height:2px}
+.spark .bar b{position:absolute; bottom:-17px; left:0; right:0; text-align:center;
+  font-size:9px; color:var(--dim); font-weight:700}
+.sparkwrap{margin-top:8px; border-top:1px solid var(--line); padding-top:8px; padding-bottom:18px}
+.blk.sm .sparkwrap{display:none}
+
+/* A quiet signature, not a credit line. Deliberately the dimmest thing on
+   the screen so it never competes with a number. */
+#sig{
+  position:absolute; top:7px; right:16px; z-index:20;
+  font-size:11px; letter-spacing:.22em; color:var(--ink); opacity:.45;
+  font-weight:500; text-transform:uppercase; pointer-events:none;
+}
+#banner{
+  position:absolute; top:0; left:50%; transform:translateX(-50%); z-index:30;
+  background:var(--lime); color:#0f1405; font-weight:900; font-size:14px; letter-spacing:.18em;
+  padding:6px 26px; border-radius:0 0 12px 12px; display:none; text-transform:uppercase;
+}
+#banner.on{display:block}
+
+/* entrance, once per repaint, cheap */
+.row, .stat, .pcard{animation:liftIn .45s cubic-bezier(.22,1,.36,1) backwards}
+@keyframes liftIn{from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none}}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
+}
 </style>
-</head>
-<body>
 
-<div id="viewport">
-  <div id="stage">
+<div id="wrap">
+<div id="stage">
+  <div id="banner"></div>
 
-    <div id="topbar">
-      <div class="brand"><span class="mark">OUTSKILL</span><span class="sub" id="boardName">Sales Dangal</span></div>
-      <div id="clockwrap">
-        <div class="period">
-          <div class="big" id="periodBig">—</div>
-          <div class="small" id="periodSmall">month to date</div>
-        </div>
-        <div id="live"><span id="dot"></span><span id="livetext">connecting…</span></div>
+  <div id="top">
+    <div id="brand"><b>SALES DANGAL</b><span id="periodSmall">month to date</span></div>
+    <div class="sep"></div>
+    <div class="hero"><div><div class="k">Revenue</div><div class="v" id="coRev">—</div></div></div>
+    <div class="hero"><div><div class="k">Units</div><div class="v" id="coUnits">—</div></div></div>
+    <div class="sep"></div>
+    <div id="coBar">
+      <div class="top">
+        <div class="lab">AGAINST TARGET <span id="coTgt" style="color:var(--dim)"></span></div>
+        <div class="val" id="coPct">—</div>
       </div>
+      <div class="track" id="coTrack"><i id="coFill" style="width:0%"></i><u id="coMark" style="left:0%"></u></div>
     </div>
-
-    <div id="beam"><i></i></div>
-    <div id="screens"></div>
-
-    <div id="flash"><div class="inner">
-      <div class="k" id="flashK"></div>
-      <div class="n" id="flashN"></div>
-      <div class="v" id="flashV"></div>
-    </div></div>
-
-    <div id="botbar">
-      <div id="screenname">—</div>
-      <div id="banner"></div>
-      <div id="dots"></div>
-    </div>
-    <div id="progress"></div>
-
+    <div class="sep"></div>
+    <div id="live"><span class="dot"></span><span id="livetext">connecting…</span></div>
   </div>
-</div>
+  <div id="sig">Garvit</div>
 
-<button id="fsbtn" onclick="goFull()">Full screen</button>
+  <div id="fresh"></div>
+
+  <div id="body">
+    <div id="rail">
+      <div class="hd"><span>THE NUMBERS</span><em id="railNow">—</em></div>
+      <div id="railView"><div id="railTrack"></div></div>
+    </div>
+    <div id="arena">
+      <div class="blk" id="b0"><div class="hd"><h3>City Race</h3><div class="sub"></div></div><div class="bd"></div></div>
+      <div class="blk" id="b1"><div class="hd"><h3>Manager Race</h3><div class="sub"></div></div><div class="bd"></div></div>
+      <div class="blk" id="b2"><div class="hd"><h3>Agent Arena</h3><div class="sub"></div></div><div class="bd"></div></div>
+      <div class="blk" id="b3"><div class="hd"><h3>Pace</h3><div class="sub"></div></div><div class="bd"></div></div>
+    </div>
+  </div>
+
+  <div id="tick">
+    <div id="tickLab"><i></i><span>Just Closed</span></div>
+    <div id="tickView"><div id="tickTrack"></div><div id="hot"></div></div>
+  </div>
+
+  <div id="state"></div>
+</div>
+</div>
 
 <script>
 /* =====================================================================
-   CONFIG — everything tunable lives here.
-   Query-string overrides: ?api=...&rotate=12&refresh=30&sound=1&screens=overall,managers
+   CONFIG
    ===================================================================== */
 var Q = new URLSearchParams(location.search);
-
-/* Which board this screen is. 'spot' = the running contest only. */
-var BOARD = (Q.get('board') || 'main').toLowerCase();
-
 var CONFIG = {
-  /* The feed. Baked in so ONE address works on every screen - TV, desktop,
-     laptop, phone - with nothing to append and nothing to remember:
-         https://outskill-garvit.vercel.app/warroom
-     ?api=<other /exec URL> still overrides it, for testing a second feed
-     without touching this file. */
   API_URL: Q.get('api') ||
     'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec?feed=warroom',
-
-  REFRESH_SECONDS: +(Q.get('refresh') || 30),   // how often we poll for new data
-  ROTATE_SECONDS:  +(Q.get('rotate')  || 13),   // how long each screen is held
-  INTERSTITIAL_SECONDS: 9,                      // the short creative screens
-  SOUND: Q.get('sound') === '1',                // default OFF: many TVs in one room
-
-  /* Screen rotation. Remove or reorder freely. "city:X" renders one city. */
-  /* TWO BOARDS, TWO LINKS.
-       /warroom              the month - revenue, cities, managers, agents
-       /warroom?board=spot   the running contest, and nothing else
-     A contest screen buried in a sixteen-screen rotation is glanced at once
-     an hour. On its own screen it is the thing people look up at. */
-  SCREENS: (Q.get('screens') ? Q.get('screens').split(',')
-    : BOARD === 'spot'
-      ? ['spotoffer', 'spotboard', 'spotsplit']
-      : [
-          'overall',
-          'city:Bangalore',
-          'city:Hyderabad',
-          'city:Bhubaneswar',
-          'interstitial',
-          'managers',
-          'agents',
-          'teams',
-          'targetbattle',
-          'awards',
-          'interstitial'
-        ]),
-
-  /* THE RUNNING CONTEST - the rules screen.
-     The dates and the unit counting live in WR_CONTEST in war-room.gs;
-     this is what the floor reads. Set active:false when it is over. */
-  INITIATIVE: {
-    active: true,
-    title: 'THE UNIT RUSH IS ON',
-    detail: 'This weekend we count UNITS, not revenue. Booking or full amount = 1 unit. Just close.',
-    eligibility: 'Accelerator sales only',
-    period: 'Sat 12 - Mon 14 Sept - 72 hours',
-    reward: 'Up to no cap - see the ladder',
-    goalRevenue: 0        // optional: shows a progress bar toward this number
-  },
-
-  /* The payout ladder. Keep it in step with the message on Slack.
-     Below `perUnitFrom` the payout is looked up in `steps`; from there
-     on it is `perUnit` for every unit, which is what makes 4 -> 5 double. */
-  LADDER: {
-    steps: { 2: 1000, 3: 1500, 4: 2500 },
-    perUnitFrom: 5,
-    perUnit: 1000,
-    rules: [
-      'ONLY Accelerator sales count. Bootcamp sales from workshop leads do NOT count.',
-      'Zero tolerance: mis-selling or false commitments means immediate termination.'
-    ]
-  },
-
-  /* Milestones celebrated when company revenue crosses them. */
-  MILESTONES: [500000, 1000000, 2500000, 5000000, 7500000, 10000000, 25000000, 50000000, 75000000, 100000000],
-
-  LEADERBOARD_ROWS: 9,       // rows under the podium on city/agent screens
-  TZ_LABEL: 'IST'
-};
-
-/* =====================================================================
-   SAMPLE PAYLOAD — used only until API_URL is reachable, and clearly
-   flagged PREVIEW on screen so it can never be mistaken for live data.
-   Shape here IS the contract WarRoom.gs implements.
-   ===================================================================== */
-var SAMPLE = {
-  ok: true, sample: true,
-  meta: { month: 'September 2026', day: 12, days: 30, generatedAt: Date.now(), windowLabel: 'MTD (1–12)' },
-  totals: { target: 52675000, revenue: 4865206, units: 41, agents: 90 },
-  teams: [
-    { name: 'International', target: 28000000, revenue: 2937505, units: 19 },
-    { name: 'India',         target: 24675000, revenue: 1927701, units: 22 }
-  ],
-  cities: [
-    { name: 'Bangalore',   target: 15850000, revenue: 2493561, units: 17, agents: 20 },
-    { name: 'Hyderabad',   target: 19625000, revenue: 1724680, units: 17, agents: 42 },
-    { name: 'Bhubaneswar', target: 17200000, revenue:  646965, units:  7, agents: 28 }
-  ],
-  managers: [
-    { name: 'Deepika M',      city: 'Bangalore',   team: 'International', target: 8250000,  revenue: 1506505, units: 6,  agents: 7 },
-    { name: 'Saeed',          city: 'Hyderabad',   team: 'International', target: 14000000, revenue: 1228000, units: 11, agents: 12 },
-    { name: 'Shahrukh',       city: 'Bangalore',   team: 'India',         target: 3400000,  revenue:  564496, units: 7,  agents: 6 },
-    { name: 'Spurthi',        city: 'Hyderabad',   team: 'India',         target: 5625000,  revenue:  496680, units: 6,  agents: 12 },
-    { name: 'Ranjeet',        city: 'Bangalore',   team: 'India',         target: 4200000,  revenue:  422560, units: 4,  agents: 7 },
-    { name: 'Vaibhav Tiwari', city: 'Bhubaneswar', team: 'India/Intl',    target: 11300000, revenue:  406035, units: 4,  agents: 15 },
-    { name: 'Abhishek Anand', city: 'Bhubaneswar', team: 'India',         target: 5900000,  revenue:  240930, units: 3,  agents: 13 },
-    { name: 'Prasanth',       city: 'Hyderabad',   team: 'India',         target: 0,        revenue: 0,       units: 0,  agents: 8 },
-    { name: 'Saboo',          city: 'Hyderabad',   team: 'International', target: 0,        revenue: 0,       units: 0,  agents: 10 }
-  ],
-  agents: [
-    { name: 'Kshitij',              manager: 'Deepika M',      city: 'Bangalore',   team: 'International', revenue: 784925, units: 3, prevRank: 1 },
-    { name: 'Gowtham C',            manager: 'Saeed',          city: 'Hyderabad',   team: 'International', revenue: 453755, units: 3, prevRank: 4 },
-    { name: 'Sarthak Thakur',       manager: 'Deepika M',      city: 'Bangalore',   team: 'International', revenue: 250120, units: 1, prevRank: 2 },
-    { name: 'Divyank S',            manager: 'Deepika M',      city: 'Bangalore',   team: 'International', revenue: 240400, units: 1, prevRank: 3 },
-    { name: 'Dhanush Kirthi',       manager: 'Deepika M',      city: 'Bangalore',   team: 'International', revenue: 231135, units: 2, prevRank: 6 },
-    { name: 'Gayana K N',           manager: 'Ranjeet',        city: 'Bangalore',   team: 'India',         revenue: 222560, units: 2, prevRank: 5 },
-    { name: 'Faheem',               manager: 'Saeed',          city: 'Hyderabad',   team: 'International', revenue: 188215, units: 1, prevRank: 7 },
-    { name: 'Salman Rashid',        manager: 'Vaibhav Tiwari', city: 'Bhubaneswar', team: 'International', revenue: 176035, units: 1, prevRank: 9 },
-    { name: 'Alisha Khan',          manager: 'Saeed',          city: 'Hyderabad',   team: 'International', revenue: 147155, units: 1, prevRank: 8 },
-    { name: 'Yashdeep Rana',        manager: 'Saeed',          city: 'Hyderabad',   team: 'International', revenue: 142025, units: 1, prevRank: 10 },
-    { name: 'Anmol bharadwaj',      manager: 'Ranjeet',        city: 'Bangalore',   team: 'India',         revenue: 120000, units: 1, prevRank: 12 },
-    { name: 'Arav Shinde',          manager: 'Ranjeet',        city: 'Bangalore',   team: 'India',         revenue:  80000, units: 1, prevRank: 11 },
-    { name: 'Satyam Aditya Samant', manager: 'Abhishek Anand', city: 'Bhubaneswar', team: 'India',         revenue:  47025, units: 1, prevRank: 13 },
-    { name: 'Peesa Sirisha',        manager: 'Abhishek Anand', city: 'Bhubaneswar', team: 'India',         revenue:  45000, units: 1, prevRank: 15 },
-    { name: 'Swarnim Shahi',        manager: 'Shahrukh',       city: 'Bangalore',   team: 'India',         revenue:  42000, units: 1, prevRank: 14 }
-  ]
+  REFRESH_SECONDS: +(Q.get('refresh') || 30),
+  ROTATE_SECONDS:  +(Q.get('rotate')  || 32),   // how long each block stays big
+  RAIL_SECONDS:    +(Q.get('rail')    || 4.5),  // how long each stat tile shows
+  DEMO: Q.get('demo') === '1'
 };
 
 /* =====================================================================
    STATE
    ===================================================================== */
-var DATA = null;            // last VALID payload. Never cleared on failure.
-var LAST_OK = 0;            // ms timestamp of last good fetch - is the CONNECTION alive
-var DATA_AT = 0;            // when the feed BUILT these numbers - how old the DATA is
-var USING_SAMPLE = true;
-var FAILS = 0;
-var prevAgentRank = {};     // client-side movement, a fallback if the API omits prevRank
-var seenMilestone = 0;
-var lastSig = '';
-var screenIdx = -1, rotTimer = null, progTimer = null;
-var running = false;   // false while a setup / outage screen is up
-var interIdx = -1;                          // advanced on arrival, not on every repaint
-var agentFrom = 0, agentShown = 0, agentTotal = 0;   // rolling window over the agent list
+var DATA = null, LAST_OK = 0, DATA_AT = 0, FAILS = 0, USING_SAMPLE = false;
+var prevAgentRank = {}, lastSig = '';
+var bigIdx = 0, rotTimer = null;
+var railItems = [], railIdx = 0, railTimer = null;
+var peerIdx = 0;                 // which city/segment group the Agent Arena shows
+var running = false;
 
 /* =====================================================================
    UTIL
    ===================================================================== */
-function n(x) {
-  if (typeof x === 'string') x = x.replace(/,/g, '');
-  x = Number(x); return isFinite(x) ? x : 0;
-}
-function s(x) { return x == null ? '' : String(x); }
-/* joins the parts that exist, so a missing city never prints "undefined ·" */
-function joinDot() {
-  return Array.prototype.slice.call(arguments).filter(function (v) { return v !== '' && v != null; }).join(' · ');
-}
-function money(v) {                       // 48.65 L / 5.27 cr, the way the floor reads it
-  v = n(v); var a = Math.abs(v);
-  if (a >= 10000000) return (v / 10000000).toFixed(2) + ' cr';
-  if (a >= 100000)   return (v / 100000).toFixed(2) + ' L';
-  return Math.round(v).toLocaleString('en-IN');
-}
-function moneyShort(v) { v = n(v); var a = Math.abs(v);
-  if (a === 0) return '0';
-  if (a >= 10000000) return (v / 10000000).toFixed(2) + 'cr';
-  if (a < 100000) return Math.round(v).toLocaleString('en-IN');
-  return (v / 100000).toFixed(1) + 'L'; }
-function pct(a, b) { b = n(b); return b > 0 ? (n(a) / b) * 100 : 0; }
-function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-  return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
-function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
+function n(x){ if(typeof x==='string') x=x.replace(/,/g,''); x=Number(x); return isFinite(x)?x:0; }
+function s(x){ return x==null?'':String(x); }
+function money(v){ v=n(v); var a=Math.abs(v);
+  if(a>=10000000) return (v/10000000).toFixed(2)+' cr';
+  if(a>=100000)   return (v/100000).toFixed(2)+' L';
+  return Math.round(v).toLocaleString('en-IN'); }
+function moneyShort(v){ v=n(v); var a=Math.abs(v);
+  if(a===0) return '0';
+  if(a>=10000000) return (v/10000000).toFixed(2)+'cr';
+  if(a<100000) return Math.round(v).toLocaleString('en-IN');
+  return (v/100000).toFixed(1)+'L'; }
+function pct(a,b){ b=n(b); return b>0 ? (n(a)/b)*100 : 0; }
+function esc(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){
+  return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+function joinDot(){ return Array.prototype.slice.call(arguments)
+  .filter(function(v){return v!==''&&v!=null;}).join(' · '); }
 
-/* count-up on the big numbers, cheap and cancellable */
-function countUp(node, to, fmt, ms) {
-  if (!node) return;
-  var from = 0, t0 = performance.now(); ms = ms || 900;
-  if (node._raf) cancelAnimationFrame(node._raf);
-  function step(t) {
-    var p = Math.min((t - t0) / ms, 1), e = 1 - Math.pow(1 - p, 3);
-    node.textContent = fmt(from + (to - from) * e);
-    if (p < 1) node._raf = requestAnimationFrame(step); else node._raf = null;
+/* Count a figure up to its new value. Cheap, cancellable, and it only
+   runs when the number actually changed - a poll returning the same total
+   should not make the wall twitch. */
+function countUp(node, to, fmt, ms){
+  if(!node) return;
+  var from = node._val==null ? 0 : node._val;
+  node._val = to;
+  if(from===to){ node.textContent=fmt(to); return; }
+  var t0=performance.now(); ms=ms||900;
+  if(node._raf) cancelAnimationFrame(node._raf);
+  function step(t){
+    var p=Math.min((t-t0)/ms,1), e=1-Math.pow(1-p,3);
+    node.textContent=fmt(from+(to-from)*e);
+    if(p<1) node._raf=requestAnimationFrame(step); else node._raf=null;
   }
-  node._raf = requestAnimationFrame(step);
+  node._raf=requestAnimationFrame(step);
+}
+
+/* THE COMPARISON RULE, IN ONE PLACE.
+
+   Ranking by rupees is the wrong question on this floor. Managers carry
+   targets from 34 L to 1.40 cr, and India and International sell at
+   different prices, so "who billed most" mostly reports who was given the
+   biggest number to chase. Attainment against own target is the only
+   comparison where every row is answering the same question. */
+function attain(x){ return pct(x.revenue, x.target); }
+function byAttain(a,b){
+  var pa=attain(a), pb=attain(b);
+  if(pa>0||pb>0) return pb-pa || b.revenue-a.revenue;
+  return b.revenue-a.revenue || b.units-a.units;     // no targets set: fall back
+}
+/* where the month SHOULD be by now, as a percentage */
+function expectedPct(){
+  var m = (DATA&&DATA.meta)||{}; var d=n(m.day), t=n(m.days);
+  return (t>0 && d>0) ? Math.min(100,(d/t)*100) : 0;
+}
+function paceClass(p){
+  var e=expectedPct(); if(!e) return 'flat';
+  if(p >= e+4) return 'ahead'; if(p <= e-4) return 'behind'; return 'flat';
+}
+
+/* a comparison bar with the pace marker on it */
+function barHTML(p){
+  var cl = paceClass(p), e = expectedPct();
+  return '<div class="track '+(cl==='behind'?'behind':'')+'" style="height:11px">'+
+           '<i style="width:'+Math.max(0,Math.min(100,p)).toFixed(1)+'%"></i>'+
+           (e? '<u style="left:'+e.toFixed(1)+'%"></u>':'')+
+         '</div>';
 }
 
 /* =====================================================================
-   STAGE SCALING — the whole reason this never clips on a TV
+   STAGE SCALING
    ===================================================================== */
-function fit() {
-  var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+/* THE STAGE MUST RE-FIT WHENEVER THE WINDOW REALLY CHANGES SIZE.
+
+   Relying on the resize event alone is not enough. Served inside an
+   iframe - which is how Apps Script serves a page - the frame can be laid
+   out small and grown afterwards without the inner window ever hearing a
+   resize. The board then stays scaled for the size it first saw: a
+   postage stamp in the corner with the blocks overlapping, which is
+   exactly what happened.
+
+   So: observe the element, and re-fit on a few delays after boot as a
+   backstop where ResizeObserver is missing. Both are idempotent - fitting
+   twice at the same size costs one style write and changes nothing. */
+function fit(){
+  var w = document.documentElement.clientWidth  || window.innerWidth  || 1920;
+  var h = document.documentElement.clientHeight || window.innerHeight || 1080;
+  var k = Math.min(w/1920, h/1080);
+  if (!(k > 0)) k = 1;
   var st = document.getElementById('stage');
-  st.style.transform = 'scale(' + s + ')';
+  if (st) st.style.transform = 'scale(' + k + ')';
+  /* The blocks are positioned as percentages of a box whose size is only
+     known after the fit, so they are placed again here. */
+  if (running) layout();
 }
 window.addEventListener('resize', fit);
-
-function goFull() {
-  var e = document.documentElement;
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (e.requestFullscreen) e.requestFullscreen().catch(function () {});
+window.addEventListener('load', fit);
+if (typeof ResizeObserver === 'function') {
+  try { new ResizeObserver(fit).observe(document.documentElement); } catch (e) {}
 }
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'f' || e.key === 'F') goFull();
-  if (e.key === 'ArrowRight') { clearTimeout(rotTimer); next(); }
-  if (e.key === 'ArrowLeft')  { clearTimeout(rotTimer); screenIdx--; show(); }
+[60, 250, 800, 2000].forEach(function(ms){ setTimeout(fit, ms); });
+function goFull(){ var e=document.documentElement;
+  if(document.fullscreenElement) document.exitFullscreen();
+  else if(e.requestFullscreen) e.requestFullscreen().catch(function(){}); }
+document.addEventListener('keydown', function(e){
+  if(e.key==='f'||e.key==='F') goFull();
+  if(e.key==='ArrowRight'){ clearTimeout(rotTimer); bigIdx=(bigIdx+1)%4; layout(); schedule(); }
+  if(e.key==='ArrowLeft'){ clearTimeout(rotTimer); bigIdx=(bigIdx+3)%4; layout(); schedule(); }
 });
 
 /* =====================================================================
-   DATA LAYER — JSONP, because an Apps Script Web App is not reliably
-   CORS-fetchable from another origin. A <script> tag always works.
+   DATA LAYER - JSONP, because an Apps Script Web App is not reliably
+   CORS-fetchable cross-origin. A <script> tag always works.
    ===================================================================== */
 var jsonpSeq = 0;
-function loadData() {
-  if (!CONFIG.API_URL) { stateScreen('not-configured'); return; }
-
-  var cb = '__wr' + (++jsonpSeq);
-  var done = false;
-  var s = document.createElement('script');
-  var url = CONFIG.API_URL + (CONFIG.API_URL.indexOf('?') > -1 ? '&' : '?') +
-            'callback=' + cb + '&t=' + Date.now();
-
-  /* A cold build has to walk every payment row in the workbook, and on the
-     real sheet that was measured at 34 seconds - past the 30s this used to
-     allow, so every cache miss timed out and the board read "NO DATA YET"
-     while the feed was in fact answering. Most polls hit the feed's cache
-     and return instantly; the one that rebuilds gets as long as it needs. */
-  var timer = setTimeout(function () { if (!done) { cleanup(); fail(); } }, 90000);
-
-  window[cb] = function (payload) {
-    done = true; clearTimeout(timer); cleanup();
-    if (payload && payload.ok) { applyData(payload, false); }
-    else fail();
-  };
-  function cleanup() {
-    try { delete window[cb]; } catch (e) { window[cb] = undefined; }
-    if (s.parentNode) s.parentNode.removeChild(s);
-  }
-  s.onerror = function () { if (!done) { clearTimeout(timer); cleanup(); fail(); } };
-  s.src = url;
-  document.head.appendChild(s);
+function loadData(){
+  if(!CONFIG.API_URL){ stateScreen('not-configured'); return; }
+  var cb='__wr'+(++jsonpSeq), done=false;
+  var sc=document.createElement('script');
+  var url=CONFIG.API_URL+(CONFIG.API_URL.indexOf('?')>-1?'&':'?')+'callback='+cb+'&t='+Date.now();
+  /* A cold build walks every payment row. Most polls hit the feed cache and
+     return instantly; the one that rebuilds gets as long as it needs. */
+  var timer=setTimeout(function(){ if(!done){ cleanup(); fail(); } }, 90000);
+  window[cb]=function(p){ done=true; clearTimeout(timer); cleanup();
+    if(p&&p.ok) applyData(p); else fail(); };
+  function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;}
+    if(sc.parentNode) sc.parentNode.removeChild(sc); }
+  sc.onerror=function(){ if(!done){ clearTimeout(timer); cleanup(); fail(); } };
+  sc.src=url; document.head.appendChild(sc);
 }
 
 /* A board with no real data must SAY so. It must never fall back to
-   plausible-looking numbers - a wrong figure read confidently off a wall
-   is worse than an obviously broken screen, because nobody checks it. */
-function fail() {
+   plausible-looking numbers - a wrong figure read confidently off a wall is
+   worse than an obviously broken screen, because nobody checks it. */
+function fail(){
   FAILS++;
-  if (!DATA) { stateScreen('unreachable'); return; }
-  paintLive();   // we have real figures; keep them up, labelled with their age
+  if(!DATA){ stateScreen('unreachable'); return; }
+  paintLive();                 // real figures stay up, labelled with their age
 }
 
-/* Full-screen, unmistakable, and it stops the rotation. */
-function stateScreen(kind) {
-  running = false;
-  clearTimeout(rotTimer); clearInterval(progTimer);
-  document.getElementById('progress').style.width = '0%';
-  document.getElementById('screenname').textContent = 'not connected';
-  document.getElementById('dots').innerHTML = '';
-
-  var body = (kind === 'not-configured')
-    ? { k: 'Setup needed',
-        line: 'NO <span class="accent">FEED</span> CONNECTED',
-        note: 'Open this page with the Apps Script web app URL on the end:<br>' +
-              '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
-    : /PASTE|YOUR_EXEC|<|>|example\.com/i.test(CONFIG.API_URL)
-    ? { k: 'The placeholder was not replaced',
-        line: 'THAT IS NOT A <span class="accent">REAL URL</span>',
-        note: 'The address below is the example text, not your web app. Open Apps Script, ' +
-              'go to <b>Deploy &rsaquo; Manage deployments</b>, copy the Web app URL ending in ' +
-              '<b>/exec</b>, and put that in place of it.' +
-              '<div style="margin-top:18px;font-family:\'Space Mono\',monospace;font-size:17px;' +
-              'color:var(--rose);word-break:break-all;line-height:1.5;max-width:1500px">' +
-              esc(CONFIG.API_URL) + '</div>' }
-    : { k: 'Cannot reach the feed',
-        line: 'NO <span class="accent">DATA</span> YET',
-        note: '<b>Click the address below.</b> What it shows names the fault: the ' +
-              'Executive Command Center means the routing line is missing from doGet; ' +
-              'a Google sign-in means access is not set to <b>Anyone</b>; ' +
-              '"Script function not found" means the deployment is on an old version.' +
-              '<div style="margin-top:18px"><a href="' + esc(CONFIG.API_URL) + '" target="_blank" ' +
-              'rel="noopener" style="font-family:\'Space Mono\',monospace;font-size:17px;' +
-              'color:var(--gold);word-break:break-all;line-height:1.5;max-width:1500px;' +
-              'display:inline-block;text-decoration:underline">' +
-              esc(CONFIG.API_URL) + '</a></div>' +
-              '<div style="margin-top:14px;font-size:18px">' +
-              (FAILS > 0
-                 ? ('No answer after ' + FAILS + ' attempt' + (FAILS === 1 ? '' : 's') + '. Retrying every ')
-                 : 'Trying now, then every ') +
-              Math.max(10, CONFIG.REFRESH_SECONDS) + ' seconds.</div>' };
-
-  var host = document.getElementById('screens');
-  host.innerHTML = '';
-  var sc = document.createElement('div');
-  sc.className = 'screen on';
-  sc.innerHTML = '<div class="center">' +
-    '<div class="kicker" style="color:var(--rose)">' + body.k + '</div>' +
-    '<div class="line">' + body.line + '</div>' +
-    '<div class="note">' + body.note + '</div></div>';
-  host.appendChild(sc);
+function stateScreen(kind){
+  running=false; clearTimeout(rotTimer); clearInterval(railTimer);
+  var body = (kind==='not-configured')
+    ? { k:'Setup needed', line:'NO <span class="accent">FEED</span> CONNECTED',
+        note:'Open this page with the Apps Script web app URL on the end:<br>'+
+             '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
+    : /PASTE|YOUR_EXEC|[<>]|example\.com/i.test(CONFIG.API_URL)
+    ? { k:'The placeholder was not replaced', line:'THAT IS NOT A <span class="accent">REAL URL</span>',
+        note:'The address below is example text, not your web app. In Apps Script go to '+
+             '<b>Deploy &rsaquo; Manage deployments</b>, copy the Web app URL ending in <b>/exec</b>, '+
+             'and use that instead.<div style="margin-top:16px;font-family:Space Mono,monospace;'+
+             'font-size:17px;color:var(--rose);word-break:break-all">'+esc(CONFIG.API_URL)+'</div>' }
+    : { k:'Cannot reach the feed', line:'NO <span class="accent">DATA</span> YET',
+        note:'<b>Click the address below.</b> What it shows names the fault: the Executive '+
+             'Command Center means the routing line is missing from doGet; a Google sign-in '+
+             'means access is not set to <b>Anyone</b>; "Script function not found" means the '+
+             'deployment is pinned to an old version.'+
+             '<div style="margin-top:16px"><a href="'+esc(CONFIG.API_URL)+'" target="_blank" '+
+             'rel="noopener" style="font-family:Space Mono,monospace;font-size:17px;color:var(--gold);'+
+             'word-break:break-all;text-decoration:underline">'+esc(CONFIG.API_URL)+'</a></div>'+
+             '<div style="margin-top:12px;font-size:18px">'+
+             (FAILS>0 ? ('No answer after '+FAILS+' attempt'+(FAILS===1?'':'s')+'. Retrying every ')
+                      : 'Trying now, then every ')+
+             Math.max(10,CONFIG.REFRESH_SECONDS)+' seconds.</div>' };
+  var st=document.getElementById('state');
+  st.className='on';
+  st.innerHTML='<div><div class="kicker">'+body.k+'</div><div class="line">'+body.line+
+               '</div><div class="note">'+body.note+'</div></div>';
   paintLive();
 }
 
-function applyData(payload, isSample) {
-  // remember previous ranks so we can show movement even if the API omits it
-  if (DATA && DATA.agents) {
-    prevAgentRank = {};
-    DATA.agents.forEach(function (a, i) { prevAgentRank[a.name] = i + 1; });
-  }
-  DATA = normalise(payload);
-  USING_SAMPLE = !!isSample;
-  if (!isSample) {
-    LAST_OK = Date.now(); FAILS = 0;
-    /* The feed caches for four minutes, so a fetch that just succeeded can
-       carry numbers built a few minutes ago. Show the age of the NUMBERS,
-       not of the request - otherwise the board claims to be 2 seconds old
-       when it is really 3 minutes old, which is the one thing a leaderboard
-       must not lie about. Server clock, so ignore it if it looks skewed. */
-    var built = n(DATA.meta && DATA.meta.generatedAt);
-    var skew = Math.abs(Date.now() - built);
-    DATA_AT = (built > 0 && skew < 86400000) ? built : LAST_OK;
-  }
-  document.getElementById('banner').className = isSample ? 'on' : '';
-  document.getElementById('banner').textContent = isSample
-    ? (CONFIG.API_URL ? 'Preview data — live feed unreachable' : 'Preview data — set ?api= to go live')
-    : '';
-  checkMilestone();
-  paintChrome();
+function applyData(p){
+  if(DATA&&DATA.agents){ prevAgentRank={};
+    DATA.agents.forEach(function(a,i){ prevAgentRank[a.name]=i+1; }); }
+  DATA = normalise(p);
+  USING_SAMPLE = !!p.sample;
+  document.getElementById('state').className='';
+  LAST_OK=Date.now(); FAILS=0;
+  /* Show the age of the NUMBERS, not of the request. The feed caches, so a
+     fetch that just succeeded can carry figures built minutes ago, and the
+     one thing a leaderboard must not lie about is how current it is. */
+  var built=n(DATA.meta&&DATA.meta.generatedAt), skew=Math.abs(Date.now()-built);
+  DATA_AT = (built>0 && skew<86400000) ? built : LAST_OK;
 
-  /* Only repaint when the numbers actually moved. A poll that returns the
-     same figures should not make the board flicker and re-animate. */
-  /* First real payload after a setup or outage screen: start the rotation. */
-  if (!running) { running = true; screenIdx = 0; lastSig = signature(DATA); show(); return; }
+  var b=document.getElementById('banner');
+  b.className = USING_SAMPLE ? 'on' : '';
+  b.textContent = USING_SAMPLE ? 'PREVIEW DATA' : '';
 
-  var sig = signature(DATA);
-  if (sig !== lastSig) { lastSig = sig; render(); }
+  paintTop(); buildRail(); buildTicker();
+  flashNewSale();
+  var sig=signature(DATA);
+  if(!running){ running=true; lastSig=sig; layout(); renderAll(); schedule(); startRail(); return; }
+  if(sig!==lastSig){ lastSig=sig; renderAll(); }
 }
 
-function signature(d) {
-  return [d.totals.revenue, d.totals.units, d.totals.target, d.cities.length, d.managers.length,
-          d.contest.active ? d.contest.totalUnits : 'x']
-    .concat(d.agents.slice(0, 40).map(function (a) { return a.name + ':' + a.revenue + ':' + a.units; }))
-    .concat((d.contest.agents || []).slice(0, 40).map(function (a) { return 'c' + a.name + ':' + a.units; }))
+/* A sale that lands while the board is on the wall should be seen landing.
+   Keyed on name+amount+timestamp of the newest close, so a repaint that
+   carries the same figures never fires it twice. Silent on the very first
+   payload - everything is "new" then, and a toast for a sale from three
+   days ago would be a lie. */
+var lastSaleKey=null;
+function flashNewSale(){
+  var r=(DATA.recent||[])[0];
+  if(!r){ return; }
+  var key=r.name+'|'+r.amt+'|'+r.at;
+  if(lastSaleKey===null){ lastSaleKey=key; return; }   // first load: no toast
+  if(key===lastSaleKey) return;
+  lastSaleKey=key;
+  var hot=document.getElementById('hot'), bar=document.getElementById('tick');
+  if(!hot||!bar) return;
+  hot.innerHTML='<em>JUST IN</em><b>'+esc(r.name)+'</b>'+
+                '<span class="amt">'+money(r.amt)+'</span>'+
+                '<span class="mt">'+esc(joinDot(r.city,r.team,r.manager))+'</span>';
+  hot.className='on'; bar.className='hot';
+  clearTimeout(hot._h);
+  hot._h=setTimeout(function(){ hot.className=''; bar.className=''; }, 9000);
+}
+
+function signature(d){
+  return [d.totals.revenue,d.totals.units,d.totals.target,d.cities.length,d.managers.length]
+    .concat(d.agents.slice(0,60).map(function(a){return a.name+':'+a.revenue+':'+a.units;}))
+    .concat((d.recent||[]).slice(0,10).map(function(r){return r.name+':'+r.amt;}))
     .join('|');
 }
 
-/* Defensive: tolerate missing sections, nulls, zero targets, bad rows. */
-function normalise(p) {
-  p = p || {};
-  var out = {
-    meta: p.meta || {},
-    totals: p.totals || {},
-    teams: (p.teams || []).filter(Boolean),
-    cities: (p.cities || []).filter(function (c) { return c && c.name; }),
-    managers: (p.managers || []).filter(function (m) { return m && m.name; }),
-    agents: (p.agents || []).filter(function (a) { return a && a.name; }),
-    contest: p.contest || { active: false },
-    sample: !!p.sample
+/* Tolerate missing sections, nulls, zero targets, bad rows. Everything is
+   forced to a usable type once, here, so nothing below has to guard. */
+function normalise(p){
+  p=p||{};
+  var out={
+    meta:p.meta||{}, totals:p.totals||{},
+    cities:(p.cities||[]).filter(function(c){return c&&c.name;}),
+    managers:(p.managers||[]).filter(function(m){return m&&m.name;}),
+    agents:(p.agents||[]).filter(function(a){return a&&a.name;}),
+    recent:(p.recent||[]).filter(function(r){return r&&r.name;}),
+    byDay:(p.byDay||[]).filter(function(d){return d&&d.d;}),
+    contest:p.contest||{active:false}
   };
-  /* Every field is forced to a usable type here, once, so no screen below
-     ever has to guard against a null, a NaN or a missing column. */
-  function clean(x) {
-    x.name = s(x.name); x.manager = s(x.manager); x.city = s(x.city); x.team = s(x.team);
-    x.revenue = n(x.revenue); x.units = n(x.units); x.target = n(x.target); x.agents = n(x.agents);
+  function clean(x){
+    x.name=s(x.name); x.manager=s(x.manager); x.city=s(x.city); x.team=s(x.team);
+    x.revenue=n(x.revenue); x.units=n(x.units); x.target=n(x.target); x.agents=n(x.agents);
     return x;
   }
-  out.cities.forEach(clean); out.managers.forEach(clean); out.teams.forEach(clean); out.agents.forEach(clean);
-  if (out.contest.active) {
-    out.contest.agents = (out.contest.agents || []).filter(function (a) { return a && a.name; });
-    out.contest.agents.forEach(clean);
-    out.contest.totalUnits = n(out.contest.totalUnits);
-  }
+  out.cities.forEach(clean); out.managers.forEach(clean); out.agents.forEach(clean);
+  out.recent.forEach(function(r){ r.name=s(r.name); r.city=s(r.city); r.team=s(r.team);
+    r.manager=s(r.manager); r.amt=n(r.amt); r.at=n(r.at); });
+  out.byDay.forEach(function(d){ d.d=n(d.d); d.rev=n(d.rev); d.units=n(d.units); });
 
-  // sort everything by revenue desc, then assign rank
-  function bySales(a, b) { return b.revenue - a.revenue || b.units - a.units; }
-  out.cities.sort(bySales); out.managers.sort(bySales); out.agents.sort(bySales);
-  out.cities.forEach(function (c, i) { c.rank = i + 1; });
-  out.managers.forEach(function (m, i) { m.rank = i + 1; });
-  out.agents.forEach(function (a, i) {
-    a.rank = i + 1;
-    var pr = a.prevRank != null ? a.prevRank : prevAgentRank[a.name];
-    a.move = (pr == null) ? null : (pr - a.rank);      // +ve = climbed
+  out.cities.sort(byAttain); out.managers.sort(byAttain);
+  out.agents.sort(function(a,b){ return b.revenue-a.revenue || b.units-a.units; });
+  out.agents.forEach(function(a,i){
+    a.rank=i+1;
+    var pr = a.prevRank!=null ? a.prevRank : prevAgentRank[a.name];
+    a.move = (pr==null) ? null : (pr-a.rank);
   });
-
-  // totals fall back to the sum of the parts if the API did not send them
-  var t = out.totals;
-  if (!n(t.revenue)) t.revenue = out.cities.reduce(function (s, c) { return s + c.revenue; }, 0);
-  if (!n(t.units))   t.units   = out.cities.reduce(function (s, c) { return s + c.units; }, 0);
-  if (!n(t.target))  t.target  = out.cities.reduce(function (s, c) { return s + c.target; }, 0);
-  if (!n(t.agents))  t.agents  = out.cities.reduce(function (s, c) { return s + c.agents; }, 0);
+  var t=out.totals;
+  if(!n(t.revenue)) t.revenue=out.cities.reduce(function(x,c){return x+c.revenue;},0);
+  if(!n(t.units))   t.units  =out.cities.reduce(function(x,c){return x+c.units;},0);
+  if(!n(t.target))  t.target =out.cities.reduce(function(x,c){return x+c.target;},0);
   return out;
 }
 
 /* =====================================================================
-   CHROME
+   TOP BAR
    ===================================================================== */
-function paintChrome() {
-  var m = DATA.meta || {};
-  document.getElementById('periodBig').textContent = m.month || '—';
-  document.getElementById('periodSmall').textContent = m.windowLabel || 'month to date';
+function paintTop(){
+  var t=DATA.totals, m=DATA.meta||{};
+  document.getElementById('periodSmall').textContent =
+    joinDot(m.month||'', m.windowLabel||'') || 'month to date';
+  countUp(document.getElementById('coRev'), n(t.revenue), money);
+  countUp(document.getElementById('coUnits'), n(t.units), function(v){
+    return Math.round(v).toLocaleString('en-IN'); });
+  paintFresh();
+  var p = pct(t.revenue, t.target), e = expectedPct();
+  document.getElementById('coTgt').textContent = t.target ? ('of '+money(t.target)) : '';
+  var pc=document.getElementById('coPct');
+  pc.textContent = t.target ? p.toFixed(1)+'%' : '—';
+  pc.className = 'val '+paceClass(p);
+  document.getElementById('coFill').style.width = Math.max(0,Math.min(100,p))+'%';
+  document.getElementById('coMark').style.left = e.toFixed(1)+'%';
+  document.getElementById('coTrack').className = 'track '+(paceClass(p)==='behind'?'behind':'');
   paintLive();
 }
-function paintLive() {
-  var live = document.getElementById('live'), txt = document.getElementById('livetext');
-  if (USING_SAMPLE && !CONFIG.API_URL) { live.className = 'down'; txt.innerHTML = '<b>PREVIEW</b>'; return; }
-  /* Two different clocks, deliberately. `link` is how long since a request
-     succeeded - it decides whether the board is healthy. `data` is how old
-     the figures themselves are - it is what gets shown, because that is the
-     question anyone standing in front of a leaderboard is actually asking. */
-  var link = LAST_OK ? Math.round((Date.now() - LAST_OK) / 1000) : null;
-  var data = DATA_AT ? Math.round((Date.now() - DATA_AT) / 1000) : link;
+/* THE QUESTION THE BOARD COULD NOT ANSWER.
 
-  if (link == null)                  { live.className = 'down';  txt.innerHTML = 'connecting…'; }
-  else if (FAILS > 0 && link > CONFIG.REFRESH_SECONDS * 3) { live.className = 'down';  txt.innerHTML = 'reconnecting &middot; data <b>' + fmtAge(data) + '</b>'; }
-  else if (data > 900)                                     { live.className = 'stale'; txt.innerHTML = 'data <b>' + fmtAge(data) + '</b>'; }
-  else                                                     { live.className = '';      txt.innerHTML = 'LIVE &middot; data <b>' + fmtAge(data) + '</b>'; }
+   "data 4s ago" only says when the FEED last built. The feed can rebuild
+   every seven minutes and still be serving yesterday, because it reads
+   mdl_Payments and nothing had refreshed that. So report the date of the
+   newest payment in the sheet against today's date - that is the only
+   honest answer to "is this up to date", and it names the fix when it is
+   not. */
+function paintFresh(){
+  var m=(DATA&&DATA.meta)||{}, el=document.getElementById('fresh');
+  if(!el) return;
+  var latest=s(m.latestPayment), today=s(m.today);
+  if(!latest||!today){ el.className=''; el.textContent=''; return; }
+  if(latest>=today){ el.className='ok'; el.innerHTML='sheet current'; return; }
+  var d1=new Date(latest+'T00:00:00'), d2=new Date(today+'T00:00:00');
+  var days=Math.round((d2-d1)/86400000);
+  el.className='warn';
+  el.innerHTML='SHEET IS '+days+' DAY'+(days===1?'':'S')+' BEHIND &middot; newest sale '+
+               latest.slice(8)+'/'+latest.slice(5,7)+' &middot; run updateAndCheck';
 }
-function fmtAge(s) {
-  if (s < 60) return s + 's ago';
-  if (s < 3600) return Math.round(s / 60) + 'm ago';
-  return Math.round(s / 3600) + 'h ago';
+
+function paintLive(){
+  var live=document.getElementById('live'), txt=document.getElementById('livetext');
+  var link = LAST_OK ? Math.round((Date.now()-LAST_OK)/1000) : null;
+  var data = DATA_AT ? Math.round((Date.now()-DATA_AT)/1000) : link;
+  if(link==null){ live.className='down'; txt.innerHTML='connecting…'; }
+  else if(FAILS>0 && link>CONFIG.REFRESH_SECONDS*3){ live.className='down';
+    txt.innerHTML='reconnecting · data <b>'+fmtAge(data)+'</b>'; }
+  else if(data>900){ live.className='stale'; txt.innerHTML='data <b>'+fmtAge(data)+'</b>'; }
+  else { live.className=''; txt.innerHTML='LIVE · data <b>'+fmtAge(data)+'</b>'; }
 }
-setInterval(paintLive, 1000);
+function fmtAge(x){ if(x==null) return '—';
+  if(x<60) return x+'s ago'; if(x<3600) return Math.round(x/60)+'m ago';
+  return Math.round(x/3600)+'h ago'; }
 
 /* =====================================================================
-   CELEBRATIONS
+   LEFT RAIL - every headline number, cycling
    ===================================================================== */
-function checkMilestone() {
-  var rev = n(DATA.totals.revenue);
-  var hit = 0;
-  CONFIG.MILESTONES.forEach(function (m) { if (rev >= m && m > seenMilestone) hit = Math.max(hit, m); });
-  if (hit && seenMilestone) flash('MILESTONE', money(hit) + ' CROSSED', money(rev) + ' and counting');
-  if (hit) seenMilestone = hit;
-  if (!seenMilestone) {   // first load: remember without celebrating history
-    CONFIG.MILESTONES.forEach(function (m) { if (rev >= m) seenMilestone = Math.max(seenMilestone, m); });
+function buildRail(){
+  var t=DATA.totals;
+  railItems=[{k:'Company revenue', v:money(t.revenue), u:'', p:pct(t.revenue,t.target), tgt:t.target},
+             {k:'Company units', v:n(t.units).toLocaleString('en-IN'), u:'units', p:-1}];
+  DATA.cities.forEach(function(c){
+    railItems.push({k:c.name+' revenue', v:money(c.revenue), u:'of '+moneyShort(c.target), p:attain(c), tgt:c.target});
+    railItems.push({k:c.name+' units', v:n(c.units).toLocaleString('en-IN'), u:'units', p:-1});
+  });
+  DATA.managers.forEach(function(mg){
+    railItems.push({k:mg.name, v:money(mg.revenue), u:joinDot(mg.city, mg.agents+' agents'), p:attain(mg), tgt:mg.target});
+  });
+  var tr=document.getElementById('railTrack');
+  tr.innerHTML = railItems.map(statHTML).join('') + railItems.slice(0,8).map(statHTML).join('');
+  if(railIdx >= railItems.length) railIdx = 0;
+  moveRail(true);
+}
+function statHTML(it){
+  var hasT = it.p >= 0 && n(it.tgt) > 0;
+  var cl = hasT ? paceClass(it.p) : '';
+  return '<div class="stat '+cl+'">'+
+    '<div class="k">'+esc(it.k)+'</div>'+
+    '<div class="r"><div class="v">'+esc(it.v)+'</div><div class="u">'+esc(it.u)+'</div>'+
+      (hasT ? '<div class="p">'+it.p.toFixed(0)+'%</div>' : '')+
+    '</div>'+
+    (hasT ? '<div class="mini"><i style="width:'+Math.max(0,Math.min(100,it.p)).toFixed(1)+'%"></i></div>'
+          : '<div style="height:6px"></div>')+
+  '</div>';
+}
+function moveRail(instant){
+  var tr=document.getElementById('railTrack');
+  if(instant) tr.style.transition='none';
+  tr.style.transform='translateY(-'+(railIdx*104)+'px)';
+  if(instant){ void tr.offsetHeight; tr.style.transition=''; }
+  var it=railItems[railIdx];
+  document.getElementById('railNow').textContent = it ? (railIdx+1)+'/'+railItems.length : '';
+}
+function startRail(){
+  clearInterval(railTimer);
+  railTimer=setInterval(function(){
+    if(!railItems.length) return;
+    railIdx++;
+    if(railIdx >= railItems.length){       // silently snap back at the seam
+      moveRail(false);
+      setTimeout(function(){ railIdx=0; moveRail(true); }, 950);
+      return;
+    }
+    moveRail(false);
+  }, Math.max(2, CONFIG.RAIL_SECONDS)*1000);
+}
+
+/* =====================================================================
+   TICKER - the reason to glance up
+   ===================================================================== */
+function buildTicker(){
+  var r=DATA.recent||[], parts=[];
+  if(r.length){
+    r.forEach(function(x){
+      parts.push('<span class="ti"><em>CLOSED</em><b>'+esc(x.name)+'</b>'+
+        '<span class="amt">'+money(x.amt)+'</span>'+
+        '<span class="mt">'+esc(joinDot(x.city,x.team,x.manager))+'</span>'+
+        '<span class="dv">|</span></span>');
+    });
+  } else {
+    /* No recent feed yet - an older deployment. Say what IS known rather
+       than running an empty bar, and never invent a sale. */
+    DATA.agents.slice(0,12).forEach(function(a){
+      parts.push('<span class="ti"><em>MTD</em><b>'+esc(a.name)+'</b>'+
+        '<span class="amt">'+money(a.revenue)+'</span>'+
+        '<span class="mt">'+esc(joinDot(a.city,a.manager))+' · '+a.units+'u</span>'+
+        '<span class="dv">|</span></span>');
+    });
+    document.querySelector('#tickLab span').textContent='Month To Date';
+  }
+  if(!parts.length) parts.push('<span class="ti"><span class="mt">No sales recorded yet this month</span></span>');
+  /* Doubled so the -50% translate loops seamlessly. */
+  var html=parts.join('');
+  document.getElementById('tickTrack').innerHTML = html + html;
+}
+
+/* =====================================================================
+   THE FOUR BLOCKS
+   ===================================================================== */
+var SLOTS=[ {l:0,   t:0,  w:65.5,h:100},      // big
+            {l:67,  t:0,  w:33,  h:32},
+            {l:67,  t:34, w:33,  h:32},
+            {l:67,  t:68, w:33,  h:32} ];
+function layout(){
+  for(var i=0;i<4;i++){
+    var el=document.getElementById('b'+i);
+    var slot=SLOTS[(i - bigIdx + 4) % 4];
+    el.style.left=slot.l+'%'; el.style.top=slot.t+'%';
+    el.style.width=slot.w+'%'; el.style.height=slot.h+'%';
+    el.className='blk '+(slot.w>50?'big':'sm');
   }
 }
-function flash(k, nm, v) {
-  var f = document.getElementById('flash');
-  document.getElementById('flashK').textContent = k;
-  document.getElementById('flashN').textContent = nm;
-  document.getElementById('flashV').textContent = v || '';
-  f.className = 'on'; beep(880);
-  setTimeout(function () { f.className = ''; }, 5200);
-}
-var actx = null;
-function beep(hz) {
-  if (!CONFIG.SOUND) return;
-  try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    var o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = hz; o.connect(g); g.connect(actx.destination);
-    g.gain.setValueAtTime(0.0001, actx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.18, actx.currentTime + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.5);
-    o.start(); o.stop(actx.currentTime + 0.52);
-  } catch (e) {}
+function schedule(){
+  clearTimeout(rotTimer);
+  rotTimer=setTimeout(function(){
+    bigIdx=(bigIdx+1)%4;
+    /* The Agent Arena walks to the next peer group each time it comes
+       round, so every desk gets the big slot over a few rotations. */
+    if(bigIdx===2) peerIdx++;
+    layout(); renderAll(); schedule();
+  }, Math.max(8,CONFIG.ROTATE_SECONDS)*1000);
 }
 
-/* =====================================================================
-   SCREEN BUILDERS — each returns an HTML string for .screen contents
-   ===================================================================== */
-function medal(i) { return ['🥇', '🥈', '🥉'][i] || ''; }
-function moveChip(mv) {
-  if (mv == null) return '';
-  if (mv > 0) return '<span class="mv up">▲ ' + mv + '</span>';
-  if (mv < 0) return '<span class="mv down">▼ ' + Math.abs(mv) + '</span>';
+function renderAll(){ renderCities(); renderManagers(); renderAgents(); renderPace(); }
+
+function moveHTML(mv){
+  if(mv==null) return '';                       // no snapshot yet - say nothing
+  if(mv>0) return '<span class="mv up">\u25b2'+mv+'</span>';
+  if(mv<0) return '<span class="mv dn">\u25bc'+(-mv)+'</span>';
   return '';
 }
-
-function scOverall() {
-  var t = DATA.totals, a = pct(t.revenue, t.target);
-  var rem = Math.max(0, n(t.target) - n(t.revenue));
-  var cities = DATA.cities;
-  var podium = cities.slice(0, 3).map(function (c, i) {
-    return '<div class="pod ' + ['gold', 'silver', 'bronze'][i] + '">' +
-      '<div class="medal">' + medal(i) + '</div>' +
-      '<div class="nm">' + esc(c.name) + '</div>' +
-      '<div class="meta">' + c.agents + ' agents · target ' + money(c.target) + '</div>' +
-      '<div class="rev">' + money(c.revenue) + '</div>' +
-      '<div class="u">' + c.units + ' units · ' + pct(c.revenue, c.target).toFixed(1) + '% of target</div>' +
-      '<div class="bar thin" style="margin-top:auto"><i data-w="' + Math.min(100, pct(c.revenue, c.target)) + '"></i></div>' +
-      '</div>';
-  }).join('');
-
-  return '' +
-  '<div class="eyebrow">Company · ' + esc(DATA.meta.windowLabel || 'month to date') + '</div>' +
-  '<div style="display:flex;align-items:baseline;gap:40px">' +
-    '<h1 class="big">TOTAL <span class="accent">REVENUE</span></h1>' +
-    '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:126px;line-height:1;color:var(--lime)" data-count="' + t.revenue + '" data-fmt="money">0</div>' +
-  '</div>' +
-  '<div class="statrow" style="margin-top:26px">' +
-    '<div class="stat"><div class="lbl">Target</div><div class="val sm">' + money(t.target) + '</div></div>' +
-    '<div class="stat hero"><div class="lbl">Achievement</div><div class="val sm" data-count="' + a + '" data-fmt="pct1">0</div></div>' +
-    '<div class="stat"><div class="lbl">Units closed</div><div class="val sm" data-count="' + t.units + '" data-fmt="int">0</div></div>' +
-    '<div class="stat"><div class="lbl">Remaining to target</div><div class="val sm">' + money(rem) + '</div><div class="foot">' + (DATA.meta.days ? 'day ' + DATA.meta.day + ' of ' + DATA.meta.days : '') + '</div></div>' +
-  '</div>' +
-  '<div class="bar" style="margin:24px 0 26px"><i data-w="' + Math.min(100, a) + '"></i></div>' +
-  '<div class="eyebrow" style="margin-bottom:14px">City championship</div>' +
-  '<div class="podium" style="flex:1">' + podium + '</div>';
-}
-
-function scCity(city) {
-  var c = DATA.cities.filter(function (x) { return x.name === city; })[0];
-  if (!c) return '<div class="center"><div class="line sm">No data for ' + esc(city) + '</div></div>';
-  var a = pct(c.revenue, c.target);
-  var list = DATA.agents.filter(function (x) { return x.city === city; });
-  var mgrs = DATA.managers.filter(function (x) { return x.city === city; });
-
-  var CG = 'grid-template-columns:64px 1fr 160px 118px 74px 150px';
-
-  var pods = list.slice(0, 3).map(function (x, i) {
-    return '<div class="pod sm ' + ['gold', 'silver', 'bronze'][i] + '">' +
-      '<div class="medal">' + medal(i) + '</div>' +
-      '<div class="nm">' + esc(x.name) + ' ' + moveChip(x.move) + '</div>' +
-      '<div class="meta">' + esc(joinDot(x.manager, x.team)) + '</div>' +
-      '<div class="rev">' + money(x.revenue) + '</div>' +
-      '<div class="u">' + plural(x.units, 'unit') + '</div>' +
-      '</div>';
-  }).join('') || '<div class="pod"><div class="nm">No closes yet</div><div class="meta">first one takes the podium</div></div>';
-
-  // rank inside the city, not the company - a city board showing "#14" is noise
-  var rows = list.slice(3).map(function (x, i) {
-    return '<div class="row" style="' + CG + '">' +
-      '<div class="rk">' + (i + 4) + '</div>' +
-      '<div class="nm2"><span class="tx">' + esc(x.name) + '</span>' + moveChip(x.move) + '</div>' +
-      '<div class="meta2">' + esc(x.manager || '—') + '</div>' +
-      '<div class="meta2">' + esc(x.team || '') + '</div>' +
-      '<div class="num">' + x.units + '</div>' +
-      '<div class="num lime">' + money(x.revenue) + '</div>' +
-      '</div>';
-  }).join('');
-
-  var mgrline = mgrs.map(function (m) {
-    return esc(m.name) + ' ' + moneyShort(m.revenue) + ' (' + pct(m.revenue, m.target).toFixed(0) + '%)';
-  }).join('  ·  ');
-
-  return '' +
-  '<div style="display:flex;align-items:flex-start;gap:46px;flex:1;min-height:0">' +
-    '<div style="width:600px;display:flex;flex-direction:column">' +
-      '<div class="eyebrow">City leaderboard</div>' +
-      '<h1 class="big">' + esc(city).toUpperCase() + '</h1>' +
-      '<div class="sub">' + c.agents + ' agents · ' + mgrs.length + ' managers · rank #' + c.rank + ' of ' + DATA.cities.length + '</div>' +
-      '<div class="statrow" style="margin-top:26px;flex-direction:column;gap:14px">' +
-        '<div class="stat hero"><div class="lbl">Achieved</div><div class="val" data-count="' + c.revenue + '" data-fmt="money">0</div></div>' +
-        '<div style="display:flex;gap:14px">' +
-          '<div class="stat"><div class="lbl">Target</div><div class="val sm">' + money(c.target) + '</div></div>' +
-          '<div class="stat"><div class="lbl">Units</div><div class="val sm" data-count="' + c.units + '" data-fmt="int">0</div></div>' +
-        '</div>' +
-      '</div>' +
-      '<div style="margin-top:20px">' +
-        '<div style="display:flex;justify-content:space-between;font-size:16px;color:var(--muted);margin-bottom:8px">' +
-          '<span>ACHIEVEMENT</span><span style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:26px;color:var(--lime)">' + a.toFixed(1) + '%</span></div>' +
-        '<div class="bar"><i data-w="' + Math.min(100, a) + '"></i></div>' +
-      '</div>' +
-      '<div style="margin-top:18px;font-size:16px;color:var(--muted);line-height:1.6">' + mgrline + '</div>' +
-    '</div>' +
-    '<div style="flex:1;display:flex;flex-direction:column;min-height:0">' +
-      '<div class="eyebrow" style="margin-bottom:14px">Top performers</div>' +
-      '<div class="podium">' + pods + '</div>' +
-      '<div class="lb" style="margin-top:16px">' + rows + '</div>' +
-    '</div>' +
+function rowHTML(rank,name,sub,p,fig,figsub,hasTarget,mv){
+  var cls = rank<=3 ? ' p'+rank : '';
+  return '<div class="row'+cls+'" style="animation-delay:'+Math.min(rank*40,320)+'ms">'+
+    '<div class="rk">'+rank+'</div>'+
+    '<div class="who"><b>'+esc(name)+moveHTML(mv)+'</b><span>'+esc(sub)+'</span></div>'+
+    '<div class="bar">'+(hasTarget?barHTML(p):'')+'</div>'+
+    '<div class="fig"><b class="'+(hasTarget?paceClass(p):'')+'">'+fig+'</b><span>'+esc(figsub)+'</span></div>'+
   '</div>';
 }
 
-function scManagers() {
-  var ms = DATA.managers;
-  var rows = ms.map(function (m, i) {
-    var a = pct(m.revenue, m.target);
-    var above = i > 0 ? ms[i - 1] : null;
-    var gap = above ? above.revenue - m.revenue : 0;
-    var chase = !above ? 'leading' : (gap <= 0 ? 'level with #' + above.rank : money(gap) + ' to #' + above.rank);
-    var attain = m.target > 0
-      ? a.toFixed(1) + '% of ' + money(m.target)
-      : 'no target set for this month';
-    return '<div class="row' + (i === 0 ? ' lead' : '') + '" style="grid-template-columns:74px 1fr 210px 130px 110px 1fr 210px">' +
-      '<div class="rk">' + (i === 0 ? '🥇' : m.rank) + '</div>' +
-      '<div class="nm2"><span class="tx">' + esc(m.name) + '</span></div>' +
-      '<div class="meta2">' + esc(joinDot(m.city, m.team)) + '</div>' +
-      '<div class="num">' + m.units + '</div>' +
-      '<div class="num lime">' + moneyShort(m.revenue) + '</div>' +
-      '<div><div class="bar thin"><i data-w="' + Math.min(100, a) + '"></i></div>' +
-        '<div style="font-size:14px;color:var(--muted);margin-top:5px">' + attain + '</div></div>' +
-      '<div class="meta2" style="text-align:right">' + chase + '</div>' +
-      '</div>';
-  }).join('');
-  return '<div class="eyebrow">Manager leaderboard</div>' +
-    '<h1 class="big">WHO IS <span class="accent">RUNNING THE FLOOR</span></h1>' +
-    '<div class="lb" style="margin-top:22px">' +
-      '<div class="row head" style="grid-template-columns:74px 1fr 210px 130px 110px 1fr 210px">' +
-        '<span>Rank</span><span>Manager</span><span>City · Team</span><span>Units</span><span>Revenue</span><span>Target attainment</span><span style="text-align:right">Gap to next</span></div>' +
-      rows + '</div>';
-}
-
-var AGENT_WINDOW = 12;      // ask for more than can fit; autofit decides the rest
-function scAgents() {
-  var list = DATA.agents;
-  var pods = list.slice(0, 3).map(function (x, i) {
-    return '<div class="pod sm ' + ['gold', 'silver', 'bronze'][i] + '">' +
-      '<div class="medal">' + medal(i) + '</div>' +
-      '<div class="nm">' + esc(x.name) + ' ' + moveChip(x.move) + '</div>' +
-      '<div class="meta">' + esc(joinDot(x.manager, x.city)) + '</div>' +
-      '<div class="rev">' + money(x.revenue) + '</div>' +
-      '<div class="u">' + plural(x.units, 'unit') + ' · avg ' + money(x.units ? x.revenue / x.units : 0) + '</div>' +
-      '</div>';
-  }).join('');
-
-  /* 90 agents will not fit on one screen, so walk through them: each time
-     this screen comes round it starts where the last one stopped. The cursor
-     moves by however many rows actually fitted, so nobody is skipped over. */
-  var rest = list.slice(3);
-  agentTotal = rest.length;
-  if (agentFrom >= agentTotal) agentFrom = 0;
-  var slice = rest.slice(agentFrom, agentFrom + AGENT_WINDOW);
-
-  var rows = slice.map(function (x) {
-    var above = list[x.rank - 2];
-    return '<div class="row" data-rank="' + x.rank + '">' +
-      '<div class="rk">' + x.rank + '</div>' +
-      '<div class="nm2"><span class="tx">' + esc(x.name) + '</span>' + moveChip(x.move) + '</div>' +
-      '<div class="meta2">' + esc(x.manager) + '</div>' +
-      '<div class="meta2">' + esc(x.city) + '</div>' +
-      '<div class="num">' + x.units + '</div>' +
-      '<div class="num lime">' + money(x.revenue) +
-        (above ? '<div style="font-size:13px;color:var(--dim);font-family:Archivo,sans-serif">' + money(above.revenue - x.revenue) + ' to #' + (x.rank - 1) + '</div>' : '') +
-      '</div></div>';
-  }).join('');
-
-  return '<div class="eyebrow" id="lbLabel">Top agents · company wide</div>' +
-    '<h1 class="big">THE <span class="accent">BOARD</span></h1>' +
-    '<div class="podium" style="margin-top:22px">' + pods + '</div>' +
-    '<div class="lb" style="margin-top:16px" data-relabel="Top agents · company wide · ranks {from}-{to} of ' +
-      list.length + '">' + rows + '</div>';
-}
-
-function plural(n2, word) { return n2 + ' ' + word + (Number(n2) === 1 ? '' : 's'); }
-
-function scTeams() {
-  var ts = DATA.teams.slice().sort(function (a, b) { return b.revenue - a.revenue; });
-  if (ts.length < 2) return '<div class="center"><div class="line sm">Team split not available</div></div>';
-  var lead = ts[0], chase = ts[1], gap = lead.revenue - chase.revenue;
-  function side(t, win) {
-    var a = pct(t.revenue, t.target);
-    return '<div class="side' + (win ? ' win' : '') + '">' +
-      '<div class="t">' + esc(t.name).toUpperCase() + '</div>' +
-      '<div class="r">' + money(t.revenue) + '</div>' +
-      '<div style="font-size:20px;color:var(--muted)">' + t.units + ' units · target ' + money(t.target) + '</div>' +
-      '<div class="bar" style="margin-top:22px"><i data-w="' + Math.min(100, a) + '"></i></div>' +
-      '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:40px;margin-top:12px;color:' + (win ? 'var(--lime)' : 'var(--muted)') + '">' + a.toFixed(1) + '%</div>' +
-      '</div>';
-  }
-  return '<div class="eyebrow">Head to head</div>' +
-    '<h1 class="big">INDIA <span class="accent">vs</span> INTERNATIONAL</h1>' +
-    '<div class="h2h" style="margin-top:26px">' + side(lead, true) + '<div class="vs">VS</div>' + side(chase, false) + '</div>' +
-    '<div style="text-align:center;font-size:26px;color:var(--muted);margin-top:22px">' +
-      '<b style="color:var(--lime)">' + esc(lead.name) + '</b> leads by <b style="color:var(--white)">' + money(gap) + '</b>' +
-    '</div>';
-}
-
-function scTargetBattle() {
-  function bars(items) {
-    return items.map(function (x) {
-      var a = pct(x.revenue, x.target);
-      return '<div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
-          '<span style="font-size:24px;font-weight:700">' + esc(x.name) + '</span>' +
-          '<span style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:26px;color:' + (a >= 100 ? 'var(--gold)' : 'var(--lime)') + '">' + a.toFixed(1) + '%</span>' +
-        '</div>' +
-        '<div class="bar' + (a >= 100 ? ' gold' : '') + '"><i data-w="' + Math.min(100, a) + '"></i></div>' +
-        '<div style="font-size:15px;color:var(--muted);margin-top:5px">' + money(x.revenue) + ' of ' + money(x.target) + ' · ' + money(Math.max(0, x.target - x.revenue)) + ' to go</div>' +
-      '</div>';
+function renderCities(){
+  var b=document.getElementById('b0');
+  b.querySelector('h3').textContent='City Race';
+  b.querySelector('.sub').textContent='% of own target · gold line = today’s pace';
+  var rows=DATA.cities.map(function(c,i){
+    var p=attain(c), has=c.target>0, rk=i+1;
+    /* The desks inside this city, each against its own target. Three cities
+       across 858px would otherwise be 286px of empty panel per row - the
+       exact fault this redesign exists to fix. A big block earns its space
+       by carrying more information, not more air. */
+    var kids=DATA.managers.filter(function(m){ return m.city===c.name; }).sort(byAttain);
+    var kidHTML=kids.map(function(m){
+      var mp=attain(m), mh=m.target>0;
+      return '<div class="kid"><div class="kn">'+esc(m.name)+
+        (m.team?' <i>'+esc(m.team)+'</i>':'')+'</div>'+
+        '<div class="kb">'+(mh?barHTML(mp):'')+'</div>'+
+        '<div class="kv '+(mh?paceClass(mp):'')+'">'+(mh?mp.toFixed(0)+'%':'-')+'</div>'+
+        '<div class="kr">'+money(m.revenue)+'</div></div>';
     }).join('');
-  }
-  var withTarget = DATA.managers.filter(function (m) { return m.target > 0; })
-                   .sort(function (a, b) { return pct(b.revenue, b.target) - pct(a.revenue, a.target); });
-  return '<div class="eyebrow">Target battle</div>' +
-    '<h1 class="big">CLOSEST TO <span class="accent">TARGET</span></h1>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:26px;flex:1;min-height:0">' +
-      '<div class="barwrap"><div class="eyebrow">By city</div><div class="barcol">' + bars(DATA.cities) + '</div></div>' +
-      '<div class="barwrap"><div class="eyebrow">By manager</div><div class="barcol">' + bars(withTarget.slice(0, 7)) + '</div></div>' +
+    return '<div class="row deep'+(rk<=3?' p'+rk:'')+'" style="animation-delay:'+(rk*60)+'ms">'+
+      '<div class="lead"><div class="rk">'+rk+'</div>'+
+        '<div class="who"><b>'+esc(c.name)+'</b><span>'+
+          esc(joinDot(money(c.revenue)+' of '+money(c.target), c.units+' units', c.agents+' agents'))+
+        '</span></div>'+
+        '<div class="bar">'+(has?barHTML(p):'')+'</div>'+
+        '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
+          (has?p.toFixed(1)+'%':money(c.revenue))+'</b><span>'+
+          esc(has?money(c.revenue):c.units+' units')+'</span></div>'+
+      '</div>'+
+      (kidHTML?'<div class="kids">'+kidHTML+'</div>':'')+
     '</div>';
-}
-
-function scAwards() {
-  var A = DATA.agents, M = DATA.managers, C = DATA.cities;
-  var topAgent = A[0], mover = A.slice().sort(function (a, b) { return (b.move || 0) - (a.move || 0); })[0];
-  var unit = A.slice().sort(function (a, b) { return b.units - a.units; })[0];
-  var hunter = M.filter(function (m) { return m.target > 0; })
-                .sort(function (a, b) { return pct(b.revenue, b.target) - pct(a.revenue, a.target); })[0];
-  var cityTop = C[0], mgrTop = M[0];
-  var avg = A.filter(function (a) { return a.units > 0; })
-             .sort(function (a, b) { return (b.revenue / b.units) - (a.revenue / a.units); })[0];
-  var closers = A.filter(function (a) { return a.revenue > 0; }).length;
-
-  function card(k, ic, who, v, note) {
-    return '<div class="award"><div class="ic">' + ic + '</div><div><div class="k">' + k + '</div>' +
-      '<div class="who">' + esc(who || '—') + '</div></div>' +
-      '<div><div class="v">' + (v || '') + '</div><div class="n">' + esc(note || '') + '</div></div></div>';
-  }
-  return '<div class="eyebrow">Hall of fame · ' + esc(DATA.meta.windowLabel || '') + '</div>' +
-    '<h1 class="big">TODAY\'S <span class="accent">HEROES</span></h1>' +
-    '<div class="awards" style="margin-top:24px">' +
-      card('Champion', '👑', topAgent && topAgent.name, topAgent && money(topAgent.revenue), topAgent ? joinDot(plural(topAgent.units, 'unit'), topAgent.city) : '') +
-      card('Biggest mover', '🚀', mover && mover.move > 0 ? mover.name : '—', mover && mover.move > 0 ? '▲ ' + mover.move + ' places' : 'board steady', mover && mover.move > 0 ? 'now #' + mover.rank : '') +
-      card('Unit crusher', '⚡', unit && unit.name, unit && plural(unit.units, 'unit'), unit ? money(unit.revenue) : '') +
-      card('Target hunter', '🎯', hunter && hunter.name, hunter && pct(hunter.revenue, hunter.target).toFixed(1) + '%', hunter ? 'of ' + money(hunter.target) : '') +
-      card('City champion', '🏙️', cityTop && cityTop.name, cityTop && money(cityTop.revenue), cityTop ? pct(cityTop.revenue, cityTop.target).toFixed(1) + '% of target' : '') +
-      card('Manager of the day', '🧭', mgrTop && mgrTop.name, mgrTop && money(mgrTop.revenue), mgrTop ? joinDot(mgrTop.city, plural(mgrTop.units, 'unit')) : '') +
-      card('Biggest ticket', '💎', avg && avg.name, avg && money(avg.revenue / avg.units), avg ? 'average deal value' : '') +
-      card('On the board', '🔥', closers + ' of ' + n(DATA.totals.agents), 'have closed', 'agents with at least one sale this month') +
-    '</div>';
-}
-
-/* What this agent has earned so far, straight off the ladder. */
-function payout(units) {
-  var L = CONFIG.LADDER;
-  units = n(units);
-  if (units >= L.perUnitFrom) return units * L.perUnit;
-  return n(L.steps[units]);
-}
-/* What one more close is worth right now - the number that actually moves people. */
-function nextStep(units) {
-  var u = n(units) + 1;
-  return Math.max(0, payout(u) - payout(units));
-}
-
-/* Below the first rung the payout is zero, and a big gold 0 on a wall reads
-   as broken and kills exactly the person who most needs pushing. Show them
-   the rung they are one close away from instead. */
-function earnedLine(units) {
-  var earned = payout(units);
-  if (earned > 0) {
-    return 'units &middot; <b style="color:var(--gold)">' + money(earned) + '</b> earned' +
-           ' &middot; +' + money(nextStep(units)) + ' for the next';
-  }
-  return 'units &middot; <b style="color:var(--gold)">' + money(payout(n(units) + 1)) +
-         '</b> at ' + (n(units) + 1);
-}
-
-/* The ladder, drawn from the same numbers that pay people, so the board
-   can never advertise a rung the leaderboard does not actually pay. */
-function ladderHtml() {
-  var L = CONFIG.LADDER;
-  if (!L) return '';
-  var rungs = [];
-  Object.keys(L.steps).sort(function (a, b) { return a - b; }).forEach(function (u) {
-    rungs.push({ u: u, v: money(L.steps[u]), hot: false });
   });
-  rungs.push({ u: L.perUnitFrom + '+', v: money(L.perUnit) + ' PER UNIT', hot: true });
-
-  return '<div style="margin-top:18px">' +
-    '<div style="font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:800;margin-bottom:10px">Payout ladder</div>' +
-    '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
-      rungs.map(function (r) {
-        return '<div style="flex:1;min-width:150px;border-radius:14px;padding:14px 18px;' +
-          'border:1px solid ' + (r.hot ? 'rgba(255,215,110,.6)' : 'var(--line)') + ';' +
-          'background:' + (r.hot ? 'rgba(255,215,110,.12)' : 'rgba(255,255,255,.04)') + '">' +
-          '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:34px;line-height:1">' + r.u + '</div>' +
-          '<div style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:2px">units</div>' +
-          '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:26px;margin-top:8px;color:' +
-            (r.hot ? 'var(--gold)' : 'var(--white)') + '">' + r.v + '</div>' +
-        '</div>';
-      }).join('') +
-    '</div>' +
-    (L.rules || []).map(function (t) {
-      return '<div style="font-size:17px;color:var(--muted);margin-top:10px">' + esc(t) + '</div>';
-    }).join('') +
-  '</div>';
+  b.querySelector('.bd').innerHTML = rows.join('') || empty('No city data');
 }
 
-/* ---------------------------------------------------------------------
-   THE SPOT BOARD - a contest gets its own screen, not a slot in a queue
-   --------------------------------------------------------------------- */
-
-/* How long is left. The window's last day is inclusive, so it runs to the
-   end of that day in the viewer's own timezone - which on these TVs is IST. */
-function timeLeft(C) {
-  if (!C || !C.to) return null;
-  var p = String(C.to).split('-');
-  if (p.length !== 3) return null;
-  var end = new Date(+p[0], +p[1] - 1, +p[2], 23, 59, 59);
-  var ms = end.getTime() - Date.now();
-  if (ms <= 0) return { over: true, label: 'CLOSED' };
-  var h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
-  return { over: false, hours: h,
-           label: h >= 1 ? (h + 'h ' + m + 'm') : (m + 'm'),
-           urgent: h < 6 };
-}
-
-/* Contest units folded by whatever key you hand it - city or manager. */
-function spotBy(list, key) {
-  var m = {}, i, k;
-  for (i = 0; i < list.length; i++) {
-    k = list[i][key] || 'Unassigned';
-    if (!m[k]) m[k] = { name: k, units: 0, revenue: 0, people: 0 };
-    m[k].units += n(list[i].units);
-    m[k].revenue += n(list[i].revenue);
-    m[k].people += 1;
-  }
-  var out = [];
-  for (k in m) out.push(m[k]);
-  return out.sort(function (a, b) { return b.units - a.units || b.revenue - a.revenue; });
-}
-
-function spotPot(list) {
-  return list.reduce(function (s2, a) { return s2 + payout(a.units); }, 0);
-}
-
-/* No contest running: say so plainly rather than show an empty board. */
-function scSpotClosed() {
-  return '<div class="center">' +
-    '<div class="kicker">Spot board</div>' +
-    '<div class="line">NO CONTEST <span class="accent">RUNNING</span></div>' +
-    '<div class="note">Set <b>WR_CONTEST.active</b> in war-room.gs when the next one starts. ' +
-    'The Dangal board is on <b>/warroom</b>.</div></div>';
-}
-
-/* SCREEN 1 - the offer, the count, the clock, the ladder. */
-function scSpotOffer() {
-  var C = DATA.contest;
-  if (!C || !C.active) return scSpotClosed();
-  var I = CONFIG.INITIATIVE, L = CONFIG.LADDER;
-  var list = C.agents || [];
-  var pot = spotPot(list);
-  var left = timeLeft(C);
-  var onBoard = list.filter(function (a) { return a.units > 0; }).length;
-
-  var rungs = Object.keys(L.steps).sort(function (a, b) { return a - b; }).map(function (uu) {
-    return { u: uu, v: money(L.steps[uu]), hot: false };
+function renderManagers(){
+  var b=document.getElementById('b1');
+  b.querySelector('h3').textContent='Manager Race';
+  b.querySelector('.sub').textContent='% of own target, not rupees';
+  /* Managers with no target cannot be in a target race at all. They are
+     listed after the race rather than dropped, so nobody vanishes from the
+     wall, but they are not ranked against people who have one. */
+  var withT=DATA.managers.filter(function(m){return m.target>0;});
+  var noT  =DATA.managers.filter(function(m){return !(m.target>0);});
+  var rows=withT.map(function(m,i){
+    var p=attain(m);
+    return rowHTML(i+1, m.name, joinDot(m.city, m.team, m.agents+' agents'),
+                   p, p.toFixed(1)+'%', money(m.revenue), true);
   });
-  rungs.push({ u: L.perUnitFrom + '+', v: money(L.perUnit) + ' EACH', hot: true });
-
-  return '' +
-  '<div class="eyebrow" style="color:var(--gold)">Running now &middot; ' + esc(I.period) + '</div>' +
-  '<h1 class="big" style="font-size:88px;color:var(--gold)">' + esc(C.name) + '</h1>' +
-  '<div class="sub" style="font-size:23px;margin-top:6px">' + esc(I.detail) + '</div>' +
-  /* State the counting rule on the board, taken from the feed's own
-     setting rather than typed in beside it. A contest that pays money
-     should not leave anyone working out on Monday what counted. */
-  '<div style="font-size:19px;color:var(--gold);margin-top:6px">' +
-    (C.countMode === 'payments'
-      ? 'Every payment landing in the window counts as one.'
-      : 'First payment or full payment counts as one. Balances on earlier sales do not.') +
-  '</div>' +
-
-  /* The three numbers anyone actually looks up for get the height. The
-     ladder is a reference strip underneath, not the main event. */
-  '<div class="statrow spotstats" style="margin-top:24px;flex:1;min-height:0">' +
-    '<div class="stat hero" style="flex:1.4"><div class="lbl">Units on the board</div>' +
-      '<div class="val" style="font-size:196px;line-height:.95" data-count="' + n(C.totalUnits) + '" data-fmt="int">0</div></div>' +
-    '<div class="stat"><div class="lbl">Earned so far</div>' +
-      '<div class="val" style="color:var(--gold);font-size:88px">' + money(pot) + '</div>' +
-      '<div class="foot" style="font-size:17px">' + onBoard + ' agent' + (onBoard === 1 ? '' : 's') + ' on the board</div></div>' +
-    '<div class="stat"' + (left && left.urgent ? ' style="border-color:rgba(255,107,138,.55);background:rgba(255,107,138,.10)"' : '') + '>' +
-      '<div class="lbl">' + (left && left.over ? 'Window' : 'Time left') + '</div>' +
-      '<div class="val" style="font-size:88px' + (left && left.urgent ? ';color:var(--rose)' : '') + '">' +
-        (left ? left.label : '-') + '</div>' +
-      '<div class="foot" style="font-size:17px">closes ' + esc(C.to) + '</div></div>' +
-  '</div>' +
-
-  '<div class="eyebrow" style="margin:20px 0 10px">Payout ladder &middot; no cap</div>' +
-  '<div style="display:flex;gap:14px;flex:none;height:168px">' +
-    rungs.map(function (r) {
-      return '<div style="flex:1;border-radius:18px;padding:18px 22px;display:flex;flex-direction:column;justify-content:center;' +
-        'border:1px solid ' + (r.hot ? 'rgba(255,215,110,.6)' : 'var(--line)') + ';' +
-        'background:' + (r.hot ? 'rgba(255,215,110,.12)' : 'rgba(255,255,255,.04)') + '">' +
-        '<div style="display:flex;align-items:baseline;gap:10px">' +
-          '<span style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:50px;line-height:1">' + r.u + '</span>' +
-          '<span style="font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:3px">units</span>' +
-        '</div>' +
-        '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:38px;margin-top:10px;color:' +
-          (r.hot ? 'var(--gold)' : 'var(--white)') + '">' + r.v + '</div>' +
-      '</div>';
-    }).join('') +
-  '</div>' +
-  '<div style="font-size:16px;color:var(--muted);margin-top:12px">' +
-    (L.rules || []).map(esc).join(' &nbsp;&middot;&nbsp; ') + '</div>';
+  noT.forEach(function(m){
+    rows.push('<div class="row" style="opacity:.55"><div class="rk">—</div>'+
+      '<div class="who"><b>'+esc(m.name)+'</b><span>'+esc(joinDot(m.city,m.agents+' agents'))+
+      ' · no target set</span></div><div class="bar"></div>'+
+      '<div class="fig"><b>'+money(m.revenue)+'</b><span>'+m.units+' units</span></div></div>');
+  });
+  b.querySelector('.bd').innerHTML = rows.join('') || empty('No manager data');
 }
 
-/* SCREEN 2 - who is on it. */
-function scSpotBoard() {
-  var C = DATA.contest;
-  if (!C || !C.active) return scSpotClosed();
-  var list = C.agents || [];
-  var left = timeLeft(C);
-
-  if (!list.length) {
-    return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) + '</div>' +
-      '<div class="center"><div class="kicker">The board is open</div>' +
-      '<div class="line">FIRST <span class="accent">UNIT</span> TAKES IT</div>' +
-      '<div class="note">Nobody has closed yet.' +
-      (left && !left.over ? ' ' + left.label + ' left.' : '') + '</div></div>';
-  }
-
-  var pods = list.slice(0, 3).map(function (x, i) {
-    return '<div class="pod ' + ['gold', 'silver', 'bronze'][i] + '">' +
-      '<div class="medal">' + medal(i) + '</div>' +
-      '<div class="nm">' + esc(x.name) + '</div>' +
-      '<div class="meta">' + esc(joinDot(x.manager, x.city)) + '</div>' +
-      '<div class="rev" style="font-size:78px">' + x.units + '</div>' +
-      '<div class="u" style="font-size:19px">' + earnedLine(x.units) + '</div>' +
-      '</div>';
-  }).join('');
-
-  var rows = list.slice(3).map(function (x, i) {
-    return '<div class="row" style="grid-template-columns:64px 1fr 180px 140px 90px 170px">' +
-      '<div class="rk">' + (i + 4) + '</div>' +
-      '<div class="nm2"><span class="tx">' + esc(x.name) + '</span></div>' +
-      '<div class="meta2">' + esc(x.manager) + '</div>' +
-      '<div class="meta2">' + esc(x.city) + '</div>' +
-      '<div class="num">' + x.units + '</div>' +
-      (payout(x.units) > 0
-        ? '<div class="num" style="color:var(--gold)">' + money(payout(x.units)) + '</div>'
-        : '<div class="meta2" style="text-align:right;font-size:15px">' +
-            money(payout(x.units + 1)) + ' at ' + (x.units + 1) + '</div>') +
-      '</div>';
-  }).join('');
-
-  return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) +
-      (left && !left.over ? ' &middot; ' + left.label + ' left' : '') + '</div>' +
-    '<h1 class="big">WHO IS <span class="accent">CLOSING</span></h1>' +
-    '<div class="podium" style="margin-top:20px">' + pods + '</div>' +
-    '<div class="lb" style="margin-top:16px">' + rows + '</div>';
+/* Peer groups: a Bangalore India agent is compared with Bangalore India
+   agents and nobody else. India and International sell at different prices,
+   so a mixed table ranks the price list, not the people. */
+function peerGroups(){
+  var g={};
+  DATA.agents.forEach(function(a){
+    var city=a.city||'Unassigned', team=a.team||'All';
+    var key=city+' · '+team;
+    if(!g[key]) g[key]={key:key, city:city, team:team, list:[]};
+    g[key].list.push(a);
+  });
+  var out=[];
+  for(var k in g){ if(g[k].list.length>=2) out.push(g[k]); }
+  out.sort(function(x,y){ return x.key<y.key?-1:1; });
+  return out;
 }
 
-/* SCREEN 3 - where the units are coming from. */
-function scSpotSplit() {
-  var C = DATA.contest;
-  if (!C || !C.active) return scSpotClosed();
-  var list = C.agents || [];
-  var byCity = spotBy(list, 'city'), byMgr = spotBy(list, 'manager');
-  var top = Math.max(1, byCity.length ? byCity[0].units : 1);
-  var topM = Math.max(1, byMgr.length ? byMgr[0].units : 1);
-
-  function bars(items, max) {
-    if (!items.length) return '<div class="note" style="font-size:20px">Nothing yet.</div>';
-    return items.slice(0, 7).map(function (x) {
-      return '<div>' +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">' +
-          '<span style="font-size:25px;font-weight:700">' + esc(x.name) + '</span>' +
-          '<span><span style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:30px">' + x.units + '</span>' +
-          '<span style="font-size:15px;color:var(--muted)"> units &middot; ' + money(spotPot([x])) + '</span></span>' +
-        '</div>' +
-        '<div class="bar"><i data-w="' + Math.round(x.units / max * 100) + '"></i></div>' +
-      '</div>';
-    }).join('');
-  }
-
-  return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) + ' &middot; where it is coming from</div>' +
-    '<h1 class="big">THE <span class="accent">SPLIT</span></h1>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;margin-top:26px;flex:1;min-height:0">' +
-      '<div class="barwrap"><div class="eyebrow">By city</div>' +
-        '<div class="barcol">' + bars(byCity, top) + '</div></div>' +
-      '<div class="barwrap"><div class="eyebrow">By manager</div>' +
-        '<div class="barcol">' + bars(byMgr, topM) + '</div></div>' +
-    '</div>';
+function renderAgents(){
+  var b=document.getElementById('b2');
+  var groups=peerGroups();
+  if(!groups.length){ b.querySelector('h3').textContent='Agent Arena';
+    b.querySelector('.sub').textContent='';
+    b.querySelector('.bd').innerHTML=empty('Not enough agents to compare'); return; }
+  var g=groups[peerIdx % groups.length];
+  b.querySelector('h3').textContent=g.city+' — '+g.team;
+  b.querySelector('.sub').textContent='within this desk only · '+
+    ((peerIdx%groups.length)+1)+' of '+groups.length;
+  var list=g.list.slice().sort(byAttain);
+  var anyT=list.some(function(a){return a.target>0;});
+  var top=list[0] ? (list[0].revenue||1) : 1;
+  var rows=list.slice(0,9).map(function(a,i){
+    var has=a.target>0, p=has?attain(a):pct(a.revenue,top);
+    return rowHTML(i+1, a.name, joinDot(a.manager, a.units+' units'),
+                   p, has?p.toFixed(0)+'%':money(a.revenue),
+                   has?money(a.revenue):(a.units+' units'), true, a.move);
+  });
+  if(!anyT) b.querySelector('.sub').textContent += ' · no targets set, shown against desk leader';
+  b.querySelector('.bd').innerHTML = rows.join('');
 }
 
-function scContest() {
-  var C = DATA.contest;
-  if (!C || !C.active) return scAgents();
-  var list = C.agents || [];
-  var pot = list.reduce(function (s2, a) { return s2 + payout(a.units); }, 0);
+function renderPace(){
+  var bl=document.getElementById('b3');
+  var t=DATA.totals, m=DATA.meta||{};
+  bl.querySelector('h3').textContent='Pace & Momentum';
+  bl.querySelector('.sub').textContent='where the month lands if nothing changes';
+  var day=n(m.day), days=n(m.days)||30, left=Math.max(0,days-day);
+  var run = day>0 ? t.revenue/day : 0;
+  var proj= run*days;
+  var gap = t.target - t.revenue;
+  var need= left>0 ? gap/left : gap;
+  var p=pct(t.revenue,t.target), e=expectedPct();
 
-  var pods = list.slice(0, 3).map(function (x, i) {
-    return '<div class="pod ' + ['gold', 'silver', 'bronze'][i] + '">' +
-      '<div class="medal">' + medal(i) + '</div>' +
-      '<div class="nm">' + esc(x.name) + '</div>' +
-      '<div class="meta">' + esc(joinDot(x.manager, x.city)) + '</div>' +
-      '<div class="rev" style="font-size:66px">' + x.units + '</div>' +
-      '<div class="u" style="font-size:18px">' + earnedLine(x.units) + '</div>' +
-      '</div>';
-  }).join('') ||
-    '<div class="pod" style="grid-column:1/-1"><div class="nm">NOBODY HAS OPENED THE BOARD YET</div>' +
-    '<div class="meta" style="margin-top:8px">First unit takes the top spot.</div></div>';
+  var cards=[
+    card('Days left', left+' of '+days, day+' done'),
+    card('Run rate', money(run)+'/day', 'need '+money(Math.max(0,need))+'/day'),
+    card('Projected', money(proj), proj>=t.target?'clears target':'short by '+money(Math.max(0,t.target-proj))),
+    card('Against pace', (p-e>=0?'+':'')+(p-e).toFixed(1)+' pts', 'at '+p.toFixed(1)+'%, pace '+e.toFixed(0)+'%',
+         p-e>=0?'ahead':'behind')
+  ].join('');
 
-  var rows = list.slice(3).map(function (x, i) {
-    return '<div class="row" style="grid-template-columns:64px 1fr 170px 130px 90px 150px">' +
-      '<div class="rk">' + (i + 4) + '</div>' +
-      '<div class="nm2"><span class="tx">' + esc(x.name) + '</span></div>' +
-      '<div class="meta2">' + esc(x.manager) + '</div>' +
-      '<div class="meta2">' + esc(x.city) + '</div>' +
-      '<div class="num">' + x.units + '</div>' +
-      (payout(x.units) > 0
-        ? '<div class="num" style="color:var(--gold)">' + money(payout(x.units)) + '</div>'
-        : '<div class="meta2" style="text-align:right;font-size:15px">' +
-            money(payout(x.units + 1)) + ' at ' + (x.units + 1) + '</div>') +
-      '</div>';
+  /* Each city projected on its own run rate. The company number hides
+     which desk is actually going to miss, and that is the only part of a
+     pace panel anyone can act on. */
+  var cityRows=DATA.cities.map(function(c){
+    var cp=attain(c), cproj=day>0?(c.revenue/day)*days:0;
+    var ok=cproj>=c.target;
+    return '<div class="kid" style="padding:4px 0">'+
+      '<div class="kn">'+esc(c.name)+'</div>'+
+      '<div class="kb">'+(c.target>0?barHTML(cp):'')+'</div>'+
+      '<div class="kv '+paceClass(cp)+'">'+(c.target>0?cp.toFixed(0)+'%':'-')+'</div>'+
+      '<div class="kr" style="width:112px;color:'+(ok?'var(--mint)':'var(--rose)')+'">'+
+        (c.target>0 ? (ok?'clears':'short '+money(Math.max(0,c.target-cproj))) : '')+'</div></div>';
   }).join('');
 
-  var warn = C.programmeColumnMissing
-    ? '<div style="font-size:15px;color:var(--rose);margin-top:10px">Counting every unit - ' +
-      'the model has no programme column, so the Accelerator-only rule is being judged by hand.</div>'
+  /* Framed as a number to chase, not a wall of shame. Anyone at the bottom
+     of a leaderboard already knows they are there; what they cannot see is
+     how much would move them. */
+  var behind=DATA.agents.filter(function(a){return a.target>0 && attain(a) < e-10;})
+                        .sort(function(x,y){return attain(x)-attain(y);}).slice(0,4);
+  var push = behind.length
+    ? '<div class="pushlist" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
+      '<div class="pl-h">Biggest gap to close</div>'+
+      behind.map(function(a){
+        return '<div class="pl-r"><b>'+esc(a.name)+'</b>'+
+          '<span class="pl-m">'+esc(joinDot(a.city,a.manager))+'</span>'+
+          '<span class="pl-v">'+money(Math.max(0,a.target-a.revenue))+' to go</span></div>';
+      }).join('')+'</div>'
     : '';
 
-  return '<div class="eyebrow" style="color:var(--gold)">' + esc(C.name) + ' &middot; ' +
-      esc(CONFIG.INITIATIVE.period) + '</div>' +
-    '<div style="display:flex;align-items:baseline;gap:36px">' +
-      '<h1 class="big">UNITS <span class="accent">ON THE BOARD</span></h1>' +
-      '<div style="font-family:Anton,Archivo Black,Impact,sans-serif;font-size:112px;line-height:1;color:var(--gold)"' +
-        ' data-count="' + n(C.totalUnits) + '" data-fmt="int">0</div>' +
-      '<div style="font-size:20px;color:var(--muted)">' + money(pot) + ' earned so far</div>' +
-    '</div>' + warn +
-    '<div class="podium" style="margin-top:18px">' + pods + '</div>' +
-    '<div class="lb" style="margin-top:14px">' + rows + '</div>';
+  bl.querySelector('.bd').innerHTML=
+    '<div class="pacegrid">'+cards+'</div>'+
+    sparkHTML()+
+    '<div class="citypace"><div class="pl-h">Each city on its own run rate</div>'+cityRows+'</div>'+
+    push;
 }
 
-function scInitiative() {
-  var I = CONFIG.INITIATIVE;
-  var prog = I.goalRevenue > 0 ? Math.min(100, pct(DATA.totals.revenue, I.goalRevenue)) : null;
-  return '<div class="eyebrow">Running now</div>' +
-    '<div class="offer">' +
-      '<div class="t">🔥 ' + esc(I.title) + '</div>' +
-      '<div class="d">' + esc(I.detail) + '</div>' +
-      '<div class="grid">' +
-        '<div class="cell"><div class="k">Who</div><div class="v">' + esc(I.eligibility) + '</div></div>' +
-        '<div class="cell"><div class="k">When</div><div class="v">' + esc(I.period) + '</div></div>' +
-        '<div class="cell"><div class="k">Reward</div><div class="v">' + esc(I.reward) + '</div></div>' +
-      '</div>' +
-      (prog == null ? '' :
-        '<div style="margin-top:16px"><div class="bar gold"><i data-w="' + prog + '"></i></div>' +
-        '<div style="font-size:20px;color:var(--muted);margin-top:10px">' + money(DATA.totals.revenue) + ' of ' + money(I.goalRevenue) + ' · ' + prog.toFixed(1) + '%</div></div>') +
-      ladderHtml() +
-    '</div>';
+/* DAY BY DAY. A month-to-date total reads the same whether it arrived
+   steadily or all in one week, which is the difference between a team that
+   is fine and one that is about to miss. The best day is marked so there is
+   something to beat, and today is marked so it can be seen being beaten. */
+function sparkHTML(){
+  var days=DATA.byDay||[];
+  if(days.length<2) return '';
+  var max=0, best=-1;
+  days.forEach(function(x,i){ if(x.rev>max){ max=x.rev; best=i; } });
+  if(max<=0) return '';
+  var todayNo=n((DATA.meta||{}).day);
+  var bars=days.map(function(x,i){
+    var h=Math.max(0,Math.round(x.rev/max*100));
+    var cls = x.rev<=0 ? 'zero' : (i===best ? 'best' : (x.d===todayNo ? 'today' : ''));
+    var lab = (x.d===1||x.d%5===0||x.d===todayNo) ? x.d : '';
+    return '<div class="bar '+cls+'" title="'+x.d+': '+money(x.rev)+'">'+
+             '<i style="height:'+(x.rev<=0?2:h)+'%"></i>'+
+             (lab?'<b>'+lab+'</b>':'')+'</div>';
+  }).join('');
+  return '<div class="sparkwrap"><div class="pl-h">Revenue by day'+
+         (best>=0?' &middot; best was day '+days[best].d+' at '+money(max):'')+
+         '</div><div class="spark">'+bars+'</div></div>';
 }
 
-/* creative interstitials, generated from the real numbers */
-function scInterstitial() {
-  var cards = [], C = DATA.cities, A = DATA.agents, M = DATA.managers, T = DATA.totals;
-
-  var avgDeal = n(T.units) > 0 ? n(T.revenue) / n(T.units) : 0;
-  if (C.length > 1 && C[0].revenue > C[1].revenue) {
-    var gap = C[0].revenue - C[1].revenue;
-    cards.push({ k: 'City battle',
-                 line: esc(C[0].name) + ' leads ' + esc(C[1].name) + ' by <span class="accent">' + money(gap) + '</span>',
-                 note: avgDeal > 0
-                   ? 'About ' + Math.max(1, Math.ceil(gap / avgDeal)) + ' closes would put ' + esc(C[1].name) + ' back on top.'
-                   : esc(C[1].name) + ' is one good day from closing that.' });
-  }
-  var next = CONFIG.MILESTONES.filter(function (m) { return m > n(T.revenue); })[0];
-  if (next) cards.push({ k: 'Next milestone', line: '<span class="accent">' + money(next - T.revenue) + '</span> to cross ' + money(next),
-                         note: 'Company is at ' + money(T.revenue) + ' with ' + (n(DATA.meta.days) - n(DATA.meta.day)) + ' days left.' });
-  if (A.length > 3) cards.push({ k: 'The chase', line: esc(A[1].name) + ' is <span class="accent">' + money(A[0].revenue - A[1].revenue) + '</span> from #1',
-                                 note: 'One good close changes the top of the board.' });
-  if (A.length) cards.push({ k: 'Call to action', line: 'WHO TAKES <span class="accent">#1</span> NEXT?',
-                             note: 'Current leader ' + esc(A[0].name) + ' at ' + money(A[0].revenue) + '.' });
-  if (M.length > 1) cards.push({ k: 'Manager race', line: esc(M[1].name) + ' is <span class="accent">' + money(M[0].revenue - M[1].revenue) + '</span> behind ' + esc(M[0].name),
-                                 note: 'The manager board can flip today.' });
-  var rate = n(T.units) && n(DATA.meta.day) ? (n(T.units) / n(DATA.meta.day)) : 0;
-  if (rate) cards.push({ k: 'Fun fact', line: 'The floor is closing <span class="accent">' + rate.toFixed(1) + ' units</span> a day',
-                         note: 'At this pace September lands near ' + money(T.revenue / Math.max(1, n(DATA.meta.day)) * n(DATA.meta.days)) + '.' });
-  cards.push({ k: 'Sales wisdom', line: 'THE SALE IS <span class="accent">NEVER</span> LOST ON PRICE.',
-               note: 'It is lost on the conversation before it.' });
-  cards.push({ k: 'Sales wisdom', line: 'EVERY <span class="accent">NO</span> IS DATA. EVERY YES IS PROOF.',
-               note: 'Keep dialling.' });
-
-  var c = cards[((interIdx % cards.length) + cards.length) % cards.length];
-  return '<div class="center">' +
-    '<div class="kicker">' + esc(c.k) + '</div>' +
-    '<div class="line">' + c.line + '</div>' +
-    '<div class="note">' + c.note + '</div>' +
-  '</div>';
+function card(k,v,note,cl){
+  return '<div class="pcard"><div class="k">'+esc(k)+'</div>'+
+    '<div class="v '+(cl||'')+'">'+esc(v)+'</div><div class="n">'+esc(note)+'</div></div>';
+}
+function empty(msg){
+  return '<div style="display:flex;align-items:center;justify-content:center;height:100%;'+
+         'color:var(--dim);font-size:19px">'+esc(msg)+'</div>';
 }
 
 /* =====================================================================
-   ROTATION ENGINE
+   SAMPLE - only ever behind ?demo=1, never a fallback for a live board
    ===================================================================== */
-function activeScreens() {
-  return CONFIG.SCREENS.filter(function (s) {
-    if (s === 'initiative') return CONFIG.INITIATIVE && CONFIG.INITIATIVE.active;
-    if (s.indexOf('city:') === 0) {
-      var nm = s.slice(5);
-      return DATA && DATA.cities.some(function (c) { return c.name === nm; });
-    }
-    if (s === 'teams') return DATA && DATA.teams.length > 1;
-    if (s === 'contest') return !!(DATA && DATA.contest && DATA.contest.active);
-    /* The spot screens stay in rotation even with no contest running - one of
-       them then says so, which beats a board that silently shows nothing. */
-    if (s.indexOf('spot') === 0) return true;
-    return true;
-  });
-}
-
-function buildScreen(key) {
-  if (key === 'spotoffer') return { name: 'The offer', html: scSpotOffer() };
-  if (key === 'spotboard') return { name: 'Live board', html: scSpotBoard() };
-  if (key === 'spotsplit') return { name: 'The split', html: scSpotSplit() };
-  if (key === 'contest') return { name: (DATA.contest && DATA.contest.name) || 'Contest', html: scContest() };
-  if (key === 'overall') return { name: 'Company championship', html: scOverall() };
-  if (key.indexOf('city:') === 0) { var c = key.slice(5); return { name: c + ' leaderboard', html: scCity(c) }; }
-  if (key === 'managers') return { name: 'Manager leaderboard', html: scManagers() };
-  if (key === 'agents') return { name: 'Agent leaderboard', html: scAgents() };
-  if (key === 'teams') return { name: 'India vs International', html: scTeams() };
-  if (key === 'targetbattle') return { name: 'Target battle', html: scTargetBattle() };
-  if (key === 'awards') return { name: 'Hall of fame', html: scAwards() };
-  if (key === 'initiative') return { name: 'Current initiative', html: scInitiative() };
-  if (key === 'interstitial') return { name: '', html: scInterstitial() };
-  return { name: '', html: '<div class="center"><div class="line sm">—</div></div>' };
-}
-
-function render() {
-  if (!DATA) return;
-  var list = activeScreens();
-  if (!list.length) return;
-  var pos = ((screenIdx % list.length) + list.length) % list.length;   // safe for negatives
-  var key = list[pos];
-  var built = buildScreen(key);
-
-  var host = document.getElementById('screens');
-  host.innerHTML = '';
-  var sc = document.createElement('div');
-  sc.className = 'screen';
-  sc.innerHTML = built.html;
-  host.appendChild(sc);
-  // force reflow then reveal, so the transition actually plays
-  void sc.offsetWidth;
-  sc.classList.add('on');
-
-  autofit(sc);
-  if (key === 'agents') relabel(sc);
-
-  /* Stagger the arrival. Done here rather than in CSS nth-child so it
-     covers every screen whatever it is made of, and caps out so a long
-     board does not take two seconds to finish appearing. */
-  var seq = sc.querySelectorAll('.pod, .row, .award, .stat');
-  for (var q = 0; q < seq.length; q++) {
-    seq[q].style.animationDelay = Math.min(q * 45, 520) + 'ms';
-  }
-
-  document.getElementById('screenname').textContent = built.name || '';
-  paintDots(list.length, pos);
-
-  // animate bars + count-ups now that the nodes are in the DOM
-  requestAnimationFrame(function () {
-    sc.querySelectorAll('.bar > i').forEach(function (b) { b.style.width = (b.getAttribute('data-w') || 0) + '%'; });
-    sc.querySelectorAll('[data-count]').forEach(function (node) {
-      var to = Number(node.getAttribute('data-count')) || 0, f = node.getAttribute('data-fmt');
-      var fmt = f === 'money' ? money : f === 'pct1' ? function (v) { return v.toFixed(1) + '%'; }
-              : f === 'int' ? function (v) { return Math.round(v).toLocaleString('en-IN'); } : money;
-      countUp(node, to, fmt, 1000);
-    });
-  });
-}
-
-/* A TV must never scroll and must never clip. Leaderboards are the only
-   thing whose length we do not control - 9 managers today, 14 next quarter.
-   So after laying a screen out, drop rows off the bottom until it fits and
-   say how many were dropped. Nothing is ever silently cut off screen. */
-function autofit(sc) {
-  var lb = sc.querySelector('.lb');
-  if (!lb) return;
-  function over() {
-    return (lb.scrollHeight > lb.clientHeight + 1) || (sc.scrollHeight > sc.clientHeight + 1);
-  }
-  var dropped = 0, guard = 0;
-  while (over() && lb.children.length > 1 && guard++ < 300) {
-    lb.removeChild(lb.lastElementChild); dropped++;
-  }
-  // A paged board says which ranks it is showing, so it needs no "+N more".
-  if (lb.hasAttribute('data-relabel')) return;
-  if (!dropped) return;
-
-  // one more row buys the space for the "+N more" line
-  if (lb.children.length > 1) { lb.removeChild(lb.lastElementChild); dropped++; }
-  var more = document.createElement('div');
-  more.className = 'more';
-  more.textContent = '+ ' + dropped + ' more not shown';
-  lb.appendChild(more);
-  while (over() && lb.children.length > 2 && guard++ < 300) {
-    lb.removeChild(lb.children[lb.children.length - 2]); dropped++;
-    more.textContent = '+ ' + dropped + ' more not shown';
-  }
-}
-
-/* After trimming, say exactly which ranks survived. The header must never
-   promise a name that is not on the screen. */
-function relabel(sc) {
-  var lb = sc.querySelector('.lb[data-relabel]');
-  var lab = sc.querySelector('#lbLabel');
-  var rows = lb ? lb.querySelectorAll('.row[data-rank]') : [];
-  agentShown = rows.length;
-  if (!lb || !lab || !rows.length) return;
-  lab.textContent = lb.getAttribute('data-relabel')
-    .replace('{from}', rows[0].getAttribute('data-rank'))
-    .replace('{to}', rows[rows.length - 1].getAttribute('data-rank'));
-}
-
-function paintDots(total, idx) {
-  var d = document.getElementById('dots');
-  if (d.children.length !== total) {
-    d.innerHTML = ''; for (var i = 0; i < total; i++) d.appendChild(document.createElement('i'));
-  }
-  for (var j = 0; j < d.children.length; j++) d.children[j].className = (j === idx ? 'on' : '');
-}
-
-function next() { screenIdx++; show(); }
-
-/* show = paint the current screen and schedule the one after it.
-   Kept separate from next() so boot can display screen 0 rather than
-   skipping straight past it. */
-function show() {
-  var list = activeScreens();
-  var key = list[((screenIdx % list.length) + list.length) % list.length];
-
-  /* Advance the paged screens once per arrival. A data refresh repaints the
-     same screen and must NOT flip the page under the floor's eyes. */
-  if (key === 'agents' && agentShown > 0) {
-    agentFrom += agentShown;
-    if (agentFrom >= agentTotal) agentFrom = 0;   // back to the top of the list
-  }
-  if (key === 'interstitial') interIdx++;
-
-  render();
-  var secs = (key === 'interstitial') ? CONFIG.INTERSTITIAL_SECONDS : CONFIG.ROTATE_SECONDS;
-  runProgress(secs);
-  clearTimeout(rotTimer);
-  rotTimer = setTimeout(next, secs * 1000);
-}
-
-function runProgress(secs) {
-  var bar = document.getElementById('progress');
-  clearInterval(progTimer);
-  var t0 = Date.now();
-  bar.style.width = '0%';
-  progTimer = setInterval(function () {
-    var p = Math.min(100, ((Date.now() - t0) / (secs * 1000)) * 100);
-    bar.style.width = p + '%';
-    if (p >= 100) clearInterval(progTimer);
-  }, 100);
-}
+var SAMPLE={ ok:true, sample:true,
+  meta:{month:'September 2026', windowLabel:'MTD 1-15', day:15, days:30, generatedAt:Date.now()},
+  totals:{revenue:10211000, units:110, target:52675000},
+  cities:[{name:'Bangalore',revenue:5305000,units:41,target:15800000,agents:20},
+          {name:'Hyderabad',revenue:3280000,units:46,target:19600000,agents:42},
+          {name:'Bhubaneswar',revenue:1625000,units:23,target:17200000,agents:28}],
+  managers:[{name:'Deepika M',city:'Bangalore',team:'International',revenue:3505000,units:14,target:8250000,agents:7},
+            {name:'Saeed',city:'Hyderabad',team:'International',revenue:2395000,units:18,target:14000000,agents:12},
+            {name:'Shahrukh',city:'Bangalore',team:'India',revenue:1107000,units:9,target:3400000,agents:6},
+            {name:'Vaibhav Tiwari',city:'Bhubaneswar',team:'India/Intl',revenue:992000,units:12,target:11300000,agents:15},
+            {name:'Spurthi',city:'Hyderabad',team:'India',revenue:885000,units:15,target:5625000,agents:13},
+            {name:'Ranjeet',city:'Bangalore',team:'India',revenue:692000,units:8,target:4200000,agents:7},
+            {name:'Abhishek Anand',city:'Bhubaneswar',team:'India',revenue:633000,units:11,target:5900000,agents:13}],
+  agents:[{name:'Kshitij',manager:'Deepika M',city:'Bangalore',team:'International',revenue:2003000,units:12,target:900000},
+          {name:'Dhanush Kirthi',manager:'Deepika M',city:'Bangalore',team:'International',revenue:760000,units:2,target:900000},
+          {name:'Sarthak Thakur',manager:'Deepika M',city:'Bangalore',team:'International',revenue:487000,units:6,target:900000},
+          {name:'Gowtham C',manager:'Saeed',city:'Hyderabad',team:'International',revenue:477000,units:4,target:800000},
+          {name:'Arun Kumar Madhavuni',manager:'Saeed',city:'Hyderabad',team:'International',revenue:430000,units:3,target:800000},
+          {name:'Alisha Khan',manager:'Saeed',city:'Hyderabad',team:'International',revenue:356000,units:5,target:800000},
+          {name:'Shahrukh',manager:'Shahrukh',city:'Bangalore',team:'India',revenue:537000,units:3,target:600000},
+          {name:'Swarnim Shahi',manager:'Shahrukh',city:'Bangalore',team:'India',revenue:242000,units:2,target:600000},
+          {name:'Anmol bharadwaj',manager:'Ranjeet',city:'Bangalore',team:'India',revenue:120000,units:1,target:600000},
+          {name:'Subhrajit Mohapatra',manager:'Vaibhav Tiwari',city:'Bhubaneswar',team:'India',revenue:346000,units:1,target:700000},
+          {name:'Satyam Aditya Samant',manager:'Abhishek Anand',city:'Bhubaneswar',team:'India',revenue:47025,units:1,target:700000}],
+  recent:[{name:'Kshitij',amt:150000,city:'Bangalore',team:'International',manager:'Deepika M',at:Date.now()-900000},
+          {name:'Alisha Khan',amt:94999,city:'Hyderabad',team:'International',manager:'Saeed',at:Date.now()-3600000},
+          {name:'Shahrukh',amt:85000,city:'Bangalore',team:'India',manager:'Shahrukh',at:Date.now()-7200000},
+          {name:'Sarthak Thakur',amt:73500,city:'Bangalore',team:'International',manager:'Deepika M',at:Date.now()-10800000}],
+  contest:{active:false} };
 
 /* =====================================================================
    BOOT
    ===================================================================== */
-/* Say which of the two boards this screen is, so nobody has to guess. */
-document.getElementById('boardName').textContent =
-  (BOARD === 'spot') ? 'Dangal - Spot Offer' : 'Sales Dangal';
-
 fit();
-if (Q.get('demo') === '1') {
-  /* Layout preview only, for checking a TV before the feed exists.
-     Never reached in normal use - a board with no feed says so instead. */
-  applyData(SAMPLE, true);
-  screenIdx = 0;
-  show();
-} else {
-  stateScreen(CONFIG.API_URL ? 'unreachable' : 'not-configured');
-}
-loadData();
-setInterval(loadData, Math.max(10, CONFIG.REFRESH_SECONDS) * 1000);
+if(CONFIG.DEMO){ applyData(SAMPLE); }
+else { loadData(); setInterval(loadData, Math.max(10,CONFIG.REFRESH_SECONDS)*1000); }
+setInterval(paintLive, 1000);
 
-/* A long-running TV tab can have its timers throttled when backgrounded.
-   When it becomes visible again, re-sync immediately rather than waiting. */
-/* The fullscreen button only exists for the person setting the TV up. */
-var fsHide = null;
-document.addEventListener('mousemove', function () {
-  var b = document.getElementById('fsbtn');
-  b.className = 'show';
-  clearTimeout(fsHide);
-  fsHide = setTimeout(function () { b.className = ''; }, 3000);
-});
-
-document.addEventListener('visibilitychange', function () {
-  if (!document.hidden) { loadData(); fit(); }
-});
-
-/* Belt and braces for 24/7: a nightly reload clears any browser cruft. */
-setInterval(function () {
-  var h = new Date().getHours(), m = new Date().getMinutes();
-  if (h === 4 && m === 0) location.reload();
+/* A browser left running for months accumulates cruft. One reload at 4am,
+   when nobody is looking, clears it. */
+setInterval(function(){
+  var d=new Date();
+  if(d.getHours()===4 && d.getMinutes()===0) location.reload();
 }, 60000);
 </script>
-</body>
-</html>

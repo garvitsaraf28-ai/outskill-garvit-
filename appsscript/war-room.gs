@@ -440,8 +440,9 @@ function wr_build_(monthKey) {
       latestPayment: pay.latestDay ? wr_dayNumToISO_(pay.latestDay) : '',
       today: Utilities.formatDate(now, WR_TZ, 'yyyy-MM-dd')
     },
-    /* revenue and units for each day of the month so far */
-    byDay: wr_byDay_(pay, day, isCurrentMonth ? day : days),
+    /* revenue and units for each day of the month so far, roster agents
+       only, so the chart and the headline agree */
+    byDay: wr_byDay_(pay, roster, isCurrentMonth ? day : days),
     /* The headline is the ROSTER total, because that is what the Management
        Report calls "Total revenue" and what leadership quotes. Everything
        below adds up to it exactly: cities, managers and agents all sum to
@@ -802,10 +803,17 @@ function wr_payments_(ss, monthKey) {
          reads the same whether it arrived steadily or all in one week. The
          per-day series is what turns a number into a trend, and it is free
          here because the rows are already in hand. */
+      /* Kept PER AGENT, not just per day. wr_payments_ does not know the
+         roster, and the headline counts roster agents only - so a flat
+         per-day total would include the other teams' money and the chart
+         would contradict the number above it. It did: one day read 2.82 cr
+         against a month total of 1.18 cr. wr_build_ folds this down once
+         it knows who is on the roster. */
       var dayNo = d.getDate();
-      if (!out.byDay[dayNo]) out.byDay[dayNo] = { rev: 0, units: 0 };
-      out.byDay[dayNo].rev += amt;
-      if (isUnit) out.byDay[dayNo].units += 1;
+      if (!out.byDay[dayNo]) out.byDay[dayNo] = {};
+      if (!out.byDay[dayNo][key]) out.byDay[dayNo][key] = { rev: 0, units: 0 };
+      out.byDay[dayNo][key].rev += amt;
+      if (isUnit) out.byDay[dayNo][key].units += 1;
       var dn = wr_dayNumOf_(d);
       if (dn > out.latestDay) out.latestDay = dn;
 
@@ -864,12 +872,21 @@ function wr_dayNumToISO_(dn) {
 }
 
 /* A dense array, one entry per day up to today, so a day with no sales is
-   a visible gap rather than a missing bar. */
-function wr_byDay_(pay, today, upTo) {
+   a visible gap rather than a missing bar.
+
+   Only roster agents count, matching the headline exactly. Everything on
+   this board sums to the same total; a chart that did not would be the
+   one thing on screen contradicting the number above it. */
+function wr_byDay_(pay, roster, upTo) {
   var out = [];
   for (var d = 1; d <= upTo; d++) {
-    var v = pay.byDay[d];
-    out.push({ d: d, rev: v ? wr_r2_(v.rev) : 0, units: v ? v.units : 0 });
+    var rev = 0, units = 0, byKey = pay.byDay[d];
+    for (var k in byKey) {
+      if (!roster.byAgent[k]) continue;          // other teams stay off the chart
+      rev += byKey[k].rev;
+      units += byKey[k].units;
+    }
+    out.push({ d: d, rev: wr_r2_(rev), units: units });
   }
   return out;
 }

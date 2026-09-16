@@ -62,6 +62,7 @@ var WR_TZ         = 'Asia/Kolkata';
    figures only move when updateAndCheck runs. */
 var WR_CACHE_SECS = 420;
 var WR_MAX_AGENTS = 200;       // cap on the agent list sent to the TV
+var WR_MAX_RECENT = 40;        // closes kept for the running ticker
 var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp column
 
 /* ---------------------------------------------------------------------
@@ -410,6 +411,9 @@ function wr_build_(monthKey) {
       };
     }),
     contest: wr_contest_(pay, roster),
+    /* Newest closes first, for the running ticker. Roster agents only, so
+       the ticker can never announce a name the boards do not show. */
+    recent: wr_recent_(pay, roster),
     notes: wr_notes_(roster, pay, offRosterNames, offRosterRev, mgrList)
   };
 }
@@ -595,6 +599,7 @@ function wr_payments_(ss, monthKey) {
   var out = { byAgent: {}, rowsScanned: 0, rowsCounted: 0, headers: [], noRosterCol: false,
               contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
               contestWindowRows: 0, contestProgMatched: 0, contestCounted: 0, progSamples: {},
+              recent: [],
               scanRows: 0, blockRows: 0,
               refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
               upgradeRows: 0, upgradeAmount: 0 };
@@ -716,6 +721,22 @@ function wr_payments_(ss, monthKey) {
       out.byAgent[key].revenue += amt;
       if (isUnit) out.byAgent[key].units += 1;
       out.rowsCounted++;
+
+      /* THE TICKER. A board that only shows month-to-date totals has
+         nothing to say between sales - the numbers sit still for hours and
+         the floor stops looking at it. Individual closes are what make it
+         worth glancing up at, so keep the newest ones.
+
+         Units only: a balance payment against a sale closed weeks ago is
+         not news, and announcing it would credit the same close twice. */
+      if (isUnit) {
+        out.recent.push({ name: name, amt: amt, at: d.getTime() });
+        /* Trimmed rather than sorted at the end: the sheet is in date
+           order so this is nearly always a straight append, and an
+           unbounded array over a big month is a lot of memory for rows
+           that will be thrown away. */
+        if (out.recent.length > 400) out.recent.splice(0, 200);
+      }
     }
 
     /* --- the contest window, counted independently --- */
@@ -745,6 +766,22 @@ function wr_payments_(ss, monthKey) {
     }
   }
   return out;
+}
+
+/* The newest closes, newest first, ready for the ticker. */
+function wr_recent_(pay, roster) {
+  var src = pay.recent || [], out = [];
+  for (var i = 0; i < src.length; i++) {
+    var r = src[i];
+    var who = roster.byAgent[wr_key_(r.name)];
+    if (!who) continue;                 // off-roster names stay off the board
+    out.push({
+      name: r.name, amt: wr_r2_(r.amt), at: r.at,
+      city: who.city || '', team: who.team || '', manager: who.manager || ''
+    });
+  }
+  out.sort(function (a, b) { return b.at - a.at; });
+  return out.slice(0, WR_MAX_RECENT);
 }
 
 /* FORMATTING DATES IS THE EXPENSIVE THING.

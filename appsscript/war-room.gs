@@ -3181,8 +3181,32 @@ function warRoomScheduledUpdate() {
      thirty minutes for the rest of the day - the next slot will come. */
   props.setProperty(key, done + '|' + slot + '|');
 
-  if (typeof this[WR_UPDATE_FN] === 'function') this[WR_UPDATE_FN]();
-  else if (typeof updateAndCheck === 'function') updateAndCheck();
+  /* Resolving the handler by name is the fragile part. Under the V8
+     runtime `this` inside a plain function call can be undefined, so
+     this[WR_UPDATE_FN] throws on property access rather than returning
+     undefined - and because the slot is marked served above, that throw
+     would skip the rebuild silently, every day, with nothing in the log
+     to say why. So: globalThis where it exists, `this` where it does not,
+     the direct reference as a last resort, and a complaint if none of
+     them find it. */
+  var g = (typeof globalThis !== 'undefined') ? globalThis
+        : (typeof this !== 'undefined') ? this : null;
+  var fn = null;
+  try { if (g) fn = g[WR_UPDATE_FN]; } catch (eLookup) { fn = null; }
+  if (typeof fn !== 'function' && typeof updateAndCheck === 'function') fn = updateAndCheck;
+
+  if (typeof fn !== 'function') {
+    Logger.log('warRoomScheduledUpdate: no function named "' + WR_UPDATE_FN +
+               '" in this project. Nothing was rebuilt. Fix WR_UPDATE_FN.');
+    return;
+  }
+  /* Logged either side, so the Executions list shows whether a slot ran
+     and whether it finished. A trigger that fails leaves the first line
+     and not the second. */
+  Logger.log('warRoomScheduledUpdate: slot ' + wr_hhmm_(WR_UPDATE_TIMES[slot][0],
+             WR_UPDATE_TIMES[slot][1]) + ' - running ' + WR_UPDATE_FN);
+  fn();
+  Logger.log('warRoomScheduledUpdate: ' + WR_UPDATE_FN + ' finished');
 }
 
 /* Every handler and how many triggers it carries, so a decision about

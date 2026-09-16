@@ -3520,6 +3520,13 @@ function warRoomRosterAudit() {
       var an = String(g[r2][col.agent] == null ? '' : g[r2][col.agent]).trim();
       if (!an) continue;
       if (an === 'Total' || an === 'Agent') { skipped.push(an); continue; }
+      /* The SAME summary test used on the model side. Filtering one side
+         and not the other manufactured a difference: CBC carries rows
+         whose agent cell is a bare number - 59, 266, 325 - and counting
+         them here while dropping them there reported three agents lost
+         that were never agents. */
+      var mgrCell = col.manager !== undefined ? String(g[r2][col.manager]).trim() : '';
+      if (wr_isSummaryRow_(an, mgrCell, '')) { skipped.push(an); continue; }
       srcN++;
       src[wr_key_(an)] = {
         name: an,

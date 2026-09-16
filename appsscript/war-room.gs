@@ -70,6 +70,20 @@ var WR_MAX_RECENT = 40;        // closes kept for the running ticker
    written. Times are 24h, Asia/Kolkata. Google fires a time trigger
    within about fifteen minutes of the hour asked for, so treat these as
    "around then" rather than to the minute. */
+/* BATCHES THAT EARN REVENUE BUT ARE NOT A UNIT.
+
+   The Management Report counts every rupee, and so does this board. But a
+   workshop batch - CL WS IND, CL WS INTL - is Bootcamp being sold, not an
+   Accelerator unit, so the money counts and the unit does not.
+
+   Matched as a PREFIX of the Batch cell, so CL WS IND and CL WS INTL are
+   both covered by one entry and nothing else is caught by accident. This
+   applies to the daily board. The weekend spot offer counts everything,
+   which is what WR_CONTEST is for and why the two are separate settings.
+
+   Empty this array and every paid row counts as a unit again. */
+var WR_UNIT_EXCLUDE = ['CL WS'];
+
 var WR_UPDATE_FN    = 'updateAndCheck';
 var WR_UPDATE_TIMES = [[10, 0], [13, 30], [17, 0], [20, 30], [0, 0], [3, 30]];
 
@@ -195,6 +209,19 @@ function wr_progMatches_(cell) {
     if (pref[i] && v.indexOf(pref[i]) === 0) return false;
   }
   return true;
+}
+
+/* Does this batch earn revenue without earning a unit? Prefix match, so
+   'CL WS' covers CL WS IND and CL WS INTL together. */
+function wr_unitBarred_(batch) {
+  if (!WR_UNIT_EXCLUDE || !WR_UNIT_EXCLUDE.length) return false;
+  var v = String(batch == null ? '' : batch).trim().toLowerCase();
+  if (!v) return false;
+  for (var i = 0; i < WR_UNIT_EXCLUDE.length; i++) {
+    var p = String(WR_UNIT_EXCLUDE[i] || '').trim().toLowerCase();
+    if (p && v.indexOf(p) === 0) return true;
+  }
+  return false;
 }
 
 /* The exclusion list, lowercased and trimmed, empties dropped. */
@@ -638,6 +665,7 @@ function wr_payments_(ss, monthKey) {
               contest: {}, contestUnits: 0, contestRows: 0, programmeCol: false,
               contestWindowRows: 0, contestProgMatched: 0, contestCounted: 0, progSamples: {},
               recent: [], byDay: {}, latestDay: 0,
+              unitBarredRows: 0, unitBarredAmount: 0,
               scanRows: 0, blockRows: 0,
               refundRows: 0, refundAmount: 0, cancelledRows: 0, cancelledAmount: 0,
               upgradeRows: 0, upgradeAmount: 0 };
@@ -671,6 +699,9 @@ function wr_payments_(ss, monthKey) {
   var cRef   = wr_col_(H, ['is refund', 'refund']);
   var cType  = wr_col_(H, ['payment type']);
   var cStat  = wr_col_(H, ['status']);
+  /* Read unconditionally: WR_UNIT_EXCLUDE needs it on every build, not
+     only when a contest bars a product. */
+  var cBatch = wr_col_(H, ['batch']);
   if (cRost < 0) out.noRosterCol = true;
   out.programmeCol = cProg >= 0;
 
@@ -715,7 +746,7 @@ function wr_payments_(ss, monthKey) {
   out.blockRows = blockN;
 
   /* one read of the block, spanning only the columns that get used */
-  var need = [cDate, cAgent, cAmt, cUnit, cProg, cRef, cType, cStat]
+  var need = [cDate, cAgent, cAmt, cUnit, cProg, cRef, cType, cStat, cBatch]
                .filter(function (x) { return x >= 0; });
   var lo = Math.min.apply(null, need), hi = Math.max.apply(null, need);
   var block = sh.getRange(2 + first, lo + 1, blockN, hi - lo + 1).getValues();
@@ -734,6 +765,13 @@ function wr_payments_(ss, monthKey) {
     if (!name || wr_isSummary_(name)) continue;   // totals rows are not people
     var key = wr_key_(name);
     var isUnit = (cUnit >= 0 && wr_truthy_(cell(row, cUnit)));
+    /* Revenue keeps this row; the unit count does not. A workshop batch is
+       Bootcamp sold, not an Accelerator unit. */
+    if (isUnit && cBatch >= 0 && wr_unitBarred_(cell(row, cBatch))) {
+      isUnit = false;
+      out.unitBarredRows++;
+      out.unitBarredAmount += wr_num_(cell(row, cAmt));
+    }
 
     /* Money that came back is not money earned. mdl_Payments carries both
        "Is Refund" and a "Status" that says CANCELLED, and neither was being
@@ -966,6 +1004,11 @@ function wr_notes_(roster, pay, offNames, offRev, mgrList) {
   if (pay.refundRows) {
     notes.push(pay.refundRows + ' refunded row(s) worth ' + wr_money_(pay.refundAmount) +
                ' were excluded from revenue.');
+  }
+  if (pay.unitBarredRows) {
+    notes.push(pay.unitBarredRows + ' workshop row(s) worth ' + wr_money_(pay.unitBarredAmount) +
+               ' count in revenue but not in units - ' + WR_UNIT_EXCLUDE.join(', ') +
+               ' is Bootcamp, not an Accelerator unit.');
   }
   if (pay.cancelledRows) {
     notes.push(pay.cancelledRows + ' cancelled row(s) worth ' + wr_money_(pay.cancelledAmount) +
@@ -3023,6 +3066,17 @@ function wr_cmpList_(liveList, mineList) {
 function warRoomAddUpdateTriggers() { wr_updateTriggers_(true); }
 function warRoomAddUpdateTriggersPreview() { wr_updateTriggers_(false); }
 
+/* ONE TRIGGER, SIX TIMES.
+
+   Apps Script allows a script twenty triggers. This project already has
+   twenty, so six daily triggers cannot be created - the first attempt
+   made one and the rest were refused.
+
+   So a single trigger runs every thirty minutes and decides for itself
+   whether this is one of the wanted times. Six slots, one slot used. It
+   also survives Google's scheduling jitter: a trigger fires within about
+   fifteen minutes of its hour, and a half-hourly dispatcher that records
+   which slots it has already served cannot double-run or skip one. */
 function wr_updateTriggers_(apply) {
   Logger.log('=== REBUILD TRIGGERS ===   ' +
              Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
@@ -3037,20 +3091,31 @@ function wr_updateTriggers_(apply) {
     return;
   }
 
-  var mine = [], others = 0;
+  var ours = [], others = 0;
   for (var i = 0; i < all.length; i++) {
-    if (all[i].getHandlerFunction() === WR_UPDATE_FN) mine.push(all[i]);
+    var h = all[i].getHandlerFunction();
+    if (h === WR_UPDATE_FN || h === 'warRoomScheduledUpdate') ours.push(all[i]);
     else others++;
   }
-  Logger.log('  existing ' + WR_UPDATE_FN + ' triggers : ' + mine.length + '  (these get replaced)');
-  Logger.log('  every other trigger              : ' + others + '  (left untouched)');
+  Logger.log('  triggers in this project : ' + all.length + ' of 20 allowed');
+  Logger.log('  ours (replaced)          : ' + ours.length);
+  Logger.log('  everything else          : ' + others + '  (left untouched)');
   Logger.log('');
-
-  Logger.log('  WILL RUN ' + WR_UPDATE_FN + ' AT');
-  for (var t = 0; t < WR_UPDATE_TIMES.length; t++) {
-    Logger.log('    ' + wr_hhmm_(WR_UPDATE_TIMES[t][0], WR_UPDATE_TIMES[t][1]) + ' IST daily');
+  if (others >= 20) {
+    Logger.log('  *** NO ROOM. Twenty triggers already belong to other functions,');
+    Logger.log('      and Apps Script allows twenty in total. One of those has to go');
+    Logger.log('      before the rebuild can be scheduled. Check the Triggers page for');
+    Logger.log('      a handler whose Last run times cluster together - those really');
+    Logger.log('      are copies and one can be removed.');
+    return;
   }
-  Logger.log('    (Google fires these within about 15 minutes of the time asked for)');
+
+  Logger.log('  ONE trigger every 30 minutes, which runs ' + WR_UPDATE_FN + ' at:');
+  for (var t = 0; t < WR_UPDATE_TIMES.length; t++) {
+    Logger.log('    ' + wr_hhmm_(WR_UPDATE_TIMES[t][0], WR_UPDATE_TIMES[t][1]) + ' IST');
+  }
+  Logger.log('    Six times a day from one trigger, because twenty is the limit');
+  Logger.log('    and this project is at it.');
   Logger.log('');
 
   if (!apply) {
@@ -3058,29 +3123,55 @@ function wr_updateTriggers_(apply) {
     return;
   }
 
-  for (var d = 0; d < mine.length; d++) ScriptApp.deleteTrigger(mine[d]);
-  if (mine.length) Logger.log('  removed ' + mine.length + ' old ' + WR_UPDATE_FN + ' trigger(s)');
+  for (var d = 0; d < ours.length; d++) ScriptApp.deleteTrigger(ours[d]);
+  if (ours.length) Logger.log('  removed ' + ours.length + ' of our old trigger(s)');
 
-  var made = 0, failed = [];
-  for (var c = 0; c < WR_UPDATE_TIMES.length; c++) {
-    var h = WR_UPDATE_TIMES[c][0], m = WR_UPDATE_TIMES[c][1];
-    try {
-      ScriptApp.newTrigger(WR_UPDATE_FN).timeBased()
-        .atHour(h).nearMinute(m).everyDays(1).inTimezone(WR_TZ).create();
-      made++;
-    } catch (e2) {
-      failed.push(wr_hhmm_(h, m) + ' (' + e2.message + ')');
+  try {
+    ScriptApp.newTrigger('warRoomScheduledUpdate').timeBased().everyMinutes(30).create();
+    Logger.log('  created 1 dispatcher trigger, every 30 minutes');
+    Logger.log('  it will run ' + WR_UPDATE_FN + ' at the six times above');
+  } catch (e2) {
+    Logger.log('  *** COULD NOT CREATE IT: ' + e2.message);
+    if (String(e2.message).indexOf('too many') > -1) {
+      Logger.log('      Still at the twenty-trigger limit. Remove one from the');
+      Logger.log('      Triggers page and run this again.');
     }
-  }
-  Logger.log('  created ' + made + ' trigger(s)');
-  if (failed.length) {
-    Logger.log('  *** FAILED: ' + failed.join(', '));
-    Logger.log('      A "function not found" here means ' + WR_UPDATE_FN + ' does not');
-    Logger.log('      exist in this project under that name. Check the spelling in');
-    Logger.log('      WR_UPDATE_FN at the top of this file.');
+    return;
   }
   Logger.log('');
-  Logger.log('  Check the Triggers page (clock icon) to see them.');
+  Logger.log('  Check the Triggers page (clock icon) to see it.');
+}
+
+/* The dispatcher. Fires every half hour; runs the rebuild only when a
+   wanted time has arrived and has not already been served today.
+
+   The marker lives in Script Properties, not on a sheet, and is keyed by
+   date so it resets itself at midnight without any cleanup. */
+function warRoomScheduledUpdate() {
+  var now = new Date();
+  var today = Utilities.formatDate(now, WR_TZ, 'yyyy-MM-dd');
+  var mins = Number(Utilities.formatDate(now, WR_TZ, 'H')) * 60 +
+             Number(Utilities.formatDate(now, WR_TZ, 'm'));
+
+  /* The latest slot whose time has passed. */
+  var slot = -1, best = -1;
+  for (var i = 0; i < WR_UPDATE_TIMES.length; i++) {
+    var at = WR_UPDATE_TIMES[i][0] * 60 + WR_UPDATE_TIMES[i][1];
+    if (mins >= at && at > best) { best = at; slot = i; }
+  }
+  if (slot < 0) return;                       // before the first slot of the day
+
+  var props = PropertiesService.getScriptProperties();
+  var key = 'wr_upd_' + today;
+  var done = props.getProperty(key) || '';
+  if (done.indexOf('|' + slot + '|') > -1) return;   // this slot already ran
+
+  /* Mark BEFORE running. A rebuild that throws should not be retried every
+     thirty minutes for the rest of the day - the next slot will come. */
+  props.setProperty(key, done + '|' + slot + '|');
+
+  if (typeof this[WR_UPDATE_FN] === 'function') this[WR_UPDATE_FN]();
+  else if (typeof updateAndCheck === 'function') updateAndCheck();
 }
 
 function wr_hhmm_(h, m) {

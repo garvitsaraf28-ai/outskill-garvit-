@@ -88,7 +88,11 @@ var WR_HAS_MM = false;         // set per build: did mdl_Roster carry a ramp col
    product. Leave it '' and nothing whatsoever is filtered.
    --------------------------------------------------------------------- */
 var WR_CONTEST = {
-  active: true,
+  /* THE UNIT RUSH ran 12-14 September and is over. Left switched off
+     rather than deleted: the window, the count rule and the exclusion
+     list are the hard part, and the next spot offer only needs the three
+     dates changed and this set back to true. */
+  active: false,
   name:   'THE UNIT RUSH',
   from:   '2026-09-12',     // inclusive, Asia/Kolkata
   to:     '2026-09-14',     // inclusive

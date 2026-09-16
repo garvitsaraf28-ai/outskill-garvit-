@@ -2751,3 +2751,177 @@ function wr_latestPaymentDate_(ss) {
   }
   return best ? Utilities.formatDate(best, WR_TZ, 'yyyy-MM-dd') : null;
 }
+
+
+/* ============================================================
+   warRoomLiveCheck - does the TV show what this sheet says?
+
+   Every other check here runs the code in the editor. The TV does not.
+   It reads the DEPLOYED web app, which is pinned to a version, so editing
+   and saving changes nothing until a new version is deployed. That is the
+   one fault where all the diagnostics pass and the wall is still wrong,
+   and until now there was no way to see it from inside the project.
+
+   So this fetches the deployed URL exactly as the TV does and compares it,
+   figure by figure, with a build from the code as it stands right now.
+   Anything that disagrees is named.
+
+   It also fetches once through the cache and once around it, because a
+   board showing older figures than the sheet is usually just the cache and
+   should not be mistaken for a wrong number.
+
+   READ ONLY. Writes to no sheet. It makes one outbound request, to this
+   project's own web app.
+   ============================================================ */
+function warRoomLiveCheck() {
+  Logger.log('=== LIVE CHECK ===   ' +
+             Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm') + ' IST');
+  Logger.log('  comparing THE DEPLOYED WEB APP against THE CODE IN THIS EDITOR');
+  Logger.log('');
+
+  var url;
+  try { url = ScriptApp.getService().getUrl(); }
+  catch (e) { Logger.log('  Could not read the web app URL: ' + e.message); return; }
+  if (!url) {
+    Logger.log('  *** THIS PROJECT HAS NO ACTIVE DEPLOYMENT.');
+    Logger.log('      Deploy > Manage deployments > pencil > Version: New version.');
+    return;
+  }
+  Logger.log('  web app : ' + url);
+
+  var live, fresh;
+  try {
+    live  = wr_fetchFeed_(url, false);   // as the TV sees it, cache and all
+    fresh = wr_fetchFeed_(url, true);    // same deployment, cache bypassed
+  } catch (e) {
+    Logger.log('  *** COULD NOT REACH THE WEB APP: ' + e.message);
+    Logger.log('      If this says Unauthorized, the deployment is not set to "Anyone".');
+    Logger.log('      A TV is not signed in to Google, so it would fail the same way.');
+    return;
+  }
+  if (!live || !live.ok) {
+    Logger.log('  *** THE WEB APP DID NOT RETURN A FEED.');
+    Logger.log('      It answered with: ' + String(live && live._raw).substring(0, 300));
+    Logger.log('      The Executive Command Center HTML here means the routing line is');
+    Logger.log('      missing from doGet. A sign-in page means access is not "Anyone".');
+    return;
+  }
+
+  var mine = wr_build_('');
+  Logger.log('');
+
+  /* Is the deployment even running this code? Fields added since the last
+     deploy are the giveaway - they cannot appear in an older version. */
+  var missing = [];
+  if (!live.byDay)             missing.push('byDay');
+  if (!live.recent)            missing.push('recent');
+  if (!live.meta.latestPayment) missing.push('meta.latestPayment');
+  if (missing.length) {
+    Logger.log('  *** THE DEPLOYMENT IS RUNNING OLDER CODE.');
+    Logger.log('      Missing from its reply: ' + missing.join(', '));
+    Logger.log('      Deploy > Manage deployments > pencil > Version: NEW VERSION.');
+    Logger.log('      Until that is done the TV cannot show what this editor computes,');
+    Logger.log('      however many times the sheet is refreshed.');
+    Logger.log('');
+  } else {
+    Logger.log('  deployment is running current code (byDay, recent, latestPayment all present)');
+    Logger.log('');
+  }
+
+  var bad = 0;
+  Logger.log('  COMPANY');
+  bad += wr_cmp_('    revenue', fresh.totals.revenue, mine.totals.revenue, true);
+  bad += wr_cmp_('    units',   fresh.totals.units,   mine.totals.units,   false);
+  bad += wr_cmp_('    target',  fresh.totals.target,  mine.totals.target,  true);
+
+  Logger.log('  CITIES');
+  bad += wr_cmpList_(fresh.cities, mine.cities);
+  Logger.log('  MANAGERS');
+  bad += wr_cmpList_(fresh.managers, mine.managers);
+
+  Logger.log('');
+  if (bad === 0) {
+    Logger.log('  THE DEPLOYED FEED AND THIS CODE AGREE ON EVERY FIGURE.');
+  } else {
+    Logger.log('  *** ' + bad + ' FIGURE(S) DISAGREE - listed above.');
+  }
+
+  /* Cache lag is not an error, but it explains a board that looks behind. */
+  Logger.log('');
+  Logger.log('  CACHE');
+  var lr = wr_r2_(live.totals.revenue), fr = wr_r2_(fresh.totals.revenue);
+  if (lr === fr) {
+    Logger.log('    the cached reply matches the fresh one - nothing in flight');
+  } else {
+    Logger.log('    cached ' + wr_money_(lr) + '  vs  fresh ' + wr_money_(fr));
+    Logger.log('    the TV shows the cached figure for up to ' + WR_CACHE_SECS +
+               's (' + Math.ceil(WR_CACHE_SECS / 60) + ' min) after a change. Not an error.');
+  }
+
+  Logger.log('');
+  Logger.log('  SHEET FRESHNESS');
+  Logger.log('    newest payment in ' + WR_PAY_TAB + ' : ' + (mine.meta.latestPayment || 'none'));
+  Logger.log('    today                          : ' + mine.meta.today);
+  if (mine.meta.latestPayment && mine.meta.latestPayment < mine.meta.today) {
+    Logger.log('    *** the sheet itself has nothing for today. The feed is reporting');
+    Logger.log('        what it was given. Run updateAndCheck, and if it stays behind,');
+    Logger.log('        check src_Payments for a #REF!.');
+  } else {
+    Logger.log('    the sheet has today covered');
+  }
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}
+
+/* Fetch the feed as the TV does. Returns the parsed payload, with the raw
+   text attached so a non-JSON answer can be reported rather than thrown. */
+function wr_fetchFeed_(url, bypassCache) {
+  var u = url + (url.indexOf('?') > -1 ? '&' : '?') + 'feed=warroom' +
+          (bypassCache ? '&nocache=1' : '') + '&t=' + new Date().getTime();
+  var res = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
+  var txt = res.getContentText();
+  try {
+    var o = JSON.parse(txt);
+    o._raw = txt;
+    return o;
+  } catch (e) {
+    return { ok: false, _raw: txt };
+  }
+}
+
+/* One figure, both sides. Returns 1 when they differ. */
+function wr_cmp_(label, live, mine, isMoney) {
+  var a = wr_r2_(live), b = wr_r2_(mine);
+  var same = (Math.abs(a - b) < 1);
+  var fmt = isMoney ? wr_money_ : function (x) { return String(Math.round(x)); };
+  Logger.log(wr_pad_(label, 26) + wr_pad_(fmt(a), 14) +
+             (same ? 'matches' : '<-- DIFFERS, editor says ' + fmt(b)));
+  return same ? 0 : 1;
+}
+
+/* Two lists of named rows, matched by name rather than position - a
+   reordering is not a disagreement. */
+function wr_cmpList_(liveList, mineList) {
+  var byName = {}, i, bad = 0;
+  for (i = 0; i < mineList.length; i++) byName[wr_key_(mineList[i].name)] = mineList[i];
+  var seen = {};
+  for (i = 0; i < liveList.length; i++) {
+    var L = liveList[i], M = byName[wr_key_(L.name)];
+    seen[wr_key_(L.name)] = true;
+    if (!M) {
+      Logger.log(wr_pad_('    ' + L.name, 26) + wr_pad_(wr_money_(L.revenue), 14) +
+                 '<-- on the TV but not in this build');
+      bad++; continue;
+    }
+    bad += wr_cmp_('    ' + L.name, L.revenue, M.revenue, true);
+  }
+  for (i = 0; i < mineList.length; i++) {
+    if (!seen[wr_key_(mineList[i].name)]) {
+      Logger.log(wr_pad_('    ' + mineList[i].name, 26) +
+                 wr_pad_(wr_money_(mineList[i].revenue), 14) +
+                 '<-- in this build but NOT on the TV');
+      bad++;
+    }
+  }
+  return bad;
+}

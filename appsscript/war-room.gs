@@ -2909,20 +2909,43 @@ function warRoomLiveCheck() {
   if (!live || !live.ok) {
     Logger.log('  *** THE WEB APP DID NOT RETURN A FEED.');
     var raw = String((live && live._raw) || '');
-    Logger.log('      It answered with: ' + raw.substring(0, 220));
+    var title = wr_pageTitle_(raw);
+    Logger.log('      HTTP status : ' + (live && live._code ? live._code : 'unknown'));
+    if (title) Logger.log('      page title  : ' + title);
+    Logger.log('      first bytes : ' + raw.substring(0, 160));
     Logger.log('');
-    if (raw.indexOf('accounts.google.com') > -1 || raw.indexOf('ServiceLogin') > -1) {
-      Logger.log('      THAT IS A GOOGLE SIGN-IN PAGE. Access is not set to "Anyone".');
+    /* Order matters: the specific markers are tested before the generic
+       "it is HTML" one. An earlier version checked for HTML first and so
+       reported a missing doGet routing line for a Google sign-in page and
+       again for a Google error page - naming a fix that had nothing to do
+       with either, and sending someone to edit a doGet that was fine. */
+    var t = (title + ' ' + raw).toLowerCase();
+    if (raw.indexOf('accounts.google.com') > -1 || t.indexOf('servicelogin') > -1 ||
+        t.indexOf('sign in') > -1) {
+      Logger.log('      A GOOGLE SIGN-IN PAGE. Access is not set to "Anyone".');
       Logger.log('      Deploy > Manage deployments > pencil > Who has access: Anyone.');
-      Logger.log('      A TV is not signed in to Google, so it gets this page forever.');
-    } else if (raw.indexOf('Executive') > -1 || raw.indexOf('<!doctype') === 0 ||
-               raw.indexOf('<!DOCTYPE') === 0) {
-      Logger.log('      THAT IS A WEB PAGE, NOT THE FEED. The routing line is missing');
-      Logger.log('      from doGet - the exec page was served instead. Check that doGet');
-      Logger.log('      still begins with the feed=warroom check.');
+      Logger.log('      A TV is not signed in to Google, so it gets this forever.');
+    } else if (t.indexOf('script function not found') > -1) {
+      Logger.log('      SCRIPT FUNCTION NOT FOUND. The deployed version has no doGet.');
+      Logger.log('      Usually this means the Exec Web App file was overwritten -');
+      Logger.log('      check that the file holding doGet still holds it, and that');
+      Logger.log('      war-room.gs went into its OWN file rather than over that one.');
+    } else if (t.indexOf('exception') > -1 || t.indexOf('error') > -1 ||
+               t.indexOf('sorry, unable') > -1 || t.indexOf('ppconfig') > -1) {
+      Logger.log('      A GOOGLE ERROR PAGE, not your page and not a sign-in.');
+      Logger.log('      The web app ran and threw, or the deployment is broken.');
+      Logger.log('      Do this, in order:');
+      Logger.log('        1. Open the URL above in a browser. The message names it.');
+      Logger.log('        2. Apps Script > Executions (left edge). A failed doGet is');
+      Logger.log('           listed there with its stack trace.');
+      Logger.log('        3. Check for TWO doGet functions in the project. Apps Script');
+      Logger.log('           keeps one silently and it may not be the one you want.');
+    } else if (raw.indexOf('Executive') > -1) {
+      Logger.log('      YOUR EXEC PAGE, not the feed. The routing line is missing from');
+      Logger.log('      doGet - check it still begins with the feed=warroom check.');
     } else {
-      Logger.log('      Not JSON and not a page this recognises. Open the URL above with');
-      Logger.log('      &feed=warroom on the end and see what it returns.');
+      Logger.log('      Not JSON and not a page this recognises. Open the URL above');
+      Logger.log('      with &feed=warroom on the end and see what it returns.');
     }
     return;
   }
@@ -3000,13 +3023,23 @@ function wr_fetchFeed_(url, bypassCache) {
           (bypassCache ? '&nocache=1' : '') + '&t=' + new Date().getTime();
   var res = UrlFetchApp.fetch(u, { muteHttpExceptions: true, followRedirects: true });
   var txt = res.getContentText();
+  var code = 0;
+  try { code = res.getResponseCode(); } catch (ignore) {}
   try {
     var o = JSON.parse(txt);
-    o._raw = txt;
+    o._raw = txt; o._code = code;
     return o;
   } catch (e) {
-    return { ok: false, _raw: txt };
+    return { ok: false, _raw: txt, _code: code };
   }
+}
+
+/* The <title> of an error page usually names the fault outright, and is
+   far more use than the first 200 bytes of Google's page scaffolding. */
+function wr_pageTitle_(html) {
+  var m = String(html || '').match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i);
+  if (!m) return '';
+  return m[1].replace(/\s+/g, ' ').trim();
 }
 
 /* One figure, both sides. Returns 1 when they differ. */

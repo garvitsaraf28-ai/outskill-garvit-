@@ -3097,18 +3097,16 @@ function wr_updateTriggers_(apply) {
     if (h === WR_UPDATE_FN || h === 'warRoomScheduledUpdate') ours.push(all[i]);
     else others++;
   }
-  Logger.log('  triggers in this project : ' + all.length + ' of 20 allowed');
+  Logger.log('  triggers in this project : ' + all.length);
   Logger.log('  ours (replaced)          : ' + ours.length);
   Logger.log('  everything else          : ' + others + '  (left untouched)');
   Logger.log('');
-  if (others >= 20) {
-    Logger.log('  *** NO ROOM. Twenty triggers already belong to other functions,');
-    Logger.log('      and Apps Script allows twenty in total. One of those has to go');
-    Logger.log('      before the rebuild can be scheduled. Check the Triggers page for');
-    Logger.log('      a handler whose Last run times cluster together - those really');
-    Logger.log('      are copies and one can be removed.');
-    return;
-  }
+  /* No pre-flight limit check. An earlier version refused when twenty
+     triggers belonged to other functions - but it refused BEFORE deleting
+     our own, which would have freed the slot it wanted, and it did so
+     against a hard-coded twenty when this project was sitting at
+     twenty-one. Apps Script's real ceiling is not worth guessing at from
+     here. Delete ours, attempt it, and report what actually comes back. */
 
   Logger.log('  ONE trigger every 30 minutes, which runs ' + WR_UPDATE_FN + ' at:');
   for (var t = 0; t < WR_UPDATE_TIMES.length; t++) {
@@ -3132,9 +3130,22 @@ function wr_updateTriggers_(apply) {
     Logger.log('  it will run ' + WR_UPDATE_FN + ' at the six times above');
   } catch (e2) {
     Logger.log('  *** COULD NOT CREATE IT: ' + e2.message);
-    if (String(e2.message).indexOf('too many') > -1) {
-      Logger.log('      Still at the twenty-trigger limit. Remove one from the');
-      Logger.log('      Triggers page and run this again.');
+    if (String(e2.message).toLowerCase().indexOf('too many') > -1) {
+      Logger.log('');
+      Logger.log('      This project is at the trigger ceiling, so one has to go');
+      Logger.log('      before another can be added. Two honest options:');
+      Logger.log('');
+      Logger.log('      1. DO NOTHING. The sheet is already being rebuilt - your');
+      Logger.log('         day and night schedules fire about ten times a day');
+      Logger.log('         between them, and warRoomLiveCheck reports the sheet has');
+      Logger.log('         today covered. Six more rebuilds may buy nothing.');
+      Logger.log('');
+      Logger.log('      2. FREE A SLOT. On the Triggers page, look for a handler');
+      Logger.log('         whose Last run times sit within minutes of each other -');
+      Logger.log('         those are real copies. Remove one and run this again.');
+      Logger.log('         Do NOT remove triggers whose Last run times are spread');
+      Logger.log('         across the day; that is a schedule, not duplication.');
+      wr_listHandlers_(all);
     }
     return;
   }
@@ -3172,6 +3183,21 @@ function warRoomScheduledUpdate() {
 
   if (typeof this[WR_UPDATE_FN] === 'function') this[WR_UPDATE_FN]();
   else if (typeof updateAndCheck === 'function') updateAndCheck();
+}
+
+/* Every handler and how many triggers it carries, so a decision about
+   which to remove is made against the list rather than from memory. */
+function wr_listHandlers_(all) {
+  var by = {};
+  for (var i = 0; i < all.length; i++) {
+    var h = all[i].getHandlerFunction();
+    by[h] = (by[h] || 0) + 1;
+  }
+  Logger.log('');
+  Logger.log('      WHAT IS ON THE CLOCK NOW');
+  for (var k in by) {
+    Logger.log('        ' + wr_pad_(k, 30) + by[k] + (by[k] === 1 ? ' trigger' : ' triggers'));
+  }
 }
 
 function wr_hhmm_(h, m) {

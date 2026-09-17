@@ -3601,3 +3601,95 @@ function warRoomRosterAudit() {
   Logger.log('');
   Logger.log('  Nothing was written. This only reports.');
 }
+
+
+/* ============================================================
+   warRoomRevPerMM - revenue per man-month, city and manager
+
+   The Management Report divides revenue by headcount. That charges a
+   team for capacity it does not have: 93 agents on this roster are worth
+   66.25 man-months, so a third of the payroll is still ramping and
+   Rev/Agent understates every team carrying new joiners.
+
+   This prints both figures side by side, so the size of the correction
+   is visible before anything in the report changes, and prints the exact
+   divisor each row uses.
+
+   READ ONLY. Writes nothing.
+   ============================================================ */
+function warRoomRevPerMM() {
+  var p = wr_build_('');
+  Logger.log('=== REVENUE PER MAN-MONTH ===   ' + p.meta.generatedLabel);
+  Logger.log('  ' + p.meta.month + '  (' + p.meta.windowLabel + ')');
+  Logger.log('');
+
+  if (!p.totals.hasManMonth) {
+    Logger.log('  *** mdl_Roster HAS NO MAN-MONTH COLUMN.');
+    Logger.log('      Every agent counts as 1, so Rev/MM would equal Rev/Agent exactly.');
+    Logger.log('      Run warRoomCapacity to find where the column is being lost.');
+    return;
+  }
+
+  Logger.log('  COMPANY');
+  Logger.log('    revenue      : ' + wr_money_(p.totals.revenue));
+  Logger.log('    agents       : ' + p.totals.agents);
+  Logger.log('    man-months   : ' + p.totals.manMonths +
+             '   (' + Math.round(p.totals.manMonths / p.totals.agents * 100) + '% of headcount)');
+  Logger.log('    rev / agent  : ' + wr_money_(p.totals.revenue / p.totals.agents));
+  Logger.log('    rev / MM     : ' + wr_money_(p.totals.revenue / p.totals.manMonths) +
+             '   <-- the honest figure');
+  Logger.log('');
+
+  function block(title, rows) {
+    Logger.log('  ' + title);
+    Logger.log('    ' + wr_pad_('', 22) + wr_pad_('revenue', 11) + wr_pad_('agents', 8) +
+               wr_pad_('man-mth', 9) + wr_pad_('REV/AGENT', 12) + wr_pad_('REV/MM', 12) + 'change');
+    rows.forEach(function (x) {
+      var perAgent = x.agents > 0 ? x.revenue / x.agents : 0;
+      var perMM    = x.mm > 0 ? x.revenue / x.mm : 0;
+      var delta = (perAgent > 0 && perMM > 0)
+        ? ((perMM / perAgent - 1) * 100).toFixed(0) + '%'
+        : '-';
+      Logger.log('    ' + wr_pad_(x.name, 22) + wr_pad_(wr_money_(x.revenue), 11) +
+                 wr_pad_(String(x.agents), 8) + wr_pad_(String(x.mm), 9) +
+                 wr_pad_(wr_money_(perAgent), 12) + wr_pad_(wr_money_(perMM), 12) +
+                 (delta.charAt(0) !== '-' ? '+' : '') + delta);
+    });
+    Logger.log('');
+  }
+
+  block('BY CITY', p.cities);
+  block('BY MANAGER', p.managers);
+
+  /* Ranking by the wrong divisor does not merely misstate a number, it
+     reorders the table - which is the part people act on. */
+  var byAgent = p.managers.slice(0).sort(function (a, b) {
+    return (b.agents ? b.revenue / b.agents : 0) - (a.agents ? a.revenue / a.agents : 0);
+  });
+  var byMM = p.managers.slice(0).sort(function (a, b) {
+    return (b.mm ? b.revenue / b.mm : 0) - (a.mm ? a.revenue / a.mm : 0);
+  });
+  var moved = [];
+  for (var i = 0; i < byMM.length; i++) {
+    var was = -1;
+    for (var j = 0; j < byAgent.length; j++) if (byAgent[j].name === byMM[i].name) { was = j; break; }
+    if (was !== i) moved.push(byMM[i].name + ': #' + (was + 1) + ' -> #' + (i + 1));
+  }
+  Logger.log('  WHAT THE CORRECTION CHANGES IN THE RANKING');
+  if (moved.length) {
+    for (var m = 0; m < moved.length; m++) Logger.log('    ' + moved[m]);
+  } else {
+    Logger.log('    nothing - the order is the same either way, only the values move');
+  }
+
+  Logger.log('');
+  Logger.log('  THE CHANGE TO MAKE IN THE REPORT');
+  Logger.log('    Wherever the report computes   revenue / agents');
+  Logger.log('    it should compute              revenue / man-months');
+  Logger.log('    and the header "Rev / Agent" becomes "Rev / MM".');
+  Logger.log('    Man-month is column K of mdl_Roster, header "Man Month".');
+  Logger.log('    Guard the divide: an agent-month with 0 capacity must not');
+  Logger.log('    produce a division by zero - show a dash instead.');
+  Logger.log('');
+  Logger.log('  Nothing was written. This only reports.');
+}

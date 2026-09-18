@@ -7,3 +7,9 @@ calls
 models
 .claude/
 .smoke.build.mjs
+
+# clasp. .clasp.json is written by the workflow from the SCRIPT_ID secret.
+# .clasprc.json holds a Google refresh token and must never be committed -
+# it belongs in the CLASPRC_JSON repository secret and nowhere else.
+.clasp.json
+.clasprc.json

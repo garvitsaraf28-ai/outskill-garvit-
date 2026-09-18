@@ -1,0 +1,141 @@
+# Push the Inside Sales Apps Script project to Google, on every commit.
+#
+# WHAT THIS REPLACES
+#
+#   Pasting files into the Apps Script editor by hand, one at a time. That
+#   is how a project ends up with two copies of canonBatch_ and nobody able
+#   to say which one is live. With this, GitHub is the only source of truth
+#   and the editor is a read-only view of it.
+#
+# WHAT IT DOES
+#
+#   On every push that touches inside-sales/, it runs `clasp push --force`,
+#   which makes the Apps Script project match inside-sales/src EXACTLY.
+#
+#   --force means files in the project that are NOT in src/ are DELETED.
+#   That is the point - it is what keeps a stale file from surviving - but
+#   it also means the editor is not a place to make edits. Anything typed
+#   there is gone on the next push. Edit here, commit, done.
+#
+# ONE-TIME SETUP - see inside-sales/README.md for the full walkthrough
+#
+#   Settings > Secrets and variables > Actions > New repository secret
+#
+#     CLASPRC_JSON   the whole contents of ~/.clasprc.json after `clasp login`
+#     SCRIPT_ID      Apps Script > Project Settings > Script ID
+#
+# SAFETY
+#
+#   Nothing here can touch the Payment Tracker or CBC. clasp only writes
+#   code into one Apps Script project, named by SCRIPT_ID. It has no access
+#   to any spreadsheet.
+
+name: Deploy Apps Script
+
+on:
+  push:
+    branches:
+      - main
+      - claude/data-architecture-protocol-wymh4n
+    paths:
+      - 'inside-sales/**'
+      - '.github/workflows/deploy-apps-script.yml'
+  workflow_dispatch:
+
+concurrency:
+  # Two pushes landing together must not race each other into the same
+  # project - the second would overwrite the first half way through.
+  group: apps-script-deploy
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: clasp push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Check the secrets are set
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          missing=""
+          [ -z "$CLASPRC_JSON" ] && missing="$missing CLASPRC_JSON"
+          [ -z "$SCRIPT_ID" ]    && missing="$missing SCRIPT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing"
+            echo ""
+            echo "Set them under Settings > Secrets and variables > Actions."
+            echo "inside-sales/README.md has the step-by-step for both."
+            exit 1
+          fi
+          echo "Both secrets are present."
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g @google/clasp@2
+
+      - name: Write the Google credentials
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+          # Prove it is JSON before clasp fails on it with a worse message.
+          node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.clasprc.json','utf8'))" \
+            || { echo "::error::CLASPRC_JSON is not valid JSON. Re-copy the WHOLE of ~/.clasprc.json, including the outer braces."; exit 1; }
+
+      - name: Point clasp at the project
+        env:
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          cat > inside-sales/.clasp.json <<EOF
+          {
+            "scriptId": "$SCRIPT_ID",
+            "rootDir": "src"
+          }
+          EOF
+
+      - name: Show what is about to be pushed
+        working-directory: inside-sales
+        run: |
+          echo "Files in src/:"
+          ls -la src/
+
+      - name: Push to Apps Script
+        working-directory: inside-sales
+        run: |
+          set +e
+          out=$(clasp push --force 2>&1)
+          code=$?
+          echo "$out"
+          if [ $code -ne 0 ]; then
+            echo ""
+            if echo "$out" | grep -qi "User has not enabled the Apps Script API"; then
+              echo "::error::The Apps Script API is off for this Google account."
+              echo "Turn it on at https://script.google.com/home/usersettings and re-run."
+            elif echo "$out" | grep -qi "invalid_grant\|Token has been expired\|unauthorized"; then
+              echo "::error::The stored credentials have expired."
+              echo "Run 'clasp login' again locally and update the CLASPRC_JSON secret."
+            elif echo "$out" | grep -qi "Script ID\|not found\|404"; then
+              echo "::error::That SCRIPT_ID was not found, or this account cannot open it."
+              echo "Check Apps Script > Project Settings > Script ID."
+            fi
+            exit $code
+          fi
+
+      - name: Done
+        run: |
+          echo "The Apps Script project now matches inside-sales/src."
+          echo ""
+          echo "Code is live in the editor immediately."
+          echo "The WEB APP is not - a deployment is pinned to a version, so the"
+          echo "leaderboard keeps serving the old code until you deploy a new"
+          echo "version by hand: Deploy > Manage deployments > pencil > Version: New."

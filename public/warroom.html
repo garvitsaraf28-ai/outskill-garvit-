@@ -415,7 +415,14 @@ var CONFIG = {
   REFRESH_SECONDS: +(Q.get('refresh') || 30),
   ROTATE_SECONDS:  +(Q.get('rotate')  || 32),   // how long each block stays big
   RAIL_SECONDS:    +(Q.get('rail')    || 4.5),  // how long each stat tile shows
-  DEMO: Q.get('demo') === '1'
+  DEMO: Q.get('demo') === '1',
+  /* Stretch to fill a screen that is not 16:9, instead of letterboxing.
+     The stage is a fixed 1920x1080, so on anything wider or taller there
+     are bands. &fill=1 scales the axes independently to remove them, at
+     the cost of distorting everything slightly - on a 16:10 laptop that
+     is about 2% and invisible; on something far from 16:9 it would show.
+     Off by default because a leaderboard should not quietly stretch. */
+  FILL: Q.get('fill') === '1'
 };
 
 /* =====================================================================
@@ -516,10 +523,16 @@ function barHTML(p){
 function fit(){
   var w = document.documentElement.clientWidth  || window.innerWidth  || 1920;
   var h = document.documentElement.clientHeight || window.innerHeight || 1080;
-  var k = Math.min(w/1920, h/1080);
-  if (!(k > 0)) k = 1;
   var st = document.getElementById('stage');
-  if (st) st.style.transform = 'scale(' + k + ')';
+  if (st) {
+    if (CONFIG.FILL) {
+      st.style.transform = 'scale(' + (w / 1920) + ',' + (h / 1080) + ')';
+    } else {
+      var k = Math.min(w / 1920, h / 1080);
+      if (!(k > 0)) k = 1;
+      st.style.transform = 'scale(' + k + ')';
+    }
+  }
   /* The blocks are positioned as percentages of a box whose size is only
      known after the fit, so they are placed again here. */
   if (running) layout();

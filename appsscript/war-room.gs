@@ -3693,3 +3693,59 @@ function warRoomRevPerMM() {
   Logger.log('');
   Logger.log('  Nothing was written. This only reports.');
 }
+
+
+/* ============================================================
+   warRoomRefreshNow - make the TV show what the sheet now says
+
+   The feed caches its answer for WR_CACHE_SECS so that a wall of TVs
+   polling every 30 seconds does not rebuild the model 120 times a minute.
+   The cost is that for up to 7 minutes after a rebuild, the board is still
+   serving the answer from before it.
+
+   Call this at the END of updateAndCheck. It drops the cached answer and
+   builds the new one immediately, so the next poll is both fresh and fast
+   rather than fresh and slow.
+
+   It can never fail the caller: every step is wrapped, because a board
+   that is 7 minutes stale is a nuisance, and a refresh that aborts the
+   sheet rebuild is a real problem.
+   ============================================================ */
+function warRoomRefreshNow() {
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); }
+  catch (eCache) { Logger.log('warRoomRefreshNow: no cache available - ' + eCache.message); return; }
+
+  /* Drop 'now' plus any month the board has been asked for, so a month
+     the user pinned on a second screen does not stay behind. */
+  var keys = ['wr_now'];
+  try {
+    var yr = Number(Utilities.formatDate(new Date(), WR_TZ, 'yyyy'));
+    var mo = Number(Utilities.formatDate(new Date(), WR_TZ, 'MM'));
+    for (var back = 0; back < 13; back++) {
+      var m = mo - back, y = yr;
+      while (m < 1) { m += 12; y -= 1; }
+      keys.push('wr_' + y + (m < 10 ? '0' + m : '' + m));
+    }
+  } catch (eKeys) { /* 'wr_now' alone is still worth clearing */ }
+
+  try { cache.removeAll(keys); Logger.log('warRoomRefreshNow: cleared ' + keys.length + ' cache keys'); }
+  catch (eRemove) { Logger.log('warRoomRefreshNow: could not clear cache - ' + eRemove.message); }
+
+  /* Re-prime so the first TV poll after this does not pay the build cost. */
+  try {
+    var t0 = new Date().getTime();
+    var payload = wr_build_('');
+    var json = JSON.stringify(payload);
+    try { cache.put('wr_now', json, WR_CACHE_SECS); } catch (ePut) {}
+    Logger.log('warRoomRefreshNow: rebuilt in ' + (new Date().getTime() - t0) + ' ms - ' +
+               payload.totals.agents + ' agents, ' + wr_money_(payload.totals.revenue) +
+               ', latest payment ' + payload.meta.latestPayment);
+  } catch (eBuild) {
+    /* Loud, but not fatal. The sheet rebuild that called us has already
+       succeeded; the board will simply rebuild on its own next poll. */
+    Logger.log('warRoomRefreshNow: REBUILD FAILED - ' + ((eBuild && eBuild.message) || eBuild));
+    Logger.log('  The sheet is fine. The board will retry on its next poll.');
+    Logger.log('  Run warRoomSelfTest to see which tab is unhappy.');
+  }
+}

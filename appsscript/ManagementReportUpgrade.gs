@@ -1,150 +1,255 @@
 /**
  * ManagementReportUpgrade.gs - AIGF Upgrade / Catalyst as revenue.
  *
- * WHY A SEPARATE FILE
+ * Confirmed as revenue on 6 Oct 2026. CBC's headline has always included
+ * it and neither the report nor the board did, so both read low by exactly
+ * that amount - 1,61,500 in October, all of it on one agent.
  *
- *   ManagementReport.gs is long and correct, and re-typing it to change
- *   two numbers is how a transcription error gets introduced into a board
- *   pack. Every file in an Apps Script project shares one global scope, so
- *   this lives beside it and ManagementReport.gs needs exactly ONE line
- *   added. Nothing else in that file changes.
+ * WHY IT READS src_Roster AND NOT mdl_Roster
  *
- * WHAT IT DOES
+ *   The first version read mdl_Roster and stopped with "no AIGF Upgrade /
+ *   Catalyst column". It is not there. CBC has it, src_Roster_<month> has
+ *   it, and whatever builds mdl_Roster drops it on the way through - which
+ *   is also why the board's roster reader has always reported upgrade as
+ *   zero without anybody noticing.
  *
- *   CBC's headline has always included AIGF Upgrade / Catalyst and the
- *   report never did, so the two disagreed by exactly that amount -
- *   1,61,500 in October, all of it on one agent. Confirmed as revenue on
- *   6 Oct 2026.
+ *   Fixing the roster builder would be the tidier repair, but that file is
+ *   not in hand and this needs neither it nor any change to it.
  *
- *   The figure lives per agent in mdl_Roster, not in mdl_Payments, because
- *   it is an existing learner moving up rather than a payment row. So it
- *   cannot arrive through mr_payments_ and has to be folded in afterwards.
+ * AND WHY THE COLUMN IS FOUND THE HARD WAY
  *
- * WHERE TO PUT THE ONE LINE
+ *   In src_Roster the label "AIGF Upgrade/Catalyst" does not sit on the
+ *   same row as Manager and Agent - it sits on the totals row above them,
+ *   over near column AE. An exact header match on the main header row
+ *   finds nothing, which is exactly what happened. So the label is hunted
+ *   across the top rows and the data is read from the Agent row down.
  *
- *   In ManagementReport.gs, inside buildManagementReport, find:
+ *   Manager and Office are taken from mdl_Roster, joined on agent name,
+ *   rather than from src_Roster - its City/Region reads "India
+ *   Team-Bangalore" where the report says "Bangalore", and keying the
+ *   blocks off that would put the money in an office that does not exist.
  *
- *       var managers = mr_managers_(ros, pay);
- *       var offices = mr_offices_(ros, pay);
+ * TWO ENTRY POINTS
  *
- *   and add directly underneath:
+ *   mr_addUpgrade_   the Management Report. One line in
+ *                    ManagementReport.gs, under the managers/offices
+ *                    roll-up and before mr_write_:
  *
- *       mr_addUpgrade_(ss, win, pay, managers, offices);
+ *                        mr_addUpgrade_(ss, win, pay, managers, offices);
  *
- *   It must sit BEFORE mr_write_, so the written page and the totals
- *   agree, and before the block-consistency check at the end of
- *   buildManagementReport, which then verifies this work for free: if an
- *   upgrade row has a blank Manager or Office the blocks will not add up
- *   and that check says so.
+ *   wr_fillUpgrade_  the leaderboard. One line in WarRoom.gs, in
+ *                    wr_build_, directly after:
  *
- * WHAT IS DELIBERATELY NOT CHANGED
+ *                        var roster = wr_roster_(ss, monthKey);
+ *                        wr_fillUpgrade_(ss, monthKey, roster);
  *
- *   Units. A unit is a sale closed; this is an upsell on a sale already
- *   counted. October stays at 27 units.
+ *                    with the seed on the line below it reading
+ *                    revenue: r.upgrade rather than revenue: 0.
  *
- *   Booked and To Come. Those measure deals closed this month out of
- *   mdl_Payments and an upgrade is not one.
- *
- *   Average ticket moves, because the page computes it as Revenue over
- *   Units and a reader doing that division by hand must get the printed
- *   answer. Consistency on the page beats precision in the metric: a
- *   figure that fails its own arithmetic is the exact fault this month was
- *   spent chasing.
+ * Run managementReportUpgradeSelfTest after pasting. Read only except for
+ * the figures it folds into the report it is called from.
  */
 
 
-/**
- * Fold AIGF Upgrade / Catalyst into revenue, at every level the page
- * prints. Returns the amount added for the current month.
- *
- * Mutates pay.now.rev, pay.prior.rev and the rev on each manager and
- * office, which is on purpose: those are what mr_write_ prints, and
- * adding the figure only to the headline would leave the blocks summing
- * to less than the total above them.
- */
+/* ================================================================
+   THE MANAGEMENT REPORT
+   ================================================================ */
 function mr_addUpgrade_(ss, win, pay, managers, offices) {
-  var sh = ss.getSheetByName('mdl_Roster');
-  if (!sh || sh.getLastRow() < 2) return 0;
+  var now = up_collect_(ss, win.monthKey);
+  var prior = up_collect_(ss, mr_monthKeyOf_(win.priorStart));
 
-  var grid = mr_grid_(sh);
-  var iUp = mr_findCol_(grid[0], ['aigf upgrade/catalyst', 'aigf upgrade',
-                                  'upgrade', 'catalyst', 'aigf']);
-  if (iUp < 0) {
-    Logger.log('  !! mdl_Roster has no AIGF Upgrade / Catalyst column.');
-    Logger.log('     Upgrade revenue is not being counted, so this report will');
-    Logger.log('     read lower than CBC by whatever that column holds.');
-    return 0;
-  }
-
-  var iMonth = mr_findCol_(grid[0], ['month']);
-  var iMgr   = mr_findCol_(grid[0], ['manager', 'reporting manager']);
-  var iOff   = mr_findCol_(grid[0], ['office', 'city', 'location']);
-  var iAg    = mr_findCol_(grid[0], ['agent', 'agent name']);
-  if (iMonth < 0) { Logger.log('  !! mdl_Roster has no Month column.'); return 0; }
-
-  var priorKey = mr_monthKeyOf_(win.priorStart);
-  var byMgr = {}, byOff = {}, nowTotal = 0, priorTotal = 0, nowRows = 0;
-
-  for (var r = 1; r < grid.length; r++) {
-    var row = grid[r];
-
-    /* The same guard mr_roster_ uses, so a totals row carrying a figure
-       cannot be counted as an agent's upgrade. */
-    var mg = iMgr >= 0 ? String(row[iMgr]).trim() : '';
-    var ag = iAg  >= 0 ? String(row[iAg]).trim()  : '';
-    if (!mg || mr_isNumeric_(mg) || mr_isNumeric_(ag)) continue;
-
-    var amt = mr_number_(row[iUp]);
-    if (!amt) continue;
-
-    var mk = mr_monthKeyOf_(row[iMonth]);
-
-    /* The prior month is counted too, or "MTD Oct V/s Sep" compares a
-       figure that includes upgrades against one that does not, and the
-       whole comparison tilts by the difference. */
-    if (mk === priorKey) { priorTotal += amt; continue; }
-    if (mk !== win.monthKey) continue;
-
-    nowTotal += amt; nowRows++;
-    byMgr[mg] = (byMgr[mg] || 0) + amt;
-    var of = iOff >= 0 ? String(row[iOff]).trim() : '';
-    if (of) byOff[of] = (byOff[of] || 0) + amt;
-  }
-
-  if (!nowTotal && !priorTotal) {
+  if (now.error) { Logger.log('  !! upgrade: ' + now.error); return 0; }
+  if (!now.total && !prior.total) {
     Logger.log('  upgrade : none this month or last.');
     return 0;
   }
 
   managers.forEach(function (m) {
-    if (byMgr[m.manager]) m.rev += byMgr[m.manager];
+    if (now.byMgr[m.manager]) m.rev += now.byMgr[m.manager];
   });
   offices.forEach(function (o) {
-    if (byOff[o.office]) o.rev += byOff[o.office];
+    if (now.byOff[o.office]) o.rev += now.byOff[o.office];
   });
-  pay.now.rev   += nowTotal;
-  pay.prior.rev += priorTotal;
+  pay.now.rev   += now.total;
+  pay.prior.rev += prior.total;
 
-  Logger.log('  upgrade : ' + mr_commas_(nowTotal) + ' counted as revenue across ' +
-             nowRows + ' agent(s)   (prior window ' + mr_commas_(priorTotal) + ')');
+  Logger.log('  upgrade : ' + mr_commas_(now.total) + ' counted as revenue across ' +
+             now.rows + ' agent(s), from ' + now.tab +
+             '   (prior window ' + mr_commas_(prior.total) + ')');
+  var who = [];
+  for (var k in now.byMgr) who.push(k + ' ' + mr_commas_(now.byMgr[k]));
+  if (who.length) Logger.log('            by manager: ' + who.join(',  '));
 
-  /* Named, because one agent carrying a six-figure upgrade is worth
-     seeing rather than inferring from a total that moved. */
-  var names = [];
-  for (var k in byMgr) names.push(k + ' ' + mr_commas_(byMgr[k]));
-  if (names.length) Logger.log('            by manager: ' + names.join(',  '));
+  /* An upgrade against a name the roster does not carry would otherwise
+     land in the headline and in no block, and the block-consistency check
+     further down buildManagementReport would report it as a mystery. */
+  if (now.unmatched.length) {
+    Logger.log('  !! ' + now.unmatched.length + ' upgrade row(s) name an agent that is');
+    Logger.log('     not on mdl_Roster for this month: ' + now.unmatched.join(', '));
+    Logger.log('     Their money is in the total but in no manager or office block.');
+  }
+  return now.total;
+}
 
-  return nowTotal;
+
+/* ================================================================
+   THE LEADERBOARD
+   ================================================================ */
+/**
+ * Put the upgrade figure onto each roster agent, so wr_build_ can seed
+ * revenue with it. wr_roster_ reads mdl_Roster, which does not carry the
+ * column, so without this every agent's upgrade is zero and the seed has
+ * nothing to add.
+ */
+function wr_fillUpgrade_(ss, monthKey, roster) {
+  if (!roster || !roster.byAgent) return 0;
+  var got = up_collect_(ss, monthKey);
+  if (got.error) { Logger.log('wr_fillUpgrade_: ' + got.error); return 0; }
+
+  var total = 0;
+  for (var k in got.byAgent) {
+    if (!roster.byAgent[k]) continue;
+    roster.byAgent[k].upgrade = got.byAgent[k];
+    total += got.byAgent[k];
+  }
+  roster.upgrade = total;
+  roster.upCol = true;
+  return total;
+}
+
+
+/* ================================================================
+   THE WORK
+   ================================================================ */
+/**
+ * Upgrade money for one month, keyed by agent, and rolled up by the
+ * manager and office mdl_Roster gives that agent.
+ */
+function up_collect_(ss, monthKey) {
+  var out = { byAgent: {}, byMgr: {}, byOff: {}, total: 0, rows: 0,
+              unmatched: [], tab: '', error: '' };
+  if (!monthKey) { out.error = 'no month given'; return out; }
+
+  var src = up_srcRoster_(ss, monthKey);
+  if (!src) { out.error = 'no src_Roster tab for ' + monthKey; return out; }
+  out.tab = src.name;
+
+  var who = up_mdlRoster_(ss, monthKey);   // agent -> manager, office
+
+  for (var r = src.firstData; r < src.grid.length; r++) {
+    var row = src.grid[r];
+    var agent = String(row[src.cAgent] == null ? '' : row[src.cAgent]).trim();
+    if (!agent || mr_isNumeric_(agent)) continue;
+    if (/^(total|grand total|sum)\b/i.test(agent)) continue;
+
+    var amt = mr_number_(row[src.cUp]);
+    if (!amt) continue;
+
+    var key = up_key_(agent);
+    out.byAgent[key] = (out.byAgent[key] || 0) + amt;
+    out.total += amt; out.rows++;
+
+    var m = who[key];
+    if (!m) { out.unmatched.push(agent); continue; }
+    if (m.manager) out.byMgr[m.manager] = (out.byMgr[m.manager] || 0) + amt;
+    if (m.office)  out.byOff[m.office]  = (out.byOff[m.office]  || 0) + amt;
+  }
+  return out;
+}
+
+
+/** agent -> {manager, office} for one month, exactly as the report sees it. */
+function up_mdlRoster_(ss, monthKey) {
+  var out = {};
+  var sh = ss.getSheetByName('mdl_Roster');
+  if (!sh || sh.getLastRow() < 2) return out;
+
+  var grid = mr_grid_(sh);
+  var iMonth = mr_findCol_(grid[0], ['month']);
+  var iAgent = mr_findCol_(grid[0], ['agent', 'agent name']);
+  var iMgr   = mr_findCol_(grid[0], ['manager', 'reporting manager']);
+  var iOff   = mr_findCol_(grid[0], ['office', 'city', 'location']);
+  if (iMonth < 0 || iAgent < 0) return out;
+
+  for (var r = 1; r < grid.length; r++) {
+    if (mr_monthKeyOf_(grid[r][iMonth]) !== monthKey) continue;
+    var a = String(grid[r][iAgent] == null ? '' : grid[r][iAgent]).trim();
+    if (!a) continue;
+    out[up_key_(a)] = {
+      manager: iMgr >= 0 ? String(grid[r][iMgr]).trim() : '',
+      office:  iOff >= 0 ? String(grid[r][iOff]).trim()  : ''
+    };
+  }
+  return out;
+}
+
+
+/**
+ * The src_Roster tab for a month, with the Agent column, the first data
+ * row, and the upgrade column - which is labelled on a row ABOVE the Agent
+ * header, so it is hunted across the top of the sheet rather than looked
+ * up in one header row.
+ */
+function up_srcRoster_(ss, monthKey) {
+  var tabs = ss.getSheets();
+  for (var t = 0; t < tabs.length; t++) {
+    var sh = tabs[t], nm = sh.getName();
+    if (!/^src_Roster/i.test(nm)) continue;
+
+    var suffix = nm.replace(/^src_Roster[_\s-]*/i, '').trim();
+    var tabMonth = up_monthOfName_(suffix, monthKey.substring(0, 4));
+    if (tabMonth && tabMonth !== monthKey) continue;
+
+    var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (lastRow < 3 || lastCol < 3) continue;
+    var grid = sh.getRange(1, 1, lastRow, lastCol).getValues();
+
+    /* the row that names Agent - everything below it is data */
+    var hr = -1, cAgent = -1;
+    for (var r = 0; r < grid.length && r < 25 && hr < 0; r++) {
+      for (var c = 0; c < grid[r].length; c++) {
+        if (String(grid[r][c]).trim().toLowerCase() === 'agent') { hr = r; cAgent = c; break; }
+      }
+    }
+    if (hr < 0) continue;
+
+    /* the upgrade label, anywhere in the rows at or above it */
+    var cUp = -1;
+    for (var r2 = 0; r2 <= hr && cUp < 0; r2++) {
+      for (var c2 = 0; c2 < grid[r2].length; c2++) {
+        var v = String(grid[r2][c2]).trim().toLowerCase();
+        if (!v) continue;
+        if (v.indexOf('upgrade') > -1 || v.indexOf('catalyst') > -1) { cUp = c2; break; }
+      }
+    }
+    if (cUp < 0) continue;
+
+    return { name: nm, grid: grid, firstData: hr + 1, cAgent: cAgent, cUp: cUp };
+  }
+  return null;
+}
+
+
+/** "Oct" plus a year to 2026-10. Blank when the suffix is not a month. */
+function up_monthOfName_(suffix, year) {
+  var MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+              jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+  var m = String(suffix).toLowerCase().match(/^([a-z]{3})/);
+  if (!m || !MON[m[1]]) return '';
+  var n = MON[m[1]];
+  return year + '-' + (n < 10 ? '0' : '') + n;
+}
+
+
+function up_key_(s) {
+  return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 
 /**
  * Find a column by header, exact match first, then substring.
- *
- * ManagementReport.gs indexes columns by their exact trimmed header, which
- * is right for the ones it requires and too strict for an optional column
- * nobody has agreed the spelling of - "AIGF Upgrade/Catalyst", "AIGF
- * Upgrade / Catalyst" and "Upgrade" are all the same column to a person.
+ * ManagementReport.gs indexes by the exact trimmed header, which is right
+ * for the columns it requires and too strict for optional ones.
  */
 function mr_findCol_(headerRow, names) {
   var H = {};
@@ -161,63 +266,95 @@ function mr_findCol_(headerRow, names) {
 }
 
 
-/**
- * Prove the arithmetic without a sheet, the way managementReportSelfTest
- * does. Run it after pasting.
- */
+/* ================================================================
+   PROVE IT WITHOUT A SHEET
+   ================================================================ */
 function managementReportUpgradeSelfTest() {
   var fails = [];
   function eq(what, got, want) {
     if (String(got) !== String(want)) fails.push(what + ': got ' + got + ', wanted ' + want);
   }
 
-  /* the header lookup */
-  var head = ['Month', 'Agent', 'Manager', 'Office', 'Team', 'Target',
-              'Man Month', 'AIGF Upgrade/Catalyst'];
-  eq('finds the exact header', mr_findCol_(head, ['aigf upgrade/catalyst']), 7);
-  eq('finds it by a looser name', mr_findCol_(head, ['upgrade']), 7);
-  eq('finds Month', mr_findCol_(head, ['month']), 0);
-  eq('says so when absent', mr_findCol_(head, ['nothing like this']), -1);
-  eq('prefers an exact match over a substring',
-     mr_findCol_(['Agent Name', 'Agent'], ['agent']), 1);
+  eq('a month suffix', up_monthOfName_('Oct', '2026'), '2026-10');
+  eq('a longer one', up_monthOfName_('October', '2026'), '2026-10');
+  eq('not a month', up_monthOfName_('Archive', '2026'), '');
+  eq('names are matched loosely', up_key_('  Subham   Sahoo '), 'subham sahoo');
 
-  /* the fold itself, against a stub sheet */
-  var grid = [head,
-    ['2026-10', 'Subham Sahoo', 'Vaibhav Tiwari', 'Bhubaneswar', 'India', 1000000, 1, 161500],
-    ['2026-10', 'Kshitij',      'Deepika M',      'Bangalore',   'Intl',  1200000, 1, 0],
-    ['2026-09', 'Subham Sahoo', 'Vaibhav Tiwari', 'Bhubaneswar', 'India', 1000000, 1, 50000],
-    ['2026-10', '',             '',               '',            '',      0,       0, 999999]
+  var head = ['Month', 'Agent', 'Manager', 'Office', 'Target'];
+  eq('exact beats substring', mr_findCol_(['Agent Name', 'Agent'], ['agent']), 1);
+  eq('substring still works', mr_findCol_(head, ['offic']), 3);
+  eq('absent reads -1', mr_findCol_(head, ['nothing']), -1);
+
+  /* src_Roster as it really is: preamble, the upgrade label on the totals
+     row above the header, City/Region unlike the report's Office. */
+  var srcOct = [
+    ['SOURCE - CBC > Oct 2026', '', '', '', ''],
+    ['Read-only. Do not type here.', '', '', '', ''],
+    ['Total', '', '', '', 'AIGF Upgrade/Catalyst'],
+    ['Manager', 'Agent', 'City/Region', 'Oct Target', ''],
+    ['Vaibhav Tiwari', 'Subham Sahoo', 'India Team-Bbsr', 1000000, 161500],
+    ['Deepika M', 'Kshitij', 'Intl Team-Bangalore', 1200000, 0],
+    ['', 'Ghost Agent', '', 0, 7000]
   ];
-  var ss = { getSheetByName: function () {
-    return { getLastRow: function () { return grid.length; },
-             getLastColumn: function () { return head.length; },
-             getRange: function () { return { getValues: function () { return grid; } }; } };
-  }};
+  var srcSep = [
+    ['Total', '', '', '', 'AIGF Upgrade/Catalyst'],
+    ['Manager', 'Agent', 'City/Region', 'Sep Target', ''],
+    ['Vaibhav Tiwari', 'Subham Sahoo', 'India Team-Bbsr', 1000000, 50000]
+  ];
+  var mdl = [
+    ['Month', 'Agent', 'Manager', 'Office', 'Target'],
+    ['2026-10', 'Subham Sahoo', 'Vaibhav Tiwari', 'Bhubaneswar', 1000000],
+    ['2026-10', 'Kshitij', 'Deepika M', 'Bangalore', 1200000],
+    ['2026-09', 'Subham Sahoo', 'Vaibhav Tiwari', 'Bhubaneswar', 1000000]
+  ];
+  function tab(name, g) {
+    return { getName: function () { return name; },
+             getLastRow: function () { return g.length; },
+             getLastColumn: function () { return g[0].length; },
+             getRange: function () { return { getValues: function () { return g; } }; } };
+  }
+  var TABS = [tab('src_Roster_Oct', srcOct), tab('src_Roster_Sep', srcSep),
+              tab('mdl_Roster', mdl)];
+  var ss = { getSheets: function () { return TABS; },
+             getSheetByName: function (n) {
+               for (var i = 0; i < TABS.length; i++) if (TABS[i].getName() === n) return TABS[i];
+               return null; } };
+
   var win = { monthKey: '2026-10', priorStart: new Date(2026, 8, 1) };
-  var pay = { now: { rev: 2341196 }, prior: { rev: 3429000 } };
+  var pay = { now: { rev: 2341196 }, prior: { rev: 3428581 } };
   var managers = [{ manager: 'Vaibhav Tiwari', rev: 620000 },
-                  { manager: 'Deepika M',      rev: 1146000 }];
-  var offices  = [{ office: 'Bhubaneswar', rev: 639000 },
-                  { office: 'Bangalore',   rev: 1333000 }];
+                  { manager: 'Deepika M', rev: 1146000 }];
+  var offices = [{ office: 'Bhubaneswar', rev: 639000 },
+                 { office: 'Bangalore', rev: 1333000 }];
 
   var added = mr_addUpgrade_(ss, win, pay, managers, offices);
 
-  eq('adds this month only', added, 161500);
-  eq('the headline moves by it', pay.now.rev, 2341196 + 161500);
-  eq('the prior window moves by its own', pay.prior.rev, 3429000 + 50000);
+  eq('reads the label above the header', added, 168500);
+  eq('the headline moves', pay.now.rev, 2341196 + 168500);
+  eq('the prior window moves by its own', pay.prior.rev, 3428581 + 50000);
   eq('the right manager gets it', managers[0].rev, 620000 + 161500);
-  eq('and nobody else does', managers[1].rev, 1146000);
-  eq('the right office gets it', offices[0].rev, 639000 + 161500);
-  eq('and nobody else does', offices[1].rev, 1333000);
-  eq('a row with no manager is ignored, not counted', added, 161500);
+  eq('nobody else does', managers[1].rev, 1146000);
+  eq('the office comes from mdl_Roster, not City/Region',
+     offices[0].rev, 639000 + 161500);
+  eq('nobody else does', offices[1].rev, 1333000);
+
+  /* the leaderboard side */
+  var roster = { byAgent: { 'subham sahoo': { upgrade: 0 }, 'kshitij': { upgrade: 0 } },
+                 upgrade: 0, upCol: false };
+  var filled = wr_fillUpgrade_(ss, '2026-10', roster);
+  eq('fills the agent the board knows', roster.byAgent['subham sahoo'].upgrade, 161500);
+  eq('leaves the others alone', roster.byAgent['kshitij'].upgrade, 0);
+  eq('an agent off the roster is not invented', filled, 161500);
+  eq('the board now knows it has a column', roster.upCol, true);
 
   if (fails.length) {
     Logger.log('UPGRADE SELF TEST FAILED');
     fails.forEach(function (f) { Logger.log('  ' + f); });
   } else {
     Logger.log('UPGRADE SELF TEST PASSED');
-    Logger.log('  161500 added to this month, 50000 to the prior window,');
-    Logger.log('  and only to Vaibhav Tiwari and Bhubaneswar.');
+    Logger.log('  the label is found on the row above the header, the money lands');
+    Logger.log('  on the right manager and office, and an agent missing from');
+    Logger.log('  mdl_Roster is reported rather than silently dropped.');
   }
   return fails;
 }

@@ -7,17 +7,24 @@
 #   to say which one is live. With this, GitHub is the only source of truth
 #   and the editor is a read-only view of it.
 #
-# WHAT IT DOES
+# IT IS OFF UNTIL YOU TURN IT ON
 #
-#   On every push that touches inside-sales/, it runs `clasp push --force`,
-#   which makes the Apps Script project match inside-sales/src EXACTLY.
+#   With neither secret set the job reports a notice and stops. It does not
+#   fail, because a red cross on every push for a feature nobody asked for
+#   yet is just noise. Set both secrets and it starts working; set only one
+#   and it fails loudly, because half-configured is a real mistake.
+#
+# WHAT IT DOES, ONCE CONFIGURED
+#
+#   Runs `clasp push --force`, which makes the Apps Script project match
+#   inside-sales/src EXACTLY.
 #
 #   --force means files in the project that are NOT in src/ are DELETED.
-#   That is the point - it is what keeps a stale file from surviving - but
-#   it also means the editor is not a place to make edits. Anything typed
+#   That is the point - it is what stops a stale file surviving - but it
+#   also means the editor is not a place to make edits. Anything typed
 #   there is gone on the next push. Edit here, commit, done.
 #
-# ONE-TIME SETUP - see inside-sales/README.md for the full walkthrough
+# SETUP - see inside-sales/README.md for the walkthrough
 #
 #   Settings > Secrets and variables > Actions > New repository secret
 #
@@ -35,7 +42,7 @@ name: Deploy Apps Script
 on:
   push:
     branches:
-      - main
+      - claude/elegant-allen-Oq8U7
       - claude/data-architecture-protocol-wymh4n
     paths:
       - 'inside-sales/**'
@@ -54,35 +61,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-
-      - name: Check the secrets are set
+      - name: Is the sync configured?
+        id: cfg
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
           SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
         run: |
-          missing=""
-          [ -z "$CLASPRC_JSON" ] && missing="$missing CLASPRC_JSON"
-          [ -z "$SCRIPT_ID" ]    && missing="$missing SCRIPT_ID"
-          if [ -n "$missing" ]; then
-            echo "::error::Missing repository secret(s):$missing"
-            echo ""
-            echo "Set them under Settings > Secrets and variables > Actions."
-            echo "inside-sales/README.md has the step-by-step for both."
+          have=0
+          [ -n "$CLASPRC_JSON" ] && have=$((have+1))
+          [ -n "$SCRIPT_ID" ]    && have=$((have+1))
+
+          if [ "$have" -eq 0 ]; then
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub -> Apps Script sync is not set up yet, so there is nothing to push. Add the CLASPRC_JSON and SCRIPT_ID secrets when you want it - inside-sales/README.md has the steps. Skipping, not failing."
+            exit 0
+          fi
+
+          if [ "$have" -eq 1 ]; then
+            echo "::error::Half configured - one of CLASPRC_JSON / SCRIPT_ID is set and the other is not. Set both, or neither."
             exit 1
           fi
-          echo "Both secrets are present."
+
+          echo "ready=yes" >> "$GITHUB_OUTPUT"
+          echo "Both secrets present."
+
+      - name: Check out the repo
+        if: steps.cfg.outputs.ready == 'yes'
+        uses: actions/checkout@v4
 
       - name: Set up Node
+        if: steps.cfg.outputs.ready == 'yes'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Install clasp
+        if: steps.cfg.outputs.ready == 'yes'
         run: npm install -g @google/clasp@2
 
       - name: Write the Google credentials
+        if: steps.cfg.outputs.ready == 'yes'
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
@@ -93,6 +111,7 @@ jobs:
             || { echo "::error::CLASPRC_JSON is not valid JSON. Re-copy the WHOLE of ~/.clasprc.json, including the outer braces."; exit 1; }
 
       - name: Point clasp at the project
+        if: steps.cfg.outputs.ready == 'yes'
         env:
           SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
         run: |
@@ -102,14 +121,11 @@ jobs:
             "rootDir": "src"
           }
           EOF
-
-      - name: Show what is about to be pushed
-        working-directory: inside-sales
-        run: |
-          echo "Files in src/:"
-          ls -la src/
+          echo "Files to push:"
+          ls -la inside-sales/src/
 
       - name: Push to Apps Script
+        if: steps.cfg.outputs.ready == 'yes'
         working-directory: inside-sales
         run: |
           set +e
@@ -130,12 +146,10 @@ jobs:
             fi
             exit $code
           fi
-
-      - name: Done
-        run: |
+          echo ""
           echo "The Apps Script project now matches inside-sales/src."
           echo ""
-          echo "Code is live in the editor immediately."
-          echo "The WEB APP is not - a deployment is pinned to a version, so the"
-          echo "leaderboard keeps serving the old code until you deploy a new"
-          echo "version by hand: Deploy > Manage deployments > pencil > Version: New."
+          echo "Code is live in the editor immediately. The WEB APP is not - a"
+          echo "deployment is pinned to a version, so the leaderboard keeps serving"
+          echo "the old code until you deploy a new version by hand:"
+          echo "Deploy > Manage deployments > pencil > Version: New version."

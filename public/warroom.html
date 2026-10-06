@@ -206,15 +206,23 @@ body{
 
 /* --------------------- MIDDLE: the organisation --------------------- */
 /* Heights are fixed rather than proportional so nothing reflows when a
-   number changes width. They must add up: 300 + 252 + 28 of gaps leaves
-   274 for the chart inside the 854 the column has. The pace panel was
-   184 and clipped its bottom two cards - four cards in two rows need
-   252 once the header is counted. */
-#pCity{flex:none; height:300px}
-#pPace{flex:none; height:252px}
+   number changes width. They have to ADD UP, and they did not: the desk
+   race went into the city panel without the panel growing, so the city
+   rows were squeezed under their own sub-lines and the pace cards were
+   cut off at the bottom.
+
+   Budget, with the freshness note showing (the tighter case):
+     1080 - 112 top - 34 note - 86 ticker - 28 padding = 820
+     360 city + 245 pace + 28 gaps = 633, leaving 187 for the chart. */
+#pCity{flex:none; height:360px}
+#pPace{flex:none; height:245px}
 #pDay {flex:1 1 auto; min-height:0}
 
-.crow{display:flex; align-items:center; gap:14px; flex:1 1 0; min-height:0; max-height:112px; padding:4px 0;
+/* min-height, not just max: a flex child will happily shrink below its
+   own content, which is how the city names ended up sitting on top of
+   the sub-line of the row beneath them. */
+.crow{display:flex; align-items:center; gap:14px; flex:1 1 0;
+  min-height:56px; max-height:84px; padding:4px 0;
   border-bottom:1px solid rgba(28,36,22,.55)}
 .crow:last-child{border-bottom:0}
 .crow .rk{width:34px; flex:none; text-align:center; font-weight:700; font-size:24px; color:var(--dim)}
@@ -229,11 +237,11 @@ body{
 .crow .fig span{display:block; font-size:12px; color:var(--dim); font-weight:700; margin-top:2px}
 
 .pacegrid{display:flex; flex-wrap:wrap; gap:11px; align-content:flex-start; padding-top:4px}
-.pcard{flex:1 1 44%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 14px;
+.pcard{flex:1 1 44%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:9px 14px;
   background:rgba(9,13,6,.55)}
 .pcard .k{font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:800; text-transform:uppercase}
-.pcard .v{font-weight:700; font-size:30px; margin-top:6px; line-height:1}
-.pcard .n{font-size:12px; color:var(--dim); margin-top:5px; font-weight:600;
+.pcard .v{font-weight:700; font-size:26px; margin-top:5px; line-height:1}
+.pcard .n{font-size:12px; color:var(--dim); margin-top:4px; font-weight:600;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 
 .spark{display:flex; align-items:flex-end; gap:4px; flex:1 1 auto; min-height:0; padding:6px 0 20px}
@@ -316,51 +324,56 @@ body{
 #hot .mt{font-size:17px; color:var(--dim); font-weight:600}
 @keyframes hotIn{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
 
-/* --------------------- NEW ON THE FLOOR takeover -------------------- */
-/* A full-screen welcome card for a new joiner, every few minutes. The
-   leaderboard is still there underneath and comes straight back - this
-   is a cutaway, not a mode. */
+/* --------------------- NEW ON THE FLOOR -----------------------------
+   Five faces at a time rather than one. Fifteen cards at nine seconds
+   each was nearly two minutes of wall per round; three screens of five
+   says the same thing in thirty seconds, and you can see a whole intake
+   together rather than a slideshow of strangers.
+   ------------------------------------------------------------------ */
 #joinCard{
-  position:absolute; inset:0; z-index:60; display:none; align-items:center; gap:72px;
-  padding:0 110px;
+  position:absolute; inset:0; z-index:60; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:40px;
+  padding:0 64px;
   background:
-    radial-gradient(900px 700px at 22% 50%, rgba(194,238,69,.13), transparent 62%),
-    radial-gradient(800px 600px at 82% 55%, rgba(77,216,192,.12), transparent 62%),
+    radial-gradient(1000px 760px at 26% 40%, rgba(194,238,69,.12), transparent 64%),
+    radial-gradient(900px 680px at 76% 62%, rgba(77,216,192,.11), transparent 64%),
     #060803;
 }
 #joinCard.on{display:flex}
-@keyframes jcIn{from{opacity:0} to{opacity:1}}
-#jcPhotoWrap{
-  flex:none; width:440px; height:560px; border-radius:26px; overflow:hidden; position:relative;
-  background:linear-gradient(150deg,#1a2112,#0d1208);
-  box-shadow:0 36px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(194,238,69,.22);
-}
-#jcPhoto{width:100%; height:100%; object-fit:cover; display:block; animation:jcPan 9s ease-out both}
-@keyframes jcPan{from{transform:scale(1.1)} to{transform:scale(1.005)}}
-#jcInitials{
-  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
-  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:150px; color:var(--lime); opacity:.5;
-}
-#jcText{flex:1 1 auto; min-width:0; animation:jcUp .7s cubic-bezier(.22,1,.36,1) both}
-@keyframes jcUp{from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:none}}
+#jcHead{text-align:center; animation:jcUp .6s cubic-bezier(.22,1,.36,1) both}
 #jcEyebrow{
-  font-size:16px; letter-spacing:.34em; font-weight:900; text-transform:uppercase;
+  font-size:19px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
   background:linear-gradient(92deg,var(--lime),var(--teal));
   -webkit-background-clip:text; background-clip:text; color:transparent;
 }
-#jcName{
-  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:88px; line-height:1.03;
-  margin:16px 0 18px; letter-spacing:-.015em;
+#jcSub{font-size:17px; color:var(--dim); font-weight:700; letter-spacing:.16em;
+  text-transform:uppercase; margin-top:14px}
+@keyframes jcUp{from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:none}}
+
+#jcGrid{display:flex; gap:22px; justify-content:center; align-items:stretch; width:100%}
+.jc{
+  flex:1 1 0; max-width:336px; min-width:0; text-align:center;
+  animation:jcUp .6s cubic-bezier(.22,1,.36,1) backwards;
 }
-#jcRole{
-  display:inline-block; font-size:17px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
-  padding:9px 20px; border-radius:999px; border:1px solid rgba(194,238,69,.4); color:var(--lime);
+.jc .ph{
+  width:100%; height:326px; border-radius:18px; overflow:hidden; position:relative;
+  background:linear-gradient(150deg,#1a2112,#0d1208);
+  box-shadow:0 22px 56px rgba(0,0,0,.6), 0 0 0 1px rgba(194,238,69,.18);
 }
-#jcQuote{
-  margin-top:30px; font-size:28px; line-height:1.55; color:#d7e0c8; max-width:980px;
-  border-left:4px solid var(--lime); padding-left:26px; font-weight:500;
+/* Absolute, so DOM order decides what is on top. The initials sit
+   first and the photo covers them; left static, the absolutely
+   positioned initials painted over every face. */
+.jc .ph img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block}
+.jc .ini{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:86px; color:var(--lime); opacity:.5;
 }
-#jcCount{margin-top:34px; font-size:15px; letter-spacing:.24em; color:var(--dim); font-weight:800; text-transform:uppercase}
+.jc .nm{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:27px; line-height:1.15;
+  margin-top:18px}
+.jc .ro{font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--lime); margin-top:9px}
+.jc .q{font-size:14px; line-height:1.5; color:#b9c4a8; margin-top:13px; font-weight:500;
+  display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden}
 
 /* ---------------------------- STATE SCREEN -------------------------- */
 #state{
@@ -376,8 +389,8 @@ body{
 
 #sig{
   position:absolute; top:7px; right:16px; z-index:20;
-  font-size:11px; letter-spacing:.22em; color:var(--ink); opacity:.45;
-  font-weight:500; text-transform:uppercase; pointer-events:none;
+  font-size:13px; letter-spacing:.24em; color:var(--ink); opacity:.5;
+  font-weight:600; text-transform:uppercase; pointer-events:none;
 }
 #banner{
   position:absolute; top:0; left:50%; transform:translateX(-50%); z-index:30;
@@ -429,14 +442,48 @@ body{
 .chase{color:var(--amber); font-weight:800}
 .chase.lead{color:var(--gold)}
 
+/* ---- bars sweep in ----
+   Every bar grows from nothing each time its panel renders. It costs one
+   transform and it is the difference between a board that updates and a
+   board that is alive. */
+.track > i{transform-origin:left center; animation:barIn .95s cubic-bezier(.22,1,.36,1)}
+@keyframes barIn{from{transform:scaleX(0)} to{transform:scaleX(1)}}
+
+/* ---- a new row arrives ----
+   Rows already on screen FLIP to their new place. Rows that are new -
+   a fresh desk, a first sale - come in on a stagger. */
+.arow.fresh, .mrow.fresh{animation:rowIn .5s cubic-bezier(.22,1,.36,1) backwards}
+@keyframes rowIn{from{opacity:0; transform:translateX(26px)} to{opacity:1; transform:none}}
+
+/* ---- the desk changes ----
+   The column never moves, but its CONTENTS leave and arrive. Twenty
+   seconds of stillness then a hard cut felt like a page refresh; a
+   half-second hand-off reads as deliberate. */
+#deskHead, #agentList, #deskDots{transition:opacity .42s ease, transform .42s cubic-bezier(.22,1,.36,1)}
+.swapping #deskHead, .swapping #agentList, .swapping #deskDots{
+  opacity:0; transform:translateX(-26px);
+  transition:opacity .22s ease, transform .22s ease;
+}
+
 /* ---- one panel lit at a time ----
    Replaces the block-swapping with something that draws the eye without
-   relocating anything. */
-.panel, #colAgents .panel{transition:border-color .9s, box-shadow .9s}
+   relocating anything. Deliberately obvious: across a room, a tinted
+   border is not a signal. */
+.panel{transition:border-color .8s, box-shadow .8s, transform .8s}
 .panel.spot{
-  border-color:rgba(255,215,110,.42);
-  box-shadow:0 0 0 1px rgba(255,215,110,.16), 0 24px 64px rgba(0,0,0,.55);
+  border-color:rgba(255,215,110,.6);
+  box-shadow:0 0 0 1px rgba(255,215,110,.26),
+             0 0 60px rgba(255,215,110,.13),
+             0 24px 64px rgba(0,0,0,.55);
+  transform:translateY(-3px);
 }
+.panel.spot > .hd, .panel.spot #deskHead{position:relative; overflow:hidden}
+.panel.spot > .hd::after, .panel.spot #deskHead::after{
+  content:''; position:absolute; top:0; bottom:0; width:45%; pointer-events:none;
+  background:linear-gradient(100deg, transparent, rgba(255,215,110,.16), transparent);
+  animation:sweep 2.8s ease-in-out infinite;
+}
+@keyframes sweep{from{left:-50%} to{left:110%}}
 
 
 /* =====================================================================
@@ -592,14 +639,11 @@ body{
   </div>
 
   <div id="joinCard">
-    <div id="jcPhotoWrap"><img id="jcPhoto" alt=""><div id="jcInitials"></div></div>
-    <div id="jcText">
+    <div id="jcHead">
       <div id="jcEyebrow">New on the floor</div>
-      <div id="jcName"></div>
-      <div id="jcRole"></div>
-      <div id="jcQuote"></div>
-      <div id="jcCount"></div>
+      <div id="jcSub"></div>
     </div>
+    <div id="jcGrid"></div>
   </div>
 
   <!-- Confetti sits over the board, not instead of it: a close is
@@ -653,14 +697,13 @@ var CONFIG = {
   FILL: Q.get('fill') === '1',
 
   /* NEW ON THE FLOOR - the only thing that ever takes the whole screen.
-     Three cards at ten seconds is half a minute, every twenty minutes:
-     all fifteen joiners come round in about an hour and a half, which
-     is often enough to matter in their first weeks and rare enough that
-     nobody starts resenting it. */
-  JOINERS:        Q.get('joiners') !== '0',
-  JOINER_EVERY:   +(Q.get('joinerevery') || 20),   // minutes between runs
-  JOINER_SECS:    +(Q.get('joinersecs')  || 10),   // seconds per card
-  JOINER_PER_RUN: +(Q.get('joinerrun')   || 3),    // cards per run
+     Five faces a screen, three screens, ten seconds each, with twenty
+     seconds of leaderboard between them. A whole intake comes round in
+     about a minute and a half instead of two minutes per round. */
+  JOINERS:           Q.get('joiners') !== '0',
+  JOINER_EVERY:      +(Q.get('joinerevery') || 20),   // SECONDS of board between screens
+  JOINER_SECS:       +(Q.get('joinersecs')  || 10),   // seconds a screen stays up
+  JOINER_PER_SCREEN: +(Q.get('joinerper')   || 5),    // faces per screen
   /* Stops playing by itself after this date, so nobody has to remember
      to switch it off. Pass ?joineruntil=2026-12-31 to extend. */
   JOINER_UNTIL:   Q.get('joineruntil') || '2026-11-15',
@@ -829,8 +872,8 @@ function goFull(){ var e=document.documentElement;
   else if(e.requestFullscreen) e.requestFullscreen().catch(function(){}); }
 document.addEventListener('keydown', function(e){
   if(e.key==='f'||e.key==='F') goFull();
-  if(e.key==='ArrowRight'){ clearTimeout(deskTimer); deskIdx++; renderAgents(); scheduleDesk(); }
-  if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); deskIdx=Math.max(0,deskIdx-1); renderAgents(); scheduleDesk(); }
+  if(e.key==='ArrowRight'){ clearTimeout(deskTimer); swapDesk(function(){ deskIdx++; renderAgents(); }); scheduleDesk(); }
+  if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); swapDesk(function(){ deskIdx=Math.max(0,deskIdx-1); renderAgents(); }); scheduleDesk(); }
   if(e.key==='j'||e.key==='J') playJoiners();                 /* welcome cards now */
   if(e.key==='c'||e.key==='C'){                               /* replay the last close */
     var r=(DATA&&DATA.recent||[])[0]; if(r) celebrate(r);
@@ -1082,9 +1125,15 @@ function renderRows(container, items, keyOf, build){
   items.forEach(function(it, i){
     var k = keyOf(it);
     var el = pool[k];
-    if(!el){ el = document.createElement('div'); el.setAttribute('data-k', k); }
+    var fresh = !el;
+    if(fresh){ el = document.createElement('div'); el.setAttribute('data-k', k); }
     el.style.transition=''; el.style.transform='';
     build(el, it, i);
+    /* build() sets className wholesale, so the entrance class goes on
+       afterwards. Only genuinely new rows get it - a row that was
+       already here FLIPs instead, below. */
+    if(fresh){ el.classList.add('fresh'); el.style.animationDelay=(i*45)+'ms'; }
+    else { el.style.animationDelay=''; }
     frag.appendChild(el);
   });
   container.innerHTML = '';
@@ -1400,12 +1449,17 @@ function deskViews(){
   ds.forEach(function(d){
     var rows=d.list.slice().sort(byAttain);
     var pages=Math.max(1, Math.ceil(rows.length/AGENT_ROWS));
+    /* Split EVENLY across the pages, not nine-then-whatever-is-left.
+       Nineteen agents was coming out 9 / 9 / 1, and a page with one
+       person on it reads as a broken screen rather than a third page.
+       Seven / six / six says the same thing and looks deliberate. */
+    var per=Math.ceil(rows.length/pages);
     for(var p=0;p<pages;p++){
       views.push({
         city:d.city, team:d.team, revenue:d.revenue, units:d.units,
         headcount:d.list.length,
-        rows:rows.slice(p*AGENT_ROWS,(p+1)*AGENT_ROWS),
-        from:p*AGENT_ROWS, page:p+1, pages:pages,
+        rows:rows.slice(p*per,(p+1)*per),
+        from:p*per, page:p+1, pages:pages,
         anyT:rows.some(function(a){return a.target>0;}),
         top:rows[0] ? (rows[0].revenue||1) : 1
       });
@@ -1474,10 +1528,24 @@ function scheduleDesk(){
   clearTimeout(deskTimer);
   deskTimer=setTimeout(function(){
     var vs=deskViews();
-    deskIdx = vs.length ? (deskIdx+1) % vs.length : 0;
-    renderAgents();
+    swapDesk(function(){
+      deskIdx = vs.length ? (deskIdx+1) % vs.length : 0;
+      renderAgents();
+    });
     scheduleDesk();
   }, Math.max(6,CONFIG.DESK_SECONDS)*1000);
+}
+
+/* The column hands over rather than cutting. Twenty seconds of stillness
+   followed by a hard swap read as a page refresh; this reads as a move. */
+function swapDesk(then){
+  var panel=document.querySelector('#colAgents .panel');
+  if(!panel){ then(); return; }
+  panel.classList.add('swapping');
+  setTimeout(function(){
+    then();
+    panel.classList.remove('swapping');
+  }, 240);
 }
 
 function moveHTML(mv){
@@ -1663,56 +1731,64 @@ function joinersLive(){
   return true;
 }
 
-/* The one thing that still takes the whole screen, on its own clock. */
+/* The one thing that still takes the whole screen, on its own clock.
+   JOINER_EVERY is SECONDS of leaderboard between screens, not minutes. */
 function scheduleJoiners(){
   if(!joinersLive()) return;
   clearTimeout(jcTimer);
   jcTimer=setTimeout(function(){
     playJoiners(function(){ scheduleJoiners(); });
-  }, Math.max(2,CONFIG.JOINER_EVERY)*60000);
+  }, Math.max(8,CONFIG.JOINER_EVERY)*1000);
 }
 
+/* Fifteen people across three screens of five, one screen per turn.
+   Each run shows the NEXT screen, so a full intake comes round in three
+   turns rather than fifteen. */
+function joinerScreens(){
+  var per = Math.max(1, CONFIG.JOINER_PER_SCREEN);
+  var out = [];
+  for(var i=0;i<JOINERS.length;i+=per) out.push(JOINERS.slice(i,i+per));
+  return out;
+}
+
+var jcScreen = 0;
 function playJoiners(done){
-  if(!JOINERS || !JOINERS.length){ if(done) done(); return; }
-  var shown=0, per=Math.max(1,CONFIG.JOINER_PER_RUN), secs=Math.max(4,CONFIG.JOINER_SECS);
-  var el=document.getElementById('joinCard');
+  var el = document.getElementById('joinCard');
+  if(!el || !JOINERS || !JOINERS.length){ if(done) done(); return; }
 
-  function next(){
-    if(shown>=per){ el.className=''; if(done) done(); return; }
-    var j=JOINERS[jcIdx % JOINERS.length];
-    jcIdx++; shown++;
-    showJoiner(j, (jcIdx-1) % JOINERS.length);
-    setTimeout(next, secs*1000);
-  }
-  next();
+  var screens = joinerScreens();
+  var idx = jcScreen % screens.length;
+  var group = screens[idx];
+  var from = idx * Math.max(1, CONFIG.JOINER_PER_SCREEN);
+  jcScreen++;
+
+  document.getElementById('jcSub').textContent =
+    'Hyderabad  \u00b7  ' + (from+1) + '-' + (from+group.length) + ' of ' + JOINERS.length;
+
+  document.getElementById('jcGrid').innerHTML = group.map(function(j, i){
+    var initials = (j.n||'?').split(/\s+/).map(function(w){return w.charAt(0);})
+                     .join('').slice(0,2).toUpperCase();
+    /* Initials sit behind the photo, so a file that fails to load leaves
+       a designed card rather than a grey rectangle. */
+    return '<div class="jc" style="animation-delay:'+(i*90)+'ms">'+
+      '<div class="ph"><div class="ini">'+esc(initials)+'</div>'+
+        '<img src="'+esc(CONFIG.JOINER_BASE + (j.p||''))+'" alt="'+esc(j.n||'')+'" '+
+          'onerror="this.style.display=\'none\'">'+
+      '</div>'+
+      '<div class="nm">'+esc(j.n||'')+'</div>'+
+      '<div class="ro">'+esc(j.r||'Sales Consultant')+'</div>'+
+      '<div class="q">'+esc(j.q||'')+'</div>'+
+    '</div>';
+  }).join('');
+
+  el.className = 'on';
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){
+    el.className = '';
+    if(done) done();
+  }, Math.max(4, CONFIG.JOINER_SECS) * 1000);
 }
 
-function showJoiner(j, idx){
-  var el=document.getElementById('joinCard');
-  var img=document.getElementById('jcPhoto');
-  var ini=document.getElementById('jcInitials');
-
-  document.getElementById('jcName').textContent  = j.n || '';
-  document.getElementById('jcRole').textContent  = j.r || 'Sales Consultant';
-  document.getElementById('jcQuote').textContent = j.q || '';
-  document.getElementById('jcCount').textContent =
-    'Joiner ' + (idx+1) + ' of ' + JOINERS.length + '  ·  Hyderabad';
-
-  /* Initials behind the photo, so a file that fails to load leaves a
-     designed card rather than a grey rectangle. */
-  ini.textContent = (j.n||'?').split(/\s+/).map(function(w){return w.charAt(0);})
-                      .join('').slice(0,2).toUpperCase();
-  ini.style.display='none';
-  img.style.display='block';
-  img.onerror=function(){ img.style.display='none'; ini.style.display='flex'; };
-  img.alt = j.n || '';
-  img.src = CONFIG.JOINER_BASE + (j.p||'');
-
-  /* restart the slow zoom for each card */
-  img.style.animation='none'; void img.offsetWidth; img.style.animation='';
-
-  el.className='on';
-}
 
 /* =====================================================================
    SAMPLE - only ever behind ?demo=1, never a fallback for a live board

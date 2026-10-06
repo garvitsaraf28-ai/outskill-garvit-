@@ -1,40 +1,28 @@
 /**
- * warRoomLostRows - READ ONLY. Writes nothing, anywhere.
+ * TWO FUNCTIONS, ONE FILE. Both READ ONLY - they write nothing, anywhere,
+ * and open neither CBC nor the Payment Tracker.
  *
- * WHAT IS ALREADY PROVEN
+ *   warRoomLostRows   - which rows the model never got, and WHERE they sit
+ *   warRoomSrcVsModel - the money that costs, per Lead Owner
  *
- *   12 October rows are in src_Payments and never reach mdl_Payments, and
- *   they are worth 12.97 L. 9.90 L of that belongs to five roster agents
- *   and is the entire gap between the board and CBC:
+ * WHERE THIS GOT TO
  *
- *     Kshitij            6.19 L import   1.99 L model   8 rows   5 rows
- *     Dhanush Kirthi     3.28 L          14,155         3        1
- *     Kashish Sinha      1.43 L          0              2        0
- *     Tamanna Choudhary  94,999          0              1        0
- *     Sarthak Thakur     1.99 L          1.80 L         2        1
+ *   12 October rows are in src_Payments and never reach mdl_Payments,
+ *   worth 12.97 L. 9.90 L of that belongs to five roster agents and is the
+ *   whole gap between the board and CBC. The board and the Management
+ *   Report were never wrong - they read a model that is missing rows.
  *
- *   The board and the Management Report were right all along. They read a
- *   model that is missing rows.
+ *   The 12 share no programme, no currency, no payment type. What they
+ *   share is WHEN: nothing from the 1st, 2nd or 4th, and every single row
+ *   dated the 6th. The model's newest payment was the 5th.
  *
- * WHY THIS EXISTS
+ *   That is not a filter, that is staleness - every row added to the
+ *   tracker since the last successful rebuild is missing, whatever date it
+ *   carries, and the 3rd and 5th ones were simply entered late.
  *
- *   Knowing 12 rows are lost does not say WHY, and the why decides the
- *   fix. A programme whitelist, a currency the builder cannot parse, a
- *   de-duplicate on Payment ID that is too eager, a status it quietly
- *   skips - each is a different repair, and guessing between them would
- *   mean changing how revenue is counted on a hunch.
- *
- *   So this prints the lost rows in full, every column with a value in it.
- *   Twelve rows side by side make the pattern obvious in one look.
- *
- * HOW IT MATCHES
- *
- *   On owner + date + amount, counted as a MULTISET rather than a set: if
- *   the import holds three identical rows and the model holds one, two are
- *   lost, and a set would have called that a match. That distinction is
- *   the whole question where a de-duplicate is a suspect.
- *
- * Read only. Opens neither CBC nor the Payment Tracker.
+ *   This settles it. If the lost rows are the LAST rows of the import,
+ *   nothing is filtering them and the rebuild is not reaching them. If
+ *   they are scattered among rows that did make it, something is.
  */
 function warRoomLostRows() {
   var ss = SpreadsheetApp.getActive(), now = new Date();
@@ -49,10 +37,6 @@ function warRoomLostRows() {
   var src = wr_svmFind_(ss, true), mdl = wr_svmFind_(ss, false);
   if (!src || !mdl) { L('  Could not find both the import and the model.'); return; }
 
-  /* every column name in the import, so the rows can be printed in full */
-  var head = src.head, wide = [];
-  for (var h = 0; h < head.length; h++) wide.push(wr_str_(head[h]));
-
   function rowKey(row, c) {
     var d = row[c.date];
     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
@@ -63,83 +47,158 @@ function warRoomLostRows() {
            '|' + Math.round(wr_num_(row[c.amt]));
   }
 
-  /* MULTISET. A de-duplicate is a live suspect, so three identical rows
-     against one must read as two lost, not as a match. */
+  /* MULTISET - three identical rows against one is two lost, not a match. */
   var have = {};
   for (var r = 0; r < mdl.rows.length; r++) {
     var k = rowKey(mdl.rows[r], mdl.c);
     if (k) have[k] = (have[k] || 0) + 1;
   }
 
-  var lost = [], lostRev = 0;
+  var lost = [], lostRev = 0, lastMatched = 0, firstLost = 0;
   for (var r2 = 0; r2 < src.rows.length; r2++) {
     var k2 = rowKey(src.rows[r2], src.c);
     if (!k2) continue;
-    if (have[k2]) { have[k2]--; continue; }
-    lost.push(src.rows[r2]);
+    var sheetRow = src.headerRow + 2 + r2;
+    if (have[k2]) {
+      have[k2]--;
+      if (sheetRow > lastMatched) lastMatched = sheetRow;
+      continue;
+    }
+    if (!firstLost) firstLost = sheetRow;
+    lost.push({ row: src.rows[r2], at: sheetRow });
     lostRev += wr_num_(src.rows[r2][src.c.amt]);
   }
 
   L('  lost rows : ' + lost.length + '   worth ' + M(lostRev));
   L('');
   if (!lost.length) {
-    L('  None. Every October row in the import has a match in the model,');
-    L('  so the loss is not row-for-row and the amounts differ some other');
-    L('  way - a column being read differently on each side.');
+    L('  NONE. Every October row in the import is now in the model.');
+    L('  Whatever you did last fixed it - rebuild the Management Report and');
+    L('  the board and both should read about 25 L.');
     return;
   }
 
-  for (var i = 0; i < lost.length && i < 40; i++) {
-    L('  --- lost row ' + (i + 1) + ' ---');
-    var row = lost[i];
-    for (var cI = 0; cI < wide.length && cI < row.length; cI++) {
-      if (!wide[cI]) continue;
+  L('  WHERE THEY SIT IN ' + src.name);
+  L('    last October row that DID make it : row ' + lastMatched);
+  L('    first October row that did NOT    : row ' + firstLost);
+  L('    last row of the sheet             : row ' +
+    (src.headerRow + 1 + src.rows.length));
+  L('');
+  if (firstLost > lastMatched) {
+    L('    EVERY LOST ROW IS BELOW EVERY ROW THAT MADE IT.');
+    L('    Nothing is filtering them. They are the newest entries and the');
+    L('    rebuild is simply not reaching them - the model is stale, not');
+    L('    selective. Run updateAndCheck and then run this again: if the');
+    L('    count drops to zero the only real bug is that the rebuild is not');
+    L('    happening on its own.');
+  } else {
+    L('    THE LOST ROWS ARE MIXED IN AMONG ROWS THAT MADE IT.');
+    L('    So it is NOT staleness - something is choosing against these');
+    L('    particular rows, and the builder is where to look.');
+  }
+  L('');
+
+  var head = src.head;
+  for (var i = 0; i < lost.length && i < 20; i++) {
+    L('  --- lost, at row ' + lost[i].at + ' ---');
+    var row = lost[i].row, bits = [];
+    for (var cI = 0; cI < head.length && cI < row.length; cI++) {
+      var nm2 = wr_str_(head[cI]);
+      if (!nm2) continue;
       var v = row[cI];
-      if (v instanceof Date) v = Utilities.formatDate(v, WR_TZ, 'dd-MMM-yyyy');
+      if (v instanceof Date) v = Utilities.formatDate(v, WR_TZ, 'dd-MMM');
       v = wr_str_(v);
       if (!v) continue;
-      L('      ' + P(wide[cI], 24) + v);
+      if (/^(date|lead owner|amount paid|program|currency|payment type)$/i.test(nm2)) {
+        bits.push(nm2 + '=' + v);
+      }
     }
-    L('');
+    L('      ' + bits.join('   '));
   }
-  if (lost.length > 40) L('  ... and ' + (lost.length - 40) + ' more');
-
-  /* a count of each value, per column, so a shared cause shows itself */
-  L('  WHAT THESE ROWS HAVE IN COMMON');
-  L('  (a column where ALL of them share one value is the likely filter)');
-  L('');
-  var interesting = ['program', 'current program(generic)', 'current program(specific)',
-                     'currency', 'status', 'payment type', 'payment mode', 'source',
-                     'mm', 'source channel', 'new program', 'partial payment status'];
-  for (var q = 0; q < interesting.length; q++) {
-    var idx = -1;
-    for (var w = 0; w < wide.length; w++) {
-      if (wide[w].toLowerCase() === interesting[q]) { idx = w; break; }
-    }
-    if (idx < 0) continue;
-    var tally = {}, key;
-    for (var z = 0; z < lost.length; z++) {
-      var val = lost[z][idx];
-      if (val instanceof Date) val = Utilities.formatDate(val, WR_TZ, 'dd-MMM-yyyy');
-      val = wr_str_(val) || '(blank)';
-      tally[val] = (tally[val] || 0) + 1;
-    }
-    var parts = [];
-    for (key in tally) parts.push(key + ' x' + tally[key]);
-    L('    ' + P(wide[idx], 26) + parts.join(',  ') +
-      (parts.length === 1 ? '   <-- ALL THE SAME' : ''));
-  }
+  if (lost.length > 20) L('  ... and ' + (lost.length - 20) + ' more');
   L('');
   L('  Nothing was written. This only reports.');
 }
 
 
+/** Money lost per Lead Owner this month. Run after updateAndCheck. */
+function warRoomSrcVsModel() {
+  var ss = SpreadsheetApp.getActive(), now = new Date();
+  var monthKey = Utilities.formatDate(now, WR_TZ, 'yyyy-MM');
+  var L = function (s) { Logger.log(s); };
+  var P = wr_pad_, M = wr_money_;
+
+  L('=== IMPORT vs MODEL ===   ' + monthKey);
+  var src = wr_svmFind_(ss, true), mdl = wr_svmFind_(ss, false);
+  if (!src || !mdl) { L('  Could not find both tabs.'); return; }
+
+  L('  import : ' + P(src.name, 16) + src.rows.length + ' rows');
+  L('  model  : ' + P(mdl.name, 16) + mdl.rows.length + ' rows');
+  L('');
+
+  var A = wr_svmTally_(src, monthKey), B = wr_svmTally_(mdl, monthKey);
+
+  L('  ' + P('OWNER', 28) + P('IMPORT', 12) + P('MODEL', 12) + P('LOST', 12) + 'ROWS i/m');
+  L('');
+  var names = {}, k;
+  for (k in A.by) names[k] = 1;
+  for (k in B.by) names[k] = 1;
+  var list = [];
+  for (k in names) {
+    var a = A.by[k] || { rev: 0, rows: 0, name: (B.by[k] || {}).name };
+    var b = B.by[k] || { rev: 0, rows: 0, name: a.name };
+    list.push({ name: a.name || b.name || k, a: a, b: b, d: a.rev - b.rev });
+  }
+  list.sort(function (x, y) { return y.d - x.d; });
+
+  var shown = 0;
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i];
+    if (Math.abs(e.d) < 1) continue;
+    if (shown++ < 40) {
+      L('  ' + P(e.name, 28) + P(M(e.a.rev), 12) + P(M(e.b.rev), 12) +
+        P(M(e.d), 12) + e.a.rows + '/' + e.b.rows);
+    }
+  }
+  if (!shown) {
+    L('  EVERY OWNER MATCHES. The model has caught up with the import.');
+    L('  Rebuild the Management Report - it and the board should now agree');
+    L('  with CBC.');
+  }
+  L('');
+  L('  ' + P('TOTAL THIS MONTH', 28) + P(M(A.rev), 12) + P(M(B.rev), 12) +
+    P(M(A.rev - B.rev), 12) + A.rows + '/' + B.rows);
+  L('');
+  L('  Nothing was written. This only reports.');
+}
+
+
+/** Total one tab's month by Lead Owner. Skips cancelled, as the feed does. */
+function wr_svmTally_(t, monthKey) {
+  var out = { by: {}, rev: 0, rows: 0 };
+  for (var r = 0; r < t.rows.length; r++) {
+    var row = t.rows[r], d = row[t.c.date];
+    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+    if (wr_monthKey_(d) !== monthKey) continue;
+    var nm = wr_str_(row[t.c.agent]);
+    if (!nm || wr_isSummary_(nm)) continue;
+    if (t.c.stat >= 0 &&
+        String(row[t.c.stat] || '').toLowerCase().indexOf('cancel') > -1) continue;
+    var amt = wr_num_(row[t.c.amt]);
+    var k = wr_key_(nm);
+    if (!out.by[k]) out.by[k] = { name: nm, rev: 0, rows: 0 };
+    out.by[k].rev += amt; out.by[k].rows++;
+    out.rev += amt; out.rows++;
+  }
+  return out;
+}
+
+
 /**
- * Find the import tab, or the model tab, by its columns.
- *
- * wantCustomer picks them apart: the raw import carries a customer and the
- * model does not, the one structural difference that survives a rename.
- * The import also carries preamble lines above its header.
+ * Find the import tab, or the model tab, by its columns. The import
+ * carries a customer and the model does not - the one structural
+ * difference that survives a rename - and the import's header is not on
+ * row 1 because of the preamble above it.
  */
 function wr_svmFind_(ss, wantCustomer) {
   var tabs = ss.getSheets(), best = null;

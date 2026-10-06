@@ -175,10 +175,53 @@ function warRoomWhereIsTheMoney() {
   step('= WHAT THE BOARD SHOWS', wr_money_(onRev),
        onRows + ' rows, ' + onUnits + ' units');
   Logger.log('');
-  Logger.log('    Compare that last figure with the TV. If they match, the board is');
-  Logger.log('    doing exactly what it was told and the argument is about the rules');
-  Logger.log('    above it. If they DO NOT match, the feed is serving an older');
-  Logger.log('    deployed version - Deploy > Manage deployments > pencil > New version.');
+
+  /* ---------------- all three numbers, side by side ----------------
+
+     The Management Report and the leaderboard are two readers of the SAME
+     model, so when both are short the fault cannot be in either of them,
+     and it cannot be the deployed version of the web app either - that
+     would move the TV and leave the report alone. It is in mdl_Payments or
+     mdl_Roster, below both.
+
+     This prints the report's own headline next to the chain above so that
+     distinction can be made in one run instead of three. */
+  var repRev = '', repUnits = '', repDated = '';
+  var repSh = ss.getSheetByName(WR_REPORT_TAB);
+  if (repSh && repSh.getLastRow() > 1) {
+    var rGrid = repSh.getRange(1, 1, Math.min(repSh.getLastRow(), 200),
+                               Math.min(repSh.getLastColumn(), 30)).getDisplayValues();
+    repRev   = wr_findRight_(rGrid, 'Total revenue');
+    repUnits = wr_findRight_(rGrid, 'Units');
+    repDated = wr_findRight_(rGrid, 'Report Dated');
+  }
+
+  Logger.log('  THE SAME MONTH, FROM EVERY PLACE THAT REPORTS IT');
+  Logger.log('    ' + wr_pad_('mdl_Payments, board rules applied', 38) +
+             wr_pad_(wr_money_(onRev), 12) + onUnits + ' units');
+  if (repSh) {
+    var repNum = wr_reportNum_(repRev);
+    var diff = Math.abs(repNum - onRev);
+    var same = diff <= Math.max(1000, Math.abs(onRev) * 0.001);
+    Logger.log('    ' + wr_pad_('Management Report tab says', 38) +
+               wr_pad_(repRev || '(not found)', 12) +
+               (repUnits ? repUnits + ' units' : '') +
+               (repRev ? (same ? '   SAME' : '   DIFFERS by ' + wr_money_(diff)) : ''));
+    Logger.log('    ' + wr_pad_('  report was built', 38) +
+               (repDated || '(no Report Dated cell)'));
+  } else {
+    Logger.log('    ' + wr_pad_('Management Report tab', 38) +
+               'NOT FOUND (looked for "' + WR_REPORT_TAB + '")');
+  }
+  Logger.log('');
+  Logger.log('    READ IT LIKE THIS:');
+  Logger.log('    - report and board agree, both under CBC  -> the fault is in');
+  Logger.log('      mdl_Payments or mdl_Roster, below both. Check the roster count');
+  Logger.log('      just below, then run warRoomRosterAudit().');
+  Logger.log('    - report and board DISAGREE -> one ran against older data. Rebuild');
+  Logger.log('      the report, then run warRoomVsReport() for the line by line.');
+  Logger.log('    - both agree with CBC but the TV does not -> only then is it the');
+  Logger.log('      deployment: Deploy > Manage deployments > pencil > New version.');
   Logger.log('');
 
   /* ---------------- the roster, against CBC ---------------- */
@@ -191,9 +234,11 @@ function warRoomWhereIsTheMoney() {
   Logger.log('    agents loaded from mdl_Roster : ' + rosterN);
   Logger.log('    of those, with a sale         : ' + withMoney);
   Logger.log('    of those, with nothing yet    : ' + (rosterN - withMoney));
-  Logger.log('    CBC is said to hold 86. If the first number is well under that,');
-  Logger.log('    the roster tab for this month is short and NOTHING below is');
-  Logger.log('    trustworthy - fix that before reading anything else.');
+  Logger.log('    CBC is said to hold 86 this month. If the first number is well');
+  Logger.log('    under that, the roster is short and BOTH the report and the board');
+  Logger.log('    are short with it - every agent missing here is missing from both.');
+  Logger.log('    That is the first thing to fix, and warRoomRosterAudit() names the');
+  Logger.log('    ones that did not make it across from src_Roster_*.');
   Logger.log('');
 
   /* ---------------- who is being dropped ---------------- */

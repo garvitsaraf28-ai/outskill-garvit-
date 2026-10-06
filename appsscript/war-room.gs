@@ -333,6 +333,19 @@ function wr_build_(monthKey) {
 
   var tA = new Date().getTime();
   var roster = wr_roster_(ss, monthKey);
+
+  /* AIGF Upgrade / Catalyst, fetched onto each roster agent so the seed
+     below has something to add. It lives in src_Roster_<month>, NOT in
+     mdl_Roster - whatever builds mdl_Roster drops that column, which is
+     why roster.upgrade has quietly been zero for as long as it has
+     existed. The function lives in ManagementReportUpgrade.gs, which the
+     Management Report needs anyway.
+
+     Guarded, so deleting that file costs the board its upgrade revenue
+     and nothing else. An unguarded call would throw and take the whole
+     feed - and every TV - down with it. */
+  if (typeof wr_fillUpgrade_ === 'function') wr_fillUpgrade_(ss, monthKey, roster);
+
   WR_HAS_MM = roster.mmCol;   // gates every per-man-month figure below
   var tB = new Date().getTime();
   var pay    = wr_payments_(ss, monthKey);

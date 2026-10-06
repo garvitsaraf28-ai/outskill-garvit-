@@ -186,7 +186,10 @@ body{
 .arow.p1 .rk{color:var(--gold)} .arow.p2 .rk{color:#dfe6cf} .arow.p3 .rk{color:var(--amber)}
 .arow .who{flex:1 1 auto; min-width:0}
 .arow .who b{display:block; font-size:19px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.arow .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
+/* Direct child only. A plain `.who span` also matches the .chase span
+   nested inside it, and display:block then pushed the chase onto a line
+   of its own and made every row a different height. */
+.arow .who > span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .arow .bar{width:130px; flex:none}
 .arow .fig{width:96px; flex:none; text-align:right}
@@ -255,7 +258,7 @@ body{
 .mrow.p1 .rk{color:var(--gold)} .mrow.p2 .rk{color:#dfe6cf} .mrow.p3 .rk{color:var(--amber)}
 .mrow .who{flex:1 1 auto; min-width:0}
 .mrow .who b{display:block; font-size:19px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.mrow .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
+.mrow .who > span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .mrow .bar{width:96px; flex:none}
 .mrow .fig{width:92px; flex:none; text-align:right}
@@ -322,7 +325,7 @@ body{
     radial-gradient(800px 600px at 82% 55%, rgba(77,216,192,.12), transparent 62%),
     #060803;
 }
-#joinCard.on{display:flex; animation:jcIn .55s cubic-bezier(.22,1,.36,1)}
+#joinCard.on{display:flex}
 @keyframes jcIn{from{opacity:0} to{opacity:1}}
 #jcPhotoWrap{
   flex:none; width:440px; height:560px; border-radius:26px; overflow:hidden; position:relative;
@@ -380,12 +383,124 @@ body{
 }
 #banner.on{display:block}
 
+/* =====================================================================
+   THE MOVING PARTS
+
+   The old board felt alive because things moved, and unreadable because
+   what moved was the LAYOUT. Everything below moves the CONTENT instead:
+   rows race past each other, a close takes the whole screen, the leader
+   shines, and one panel at a time is lit. The furniture never shifts.
+   ===================================================================== */
+
+/* ---- rows race ----
+   A row that climbs past another physically travels there, and flashes
+   on arrival. This is the whole point of a leaderboard and the old one
+   just re-sorted silently between repaints. */
+.arow, .mrow{will-change:transform}
+.arow.rise, .mrow.rise{animation:riseFlash 1.8s ease-out}
+.arow.fall, .mrow.fall{animation:fallFlash 1.8s ease-out}
+@keyframes riseFlash{
+  0%{background:rgba(194,238,69,.30); box-shadow:inset 0 0 0 1px rgba(194,238,69,.5)}
+  100%{background:transparent; box-shadow:none}
+}
+@keyframes fallFlash{
+  0%{background:rgba(255,107,138,.16)} 100%{background:transparent}
+}
+
+/* ---- the leader shines ----
+   Rank one gets a slow sweep across the name. Small, constant, and it
+   makes the top of every list the thing your eye lands on. */
+.arow.p1 .who b, .mrow.p1 .who b, .crow.p1 .who b{
+  background:linear-gradient(100deg,
+    var(--ink) 0%, var(--ink) 38%, var(--gold) 50%, var(--ink) 62%, var(--ink) 100%);
+  background-size:260% 100%;
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; color:transparent;
+  animation:sheen 4.2s linear infinite;
+}
+@keyframes sheen{from{background-position:130% 0} to{background-position:-130% 0}}
+
+/* ---- the chase ----
+   How far behind the person above. The single most motivating number on
+   a sales floor: a percentage is a verdict, a gap is a target. */
+.chase{color:var(--amber); font-weight:800}
+.chase.lead{color:var(--gold)}
+
+/* ---- one panel lit at a time ----
+   Replaces the block-swapping with something that draws the eye without
+   relocating anything. */
+.panel, #colAgents .panel{transition:border-color .9s, box-shadow .9s}
+.panel.spot{
+  border-color:rgba(255,215,110,.42);
+  box-shadow:0 0 0 1px rgba(255,215,110,.16), 0 24px 64px rgba(0,0,0,.55);
+}
+
+/* ---- a close takes the screen ---- */
+#cel{
+  position:absolute; inset:0; z-index:70; display:none;
+  align-items:center; justify-content:center; text-align:center;
+  background:radial-gradient(1100px 760px at 50% 46%, rgba(194,238,69,.17), transparent 66%), #060803;
+}
+/* The BACKDROP snaps opaque; only the CONTENT eases in. Fading the whole
+   overlay meant the leaderboard was legible through it for the first
+   half-second, which reads as a glitch rather than a transition - and
+   leaves it permanently see-through anywhere the animation does not run. */
+#cel.on{display:flex}
+@keyframes celIn{from{opacity:0; transform:scale(.97)} to{opacity:1; transform:none}}
+#celCanvas{position:absolute; inset:0; z-index:73; pointer-events:none; display:none}
+#celCanvas.on{display:block}
+#celInner{position:relative; z-index:1; padding:0 80px;
+  animation:celIn .45s cubic-bezier(.22,1,.36,1) both}
+#celKicker{
+  font-size:26px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
+  background:linear-gradient(92deg,var(--lime),var(--teal));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:kick .9s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes kick{from{opacity:0; letter-spacing:.8em} to{opacity:1; letter-spacing:.42em}}
+#celAmt{
+  font-family:'Space Mono',monospace; font-weight:700; font-size:184px; line-height:1;
+  margin:22px 0 10px; color:var(--lime);
+  text-shadow:0 0 70px rgba(194,238,69,.5);
+  animation:pop .75s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes pop{from{opacity:0; transform:scale(.55)} to{opacity:1; transform:scale(1)}}
+#celName{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:92px; line-height:1.05;
+  margin-bottom:20px; animation:jcUp .7s cubic-bezier(.22,1,.36,1) .15s both;
+}
+#celMeta{font-size:25px; color:var(--dim); font-weight:700; letter-spacing:.1em;
+  animation:jcUp .7s cubic-bezier(.22,1,.36,1) .3s both}
+#celRank{margin-top:26px; font-size:21px; font-weight:800; color:var(--gold); letter-spacing:.12em;
+  animation:jcUp .7s cubic-bezier(.22,1,.36,1) .45s both}
+
+/* ---- crossing a quarter of the target ---- */
+#mile{
+  position:absolute; inset:0; z-index:72; display:none; align-items:center; justify-content:center;
+  text-align:center; background:radial-gradient(1200px 800px at 50% 50%, rgba(255,215,110,.2), transparent 66%), #060803;
+}
+#mile.on{display:flex}
+#mile > div{animation:celIn .45s cubic-bezier(.22,1,.36,1) both}
+#mileBig{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:230px; line-height:1;
+  color:var(--gold); text-shadow:0 0 90px rgba(255,215,110,.45);
+  animation:pop .8s cubic-bezier(.2,1.5,.4,1) both;
+}
+#mileSub{font-size:34px; color:var(--ink); font-weight:700; letter-spacing:.22em;
+  text-transform:uppercase; margin-top:18px; animation:jcUp .7s .2s both}
+
 .empty{display:flex; align-items:center; justify-content:center; height:100%; color:var(--dim); font-size:18px; text-align:center; padding:0 20px}
 
-.arow, .mrow, .crow, .pcard{animation:liftIn .45s cubic-bezier(.22,1,.36,1) backwards}
+.crow, .pcard{animation:liftIn .45s cubic-bezier(.22,1,.36,1) backwards}
 @keyframes liftIn{from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none}}
 @media (prefers-reduced-motion:reduce){
-  *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
+  /* Delays matter as much as durations here. Several elements fade in on
+     a stagger with `both` fill, so zeroing only the duration left them
+     invisible until their delay elapsed - the celebration showed its
+     amount and nothing else. */
+  *{animation-duration:.01ms !important; animation-delay:0ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important; transition-delay:0ms !important}
 }
 </style>
 
@@ -469,6 +584,26 @@ body{
       <div id="jcCount"></div>
     </div>
   </div>
+
+  <div id="cel">
+    <div id="celInner">
+      <div id="celKicker">Just closed</div>
+      <div id="celAmt"></div>
+      <div id="celName"></div>
+      <div id="celMeta"></div>
+      <div id="celRank"></div>
+    </div>
+  </div>
+
+  <div id="mile">
+    <div>
+      <div id="mileBig"></div>
+      <div id="mileSub"></div>
+    </div>
+  </div>
+
+  <!-- above both celebrations, so either can throw confetti -->
+  <canvas id="celCanvas" width="1920" height="1080"></canvas>
 
   <div id="state"></div>
 </div>
@@ -560,15 +695,25 @@ function esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){
 function joinDot(){ return Array.prototype.slice.call(arguments)
   .filter(function(v){return v!==''&&v!=null;}).join(' · '); }
 
+/* Someone who has asked their system for less motion should get the
+   figure, not a two-second animation of it. */
+var REDUCED = false;
+try { REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+catch(e){}
+
 function countUp(node, to, fmt, ms){
   if(!node) return;
   var from = node._val==null ? 0 : node._val;
   node._val = to;
-  if(from===to){ node.textContent=fmt(to); return; }
+  if(from===to || REDUCED){ node.textContent=fmt(to); return; }
   var t0=performance.now(); ms=ms||900;
   if(node._raf) cancelAnimationFrame(node._raf);
   function step(t){
-    var p=Math.min((t-t0)/ms,1), e=1-Math.pow(1-p,3);
+    /* Clamped at BOTH ends. A frame timestamp that arrives before t0 -
+       which happens when the clock is stepped, and under a headless
+       virtual clock - makes p negative, and the eased value then counts
+       DOWN through zero: a close briefly rendered as "-57,097". */
+    var p=Math.max(0,Math.min((t-t0)/ms,1)), e=1-Math.pow(1-p,3);
     node.textContent=fmt(from+(to-from)*e);
     if(p<1) node._raf=requestAnimationFrame(step); else node._raf=null;
   }
@@ -616,6 +761,16 @@ function teamLabel(t){
   var v = s(t).trim();
   return v ? v : 'NO TEAM SET';
 }
+/* The short form, for rows too narrow for the whole word. The colour on
+   the row's left edge carries the same fact, so this can be brief
+   without becoming ambiguous. */
+function teamShort(t){
+  var v = s(t).trim().toLowerCase();
+  if(v==='india') return 'IND';
+  if(v==='international') return 'INTL';
+  if(v.indexOf('/')>-1) return 'IND/INTL';
+  return v ? s(t).toUpperCase() : 'NO TEAM';
+}
 
 /* =====================================================================
    STAGE SCALING
@@ -648,7 +803,11 @@ document.addEventListener('keydown', function(e){
   if(e.key==='f'||e.key==='F') goFull();
   if(e.key==='ArrowRight'){ clearTimeout(deskTimer); deskIdx++; renderAgents(); scheduleDesk(); }
   if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); deskIdx=Math.max(0,deskIdx-1); renderAgents(); scheduleDesk(); }
-  if(e.key==='j'||e.key==='J') playJoiners();   // show the welcome cards now
+  if(e.key==='j'||e.key==='J') playJoiners();                 /* welcome cards now */
+  if(e.key==='c'||e.key==='C'){                               /* replay the last close */
+    var r=(DATA&&DATA.recent||[])[0]; if(r) celebrate(r);
+  }
+  if(e.key==='m'||e.key==='M') showMile(50);                  /* preview a milestone */
 });
 
 /* =====================================================================
@@ -719,15 +878,25 @@ function applyData(p){
   b.textContent = USING_SAMPLE ? 'PREVIEW DATA' : '';
 
   paintTop(); buildTicker(); flashNewSale();
+  checkMilestone();
 
   var sig=signature(DATA);
   if(!running){
     running=true; lastSig=sig;
+    /* checkMilestone above ran with mileReady false, so it has silently
+       marked everything already crossed. From here on, crossing one is
+       news. Without this every morning's first poll would announce a
+       milestone that was passed last week. */
+    mileReady=true;
     renderAll(); scheduleDesk(); scheduleJoiners();
-    /* ?joinersnow=1 plays the welcome cards immediately instead of
-       waiting for the first cutaway - for checking they look right
-       without standing in front of the TV for twelve minutes. */
+    spotlightTick(); setInterval(spotlightTick, 7000);
     if(Q.get('joinersnow')==='1') setTimeout(playJoiners, 400);
+    if(Q.get('celnow')==='1') setTimeout(function(){
+      var r=(DATA.recent||[])[0]; if(r) celebrate(r);
+    }, 400);
+    if(Q.get('milenow')) setTimeout(function(){
+      showMile(+Q.get('milenow')||50);
+    }, 400);
     return;
   }
   if(sig!==lastSig){ lastSig=sig; renderAll(); }
@@ -741,6 +910,10 @@ function flashNewSale(){
   if(lastSaleKey===null){ lastSaleKey=key; return; }
   if(key===lastSaleKey) return;
   lastSaleKey=key;
+
+  /* The whole screen, for six and a half seconds. */
+  celebrate(r);
+
   var hot=document.getElementById('hot'), bar=document.getElementById('tick');
   if(!hot||!bar) return;
   hot.innerHTML='<em>JUST IN</em><b>'+esc(r.name)+'</b>'+
@@ -748,7 +921,7 @@ function flashNewSale(){
                 '<span class="mt">'+esc(joinDot(r.city,r.team,r.manager))+'</span>';
   hot.className='on'; bar.className='hot';
   clearTimeout(hot._h);
-  hot._h=setTimeout(function(){ hot.className=''; bar.className=''; }, 9000);
+  hot._h=setTimeout(function(){ hot.className=''; bar.className=''; }, 12000);
 }
 
 function signature(d){
@@ -847,6 +1020,197 @@ function fmtAge(x){ if(x==null) return '—';
   if(x<60) return x+'s ago'; if(x<3600) return Math.round(x/60)+'m ago';
   return Math.round(x/3600)+'h ago'; }
 
+/* =====================================================================
+   ROWS THAT RACE
+
+   A leaderboard whose order changes silently between repaints is just a
+   table. This keeps each row's DOM node across renders, remembers where
+   it was, drops it back there, and lets it travel to its new place - so
+   being overtaken is something the floor SEES happen rather than
+   something they notice later.
+   ===================================================================== */
+function renderRows(container, items, keyOf, build){
+  var kids = Array.prototype.slice.call(container.children);
+  var prev = {}, pool = {};
+  kids.forEach(function(el){
+    var k = el.getAttribute && el.getAttribute('data-k');
+    if(k==null) return;
+    prev[k] = el.offsetTop;
+    pool[k] = el;
+  });
+
+  var frag = document.createDocumentFragment();
+  items.forEach(function(it, i){
+    var k = keyOf(it);
+    var el = pool[k];
+    if(!el){ el = document.createElement('div'); el.setAttribute('data-k', k); }
+    el.style.transition=''; el.style.transform='';
+    build(el, it, i);
+    frag.appendChild(el);
+  });
+  container.innerHTML = '';
+  container.appendChild(frag);
+
+  /* FLIP. The row is already sitting in its new slot, so put it visually
+     back where it came from and let go on the next frame. */
+  Array.prototype.forEach.call(container.children, function(el){
+    var k = el.getAttribute('data-k');
+    if(k==null || prev[k]==null) return;
+    var dy = prev[k] - el.offsetTop;
+    if(Math.abs(dy) < 3) return;
+    el.classList.remove('rise','fall');
+    el.style.transition = 'none';
+    el.style.transform  = 'translateY(' + dy + 'px)';
+    requestAnimationFrame(function(){
+      el.style.transition = 'transform .9s cubic-bezier(.22,1,.36,1)';
+      el.style.transform  = '';
+      el.classList.add(dy > 0 ? 'rise' : 'fall');   /* dy > 0 means it climbed */
+    });
+  });
+}
+
+function firstName(x){ return String(x==null?'':x).trim().split(/\s+/)[0]; }
+
+/* THE CHASE. How far behind the person directly above.
+   A percentage is a verdict; a gap is a target. "18,000 behind Priyanshu"
+   is the line that makes somebody pick the phone back up.
+
+   `compact` drops the name, for the manager column where the row is
+   narrower and the full form was being cut to "45,000 behin...". */
+function chaseHTML(me, above, compact){
+  if(!above) return '<span class="chase lead">leading</span>';
+  var gap = Math.max(0, above.revenue - me.revenue);
+  if(gap <= 0) return '<span class="chase">' +
+    (compact ? 'level' : 'level with ' + esc(firstName(above.name))) + '</span>';
+  return '<span class="chase">' + money(gap) +
+    (compact ? ' back' : ' behind ' + esc(firstName(above.name))) + '</span>';
+}
+
+/* =====================================================================
+   A CLOSE TAKES THE SCREEN
+
+   The one thing on a sales floor everybody should look up for. Six and a
+   half seconds, the amount counting up, confetti, and where it puts them
+   on their desk - then straight back to the board.
+   ===================================================================== */
+function deskRankOf(name){
+  var vs = deskViews();
+  for(var i=0;i<vs.length;i++){
+    for(var j=0;j<vs[i].rows.length;j++){
+      if(vs[i].rows[j].name === name){
+        return { rank: vs[i].from + j + 1, city: vs[i].city, team: vs[i].team };
+      }
+    }
+  }
+  return null;
+}
+
+function celebrate(sale){
+  var el = document.getElementById('cel');
+  if(!el) return;
+  var where = deskRankOf(sale.name);
+  document.getElementById('celName').textContent = sale.name;
+  document.getElementById('celMeta').textContent = joinDot(sale.city, sale.team, sale.manager);
+  document.getElementById('celRank').textContent = where
+    ? ('NOW #' + where.rank + ' ON ' + String(where.city).toUpperCase() +
+       (where.team ? ' ' + String(where.team).toUpperCase() : ''))
+    : '';
+  var amt = document.getElementById('celAmt');
+  amt._val = 0; amt.textContent = money(0);
+  el.className = 'on';
+  burst();
+  /* a number that LANDS is worth more than a number that is simply there */
+  countUp(amt, n(sale.amt), money, 1500);
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.className=''; stopBurst(); }, 6500);
+}
+
+var burstRAF = null;
+function burst(){
+  var c = document.getElementById('celCanvas');
+  if(!c || !c.getContext) return;
+  var ctx = c.getContext('2d');
+  var cols = ['#c2ee45','#4dd8c0','#ffd76e','#ff6b8a','#b39bff'];
+  var P = [];
+  for(var i=0;i<170;i++){
+    P.push({ x:960+(Math.random()-.5)*680, y:600+(Math.random()-.5)*140,
+             vx:(Math.random()-.5)*18, vy:-10-Math.random()*16,
+             s:5+Math.random()*10, r:Math.random()*6.283, vr:(Math.random()-.5)*.36,
+             c:cols[(Math.random()*cols.length)|0], life:0 });
+  }
+  stopBurst();
+  c.className = 'on';
+  function frame(){
+    ctx.clearRect(0,0,1920,1080);
+    var alive = 0;
+    for(var i=0;i<P.length;i++){
+      var p = P[i];
+      p.life++; p.vy += 0.44; p.x += p.vx; p.y += p.vy; p.vx *= 0.995; p.r += p.vr;
+      if(p.y < 1180 && p.life < 230) alive++;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.globalAlpha = Math.max(0, 1 - p.life/230);
+      ctx.fillStyle = p.c; ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s*0.62);
+      ctx.restore();
+    }
+    if(alive) burstRAF = requestAnimationFrame(frame);
+    else { burstRAF = null; c.className = ''; }
+  }
+  burstRAF = requestAnimationFrame(frame);
+}
+function stopBurst(){
+  if(burstRAF){ cancelAnimationFrame(burstRAF); burstRAF = null; }
+  var c = document.getElementById('celCanvas');
+  if(c){ c.className=''; var x=c.getContext && c.getContext('2d'); if(x) x.clearRect(0,0,1920,1080); }
+}
+
+/* =====================================================================
+   CROSSING A QUARTER OF THE TARGET
+   Marked once, never again, and never on the first payload - otherwise
+   every morning's first poll would announce a milestone passed last week.
+   ===================================================================== */
+var MILES = [25,50,75,100], mileSeen = {}, mileReady = false;
+function checkMilestone(){
+  var t = DATA.totals;
+  if(!t || !t.target) return;
+  var p = pct(t.revenue, t.target);
+  for(var i=MILES.length-1; i>=0; i--){
+    var m = MILES[i];
+    if(p >= m && !mileSeen[m]){
+      MILES.forEach(function(x){ if(p >= x) mileSeen[x] = true; });
+      if(mileReady) showMile(m);
+      return;
+    }
+  }
+}
+function showMile(m){
+  var el = document.getElementById('mile');
+  if(!el) return;
+  document.getElementById('mileBig').textContent = m + '%';
+  document.getElementById('mileSub').textContent =
+    m >= 100 ? 'TARGET CLEARED' : 'OF THE MONTH TARGET';
+  el.className = 'on';
+  burst();
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.className=''; stopBurst(); }, 7000);
+}
+
+/* =====================================================================
+   ONE PANEL LIT AT A TIME
+
+   What the old block-swapping was really doing was telling your eye
+   where to go. This does the same job without relocating anything.
+   ===================================================================== */
+var SPOTS = ['#colAgents .panel','#pCity','#pPace','#pDay','#colMgr .panel'], spotIdx = 0;
+function spotlightTick(){
+  SPOTS.forEach(function(sel){
+    var el = document.querySelector(sel);
+    if(el) el.classList.remove('spot');
+  });
+  var on = document.querySelector(SPOTS[spotIdx % SPOTS.length]);
+  if(on) on.classList.add('spot');
+  spotIdx++;
+}
+
 function renderAll(){ renderAgents(); renderCities(); renderPace(); renderDay(); renderManagers(); }
 
 /* =====================================================================
@@ -924,19 +1288,20 @@ function renderAgents(){
     '<b>'+money(v.revenue)+'</b><span>'+v.headcount+' agents · '+v.units+' units'+
     (v.pages>1 ? ' · page '+v.page+'/'+v.pages : '')+'</span>';
 
-  list.innerHTML = v.rows.map(function(a,i){
+  renderRows(list, v.rows, function(a){ return a.name; }, function(el, a, i){
     var has=a.target>0, p=has?attain(a):pct(a.revenue,v.top);
     var rk=v.from+i+1;                  /* rank within the desk, not the page */
-    return '<div class="arow '+tc+(rk<=3?' p'+rk:'')+'" style="animation-delay:'+((i+1)*35)+'ms">'+
+    el.className='arow '+tc+(rk<=3?' p'+rk:'');
+    el.innerHTML=
       '<div class="rk">'+rk+'</div>'+
       '<div class="who"><b>'+esc(a.name)+moveHTML(a.move)+'</b>'+
-        '<span>'+esc(joinDot(a.manager, a.units+' units'))+'</span></div>'+
+        '<span>'+esc(a.manager||'no manager')+' &middot; '+a.units+'u &middot; '+
+        chaseHTML(a, i>0 ? v.rows[i-1] : null)+'</span></div>'+
       '<div class="bar">'+barHTML(p)+'</div>'+
       '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
         (has?p.toFixed(0)+'%':money(a.revenue))+'</b>'+
-        '<span>'+esc(has?money(a.revenue):(a.units+' units'))+'</span></div>'+
-    '</div>';
-  }).join('');
+        '<span>'+esc(has?money(a.revenue):(a.units+' units'))+'</span></div>';
+  });
 
   if(!v.anyT && v.rows.length){
     list.innerHTML += '<div style="flex:none;padding:8px 0 0;font-size:12px;color:var(--dim);'+
@@ -1048,32 +1413,30 @@ function renderManagers(){
   var withT=DATA.managers.filter(function(m){return m.target>0;});
   var noT  =DATA.managers.filter(function(m){return !(m.target>0);});
 
-  var html=withT.map(function(m,i){
-    var p=attain(m), rk=i+1;
-    return '<div class="mrow '+teamClass(m.team)+(rk<=3?' p'+rk:'')+
-      '" style="animation-delay:'+(rk*35)+'ms">'+
-      '<div class="rk">'+rk+'</div>'+
-      '<div class="who"><b>'+esc(m.name)+'</b><span>'+
-        esc(joinDot(m.city, m.team, m.agents+' agents'))+'</span></div>'+
-      '<div class="bar">'+barHTML(p)+'</div>'+
-      '<div class="fig"><b class="'+paceClass(p)+'">'+p.toFixed(1)+'%</b>'+
-        '<span>'+money(m.revenue)+'</span></div>'+
-    '</div>';
-  }).join('');
-
-  /* Listed, not dropped. A manager who vanishes from the wall is a
-     manager nobody asks about. */
-  html += noT.map(function(m){
-    return '<div class="mrow notgt '+teamClass(m.team)+'">'+
-      '<div class="rk">—</div>'+
-      '<div class="who"><b>'+esc(m.name)+'</b><span>'+
-        esc(joinDot(m.city, m.agents+' agents'))+' · no target set</span></div>'+
-      '<div class="bar"></div>'+
-      '<div class="fig"><b>'+money(m.revenue)+'</b><span>'+m.units+' units</span></div>'+
-    '</div>';
-  }).join('');
-
-  list.innerHTML=html;
+  renderRows(list, withT.concat(noT), function(m){ return m.name; }, function(el, m, i){
+    if(m.target>0){
+      var p=attain(m), rk=i+1;
+      el.className='mrow '+teamClass(m.team)+(rk<=3?' p'+rk:'');
+      el.innerHTML=
+        '<div class="rk">'+rk+'</div>'+
+        '<div class="who"><b>'+esc(m.name)+'</b><span>'+
+          esc(m.city)+' &middot; '+esc(teamShort(m.team))+' &middot; '+
+          chaseHTML(m, i>0 ? withT[i-1] : null, true)+'</span></div>'+
+        '<div class="bar">'+barHTML(p)+'</div>'+
+        '<div class="fig"><b class="'+paceClass(p)+'">'+p.toFixed(1)+'%</b>'+
+          '<span>'+money(m.revenue)+'</span></div>';
+    } else {
+      /* Listed, not dropped. A manager who vanishes from the wall is a
+         manager nobody asks about. */
+      el.className='mrow notgt '+teamClass(m.team);
+      el.innerHTML=
+        '<div class="rk">&mdash;</div>'+
+        '<div class="who"><b>'+esc(m.name)+'</b><span>'+
+          esc(joinDot(m.city, teamShort(m.team), m.agents+' agents'))+' &middot; no target set</span></div>'+
+        '<div class="bar"></div>'+
+        '<div class="fig"><b>'+money(m.revenue)+'</b><span>'+m.units+' units</span></div>';
+    }
+  });
 }
 
 /* =====================================================================

@@ -1083,8 +1083,19 @@ function paintTop(){
    Whether the FEED is current is a different question, and the chip in
    the top right already answers it ("data 7m ago").
 
-   So: a single quiet day says so quietly. Two days is worth a look.
-   Three or more is when something is actually likely to be broken. */
+   AND THE WORDING IS NOT A DETAIL.
+
+   On 6 October this said "No sale recorded today yet" while six sales
+   sat in the Payment Tracker and 9.90 L belonging to five agents was
+   missing from every screen. The sentence was true of the MODEL and
+   false about the business, and being confidently wrong in a calm voice
+   is worse than saying nothing, because it sends people off to hunt in
+   the wrong place. It cost most of a day.
+
+   The board cannot see the Payment Tracker, so it cannot know whether a
+   quiet day is real. What it must never do again is ASSERT that it is.
+   So this now says what it actually knows - the newest payment IN THE
+   MODEL - and names the one command that would prove it either way. */
 function paintFresh(){
   var m=(DATA&&DATA.meta)||{}, el=document.getElementById('fresh');
   if(!el) return;
@@ -1098,17 +1109,19 @@ function paintFresh(){
 
   if(days<=1){
     el.className='note';
-    el.innerHTML='No sale recorded today yet &middot; newest is '+when;
+    el.innerHTML='Newest sale in the model is '+when+
+                 ' &middot; nothing today yet, or the model needs rebuilding';
     return;
   }
   if(days===2){
     el.className='soft';
-    el.innerHTML='Newest sale was '+when+' &middot; 2 days ago';
+    el.innerHTML='NEWEST SALE IN THE MODEL IS '+when+' &middot; 2 DAYS OLD '+
+                 '&middot; RUN warRoomSyncStatus';
     return;
   }
   el.className='warn';
-  el.innerHTML='NEWEST SALE IS '+days+' DAYS OLD ('+when+') &middot; '+
-               'CHECK src_Payments, THEN RUN updateAndCheck';
+  el.innerHTML='NEWEST SALE IN THE MODEL IS '+days+' DAYS OLD ('+when+') &middot; '+
+               'RUN warRoomSyncStatus';
 }
 
 /* THE MONEY THIS BOARD IS NOT COUNTING.

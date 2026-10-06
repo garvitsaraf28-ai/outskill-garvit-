@@ -128,6 +128,21 @@ body{
 #fresh.note{display:flex; background:rgba(28,36,22,.7); color:var(--dim); letter-spacing:.1em; text-transform:none; font-weight:700}
 #fresh.soft{display:flex; background:var(--amber); color:#1a1205}
 #fresh.warn{display:flex; background:var(--rose); color:#1a0509; animation:nudge 2.6s ease-in-out infinite}
+
+/* MONEY THE BOARD IS NOT COUNTING.
+
+   Every figure on this screen counts people on THIS MONTH'S mdl_Roster
+   and nobody else - which is right, but it was silent, and a wall that
+   quietly drops seven lakh is the worst thing in this whole project.
+   A new intake that has not reached the CBC roster yet sells, and the
+   board simply does not show it. Now it says so. */
+#offroster{
+  flex:none; display:none; align-items:center; justify-content:center; gap:10px;
+  height:30px; font-size:13px; font-weight:800; letter-spacing:.08em;
+}
+#offroster.soft{display:flex; background:var(--amber); color:#1a1205}
+#offroster.warn{display:flex; background:var(--rose); color:#1a0509;
+  animation:nudge 2.6s ease-in-out infinite}
 @keyframes nudge{0%,100%{opacity:1}50%{opacity:.62}}
 
 /* ------------------------------- BODY ------------------------------- */
@@ -585,6 +600,7 @@ body{
   <div id="sig">Garvit</div>
 
   <div id="fresh"></div>
+  <div id="offroster"></div>
 
   <div id="milebar"><b></b><span></span></div>
 
@@ -985,7 +1001,8 @@ function flashNewSale(){
 }
 
 function signature(d){
-  return [d.totals.revenue,d.totals.units,d.totals.target,d.cities.length,d.managers.length]
+  return [d.totals.revenue,d.totals.units,d.totals.target,d.totals.offRoster,
+          d.cities.length,d.managers.length]
     .concat(d.agents.slice(0,80).map(function(a){return a.name+':'+a.revenue+':'+a.units;}))
     .concat((d.recent||[]).slice(0,10).map(function(r){return r.name+':'+r.amt;}))
     .join('|');
@@ -1023,6 +1040,11 @@ function normalise(p){
   if(!n(t.revenue)) t.revenue=out.cities.reduce(function(x,c){return x+c.revenue;},0);
   if(!n(t.units))   t.units  =out.cities.reduce(function(x,c){return x+c.units;},0);
   if(!n(t.target))  t.target =out.cities.reduce(function(x,c){return x+c.target;},0);
+  /* Money the feed deliberately left out of every figure above, because
+     the payer is not on this month's mdl_Roster. It was being sent and
+     thrown away. See paintOffRoster. */
+  t.offRoster      = n(t.offRoster);
+  t.offRosterUnits = n(t.offRosterUnits);
   return out;
 }
 
@@ -1037,6 +1059,7 @@ function paintTop(){
   countUp(document.getElementById('coUnits'), n(t.units), function(v){
     return Math.round(v).toLocaleString('en-IN'); });
   paintFresh();
+  paintOffRoster();
   var p = pct(t.revenue, t.target), e = expectedPct();
   document.getElementById('coTgt').textContent = t.target ? ('of '+money(t.target)) : '';
   var pc=document.getElementById('coPct');
@@ -1086,6 +1109,46 @@ function paintFresh(){
   el.className='warn';
   el.innerHTML='NEWEST SALE IS '+days+' DAYS OLD ('+when+') &middot; '+
                'CHECK src_Payments, THEN RUN updateAndCheck';
+}
+
+/* THE MONEY THIS BOARD IS NOT COUNTING.
+
+   Every figure on this screen - the company revenue, the desks, the
+   managers, the agent rows, the day chart - counts people who are on
+   THIS MONTH'S mdl_Roster, and nobody else. That is the right rule: it
+   is how the Management Report defines "Total revenue", and without it
+   a leaver from March reappears in October's table.
+
+   But the feed was sending the excluded amount and the board was
+   dropping it on the floor, so the wall could be short by lakhs and
+   look completely confident about it. That is the single worst failure
+   mode in this whole project, and re-running updateAndCheck can never
+   fix it, because nothing is broken - the money is being excluded on
+   purpose.
+
+   It happens for exactly one everyday reason: somebody is selling
+   before they reach the roster. A new intake is the obvious case. The
+   fix is in CBC, not here.
+
+   10% of the month's money is the line between "a stray name" and
+   "the board is lying to the floor". */
+function paintOffRoster(){
+  var t=(DATA&&DATA.totals)||{}, el=document.getElementById('offroster');
+  if(!el) return;
+
+  var off=n(t.offRoster);
+  if(off<=0){ el.className=''; el.textContent=''; return; }
+
+  var all   = off + n(t.revenue);
+  var share = all ? (off/all*100) : 0;
+  var units = n(t.offRosterUnits);
+
+  el.className = share>=10 ? 'warn' : 'soft';
+  el.innerHTML =
+    money(off) + (units ? ' from ' + Math.round(units) + ' sale' + (units===1?'':'s') : '') +
+    ' is NOT in any figure below &middot; ' +
+    'paid by names that are not on this month&rsquo;s roster &middot; ' +
+    'add them in CBC, then run updateAndCheck';
 }
 
 function paintLive(){
@@ -1796,7 +1859,8 @@ function playJoiners(done){
 var SAMPLE={ ok:true, sample:true,
   meta:{month:'October 2026', windowLabel:'MTD 1-6', day:6, days:31,
         generatedAt:Date.now(), latestPayment:'2026-10-05', today:'2026-10-06'},
-  totals:{revenue:1350000, units:21, target:43800000},
+  totals:{revenue:1350000, units:21, target:43800000,
+          offRoster:749000, offRosterUnits:11},
   cities:[{name:'Bangalore',revenue:580000,units:8,target:12500000,agents:18},
           {name:'Bhubaneswar',revenue:401000,units:7,target:10300000,agents:23},
           {name:'Hyderabad',revenue:369000,units:6,target:21000000,agents:45}],

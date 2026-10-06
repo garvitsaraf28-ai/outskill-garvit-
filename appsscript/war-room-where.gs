@@ -1,64 +1,34 @@
 /**
- * warRoomWhereIsTheMoney - READ ONLY. Writes nothing, to any file, anywhere.
+ * warRoomWhereIsTheMoney - READ ONLY. Writes nothing, anywhere.
  *
- * WHY THIS EXISTS
+ * Says where this month's revenue goes between mdl_Payments and the two
+ * screens that report it, and whether every CBC agent reached the model.
  *
- *   CBC says 86 agents and about 25 L this month. The board says 13.50 L.
- *   Both can be right at once, because they are not measuring the same
- *   thing, and until now nothing printed the difference as a single chain.
+ * Deliberately terse. The first version of this ran to 440 lines and the
+ * paste into the Apps Script editor silently stopped at line 150, which
+ * only showed up as "Unexpected end of input". Short enough to paste in
+ * one go beats well documented, so the reasoning lives in the repo and
+ * this file carries only what it needs to run.
  *
- *   warRoomGap() came closest, but it counts every rupee with a date in
- *   this month INCLUDING refunds and cancellations, while the feed that
- *   paints the board removes both. So the two disagree by exactly the
- *   amount that matters most, and comparing them led nowhere.
- *
- *   This walks the whole chain, in the order wr_payments_ actually
- *   applies it, and prints what each step removes:
- *
- *     every rupee dated this month
- *       minus rows that are a refund or a cancellation
- *       minus rows paid to a name that is not on this month's roster
- *       = the number on the TV
- *
- *   If the last line does not match the TV, the fault is below this
- *   sheet - in how mdl_Payments is built - and not in the board.
- *
- * WHERE TO PUT IT
- *
- *   Apps Script > Files > + > Script, name it war-room-where, paste this
- *   in, pick warRoomWhereIsTheMoney from the function list, Run. Then
- *   View > Execution log and send the log over.
- *
- *   It is a separate file on purpose. It touches nothing in war-room.gs,
- *   so it cannot break the feed, and deleting it later costs nothing. It
- *   borrows that file's helpers, which works because every file in one
- *   Apps Script project shares the same global scope.
- *
- * SAFETY
- *
- *   Reads mdl_Payments and mdl_Roster in THIS workbook and nothing else.
- *   It never opens CBC or the Payment Tracker, and it has no write call
- *   of any kind in it.
+ * Borrows war-room.gs's helpers through the shared global scope, so it
+ * touches nothing in that file and cannot break the feed. Reads
+ * mdl_Payments, mdl_Roster, src_Roster_* and the report tab in THIS
+ * workbook only - never CBC, never the Payment Tracker.
  */
 function warRoomWhereIsTheMoney() {
-  var ss = SpreadsheetApp.getActive();
-  var now = new Date();
-  var monthKey = Utilities.formatDate(now, WR_TZ, 'yyyy-MM');
+  var ss = SpreadsheetApp.getActive(), now = new Date();
+  var monthKey  = Utilities.formatDate(now, WR_TZ, 'yyyy-MM');
   var monthName = Utilities.formatDate(now, WR_TZ, 'MMMM yyyy');
+  var L = function (s) { Logger.log(s); };
+  var P = wr_pad_, M = wr_money_;
 
   var sh = ss.getSheetByName(WR_PAY_TAB);
-  if (!sh || sh.getLastRow() < 2) {
-    Logger.log('mdl_Payments is missing or empty. Nothing to reconcile.');
-    return;
-  }
+  if (!sh || sh.getLastRow() < 2) { L('mdl_Payments is missing or empty.'); return; }
 
   var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0];
-  var H = wr_headers_(head);
+  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0], H = wr_headers_(head);
 
-  /* The SAME column lookups wr_payments_ uses. If one of these picks the
-     wrong column the board is wrong in a way no amount of re-running can
-     fix, so they are printed below rather than trusted. */
+  /* the same lookups wr_payments_ uses */
   var cDate  = wr_col_(H, ['date', 'payment date', 'paid on']);
   var cAgent = wr_col_(H, ['lead owner', 'agent', 'owner', 'agent name', 'name']);
   var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr', 'paid amount']);
@@ -68,48 +38,35 @@ function warRoomWhereIsTheMoney() {
   var cStat  = wr_col_(H, ['status']);
   var cBatch = wr_col_(H, ['batch']);
 
-  Logger.log('=== WHERE IS THE MONEY ===   ' + monthName + '   ' +
-             Utilities.formatDate(now, WR_TZ, 'dd MMM HH:mm'));
-  Logger.log('  Read only. Nothing was written, here or anywhere else.');
-  Logger.log('');
-
-  Logger.log('  COLUMNS THIS IS READING  (if one says NOT FOUND, that is the bug)');
-  Logger.log('    date       : ' + wr_whHead_(head, cDate));
-  Logger.log('    agent      : ' + wr_whHead_(head, cAgent));
-  Logger.log('    amount     : ' + wr_whHead_(head, cAmt));
-  Logger.log('    is unit    : ' + wr_whHead_(head, cUnit));
-  Logger.log('    is refund  : ' + wr_whHead_(head, cRef));
-  Logger.log('    status     : ' + wr_whHead_(head, cStat));
-  Logger.log('    on roster  : ' + wr_whHead_(head, cRost));
-  Logger.log('    batch      : ' + wr_whHead_(head, cBatch));
-  Logger.log('');
+  L('=== WHERE IS THE MONEY ===   ' + monthName + '   ' +
+    Utilities.formatDate(now, WR_TZ, 'dd MMM HH:mm'));
+  L('  Read only. Nothing was written.');
+  L('');
+  L('  COLUMNS BEING READ  (a NOT FOUND here is the bug)');
+  var cols = [['date', cDate], ['agent', cAgent], ['amount', cAmt], ['is unit', cUnit],
+              ['is refund', cRef], ['status', cStat], ['on roster', cRost], ['batch', cBatch]];
+  for (var ci = 0; ci < cols.length; ci++) {
+    L('    ' + P(cols[ci][0], 11) +
+      (cols[ci][1] < 0 ? 'NOT FOUND' : '"' + head[cols[ci][1]] + '"'));
+  }
+  L('');
   if (cDate < 0 || cAgent < 0 || cAmt < 0) {
-    Logger.log('  *** STOP. One of date / agent / amount was not found, so the feed');
-    Logger.log('      returns nothing at all. Fix the header in mdl_Payments first.');
+    L('  *** STOP. date / agent / amount missing - the feed returns nothing.');
     return;
   }
 
   var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
   var roster = wr_roster_(ss, monthKey);
 
-  /* every bucket, in the order the feed applies them */
   var badDate = 0, otherMonth = 0, noName = 0, summaryRows = 0;
-  var grossRev = 0, grossRows = 0, grossUnits = 0;
-  var refRev = 0, refRows = 0;
-  var canRev = 0, canRows = 0;
-  var bothRows = 0;
-  var onRev = 0, onRows = 0, onUnits = 0;
-  var offRev = 0, offRows = 0, offUnits = 0;
-  var off = {}, statusSeen = {}, earners = {};
-  var latest = null;
+  var gRev = 0, gRows = 0, gUnits = 0, refRev = 0, refRows = 0;
+  var canRev = 0, canRows = 0, bothRows = 0;
+  var onRev = 0, onRows = 0, onUnits = 0, offRev = 0, offRows = 0, offUnits = 0;
+  var off = {}, statusSeen = {}, earners = {}, latest = null;
 
   for (var r = 0; r < grid.length; r++) {
-    var row = grid[r];
-    var d = row[cDate];
-
-    /* A date the sheet stores as TEXT is not a Date object. Every reader
-       here skips it without a word, so the money is in the sheet, visible
-       to a human, and in no total anywhere. Worth counting. */
+    var row = grid[r], d = row[cDate];
+    /* a date stored as TEXT is skipped by every reader in the project */
     if (!(d instanceof Date) || isNaN(d.getTime())) {
       if (wr_str_(row[cAgent]) || wr_num_(row[cAmt])) badDate++;
       continue;
@@ -124,16 +81,15 @@ function warRoomWhereIsTheMoney() {
     var amt = wr_num_(row[cAmt]);
     var isUnit = (cUnit >= 0 && wr_truthy_(row[cUnit])) ? 1 : 0;
     if (isUnit && cBatch >= 0 && wr_unitBarred_(row[cBatch])) isUnit = 0;
-
-    grossRev += amt; grossRows++; grossUnits += isUnit;
+    gRev += amt; gRows++; gUnits += isUnit;
 
     var isRefund = (cRef >= 0 && wr_truthy_(row[cRef]));
     var statTxt = (cStat >= 0) ? String(row[cStat] || '').trim() : '';
     var isCancel = (statTxt.toLowerCase().indexOf('cancel') > -1);
 
-    var label = statTxt || '(blank)';
-    if (!statusSeen[label]) statusSeen[label] = { rev: 0, rows: 0 };
-    statusSeen[label].rev += amt; statusSeen[label].rows++;
+    var lab = statTxt || '(blank)';
+    if (!statusSeen[lab]) statusSeen[lab] = { rev: 0, rows: 0 };
+    statusSeen[lab].rev += amt; statusSeen[lab].rows++;
 
     if (isRefund && isCancel) bothRows++;
     if (isRefund) { refRev += amt; refRows++; }
@@ -143,8 +99,7 @@ function warRoomWhereIsTheMoney() {
     var key = wr_key_(name);
     if (roster.byAgent[key]) {
       onRev += amt; onRows++; onUnits += isUnit;
-      if (!earners[key]) earners[key] = 0;
-      earners[key] += amt;
+      earners[key] = (earners[key] || 0) + amt;
     } else {
       offRev += amt; offRows++; offUnits += isUnit;
       if (!off[name]) off[name] = { rev: 0, units: 0, flagged: 0 };
@@ -153,288 +108,188 @@ function warRoomWhereIsTheMoney() {
     }
   }
 
-  /* ---------------- the chain ---------------- */
-  /* One label width for every line, so the money forms a single column and
-     the subtraction can be checked by eye. A chain that does not line up
-     does not read as a chain. */
-  function step(label, amount, tail) {
-    Logger.log('    ' + wr_pad_(label, 38) + wr_pad_(amount, 12) + (tail || ''));
-  }
+  function step(label, amt, tail) { L('    ' + P(label, 38) + P(amt, 12) + (tail || '')); }
 
-  Logger.log('  THE CHAIN  -  each line is what the step below removes');
-  Logger.log('');
-  step('every rupee dated ' + monthName, wr_money_(grossRev),
-       grossRows + ' rows, ' + grossUnits + ' units');
-  step('  minus refunds', '-' + wr_money_(refRev),
-       refRows + ' rows');
-  step('  minus cancelled', '-' + wr_money_(canRev),
-       canRows + ' rows' +
+  L('  THE CHAIN  -  each line is what the step below removes');
+  L('');
+  step('every rupee dated ' + monthName, M(gRev), gRows + ' rows, ' + gUnits + ' units');
+  step('  minus refunds', '-' + M(refRev), refRows + ' rows');
+  step('  minus cancelled', '-' + M(canRev), canRows + ' rows' +
        (bothRows ? '   (' + bothRows + ' also refunds, counted once)' : ''));
-  step('  minus names not on this roster', '-' + wr_money_(offRev),
+  step('  minus names not on this roster', '-' + M(offRev),
        offRows + ' rows, ' + offUnits + ' units');
-  step('= WHAT THE BOARD SHOWS', wr_money_(onRev),
-       onRows + ' rows, ' + onUnits + ' units');
-  Logger.log('');
+  step('= WHAT THE BOARD SHOWS', M(onRev), onRows + ' rows, ' + onUnits + ' units');
+  L('');
 
-  /* ---------------- all three numbers, side by side ----------------
-
-     The Management Report and the leaderboard are two readers of the SAME
-     model, so when both are short the fault cannot be in either of them,
-     and it cannot be the deployed version of the web app either - that
-     would move the TV and leave the report alone. It is in mdl_Payments or
-     mdl_Roster, below both.
-
-     This prints the report's own headline next to the chain above so that
-     distinction can be made in one run instead of three. */
-  var repRev = '', repUnits = '', repDated = '';
-  var repSh = ss.getSheetByName(WR_REPORT_TAB);
+  /* The report and the board read the same model, so both being short
+     rules out the board AND the pinned web app deployment. */
+  var repSh = ss.getSheetByName(WR_REPORT_TAB), repRev = '', repUnits = '', repDated = '';
   if (repSh && repSh.getLastRow() > 1) {
-    var rGrid = repSh.getRange(1, 1, Math.min(repSh.getLastRow(), 200),
-                               Math.min(repSh.getLastColumn(), 30)).getDisplayValues();
-    repRev   = wr_findRight_(rGrid, 'Total revenue');
-    repUnits = wr_findRight_(rGrid, 'Units');
-    repDated = wr_findRight_(rGrid, 'Report Dated');
+    var rg = repSh.getRange(1, 1, Math.min(repSh.getLastRow(), 200),
+                            Math.min(repSh.getLastColumn(), 30)).getDisplayValues();
+    repRev = wr_findRight_(rg, 'Total revenue');
+    repUnits = wr_findRight_(rg, 'Units');
+    repDated = wr_findRight_(rg, 'Report Dated');
   }
-
-  Logger.log('  THE SAME MONTH, FROM EVERY PLACE THAT REPORTS IT');
-  Logger.log('    ' + wr_pad_('mdl_Payments, board rules applied', 38) +
-             wr_pad_(wr_money_(onRev), 12) + onUnits + ' units');
+  L('  THE SAME MONTH, FROM EVERY PLACE THAT REPORTS IT');
+  L('    ' + P('mdl_Payments, board rules applied', 38) + P(M(onRev), 12) + onUnits + ' units');
   if (repSh) {
-    var repNum = wr_reportNum_(repRev);
-    var diff = Math.abs(repNum - onRev);
-    var same = diff <= Math.max(1000, Math.abs(onRev) * 0.001);
-    Logger.log('    ' + wr_pad_('Management Report tab says', 38) +
-               wr_pad_(repRev || '(not found)', 12) +
-               (repUnits ? repUnits + ' units' : '') +
-               (repRev ? (same ? '   SAME' : '   DIFFERS by ' + wr_money_(diff)) : ''));
-    Logger.log('    ' + wr_pad_('  report was built', 38) +
-               (repDated || '(no Report Dated cell)'));
+    var dif = Math.abs(wr_reportNum_(repRev) - onRev);
+    var same = dif <= Math.max(1000, Math.abs(onRev) * 0.001);
+    L('    ' + P('Management Report tab says', 38) + P(repRev || '(not found)', 12) +
+      (repUnits ? repUnits + ' units' : '') +
+      (repRev ? (same ? '   SAME' : '   DIFFERS by ' + M(dif)) : ''));
+    L('    ' + P('  report was built', 38) + (repDated || '(no Report Dated cell)'));
   } else {
-    Logger.log('    ' + wr_pad_('Management Report tab', 38) +
-               'NOT FOUND (looked for "' + WR_REPORT_TAB + '")');
+    L('    ' + P('Management Report tab', 38) + 'NOT FOUND ("' + WR_REPORT_TAB + '")');
   }
-  Logger.log('');
-  Logger.log('    READ IT LIKE THIS:');
-  Logger.log('    - report and board agree, both under CBC  -> the fault is in');
-  Logger.log('      mdl_Payments or mdl_Roster, below both. Check the roster count');
-  Logger.log('      just below, then run warRoomRosterAudit().');
-  Logger.log('    - report and board DISAGREE -> one ran against older data. Rebuild');
-  Logger.log('      the report, then run warRoomVsReport() for the line by line.');
-  Logger.log('    - both agree with CBC but the TV does not -> only then is it the');
-  Logger.log('      deployment: Deploy > Manage deployments > pencil > New version.');
-  Logger.log('');
+  L('');
+  L('    - both agree but under CBC -> fault is in mdl_Payments or mdl_Roster');
+  L('    - they disagree            -> one ran on older data, rebuild the report');
+  L('    - both agree WITH CBC but the TV does not -> redeploy the web app');
+  L('');
 
-  /* ---------------- the roster, against CBC ---------------- */
-  var withMoney = 0, k;
+  var withMoney = 0, k, rosterN = 0;
   for (k in earners) if (earners[k] > 0) withMoney++;
-  var rosterN = 0;
   for (k in roster.byAgent) rosterN++;
+  L('  THE ROSTER THIS MONTH');
+  L('    agents loaded from mdl_Roster : ' + rosterN);
+  L('    of those, with a sale         : ' + withMoney);
+  L('    CBC is said to hold 86. Well under that means the roster is short,');
+  L('    and the report and the board are short with it.');
+  L('');
 
-  Logger.log('  THE ROSTER THIS MONTH');
-  Logger.log('    agents loaded from mdl_Roster : ' + rosterN);
-  Logger.log('    of those, with a sale         : ' + withMoney);
-  Logger.log('    of those, with nothing yet    : ' + (rosterN - withMoney));
-  Logger.log('    CBC is said to hold 86 this month. If the first number is well');
-  Logger.log('    under that, the roster is short and BOTH the report and the board');
-  Logger.log('    are short with it - every agent missing here is missing from both.');
-  Logger.log('');
+  wr_whRoster_(ss, monthKey, L, P);
 
-  wr_whRosterCheck_(ss, monthKey);
-
-
-  /* ---------------- who is being dropped ---------------- */
-  Logger.log('  PAID, BUT NOT ON THE ROSTER  (this money is on no screen)');
-  var names = [];
-  for (var n2 in off) names.push(n2);
+  L('  PAID, BUT NOT ON THE ROSTER  (on no screen)');
+  var names = [], n2;
+  for (n2 in off) names.push(n2);
   names.sort(function (a, b) { return off[b].rev - off[a].rev; });
-  for (var i = 0; i < names.length; i++) {
+  for (var i = 0; i < names.length && i < 60; i++) {
     var o = off[names[i]];
-    Logger.log('    ' + wr_pad_(names[i], 28) + wr_pad_(wr_money_(o.rev), 12) +
-               wr_pad_(o.units + 'u', 5) +
-               (o.flagged ? '  <-- flagged On Roster = YES, but no roster row this month' : ''));
+    L('    ' + P(names[i], 28) + P(M(o.rev), 12) + P(o.units + 'u', 5) +
+      (o.flagged ? '  <-- On Roster = YES, but no roster row this month' : ''));
   }
-  if (!names.length) {
-    Logger.log('    nobody. Every payment this month belongs to a roster agent,');
-    Logger.log('    so the gap is NOT the roster - look at refunds and cancelled above.');
-  }
-  Logger.log('');
+  if (!names.length) L('    nobody - so the gap is refunds, cancelled, or the roster.');
+  L('');
 
-  /* ---------------- what Status actually contains ---------------- */
-  Logger.log('  EVERY Status VALUE THIS MONTH  (anything containing "cancel" is removed)');
-  var sts = [];
-  for (var s2 in statusSeen) sts.push(s2);
+  L('  EVERY Status VALUE  (anything containing "cancel" is removed)');
+  var sts = [], s2;
+  for (s2 in statusSeen) sts.push(s2);
   sts.sort(function (a, b) { return statusSeen[b].rev - statusSeen[a].rev; });
   for (var j = 0; j < sts.length; j++) {
-    Logger.log('    ' + wr_pad_(sts[j], 28) + wr_pad_(wr_money_(statusSeen[sts[j]].rev), 12) +
-               wr_pad_(statusSeen[sts[j]].rows + ' rows', 10) +
-               (sts[j].toLowerCase().indexOf('cancel') > -1 ? '  REMOVED' : ''));
+    L('    ' + P(sts[j], 28) + P(M(statusSeen[sts[j]].rev), 12) +
+      P(statusSeen[sts[j]].rows + ' rows', 10) +
+      (sts[j].toLowerCase().indexOf('cancel') > -1 ? '  REMOVED' : ''));
   }
-  Logger.log('');
+  L('');
 
-  /* ---------------- rows nothing counted at all ---------------- */
-  Logger.log('  ROWS NO TOTAL INCLUDES');
-  Logger.log('    unreadable date (stored as text) : ' + badDate +
-             (badDate ? '   <-- real money, in no figure anywhere' : ''));
-  Logger.log('    blank agent name                 : ' + noName);
-  Logger.log('    looked like a totals row         : ' + summaryRows);
-  Logger.log('    dated another month              : ' + otherMonth);
-  Logger.log('');
-
-  Logger.log('  IS THE IMPORT CURRENT?');
-  Logger.log('    newest payment anywhere : ' +
-             (latest ? Utilities.formatDate(latest, WR_TZ, 'dd MMM yyyy') : 'none'));
-  Logger.log('    today                   : ' +
-             Utilities.formatDate(now, WR_TZ, 'dd MMM yyyy'));
-  Logger.log('    rows in mdl_Payments    : ' + (lastRow - 1));
-  Logger.log('');
-  Logger.log('  Nothing was written. This only reports.');
+  L('  ROWS NO TOTAL INCLUDES');
+  L('    date stored as text : ' + badDate + (badDate ? '   <-- real money, counted nowhere' : ''));
+  L('    blank agent name    : ' + noName);
+  L('    looked like a total : ' + summaryRows);
+  L('    another month       : ' + otherMonth);
+  L('');
+  L('  newest payment anywhere : ' +
+    (latest ? Utilities.formatDate(latest, WR_TZ, 'dd MMM yyyy') : 'none'));
+  L('  today                   : ' + Utilities.formatDate(now, WR_TZ, 'dd MMM yyyy'));
+  L('  rows in mdl_Payments    : ' + (lastRow - 1));
+  L('');
+  L('  Nothing was written. This only reports.');
 }
 
 
 /**
- * DID EVERY AGENT MAKE IT ACROSS FROM CBC?
- *
- * mdl_Roster is built from the src_Roster_* tabs, which are themselves
- * IMPORTRANGEs of CBC. An IMPORTRANGE with a PINNED last row - A2:H60
- * rather than A2:H - stops importing the moment CBC grows past it, and it
- * does so silently: no error, no red cell, just fewer rows. New joiners
- * are added at the BOTTOM of CBC, which is exactly where a pinned range
- * cuts, so a new intake is the most likely thing in the world to fall off
- * the end of it.
- *
- * An agent lost here is lost from the Management Report and the board
- * alike, because both read mdl_Roster. That is why this runs inside the
- * same function: there is nothing else to remember to run.
+ * Did every CBC agent reach mdl_Roster? An IMPORTRANGE ending on a fixed
+ * row - A2:H60 rather than A2:H - stops the moment CBC grows past it, with
+ * no error. New joiners are added at the BOTTOM, exactly where it cuts.
  */
-function wr_whRosterCheck_(ss, monthKey) {
-  Logger.log('  DID EVERYONE MAKE IT ACROSS FROM CBC?');
-
+function wr_whRoster_(ss, monthKey, L, P) {
+  L('  DID EVERYONE MAKE IT ACROSS FROM CBC?');
   var mdl = ss.getSheetByName(WR_ROSTER_TAB);
-  if (!mdl || mdl.getLastRow() < 2) {
-    Logger.log('    mdl_Roster is empty. Nothing can be right until it is built.');
-    Logger.log('');
-    return;
-  }
+  if (!mdl || mdl.getLastRow() < 2) { L('    mdl_Roster is empty.'); L(''); return; }
 
   var mg = mdl.getRange(1, 1, mdl.getLastRow(), mdl.getLastColumn()).getValues();
   var mh = wr_headers_(mg[0]);
   var mAgent = wr_col_(mh, ['agent', 'agent name', 'name', 'lead owner', 'owner']);
   var mMgr   = wr_col_(mh, ['manager', 'reporting manager', 'tl']);
   var mMonth = wr_monthCol_(mg);
-  if (mAgent < 0) {
-    Logger.log('    mdl_Roster has no Agent column. Stop here and fix that.');
-    Logger.log('');
-    return;
-  }
+  if (mAgent < 0) { L('    mdl_Roster has no Agent column.'); L(''); return; }
 
-  /* who mdl_Roster holds for THIS month */
-  var inMdl = {}, mdlCount = 0, perMonth = {};
+  var inMdl = {}, perMonth = {};
   for (var r = 1; r < mg.length; r++) {
     var nm = wr_str_(mg[r][mAgent]);
-    if (!nm) continue;
-    if (wr_isSummaryRow_(nm, mMgr >= 0 ? wr_str_(mg[r][mMgr]) : '', '')) continue;
+    if (!nm || wr_isSummaryRow_(nm, mMgr >= 0 ? wr_str_(mg[r][mMgr]) : '', '')) continue;
     var mo = (mMonth >= 0) ? wr_monthKey_(mg[r][mMonth]) : monthKey;
     if (mo) perMonth[mo] = (perMonth[mo] || 0) + 1;
     if (mo && mo !== monthKey) continue;
-    if (!inMdl[wr_key_(nm)]) { inMdl[wr_key_(nm)] = nm; mdlCount++; }
+    inMdl[wr_key_(nm)] = nm;
   }
-  Logger.log('    mdl_Roster holds for this month : ' + mdlCount + ' agents');
-
-  var months = [];
-  for (var mk in perMonth) months.push(mk);
+  var months = [], mk;
+  for (mk in perMonth) months.push(mk);
   months.sort();
-  if (months.length > 1) {
-    Logger.log('    every month it holds            : ' +
-               months.map(function (x) { return x + '(' + perMonth[x] + ')'; }).join('  '));
-  }
-  Logger.log('');
+  L('    mdl_Roster by month : ' +
+    months.map(function (x) { return x + '(' + perMonth[x] + ')'; }).join('  '));
+  L('');
 
-  /* every src_Roster_* tab, with the import range it was built from */
   var tabs = ss.getSheets(), found = 0;
   for (var t = 0; t < tabs.length; t++) {
-    var sh = tabs[t], nameT = sh.getName();
-    if (!/^src_Roster/i.test(nameT)) continue;
+    var s = tabs[t];
+    if (!/^src_Roster/i.test(s.getName())) continue;
     found++;
+    var rows = s.getLastRow(), cols = s.getLastColumn();
+    L('    --- ' + s.getName() + '   ' + rows + ' rows ---');
 
-    var rows = sh.getLastRow(), cols = sh.getLastColumn();
-    Logger.log('    --- ' + nameT + '   ' + rows + ' rows ---');
-
-    /* The formula behind it. A pinned last row is visible right here. */
     var f = '';
-    try { f = sh.getRange(1, 1).getFormula() || sh.getRange(2, 1).getFormula() || ''; }
+    try { f = s.getRange(1, 1).getFormula() || s.getRange(2, 1).getFormula() || ''; }
     catch (e) { f = ''; }
     if (f) {
-      Logger.log('        built by : ' + f);
+      L('        built by : ' + f);
       if (/![A-Z]+\d+:[A-Z]+\d+/.test(f)) {
-        Logger.log('        *** THAT RANGE ENDS ON A FIXED ROW NUMBER. The moment CBC');
-        Logger.log('            grows past it the extra agents stop arriving, with no');
-        Logger.log('            error anywhere. Change it to end at the column letter');
-        Logger.log('            with no row - A2:H instead of A2:H60 - and they return.');
+        L('        *** THAT RANGE ENDS ON A FIXED ROW. Once CBC grows past it the');
+        L('            extra agents stop arriving, silently. Use A2:H, not A2:H60.');
       }
     }
+    if (rows < 2) { L('        empty.'); continue; }
 
-    if (rows < 2) { Logger.log('        empty.'); continue; }
-
-    /* who is in the import but never reached mdl_Roster for this month */
-    var g = sh.getRange(1, 1, rows, cols).getValues();
-    var hRow = -1;
+    var g = s.getRange(1, 1, rows, cols).getValues(), hRow = -1;
     for (var rr = 0; rr < g.length && hRow < 0; rr++) {
       for (var cc = 0; cc < g[rr].length; cc++) {
         if (String(g[rr][cc]).trim().toLowerCase() === 'agent') { hRow = rr; break; }
       }
     }
-    if (hRow < 0) { Logger.log('        no "Agent" header row found - cannot compare.'); continue; }
+    if (hRow < 0) { L('        no "Agent" header found.'); continue; }
 
     var sh2 = wr_headers_(g[hRow]);
     var sAgent = wr_col_(sh2, ['agent', 'agent name', 'name']);
     var sMgr   = wr_col_(sh2, ['manager', 'reporting manager', 'tl']);
-    if (sAgent < 0) { Logger.log('        no Agent column - cannot compare.'); continue; }
+    if (sAgent < 0) { L('        no Agent column.'); continue; }
 
-    var srcCount = 0, missing = [];
+    var cnt = 0, missing = [];
     for (var r2 = hRow + 1; r2 < g.length; r2++) {
-      var n2 = wr_str_(g[r2][sAgent]);
-      if (!n2) continue;
-      if (wr_isSummaryRow_(n2, sMgr >= 0 ? wr_str_(g[r2][sMgr]) : '', '')) continue;
-      srcCount++;
-      if (!inMdl[wr_key_(n2)]) missing.push(n2);
+      var n3 = wr_str_(g[r2][sAgent]);
+      if (!n3 || wr_isSummaryRow_(n3, sMgr >= 0 ? wr_str_(g[r2][sMgr]) : '', '')) continue;
+      cnt++;
+      if (!inMdl[wr_key_(n3)]) missing.push(n3);
     }
-    Logger.log('        agents in this tab : ' + srcCount);
-
+    L('        agents here : ' + cnt);
     if (missing.length) {
-      Logger.log('        IN THIS TAB BUT NOT IN mdl_Roster FOR ' + monthKey + ' : ' +
-                 missing.length);
-      for (var i2 = 0; i2 < missing.length && i2 < 40; i2++) {
-        Logger.log('          ' + missing[i2]);
-      }
-      if (missing.length > 40) Logger.log('          ... and ' + (missing.length - 40) + ' more');
-      Logger.log('        Every one of these is invisible to the report AND the board.');
+      L('        NOT IN mdl_Roster FOR ' + monthKey + ' : ' + missing.length);
+      for (var i2 = 0; i2 < missing.length && i2 < 40; i2++) L('          ' + missing[i2]);
+      if (missing.length > 40) L('          ... and ' + (missing.length - 40) + ' more');
+      L('        Each one is invisible to the report AND the board.');
     } else {
-      Logger.log('        all of them are in mdl_Roster for ' + monthKey + '.');
+      L('        all present for ' + monthKey + '.');
     }
   }
-
-  if (!found) {
-    Logger.log('    No src_Roster_* tab exists, so mdl_Roster is not being fed from');
-    Logger.log('    CBC at all and cannot grow when CBC does.');
-  }
-  Logger.log('');
+  if (!found) L('    No src_Roster_* tab - mdl_Roster is not fed from CBC at all.');
+  L('');
 }
 
+/* ===================================================================
+   END OF FILE.
 
-/** Name the column an index landed on, or say plainly that it did not. */
-function wr_whHead_(head, idx) {
-  if (idx < 0) return 'NOT FOUND';
-  return '"' + String(head[idx]) + '"   (column ' + wr_whA1_(idx) + ')';
-}
-
-
-/** 0-based column index to a spreadsheet letter, so it can be found by eye. */
-function wr_whA1_(idx) {
-  var s = '', n = idx + 1;
-  while (n > 0) {
-    var m = (n - 1) % 26;
-    s = String.fromCharCode(65 + m) + s;
-    n = Math.floor((n - m) / 26);
-  }
-  return s;
-}
+   If you cannot see THIS line at the bottom of the editor, the paste
+   was cut short and Apps Script will say "Unexpected end of input".
+   Select all in the editor, delete, and paste again.
+   =================================================================== */

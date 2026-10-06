@@ -124,6 +124,9 @@ body{
   flex:none; display:none; align-items:center; justify-content:center; gap:10px;
   height:34px; font-size:14px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
 }
+/* A quiet morning, said quietly. */
+#fresh.note{display:flex; background:rgba(28,36,22,.7); color:var(--dim); letter-spacing:.1em; text-transform:none; font-weight:700}
+#fresh.soft{display:flex; background:var(--amber); color:#1a1205}
 #fresh.warn{display:flex; background:var(--rose); color:#1a0509; animation:nudge 2.6s ease-in-out infinite}
 @keyframes nudge{0%,100%{opacity:1}50%{opacity:.62}}
 
@@ -489,6 +492,97 @@ body{
 #mileSub{font-size:34px; color:var(--ink); font-weight:700; letter-spacing:.22em;
   text-transform:uppercase; margin-top:18px; animation:jcUp .7s .2s both}
 
+/* =====================================================================
+   THE PROGRAMME
+
+   The board is the home screen. Every SEG_EVERY seconds one of these
+   segments takes the screen for a few seconds and hands it straight
+   back - so the wall is always going somewhere without anyone touching
+   it, and without the leaderboard itself ever moving.
+
+   A segment that has nothing to say is skipped, not shown empty.
+   ===================================================================== */
+#seg{
+  position:absolute; inset:0; z-index:68; display:none;
+  align-items:center; justify-content:center; text-align:center;
+  background:
+    radial-gradient(1000px 720px at 24% 42%, rgba(194,238,69,.12), transparent 64%),
+    radial-gradient(900px 640px at 78% 60%, rgba(77,216,192,.11), transparent 64%),
+    #060803;
+}
+#seg.on{display:flex}
+#segInner{width:100%; padding:0 90px; animation:celIn .5s cubic-bezier(.22,1,.36,1) both}
+#segKicker{
+  font-size:19px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
+  background:linear-gradient(92deg,var(--lime),var(--teal));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+#segTitle{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:64px; line-height:1.06;
+  margin:14px 0 40px; letter-spacing:-.015em;
+}
+#segTitle small{display:block; font-family:'Space Grotesk',sans-serif; font-weight:700;
+  font-size:21px; color:var(--dim); letter-spacing:.14em; text-transform:uppercase; margin-top:14px}
+
+/* ---- podium ---- */
+.podium{display:flex; align-items:flex-end; justify-content:center; gap:34px}
+.pod{
+  flex:0 0 400px; border-radius:20px; padding:30px 24px 28px;
+  background:linear-gradient(180deg, rgba(26,33,18,.95), rgba(10,14,7,.6));
+  border:1px solid var(--line);
+}
+.pod .num{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:72px; line-height:1}
+.pod .nm{font-size:34px; font-weight:800; margin:10px 0 6px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pod .ds{font-size:15px; color:var(--dim); font-weight:700; letter-spacing:.08em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.pod .amt{font-family:'Space Mono',monospace; font-weight:700; font-size:44px; margin-top:18px}
+.pod .un{font-size:15px; color:var(--dim); font-weight:700; margin-top:6px}
+.pod.g1{flex-basis:450px; padding-top:54px; border-color:rgba(255,215,110,.5);
+  box-shadow:0 -18px 70px rgba(255,215,110,.14)}
+.pod.g1 .num, .pod.g1 .amt{color:var(--gold)}
+.pod.g2 .num, .pod.g2 .amt{color:#dfe6cf}
+.pod.g3 .num, .pod.g3 .amt{color:var(--amber)}
+
+/* ---- head to head ---- */
+.duel{display:flex; align-items:center; justify-content:center; gap:46px}
+.duel .side{
+  flex:1 1 0; max-width:560px; border:1px solid var(--line); border-radius:18px;
+  padding:34px 28px; background:rgba(16,21,12,.8); border-left:5px solid var(--nodesk);
+}
+.duel .side.ind{border-left-color:var(--ind)}
+.duel .side.intl{border-left-color:var(--intl)}
+/* Let a long name wrap rather than cutting it. There is vertical room
+   here, and "Harsh Singh Ramga..." is not somebody's name. */
+.duel .side .nm{font-size:38px; font-weight:800; line-height:1.12}
+.duel .side .ds{font-size:15px; color:var(--dim); font-weight:700; margin-top:8px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.duel .side .amt{font-family:'Space Mono',monospace; font-weight:700; font-size:48px; margin-top:20px; color:var(--lime)}
+.duel .vs{flex:none; text-align:center}
+.duel .vs .lab{font-size:14px; letter-spacing:.3em; color:var(--dim); font-weight:900; text-transform:uppercase}
+.duel .vs .gap{font-family:'Space Mono',monospace; font-weight:700; font-size:62px; color:var(--gold); margin-top:10px}
+.duel .vs .note{font-size:16px; color:var(--dim); font-weight:700; margin-top:10px}
+
+/* ---- two teams ---- */
+.teams{display:flex; gap:40px; justify-content:center}
+.tm{flex:1 1 0; max-width:620px; border-radius:20px; padding:34px 30px;
+  background:rgba(16,21,12,.8); border:1px solid var(--line); border-top:6px solid var(--nodesk)}
+.tm.ind{border-top-color:var(--ind)}
+.tm.intl{border-top-color:var(--intl)}
+.tm .nm{font-size:30px; font-weight:900; letter-spacing:.14em; text-transform:uppercase}
+.tm .amt{font-family:'Space Mono',monospace; font-weight:700; font-size:66px; margin:16px 0 6px}
+.tm.ind .amt{color:var(--ind)} .tm.intl .amt{color:var(--intl)}
+.tm .sub{font-size:17px; color:var(--dim); font-weight:700}
+.tm .bar{margin-top:22px}
+
+/* ---- one big face ---- */
+.solo{max-width:1180px; margin:0 auto; border:1px solid var(--line); border-radius:20px;
+  padding:44px 40px; background:rgba(16,21,12,.8)}
+.solo .nm{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:76px; line-height:1.05}
+.solo .ds{font-size:19px; color:var(--dim); font-weight:700; margin-top:14px; letter-spacing:.08em}
+.solo .big{font-family:'Space Mono',monospace; font-weight:700; font-size:92px; color:var(--lime); margin-top:26px}
+.solo .note{font-size:20px; color:var(--gold); font-weight:800; margin-top:16px; letter-spacing:.1em}
+
 .empty{display:flex; align-items:center; justify-content:center; height:100%; color:var(--dim); font-size:18px; text-align:center; padding:0 20px}
 
 .crow, .pcard{animation:liftIn .45s cubic-bezier(.22,1,.36,1) backwards}
@@ -585,6 +679,14 @@ body{
     </div>
   </div>
 
+  <div id="seg">
+    <div id="segInner">
+      <div id="segKicker"></div>
+      <div id="segTitle"></div>
+      <div id="segBody"></div>
+    </div>
+  </div>
+
   <div id="cel">
     <div id="celInner">
       <div id="celKicker">Just closed</div>
@@ -633,11 +735,14 @@ var CONFIG = {
   DEMO: Q.get('demo') === '1',
   FILL: Q.get('fill') === '1',
 
-  /* NEW ON THE FLOOR - the welcome cutaway. */
+  /* How long the leaderboard sits between segments. The board is the
+     home screen; a segment interrupts it, then hands it straight back. */
+  SEG_EVERY:       +(Q.get('segment') || 75),
+
+  /* NEW ON THE FLOOR - one of the segments in the running order. */
   JOINERS:        Q.get('joiners') !== '0',
-  JOINER_EVERY:   +(Q.get('joinerevery') || 12),   // minutes between cutaways
   JOINER_SECS:    +(Q.get('joinersecs')  || 9),    // seconds per card
-  JOINER_PER_RUN: +(Q.get('joinerrun')   || 3),    // cards per cutaway
+  JOINER_PER_RUN: +(Q.get('joinerrun')   || 3),    // cards per turn
   /* Stops playing by itself after this date, so nobody has to remember
      to switch it off. Pass ?joineruntil=2026-12-31 to extend. */
   JOINER_UNTIL:   Q.get('joineruntil') || '2026-11-15',
@@ -809,6 +914,7 @@ document.addEventListener('keydown', function(e){
   if(e.key==='ArrowRight'){ clearTimeout(deskTimer); deskIdx++; renderAgents(); scheduleDesk(); }
   if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); deskIdx=Math.max(0,deskIdx-1); renderAgents(); scheduleDesk(); }
   if(e.key==='j'||e.key==='J') playJoiners();                 /* welcome cards now */
+  if(e.key==='n'||e.key==='N'){ clearTimeout(segTimer); playNextSegment(); }  /* next segment */
   if(e.key==='c'||e.key==='C'){                               /* replay the last close */
     var r=(DATA&&DATA.recent||[])[0]; if(r) celebrate(r);
   }
@@ -893,7 +999,7 @@ function applyData(p){
        news. Without this every morning's first poll would announce a
        milestone that was passed last week. */
     mileReady=true;
-    renderAll(); scheduleDesk(); scheduleJoiners();
+    renderAll(); scheduleDesk(); scheduleSegment();
     spotlightTick(); setInterval(spotlightTick, 7000);
     if(Q.get('joinersnow')==='1') setTimeout(playJoiners, 400);
     if(Q.get('celnow')==='1') setTimeout(function(){
@@ -993,22 +1099,44 @@ function paintTop(){
   paintLive();
 }
 
-/* "data 4s ago" only says when the FEED last built. The feed can rebuild
-   every seven minutes and still serve yesterday, because it reads
-   mdl_Payments and nothing had refreshed that. So report the date of the
-   newest payment in the sheet against today - the only honest answer to
-   "is this up to date", and it names the fix when it is not. */
+/* HOW OLD IS THE DATA, HONESTLY.
+
+   This reports the date of the newest payment in the sheet against
+   today. That is NOT the same as "the sheet is stale", and the old
+   wording confused the two: one day with no sale is a normal morning,
+   and shouting RUN UPDATEANDCHECK at it sent people off to refresh a
+   sheet that was already current. A refresh cannot invent a payment
+   that nobody has entered.
+
+   Whether the FEED is current is a different question, and the chip in
+   the top right already answers it ("data 7m ago").
+
+   So: a single quiet day says so quietly. Two days is worth a look.
+   Three or more is when something is actually likely to be broken. */
 function paintFresh(){
   var m=(DATA&&DATA.meta)||{}, el=document.getElementById('fresh');
   if(!el) return;
   var latest=s(m.latestPayment), today=s(m.today);
   if(!latest||!today){ el.className=''; el.textContent=''; return; }
-  if(latest>=today){ el.className='ok'; el.innerHTML='sheet current'; return; }
+  if(latest>=today){ el.className=''; el.textContent=''; return; }
+
   var d1=new Date(latest+'T00:00:00'), d2=new Date(today+'T00:00:00');
   var days=Math.round((d2-d1)/86400000);
+  var when=latest.slice(8)+'/'+latest.slice(5,7);
+
+  if(days<=1){
+    el.className='note';
+    el.innerHTML='No sale recorded today yet &middot; newest is '+when;
+    return;
+  }
+  if(days===2){
+    el.className='soft';
+    el.innerHTML='Newest sale was '+when+' &middot; 2 days ago';
+    return;
+  }
   el.className='warn';
-  el.innerHTML='SHEET IS '+days+' DAY'+(days===1?'':'S')+' BEHIND &middot; newest sale '+
-               latest.slice(8)+'/'+latest.slice(5,7)+' &middot; run updateAndCheck';
+  el.innerHTML='NEWEST SALE IS '+days+' DAYS OLD ('+when+') &middot; '+
+               'CHECK src_Payments, THEN RUN updateAndCheck';
 }
 
 function paintLive(){
@@ -1214,6 +1342,193 @@ function spotlightTick(){
   var on = document.querySelector(SPOTS[spotIdx % SPOTS.length]);
   if(on) on.classList.add('spot');
   spotIdx++;
+}
+
+/* =====================================================================
+   THE PROGRAMME
+
+   The leaderboard is the home screen. Every SEG_EVERY seconds one of
+   these takes the screen for a few seconds and hands it straight back,
+   so the wall is always going somewhere without anybody touching it.
+
+   A segment with nothing to say is SKIPPED, not shown empty - a podium
+   on a morning when nobody has sold is worse than no podium.
+   ===================================================================== */
+
+/* The desks as whole groups, un-paged. deskViews() slices these into
+   pages for the left column; the segments want the whole desk. */
+function deskGroups(){
+  var g={};
+  (DATA.agents||[]).forEach(function(a){
+    var city=a.city||'Unassigned', team=a.team||'';
+    var key=city+'\u0000'+team;
+    if(!g[key]) g[key]={city:city, team:team, list:[], revenue:0, units:0};
+    g[key].list.push(a);
+    g[key].revenue+=a.revenue; g[key].units+=a.units;
+  });
+  var ds=[];
+  for(var k in g) ds.push(g[k]);
+  ds.sort(function(x,y){ return y.list.length-x.list.length ||
+                                (x.city<y.city?-1:1) || (x.team<y.team?-1:1); });
+  return ds;
+}
+
+function sellers(){
+  return (DATA.agents||[]).filter(function(a){ return a.revenue>0; })
+                          .sort(function(a,b){ return b.revenue-a.revenue; });
+}
+
+/* ---- 1. the podium ---- */
+function canPodium(){ return sellers().length >= 3; }
+function buildPodium(){
+  var top = sellers().slice(0,3);
+  var slots = [ {a:top[1], g:2}, {a:top[0], g:1}, {a:top[2], g:3} ];   /* winner centre */
+  return {
+    kicker: 'Top of the month',
+    title : 'WHO IS SELLING<small>' + esc((DATA.meta||{}).month||'') + ' so far</small>',
+    body  : '<div class="podium">' + slots.map(function(x){
+      if(!x.a) return '';
+      return '<div class="pod g'+x.g+'">'+
+        '<div class="num">'+x.g+'</div>'+
+        '<div class="nm">'+esc(x.a.name)+'</div>'+
+        '<div class="ds">'+esc(joinDot(x.a.city, x.a.team, x.a.manager))+'</div>'+
+        '<div class="amt">'+money(x.a.revenue)+'</div>'+
+        '<div class="un">'+x.a.units+' unit'+(x.a.units===1?'':'s')+'</div>'+
+      '</div>';
+    }).join('') + '</div>'
+  };
+}
+
+/* ---- 2. head to head ----
+   The two people closest together on any one desk. The tightest race in
+   the building is the one worth putting on a wall. */
+function closestPair(){
+  var best=null;
+  deskGroups().forEach(function(d){
+    var rows=d.list.filter(function(a){return a.revenue>0;})
+                   .sort(function(a,b){return b.revenue-a.revenue;});
+    for(var i=1;i<rows.length;i++){
+      var gap=rows[i-1].revenue-rows[i].revenue;
+      if(gap<=0) continue;
+      if(!best || gap<best.gap) best={gap:gap, ahead:rows[i-1], chasing:rows[i], desk:d};
+    }
+  });
+  return best;
+}
+function canDuel(){ return !!closestPair(); }
+function buildDuel(){
+  var p=closestPair();
+  var tc=teamClass(p.desk.team);
+  function side(a){
+    return '<div class="side '+tc+'">'+
+      '<div class="nm">'+esc(a.name)+'</div>'+
+      '<div class="ds">'+esc(joinDot(a.manager, a.units+' unit'+(a.units===1?'':'s')))+'</div>'+
+      '<div class="amt">'+money(a.revenue)+'</div></div>';
+  }
+  return {
+    kicker: 'Closest race on the floor',
+    title : esc(p.desk.city) + ' &mdash; ' + esc(teamLabel(p.desk.team)),
+    body  : '<div class="duel">'+ side(p.ahead) +
+      '<div class="vs"><div class="lab">gap</div><div class="gap">'+money(p.gap)+'</div>'+
+      '<div class="note">one unit could flip it</div></div>' +
+      side(p.chasing) + '</div>'
+  };
+}
+
+/* ---- 3. India vs International ---- */
+function teamTotals(){
+  var t={};
+  (DATA.agents||[]).forEach(function(a){
+    var k=s(a.team).trim(); if(!k) return;
+    if(!t[k]) t[k]={name:k, revenue:0, units:0, target:0, agents:0};
+    t[k].revenue+=a.revenue; t[k].units+=a.units; t[k].target+=a.target; t[k].agents++;
+  });
+  var out=[]; for(var k in t) out.push(t[k]);
+  return out.sort(function(a,b){ return b.revenue-a.revenue; });
+}
+function canTeams(){ return teamTotals().filter(function(t){return t.revenue>0;}).length >= 2; }
+function buildTeams(){
+  var ts=teamTotals().slice(0,2);
+  return {
+    kicker: 'Desk against desk',
+    title : 'INDIA vs INTERNATIONAL',
+    body  : '<div class="teams">'+ ts.map(function(t){
+      var p=pct(t.revenue,t.target);
+      return '<div class="tm '+teamClass(t.name)+'">'+
+        '<div class="nm">'+esc(t.name)+'</div>'+
+        '<div class="amt">'+money(t.revenue)+'</div>'+
+        '<div class="sub">'+t.units+' units &middot; '+t.agents+' agents'+
+          (t.target? ' &middot; '+p.toFixed(1)+'% of target':'')+'</div>'+
+        (t.target? '<div class="bar">'+barHTML(p,14)+'</div>':'')+
+      '</div>';
+    }).join('') +'</div>'
+  };
+}
+
+/* ---- 4. biggest climber since this morning ---- */
+function topMover(){
+  var best=null;
+  (DATA.agents||[]).forEach(function(a){
+    if(!(a.move>0)) return;
+    if(!best || a.move>best.move) best=a;
+  });
+  return best;
+}
+function canMover(){ return !!topMover(); }
+function buildMover(){
+  var a=topMover();
+  return {
+    kicker: 'Biggest climb today',
+    title : 'ON THE MOVE',
+    body  : '<div class="solo">'+
+      '<div class="nm">'+esc(a.name)+'</div>'+
+      '<div class="ds">'+esc(joinDot(a.city, a.team, a.manager))+'</div>'+
+      '<div class="big">'+money(a.revenue)+'</div>'+
+      '<div class="note">UP '+a.move+' PLACE'+(a.move===1?'':'S')+
+        ' SINCE THIS MORNING &middot; NOW #'+a.rank+'</div></div>'
+  };
+}
+
+/* ---- the running order ---- */
+var SEGMENTS = [
+  { id:'podium',  secs:17, can:canPodium, build:buildPodium },
+  { id:'duel',    secs:15, can:canDuel,   build:buildDuel },
+  { id:'joiners', secs:0,  can:joinersLive, play:playJoiners },
+  { id:'teams',   secs:15, can:canTeams,  build:buildTeams },
+  { id:'mover',   secs:14, can:canMover,  build:buildMover }
+];
+var segIdx = 0, segTimer = null;
+
+function scheduleSegment(){
+  clearTimeout(segTimer);
+  segTimer = setTimeout(playNextSegment, Math.max(20, CONFIG.SEG_EVERY)*1000);
+}
+
+function playNextSegment(){
+  if(!DATA){ scheduleSegment(); return; }
+  var tried = 0;
+  while(tried < SEGMENTS.length){
+    var sgm = SEGMENTS[segIdx % SEGMENTS.length];
+    segIdx++; tried++;
+    if(sgm.can && !sgm.can()) continue;        /* nothing to say - skip it */
+    if(sgm.play){ sgm.play(function(){ scheduleSegment(); }); return; }
+    showSegment(sgm);
+    return;
+  }
+  scheduleSegment();                            /* none of them had anything */
+}
+
+function showSegment(sgm){
+  var el=document.getElementById('seg');
+  var parts;
+  try { parts = sgm.build(); }
+  catch(e){ scheduleSegment(); return; }        /* never let a segment kill the board */
+  document.getElementById('segKicker').textContent = parts.kicker;
+  document.getElementById('segTitle').innerHTML    = parts.title;
+  document.getElementById('segBody').innerHTML     = parts.body;
+  el.className='on';
+  clearTimeout(el._t);
+  el._t=setTimeout(function(){ el.className=''; scheduleSegment(); }, Math.max(6,sgm.secs)*1000);
 }
 
 function renderAll(){ renderAgents(); renderCities(); renderPace(); renderDay(); renderManagers(); }
@@ -1499,8 +1814,8 @@ function sizeTicker(){
 /* =====================================================================
    NEW ON THE FLOOR
 
-   A cutaway, not a mode. Every JOINER_EVERY minutes it takes the screen
-   for a few cards, then hands it straight back. It stops by itself after
+   A cutaway, not a mode. It takes its turn in the running order, shows
+   a few cards and hands the screen straight back. It stops playing by itself after
    JOINER_UNTIL so nobody has to remember to turn it off, and ?joiners=0
    kills it immediately.
    ===================================================================== */
@@ -1515,13 +1830,9 @@ function joinersLive(){
   return true;
 }
 
-function scheduleJoiners(){
-  if(!joinersLive()) return;
-  clearTimeout(jcTimer);
-  jcTimer=setTimeout(function(){
-    playJoiners(function(){ scheduleJoiners(); });
-  }, Math.max(2,CONFIG.JOINER_EVERY)*60000);
-}
+/* The joiner cards are a segment in the running order now, so they are
+   scheduled by playNextSegment rather than on a timer of their own.
+   Two schedulers meant two things could take the screen at once. */
 
 function playJoiners(done){
   if(!JOINERS || !JOINERS.length){ if(done) done(); return; }

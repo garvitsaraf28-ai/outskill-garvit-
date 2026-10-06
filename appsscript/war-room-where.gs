@@ -232,13 +232,36 @@ function wr_whRoster_(ss, monthKey, L, P) {
     months.map(function (x) { return x + '(' + perMonth[x] + ')'; }).join('  '));
   L('');
 
-  var tabs = ss.getSheets(), found = 0;
+  /* ONLY THIS MONTH'S TAB GETS COMPARED.
+
+     The first version compared every src_Roster_* tab against the CURRENT
+     month's roster and called everything it did not find "missing". On a
+     real workbook that printed about a hundred names from April through
+     September - every person who has ever left - as though each were a
+     fault. They are not: an agent in src_Roster_Jul and not in October is
+     someone who left in August, which is the system working.
+
+     A diagnostic that cries wolf a hundred times is worse than no
+     diagnostic, because the one real line gets lost in it. So the other
+     months get a single line each, and only the tab for THIS month is
+     compared name by name. */
+  var tabs = ss.getSheets(), found = 0, curTab = 0;
   for (var t = 0; t < tabs.length; t++) {
     var s = tabs[t];
     if (!/^src_Roster/i.test(s.getName())) continue;
     found++;
+
+    var suffix = s.getName().replace(/^src_Roster[_\s-]*/i, '').trim();
+    var tabMonth = wr_monthKey_(suffix + ' ' + monthKey.substring(0, 4));
     var rows = s.getLastRow(), cols = s.getLastColumn();
-    L('    --- ' + s.getName() + '   ' + rows + ' rows ---');
+
+    if (tabMonth && tabMonth !== monthKey) {
+      L('    ' + P(s.getName(), 22) + rows + ' rows   (' + tabMonth +
+        ' - not this month, not compared)');
+      continue;
+    }
+    curTab++;
+    L('    --- ' + s.getName() + '   ' + rows + ' rows   THIS MONTH ---');
 
     var f = '';
     try { f = s.getRange(1, 1).getFormula() || s.getRange(2, 1).getFormula() || ''; }
@@ -282,7 +305,14 @@ function wr_whRoster_(ss, monthKey, L, P) {
       L('        all present for ' + monthKey + '.');
     }
   }
-  if (!found) L('    No src_Roster_* tab - mdl_Roster is not fed from CBC at all.');
+  if (!found) {
+    L('    No src_Roster_* tab - mdl_Roster is not fed from CBC at all.');
+  } else if (!curTab) {
+    L('');
+    L('    *** NO src_Roster TAB FOR ' + monthKey + '. The roster for this month is');
+    L('        not being imported at all, so it can only be as stale as whatever');
+    L('        was last written into mdl_Roster by hand.');
+  }
   L('');
 }
 

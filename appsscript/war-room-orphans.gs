@@ -5,35 +5,34 @@
  *
  *   A sale paid in instalments is several rows in the Payment Tracker, and
  *   the later rows do not always carry the Lead Owner who closed it. The
- *   same customer can appear as
+ *   same customer appears as
  *
  *     01-Oct, Madhav,     George Sarcov, 1st Part Payment, 1/3
  *     01-Oct, Mastermind, George Sarcov, 2nd Part Payment, 2/3
  *
  *   The board credits the first row and drops the second, because
- *   "Mastermind" is not on the roster. CBC credits both to the closer. That
- *   single difference would explain the whole gap - 9.91 L across five
- *   agents, every one of them hit hardest where deals are high-ticket and
+ *   "Mastermind" is not a person and not on the roster - it is a bucket,
+ *   carrying 118 of October's 159 rows. CBC credits both to the closer.
+ *   That one difference has the exact shape of the gap: 9.91 L across five
+ *   agents, four of them International, where deals are high-ticket and
  *   paid in parts.
  *
- *   It is a theory until it is counted. This counts it.
+ * WHY IT READS src_Payments AND NOT mdl_Payments
  *
- * HOW
+ *   The first version ran on mdl_Payments and stopped with "customer keyed
+ *   on: NOTHING". The model keeps Date, Lead Owner, Amount and the flags,
+ *   and throws the customer away - no name, no email. Without a customer
+ *   there is no way to tell that two rows are the same sale, which is also
+ *   why nothing has ever noticed this. The raw import still has both, so
+ *   this works there and finds the tab by looking for the columns rather
+ *   than by trusting a tab name.
  *
- *   Pass 1 reads every row ever and remembers, per CUSTOMER, which roster
- *   agent took their earliest payment. The customer is keyed on payment
- *   email where there is one, on name where there is not.
+ * WHAT THE ANSWER MEANS
  *
- *   Pass 2 takes this month's dropped rows and asks whether that customer
- *   was ever owned by a roster agent. If so the row is an orphaned
- *   instalment, and it names the agent it should have gone to.
- *
- *   If the total it reports is close to 9.91 L, that is the bug, and the
- *   fix is to credit a payment to whoever owns the CUSTOMER rather than
- *   to whatever is typed on that one row.
- *
- *   If it reports close to nothing, the theory is wrong, the money is not
- *   in mdl_Payments at all, and the next place to look is upstream.
+ *   Near 9.91 L - that is the bug, and the fix is to credit a payment to
+ *   whoever owns the CUSTOMER rather than the name typed on one row.
+ *   Near zero  - the theory is wrong, the money is not in the import, and
+ *   the search moves upstream. It says which, in as many words.
  *
  * Paste as its own file and run warRoomOrphanPayments.
  */
@@ -43,66 +42,69 @@ function warRoomOrphanPayments() {
   var L = function (s) { Logger.log(s); };
   var P = wr_pad_, M = wr_money_;
 
-  var sh = ss.getSheetByName(WR_PAY_TAB);
-  if (!sh || sh.getLastRow() < 2) { L('mdl_Payments is empty.'); return; }
-
-  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-  var head = sh.getRange(1, 1, 1, lastCol).getValues()[0], H = wr_headers_(head);
-
-  var cDate  = wr_col_(H, ['date', 'payment date', 'paid on']);
-  var cAgent = wr_col_(H, ['lead owner', 'agent', 'owner']);
-  var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr']);
-  var cMail  = wr_col_(H, ['payment email id', 'payment email', 'email', 'email id']);
-  var cCust  = wr_col_(H, ['name', 'customer', 'learner', 'student']);
-  var cType  = wr_col_(H, ['payment type']);
-
   L('=== ORPHANED INSTALMENTS ===   ' + monthKey);
-  L('  customer keyed on : ' +
-    (cMail >= 0 ? '"' + head[cMail] + '"' : (cCust >= 0 ? '"' + head[cCust] + '"' : 'NOTHING')));
-  L('  payment type col  : ' + (cType >= 0 ? '"' + head[cType] + '"' : 'not present'));
+  L('  Read only. Nothing was written.');
   L('');
-  if (cDate < 0 || cAgent < 0 || cAmt < 0 || (cMail < 0 && cCust < 0)) {
-    L('  *** Cannot run: need date, lead owner, amount, and an email or name');
-    L('      column to identify the customer. One of those is missing.');
+
+  var src = wr_orphFindTab_(ss);
+  if (!src) {
+    L('  *** No tab found with a date, a lead owner, an amount AND a customer');
+    L('      (name or payment email) in it. Looked at every tab in this file.');
+    L('      src_Payments is the expected one - if it exists, its header row');
+    L('      is not where this could see it.');
     return;
   }
 
-  var grid = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var c = src.c, head = src.head;
+  L('  reading tab   : ' + src.name + '   (header on row ' + (src.headerRow + 1) +
+    ', ' + src.rows.length + ' data rows)');
+  L('  customer key  : ' + (c.mail >= 0 ? '"' + head[c.mail] + '"'
+                                        : '"' + head[c.cust] + '"'));
+  L('  owner column  : "' + head[c.agent] + '"');
+  L('  amount column : "' + head[c.amt] + '"');
+  L('');
+
+  var rows = src.rows;
   var roster = wr_roster_(ss, monthKey);
 
   function custKey(row) {
-    var e = cMail >= 0 ? wr_str_(row[cMail]).toLowerCase() : '';
+    var e = c.mail >= 0 ? wr_str_(row[c.mail]).toLowerCase() : '';
     if (e) return 'e:' + e;
-    var n = cCust >= 0 ? wr_key_(wr_str_(row[cCust])) : '';
+    var n = c.cust >= 0 ? wr_key_(wr_str_(row[c.cust])) : '';
     return n ? 'n:' + n : '';
   }
+  function cancelled(row) {
+    if (c.stat < 0) return false;
+    return String(row[c.stat] || '').toLowerCase().indexOf('cancel') > -1;
+  }
 
-  /* ---- pass 1: who closed each customer ---- */
+  /* ---- pass 1: which roster agent took each customer's EARLIEST payment ---- */
   var ownerOf = {};
-  for (var r = 0; r < grid.length; r++) {
-    var d = grid[r][cDate];
+  for (var r = 0; r < rows.length; r++) {
+    var d = rows[r][c.date];
     if (!(d instanceof Date) || isNaN(d.getTime())) continue;
-    var nm = wr_str_(grid[r][cAgent]);
+    var nm = wr_str_(rows[r][c.agent]);
     if (!nm || wr_isSummary_(nm)) continue;
     var key = wr_key_(nm);
-    if (!roster.byAgent[key]) continue;        // only a roster agent can own one
-    var ck = custKey(grid[r]);
+    if (!roster.byAgent[key]) continue;          // only a roster agent can own one
+    var ck = custKey(rows[r]);
     if (!ck) continue;
     var t = d.getTime();
     if (!ownerOf[ck] || t < ownerOf[ck].at) ownerOf[ck] = { name: nm, key: key, at: t };
   }
 
-  /* ---- pass 2: this month's dropped rows, matched back ---- */
+  /* ---- pass 2: this month's dropped rows, traced back ---- */
   var back = {}, totRev = 0, totRows = 0, lost = 0, lostRows = 0, lostWho = {};
-  for (var r2 = 0; r2 < grid.length; r2++) {
-    var row = grid[r2], d2 = row[cDate];
+  for (var r2 = 0; r2 < rows.length; r2++) {
+    var row = rows[r2], d2 = row[c.date];
     if (!(d2 instanceof Date) || isNaN(d2.getTime())) continue;
     if (wr_monthKey_(d2) !== monthKey) continue;
-    var nm2 = wr_str_(row[cAgent]);
+    var nm2 = wr_str_(row[c.agent]);
     if (!nm2 || wr_isSummary_(nm2)) continue;
-    if (roster.byAgent[wr_key_(nm2)]) continue;        // already counted
+    if (roster.byAgent[wr_key_(nm2)]) continue;  // the board already counts it
+    if (cancelled(row)) continue;
 
-    var amt = wr_num_(row[cAmt]);
+    var amt = wr_num_(row[c.amt]);
     var ck2 = custKey(row);
     var own = ck2 ? ownerOf[ck2] : null;
 
@@ -112,8 +114,8 @@ function warRoomOrphanPayments() {
       b.rev += amt; b.rows++;
       b.from[nm2] = (b.from[nm2] || 0) + amt;
       if (b.who.length < 12) {
-        b.who.push(wr_str_(cCust >= 0 ? row[cCust] : '') + '  ' + M(amt) +
-                   (cType >= 0 ? '  ' + wr_str_(row[cType]) : '') + '  logged to ' + nm2);
+        b.who.push(wr_str_(c.cust >= 0 ? row[c.cust] : '') + '  ' + M(amt) +
+                   (c.type >= 0 ? '  ' + wr_str_(row[c.type]) : '') + '  logged to ' + nm2);
       }
       totRev += amt; totRows++;
     } else {
@@ -122,7 +124,7 @@ function warRoomOrphanPayments() {
     }
   }
 
-  L('  THIS MONTH\'S DROPPED MONEY, TRACED BACK TO WHO CLOSED THE CUSTOMER');
+  L('  THIS MONTH\'S DROPPED MONEY, TRACED TO WHO CLOSED THE CUSTOMER');
   L('');
   var keys = [], k;
   for (k in back) keys.push(k);
@@ -138,26 +140,85 @@ function warRoomOrphanPayments() {
   }
   if (!keys.length) {
     L('    Nothing. Not one dropped row belongs to a customer a roster agent');
-    L('    ever closed, so the instalment theory is WRONG and the missing money');
-    L('    is not in mdl_Payments at all.');
+    L('    ever closed, so the instalment theory is WRONG and the money is');
+    L('    not in this import at all.');
   }
 
   L('');
   L('    ' + P('WOULD RETURN TO ROSTER AGENTS', 32) + P(M(totRev), 12) + totRows + ' rows');
   L('    ' + P('genuinely not ours', 32) + P(M(lost), 12) + lostRows + ' rows');
   L('');
-  L('    The gap to close is 9.91 L. If the first figure is near it, that is');
-  L('    the bug, and the fix is to credit a payment to whoever owns the');
-  L('    CUSTOMER rather than to whatever name is typed on that one row.');
+  L('    The gap to close is 9.91 L.');
   L('');
 
   L('  THE REST, BY THE NAME THEY ARE LOGGED UNDER');
   var ls = [], n3;
   for (n3 in lostWho) ls.push(n3);
   ls.sort(function (a, b) { return lostWho[b] - lostWho[a]; });
-  for (var q = 0; q < ls.length; q++) {
+  for (var q = 0; q < ls.length && q < 30; q++) {
     L('    ' + P(ls[q], 26) + M(lostWho[ls[q]]));
   }
   L('');
   L('  Nothing was written. This only reports.');
+}
+
+
+/**
+ * Find a tab that actually holds raw payments, by its COLUMNS.
+ *
+ * Not by name: src_Payments is the expected one, but these tabs carry
+ * preamble lines above the header ("SOURCE - ...", "Read-only. Do not type
+ * here.") so the header is rarely row 1, and a tab can be renamed. This
+ * scans the first 25 rows of each tab for a row that names a date, a lead
+ * owner, an amount and a customer, and prefers the tab with the most rows.
+ */
+/** Exact header match only - no substring fallback. See the note above. */
+function wr_orphExact_(H, names) {
+  for (var i = 0; i < names.length; i++) {
+    if (H[names[i]] !== undefined) return H[names[i]];
+  }
+  return -1;
+}
+
+
+function wr_orphFindTab_(ss) {
+  var tabs = ss.getSheets(), best = null;
+
+  for (var t = 0; t < tabs.length; t++) {
+    var sh = tabs[t], lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (lastRow < 3 || lastCol < 4) continue;
+
+    var look = sh.getRange(1, 1, Math.min(25, lastRow), lastCol).getValues();
+    for (var hr = 0; hr < look.length; hr++) {
+      var H = wr_headers_(look[hr]);
+      var c = {
+        date:  wr_col_(H, ['date', 'payment date', 'paid on']),
+        agent: wr_col_(H, ['lead owner', 'agent', 'owner']),
+        amt:   wr_col_(H, ['amount paid', 'amount', 'amount inr']),
+        mail:  wr_col_(H, ['payment email id', 'payment email', 'email id', 'email']),
+        /* EXACT only. wr_col_ falls back to a substring match, and 'name'
+           is a substring of half the headers in a sales sheet - 'Agent
+           Name', 'Batch Name', 'First Name'. Keying customers off the
+           wrong column would silently merge unrelated people and hand the
+           money to whoever happened to sort first. */
+        cust:  wr_orphExact_(H, ['name', 'customer name', 'customer',
+                                 'learner name', 'student name']),
+        type:  wr_col_(H, ['payment type']),
+        stat:  wr_col_(H, ['status'])
+      };
+      if (c.date < 0 || c.agent < 0 || c.amt < 0) continue;
+      if (c.mail < 0 && c.cust < 0) continue;
+
+      var n = lastRow - (hr + 1);
+      if (n < 1) continue;
+      if (best && best.rows.length >= n) continue;
+
+      best = {
+        name: sh.getName(), headerRow: hr, head: look[hr], c: c,
+        rows: sh.getRange(hr + 2, 1, n, lastCol).getValues()
+      };
+      break;        // one header row per tab is enough
+    }
+  }
+  return best;
 }

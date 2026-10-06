@@ -438,150 +438,67 @@ body{
   box-shadow:0 0 0 1px rgba(255,215,110,.16), 0 24px 64px rgba(0,0,0,.55);
 }
 
-/* ---- a close takes the screen ---- */
-#cel{
-  position:absolute; inset:0; z-index:70; display:none;
-  align-items:center; justify-content:center; text-align:center;
-  background:radial-gradient(1100px 760px at 50% 46%, rgba(194,238,69,.17), transparent 66%), #060803;
-}
-/* The BACKDROP snaps opaque; only the CONTENT eases in. Fading the whole
-   overlay meant the leaderboard was legible through it for the first
-   half-second, which reads as a glitch rather than a transition - and
-   leaves it permanently see-through anywhere the animation does not run. */
-#cel.on{display:flex}
-@keyframes celIn{from{opacity:0; transform:scale(.97)} to{opacity:1; transform:none}}
-#celCanvas{position:absolute; inset:0; z-index:73; pointer-events:none; display:none}
-#celCanvas.on{display:block}
-#celInner{position:relative; z-index:1; padding:0 80px;
-  animation:celIn .45s cubic-bezier(.22,1,.36,1) both}
-#celKicker{
-  font-size:26px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
-  background:linear-gradient(92deg,var(--lime),var(--teal));
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-  animation:kick .9s cubic-bezier(.22,1,.36,1) both;
-}
-@keyframes kick{from{opacity:0; letter-spacing:.8em} to{opacity:1; letter-spacing:.42em}}
-#celAmt{
-  font-family:'Space Mono',monospace; font-weight:700; font-size:184px; line-height:1;
-  margin:22px 0 10px; color:var(--lime);
-  text-shadow:0 0 70px rgba(194,238,69,.5);
-  animation:pop .75s cubic-bezier(.2,1.5,.4,1) both;
-}
-@keyframes pop{from{opacity:0; transform:scale(.55)} to{opacity:1; transform:scale(1)}}
-#celName{
-  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:92px; line-height:1.05;
-  margin-bottom:20px; animation:jcUp .7s cubic-bezier(.22,1,.36,1) .15s both;
-}
-#celMeta{font-size:25px; color:var(--dim); font-weight:700; letter-spacing:.1em;
-  animation:jcUp .7s cubic-bezier(.22,1,.36,1) .3s both}
-#celRank{margin-top:26px; font-size:21px; font-weight:800; color:var(--gold); letter-spacing:.12em;
-  animation:jcUp .7s cubic-bezier(.22,1,.36,1) .45s both}
-
-/* ---- crossing a quarter of the target ---- */
-#mile{
-  position:absolute; inset:0; z-index:72; display:none; align-items:center; justify-content:center;
-  text-align:center; background:radial-gradient(1200px 800px at 50% 50%, rgba(255,215,110,.2), transparent 66%), #060803;
-}
-#mile.on{display:flex}
-#mile > div{animation:celIn .45s cubic-bezier(.22,1,.36,1) both}
-#mileBig{
-  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:230px; line-height:1;
-  color:var(--gold); text-shadow:0 0 90px rgba(255,215,110,.45);
-  animation:pop .8s cubic-bezier(.2,1.5,.4,1) both;
-}
-#mileSub{font-size:34px; color:var(--ink); font-weight:700; letter-spacing:.22em;
-  text-transform:uppercase; margin-top:18px; animation:jcUp .7s .2s both}
 
 /* =====================================================================
-   THE PROGRAMME
+   CELEBRATING WITHOUT LEAVING THE BOARD
 
-   The board is the home screen. Every SEG_EVERY seconds one of these
-   segments takes the screen for a few seconds and hands it straight
-   back - so the wall is always going somewhere without anyone touching
-   it, and without the leaderboard itself ever moving.
-
-   A segment that has nothing to say is skipped, not shown empty.
+   A close used to take the whole screen. It does not any more - the
+   leaderboard IS the screen. Confetti falls over it, the ticker bar
+   turns into the announcement, and the seller's own row flashes gold,
+   so you watch them climb at the same moment you hear about it. That is
+   better than a takeover anyway: the takeover hid the very thing the
+   news was about.
    ===================================================================== */
-#seg{
-  position:absolute; inset:0; z-index:68; display:none;
-  align-items:center; justify-content:center; text-align:center;
-  background:
-    radial-gradient(1000px 720px at 24% 42%, rgba(194,238,69,.12), transparent 64%),
-    radial-gradient(900px 640px at 78% 60%, rgba(77,216,192,.11), transparent 64%),
-    #060803;
-}
-#seg.on{display:flex}
-#segInner{width:100%; padding:0 90px; animation:celIn .5s cubic-bezier(.22,1,.36,1) both}
-#segKicker{
-  font-size:19px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
-  background:linear-gradient(92deg,var(--lime),var(--teal));
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-}
-#segTitle{
-  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:64px; line-height:1.06;
-  margin:14px 0 40px; letter-spacing:-.015em;
-}
-#segTitle small{display:block; font-family:'Space Grotesk',sans-serif; font-weight:700;
-  font-size:21px; color:var(--dim); letter-spacing:.14em; text-transform:uppercase; margin-top:14px}
+#celCanvas{position:absolute; inset:0; z-index:73; pointer-events:none; display:none}
+#celCanvas.on{display:block}
 
-/* ---- podium ---- */
-.podium{display:flex; align-items:flex-end; justify-content:center; gap:34px}
-.pod{
-  flex:0 0 400px; border-radius:20px; padding:30px 24px 28px;
-  background:linear-gradient(180deg, rgba(26,33,18,.95), rgba(10,14,7,.6));
-  border:1px solid var(--line);
+/* the seller's row, for as long as the confetti lasts */
+.arow.won, .mrow.won{
+  animation:wonFlash 7s ease-out;
+  border-left-color:var(--gold) !important;
 }
-.pod .num{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:72px; line-height:1}
-.pod .nm{font-size:34px; font-weight:800; margin:10px 0 6px;
+@keyframes wonFlash{
+  0%,70%{background:rgba(255,215,110,.22); box-shadow:inset 0 0 0 1px rgba(255,215,110,.55)}
+  100%{background:transparent; box-shadow:none}
+}
+
+/* crossing a quarter of the target - a band over the board, briefly */
+#milebar{
+  position:absolute; left:0; right:0; top:112px; z-index:74; display:none;
+  align-items:center; justify-content:center; gap:22px; height:88px;
+  background:linear-gradient(92deg,var(--gold),var(--amber));
+  color:#1a1205; box-shadow:0 18px 60px rgba(0,0,0,.5);
+}
+#milebar.on{display:flex; animation:mbIn .5s cubic-bezier(.22,1,.36,1)}
+@keyframes mbIn{from{opacity:0; transform:translateY(-100%)} to{opacity:1; transform:none}}
+#milebar b{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:54px; line-height:1}
+#milebar span{font-size:20px; font-weight:900; letter-spacing:.24em; text-transform:uppercase}
+
+/* ---- the desk race, in the middle column ---- */
+#deskRace{flex:none; border-top:1px solid var(--line); margin-top:8px; padding-top:10px}
+#deskRace .lab{font-size:11px; letter-spacing:.2em; color:var(--dim); font-weight:800;
+  text-transform:uppercase; margin-bottom:8px}
+.drow{display:flex; align-items:center; gap:13px; padding:5px 0}
+.drow .nm{width:132px; flex:none; font-size:17px; font-weight:800;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.pod .ds{font-size:15px; color:var(--dim); font-weight:700; letter-spacing:.08em;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.pod .amt{font-family:'Space Mono',monospace; font-weight:700; font-size:44px; margin-top:18px}
-.pod .un{font-size:15px; color:var(--dim); font-weight:700; margin-top:6px}
-.pod.g1{flex-basis:450px; padding-top:54px; border-color:rgba(255,215,110,.5);
-  box-shadow:0 -18px 70px rgba(255,215,110,.14)}
-.pod.g1 .num, .pod.g1 .amt{color:var(--gold)}
-.pod.g2 .num, .pod.g2 .amt{color:#dfe6cf}
-.pod.g3 .num, .pod.g3 .amt{color:var(--amber)}
+.drow.ind .nm{color:var(--ind)} .drow.intl .nm{color:var(--intl)}
+.drow .bar{flex:1 1 auto; min-width:0}
+.drow .amt{width:96px; flex:none; text-align:right; font-weight:900; font-variant-numeric:tabular-nums; font-size:18px}
+.drow .sub{width:118px; flex:none; text-align:right; font-size:12px; color:var(--dim); font-weight:700}
 
-/* ---- head to head ---- */
-.duel{display:flex; align-items:center; justify-content:center; gap:46px}
-.duel .side{
-  flex:1 1 0; max-width:560px; border:1px solid var(--line); border-radius:18px;
-  padding:34px 28px; background:rgba(16,21,12,.8); border-left:5px solid var(--nodesk);
+/* ---- top three in the COMPANY, wherever they turn up ----
+   Replaces the separate podium screen. You see it on the desk the
+   person actually sits on, which is more use than a slide. Gold, silver
+   and bronze; the big plain numeral on the left is their rank on this
+   desk, this coloured pill is their rank in the building. */
+.medal{
+  display:inline-block; margin-left:8px; font-size:11px; font-weight:900;
+  letter-spacing:.02em; padding:2px 6px; border-radius:999px; vertical-align:middle;
+  color:#120d02;
 }
-.duel .side.ind{border-left-color:var(--ind)}
-.duel .side.intl{border-left-color:var(--intl)}
-/* Let a long name wrap rather than cutting it. There is vertical room
-   here, and "Harsh Singh Ramga..." is not somebody's name. */
-.duel .side .nm{font-size:38px; font-weight:800; line-height:1.12}
-.duel .side .ds{font-size:15px; color:var(--dim); font-weight:700; margin-top:8px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.duel .side .amt{font-family:'Space Mono',monospace; font-weight:700; font-size:48px; margin-top:20px; color:var(--lime)}
-.duel .vs{flex:none; text-align:center}
-.duel .vs .lab{font-size:14px; letter-spacing:.3em; color:var(--dim); font-weight:900; text-transform:uppercase}
-.duel .vs .gap{font-family:'Space Mono',monospace; font-weight:700; font-size:62px; color:var(--gold); margin-top:10px}
-.duel .vs .note{font-size:16px; color:var(--dim); font-weight:700; margin-top:10px}
-
-/* ---- two teams ---- */
-.teams{display:flex; gap:40px; justify-content:center}
-.tm{flex:1 1 0; max-width:620px; border-radius:20px; padding:34px 30px;
-  background:rgba(16,21,12,.8); border:1px solid var(--line); border-top:6px solid var(--nodesk)}
-.tm.ind{border-top-color:var(--ind)}
-.tm.intl{border-top-color:var(--intl)}
-.tm .nm{font-size:30px; font-weight:900; letter-spacing:.14em; text-transform:uppercase}
-.tm .amt{font-family:'Space Mono',monospace; font-weight:700; font-size:66px; margin:16px 0 6px}
-.tm.ind .amt{color:var(--ind)} .tm.intl .amt{color:var(--intl)}
-.tm .sub{font-size:17px; color:var(--dim); font-weight:700}
-.tm .bar{margin-top:22px}
-
-/* ---- one big face ---- */
-.solo{max-width:1180px; margin:0 auto; border:1px solid var(--line); border-radius:20px;
-  padding:44px 40px; background:rgba(16,21,12,.8)}
-.solo .nm{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:76px; line-height:1.05}
-.solo .ds{font-size:19px; color:var(--dim); font-weight:700; margin-top:14px; letter-spacing:.08em}
-.solo .big{font-family:'Space Mono',monospace; font-weight:700; font-size:92px; color:var(--lime); margin-top:26px}
-.solo .note{font-size:20px; color:var(--gold); font-weight:800; margin-top:16px; letter-spacing:.1em}
+.medal.m1{background:var(--gold)}
+.medal.m2{background:#dfe6cf}
+.medal.m3{background:var(--amber)}
 
 .empty{display:flex; align-items:center; justify-content:center; height:100%; color:var(--dim); font-size:18px; text-align:center; padding:0 20px}
 
@@ -622,6 +539,8 @@ body{
 
   <div id="fresh"></div>
 
+  <div id="milebar"><b></b><span></span></div>
+
   <div id="body">
 
     <!-- LEFT - agents, one desk at a time -->
@@ -642,6 +561,10 @@ body{
       <div class="panel" id="pCity">
         <div class="hd"><h3>City Race</h3><div class="sub">% of own target &middot; gold = today's pace</div></div>
         <div class="bd" id="cityBd"></div>
+        <div id="deskRace" style="padding:0 20px 14px">
+          <div class="lab">Desk race</div>
+          <div id="deskRaceBd"></div>
+        </div>
       </div>
       <div class="panel" id="pPace">
         <div class="hd"><h3>Pace</h3><div class="sub">where the month lands</div></div>
@@ -679,32 +602,8 @@ body{
     </div>
   </div>
 
-  <div id="seg">
-    <div id="segInner">
-      <div id="segKicker"></div>
-      <div id="segTitle"></div>
-      <div id="segBody"></div>
-    </div>
-  </div>
-
-  <div id="cel">
-    <div id="celInner">
-      <div id="celKicker">Just closed</div>
-      <div id="celAmt"></div>
-      <div id="celName"></div>
-      <div id="celMeta"></div>
-      <div id="celRank"></div>
-    </div>
-  </div>
-
-  <div id="mile">
-    <div>
-      <div id="mileBig"></div>
-      <div id="mileSub"></div>
-    </div>
-  </div>
-
-  <!-- above both celebrations, so either can throw confetti -->
+  <!-- Confetti sits over the board, not instead of it: a close is
+       celebrated WHILE you watch the row climb. -->
   <canvas id="celCanvas" width="1920" height="1080"></canvas>
 
   <div id="state"></div>
@@ -716,33 +615,52 @@ body{
    CONFIG
    ===================================================================== */
 var Q = new URLSearchParams(location.search);
+/* =====================================================================
+   HOW LONG THINGS STAY ON SCREEN
+
+   All of it in one place, and all of it overridable from the URL.
+   Tuned for a wall somebody glances at, not a screen somebody studies:
+   long enough to read a panel without hurrying, short enough that it
+   never feels stuck.
+   ===================================================================== */
 var CONFIG = {
   API_URL: Q.get('api') ||
     'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec?feed=warroom',
+
+  /* How often the feed is polled. */
   REFRESH_SECONDS: +(Q.get('refresh') || 30),
 
-  /* How long one desk stays on the left column. The column itself never
-     moves; only which desk it is showing. */
-  DESK_SECONDS: +(Q.get('desk') || 18),
+  /* THE LEFT COLUMN moves to the next desk this often. Nine rows takes
+     about twelve seconds to read properly, so twenty leaves time to
+     look away and back. */
+  DESK_SECONDS:    +(Q.get('desk') || 20),
 
-  /* Ticker speed in PIXELS PER SECOND, not seconds per loop. The old
-     board used a fixed 64s for the whole track, so the more closes there
-     were the faster it ran - exactly backwards, since a busy day is when
-     you most want to read it. 80 px/s is a comfortable reading pace on a
-     wall; drop it to 55 if the room is far from the screen. */
+  /* WHICH PANEL IS LIT. The only ambient movement left now that the
+     segments are gone, so it is deliberately slow - five panels at ten
+     seconds is a fifty second round. */
+  SPOT_SECONDS:    +(Q.get('spot') || 10),
+
+  /* THE TICKER, in pixels per second rather than seconds per loop. A
+     fixed loop time meant a busy day scrolled several times faster than
+     a quiet one - unreadable exactly when it mattered. */
   TICKER_PX_PER_SEC: +(Q.get('tickspeed') || 80),
+
+  /* A CLOSE. Confetti over the board and the seller's row lit. It does
+     not cover anything, so it can afford to last. */
+  CELEBRATE_SECONDS: +(Q.get('celsecs') || 9),
 
   DEMO: Q.get('demo') === '1',
   FILL: Q.get('fill') === '1',
 
-  /* How long the leaderboard sits between segments. The board is the
-     home screen; a segment interrupts it, then hands it straight back. */
-  SEG_EVERY:       +(Q.get('segment') || 75),
-
-  /* NEW ON THE FLOOR - one of the segments in the running order. */
+  /* NEW ON THE FLOOR - the only thing that ever takes the whole screen.
+     Three cards at ten seconds is half a minute, every twenty minutes:
+     all fifteen joiners come round in about an hour and a half, which
+     is often enough to matter in their first weeks and rare enough that
+     nobody starts resenting it. */
   JOINERS:        Q.get('joiners') !== '0',
-  JOINER_SECS:    +(Q.get('joinersecs')  || 9),    // seconds per card
-  JOINER_PER_RUN: +(Q.get('joinerrun')   || 3),    // cards per turn
+  JOINER_EVERY:   +(Q.get('joinerevery') || 20),   // minutes between runs
+  JOINER_SECS:    +(Q.get('joinersecs')  || 10),   // seconds per card
+  JOINER_PER_RUN: +(Q.get('joinerrun')   || 3),    // cards per run
   /* Stops playing by itself after this date, so nobody has to remember
      to switch it off. Pass ?joineruntil=2026-12-31 to extend. */
   JOINER_UNTIL:   Q.get('joineruntil') || '2026-11-15',
@@ -914,7 +832,6 @@ document.addEventListener('keydown', function(e){
   if(e.key==='ArrowRight'){ clearTimeout(deskTimer); deskIdx++; renderAgents(); scheduleDesk(); }
   if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); deskIdx=Math.max(0,deskIdx-1); renderAgents(); scheduleDesk(); }
   if(e.key==='j'||e.key==='J') playJoiners();                 /* welcome cards now */
-  if(e.key==='n'||e.key==='N'){ clearTimeout(segTimer); playNextSegment(); }  /* next segment */
   if(e.key==='c'||e.key==='C'){                               /* replay the last close */
     var r=(DATA&&DATA.recent||[])[0]; if(r) celebrate(r);
   }
@@ -999,8 +916,8 @@ function applyData(p){
        news. Without this every morning's first poll would announce a
        milestone that was passed last week. */
     mileReady=true;
-    renderAll(); scheduleDesk(); scheduleSegment();
-    spotlightTick(); setInterval(spotlightTick, 7000);
+    renderAll(); scheduleDesk(); scheduleJoiners();
+    spotlightTick(); setInterval(spotlightTick, Math.max(4,CONFIG.SPOT_SECONDS)*1000);
     if(Q.get('joinersnow')==='1') setTimeout(playJoiners, 400);
     if(Q.get('celnow')==='1') setTimeout(function(){
       var r=(DATA.recent||[])[0]; if(r) celebrate(r);
@@ -1021,18 +938,7 @@ function flashNewSale(){
   if(lastSaleKey===null){ lastSaleKey=key; return; }
   if(key===lastSaleKey) return;
   lastSaleKey=key;
-
-  /* The whole screen, for six and a half seconds. */
   celebrate(r);
-
-  var hot=document.getElementById('hot'), bar=document.getElementById('tick');
-  if(!hot||!bar) return;
-  hot.innerHTML='<em>JUST IN</em><b>'+esc(r.name)+'</b>'+
-                '<span class="amt">'+money(r.amt)+'</span>'+
-                '<span class="mt">'+esc(joinDot(r.city,r.team,r.manager))+'</span>';
-  hot.className='on'; bar.className='hot';
-  clearTimeout(hot._h);
-  hot._h=setTimeout(function(){ hot.className=''; bar.className=''; }, 12000);
 }
 
 function signature(d){
@@ -1239,23 +1145,47 @@ function deskRankOf(name){
 }
 
 function celebrate(sale){
-  var el = document.getElementById('cel');
-  if(!el) return;
   var where = deskRankOf(sale.name);
-  document.getElementById('celName').textContent = sale.name;
-  document.getElementById('celMeta').textContent = joinDot(sale.city, sale.team, sale.manager);
-  document.getElementById('celRank').textContent = where
-    ? ('NOW #' + where.rank + ' ON ' + String(where.city).toUpperCase() +
-       (where.team ? ' ' + String(where.team).toUpperCase() : ''))
-    : '';
-  var amt = document.getElementById('celAmt');
-  amt._val = 0; amt.textContent = money(0);
-  el.className = 'on';
+  var secs  = Math.max(5, CONFIG.CELEBRATE_SECONDS);
+
+  /* 1. The ticker bar becomes the announcement. It is already the full
+        width of the screen and already where closes live. */
+  var hot=document.getElementById('hot'), bar=document.getElementById('tick');
+  if(hot && bar){
+    hot.innerHTML='<em>JUST CLOSED</em><b>'+esc(sale.name)+'</b>'+
+      '<span class="amt" id="hotAmt">'+money(0)+'</span>'+
+      '<span class="mt">'+esc(joinDot(sale.city, sale.team, sale.manager))+
+      (where ? ' &middot; now #'+where.rank+' on this desk' : '')+'</span>';
+    hot.className='on'; bar.className='hot';
+    /* a number that LANDS is worth more than a number simply sitting there */
+    countUp(document.getElementById('hotAmt'), n(sale.amt), money, 1500);
+    clearTimeout(hot._h);
+    hot._h=setTimeout(function(){ hot.className=''; bar.className=''; }, secs*1000);
+  }
+
+  /* 2. Confetti OVER the board, not instead of it. */
   burst();
-  /* a number that LANDS is worth more than a number that is simply there */
-  countUp(amt, n(sale.amt), money, 1500);
-  clearTimeout(el._t);
-  el._t = setTimeout(function(){ el.className=''; stopBurst(); }, 6500);
+  clearTimeout(celebrate._t);
+  celebrate._t = setTimeout(stopBurst, secs*1000);
+
+  /* 3. Light the seller's own row, if the desk they are on happens to be
+        the one showing. If it is not, the left column will reach it. */
+  lightRow(sale.name);
+}
+
+/* Find the row for a name in either column and flash it gold. */
+function lightRow(name){
+  ['agentList','mgrList'].forEach(function(id){
+    var list=document.getElementById(id);
+    if(!list) return;
+    Array.prototype.forEach.call(list.children, function(el){
+      if(el.getAttribute && el.getAttribute('data-k')===name){
+        el.classList.remove('won');
+        void el.offsetWidth;            /* restart the animation */
+        el.classList.add('won');
+      }
+    });
+  });
 }
 
 var burstRAF = null;
@@ -1315,16 +1245,18 @@ function checkMilestone(){
     }
   }
 }
+/* A band across the top of the board for a few seconds, not a screen of
+   its own. You keep watching the numbers that got you there. */
 function showMile(m){
-  var el = document.getElementById('mile');
+  var el = document.getElementById('milebar');
   if(!el) return;
-  document.getElementById('mileBig').textContent = m + '%';
-  document.getElementById('mileSub').textContent =
-    m >= 100 ? 'TARGET CLEARED' : 'OF THE MONTH TARGET';
+  el.querySelector('b').textContent = m + '%';
+  el.querySelector('span').textContent =
+    m >= 100 ? 'Target cleared' : 'of the month target';
   el.className = 'on';
   burst();
   clearTimeout(el._t);
-  el._t = setTimeout(function(){ el.className=''; stopBurst(); }, 7000);
+  el._t = setTimeout(function(){ el.className=''; stopBurst(); }, 9000);
 }
 
 /* =====================================================================
@@ -1345,18 +1277,25 @@ function spotlightTick(){
 }
 
 /* =====================================================================
-   THE PROGRAMME
+   WHAT USED TO BE SEPARATE SCREENS
 
-   The leaderboard is the home screen. Every SEG_EVERY seconds one of
-   these takes the screen for a few seconds and hands it straight back,
-   so the wall is always going somewhere without anybody touching it.
+   There were five full-screen segments rotating - podium, closest race,
+   desk race, biggest mover. They are gone. There are two screens now,
+   the leaderboard and the new joiners, and everything those segments
+   said is said ON the leaderboard instead:
 
-   A segment with nothing to say is SKIPPED, not shown empty - a podium
-   on a morning when nobody has sold is worse than no podium.
+     closest race   the chase line on every row already is it
+     biggest mover  the triangle beside a name already is it
+     desk race      a two-row block under the city race, below
+     podium         a medal beside the company top three, wherever
+                    they happen to appear
+
+   A slide you have to wait for is worse than a number that is simply
+   always there.
    ===================================================================== */
 
-/* The desks as whole groups, un-paged. deskViews() slices these into
-   pages for the left column; the segments want the whole desk. */
+/* The desks as whole groups. deskViews() pages these for the left
+   column; this is the un-paged form. */
 function deskGroups(){
   var g={};
   (DATA.agents||[]).forEach(function(a){
@@ -1373,69 +1312,9 @@ function deskGroups(){
   return ds;
 }
 
-function sellers(){
-  return (DATA.agents||[]).filter(function(a){ return a.revenue>0; })
-                          .sort(function(a,b){ return b.revenue-a.revenue; });
-}
-
-/* ---- 1. the podium ---- */
-function canPodium(){ return sellers().length >= 3; }
-function buildPodium(){
-  var top = sellers().slice(0,3);
-  var slots = [ {a:top[1], g:2}, {a:top[0], g:1}, {a:top[2], g:3} ];   /* winner centre */
-  return {
-    kicker: 'Top of the month',
-    title : 'WHO IS SELLING<small>' + esc((DATA.meta||{}).month||'') + ' so far</small>',
-    body  : '<div class="podium">' + slots.map(function(x){
-      if(!x.a) return '';
-      return '<div class="pod g'+x.g+'">'+
-        '<div class="num">'+x.g+'</div>'+
-        '<div class="nm">'+esc(x.a.name)+'</div>'+
-        '<div class="ds">'+esc(joinDot(x.a.city, x.a.team, x.a.manager))+'</div>'+
-        '<div class="amt">'+money(x.a.revenue)+'</div>'+
-        '<div class="un">'+x.a.units+' unit'+(x.a.units===1?'':'s')+'</div>'+
-      '</div>';
-    }).join('') + '</div>'
-  };
-}
-
-/* ---- 2. head to head ----
-   The two people closest together on any one desk. The tightest race in
-   the building is the one worth putting on a wall. */
-function closestPair(){
-  var best=null;
-  deskGroups().forEach(function(d){
-    var rows=d.list.filter(function(a){return a.revenue>0;})
-                   .sort(function(a,b){return b.revenue-a.revenue;});
-    for(var i=1;i<rows.length;i++){
-      var gap=rows[i-1].revenue-rows[i].revenue;
-      if(gap<=0) continue;
-      if(!best || gap<best.gap) best={gap:gap, ahead:rows[i-1], chasing:rows[i], desk:d};
-    }
-  });
-  return best;
-}
-function canDuel(){ return !!closestPair(); }
-function buildDuel(){
-  var p=closestPair();
-  var tc=teamClass(p.desk.team);
-  function side(a){
-    return '<div class="side '+tc+'">'+
-      '<div class="nm">'+esc(a.name)+'</div>'+
-      '<div class="ds">'+esc(joinDot(a.manager, a.units+' unit'+(a.units===1?'':'s')))+'</div>'+
-      '<div class="amt">'+money(a.revenue)+'</div></div>';
-  }
-  return {
-    kicker: 'Closest race on the floor',
-    title : esc(p.desk.city) + ' &mdash; ' + esc(teamLabel(p.desk.team)),
-    body  : '<div class="duel">'+ side(p.ahead) +
-      '<div class="vs"><div class="lab">gap</div><div class="gap">'+money(p.gap)+'</div>'+
-      '<div class="note">one unit could flip it</div></div>' +
-      side(p.chasing) + '</div>'
-  };
-}
-
-/* ---- 3. India vs International ---- */
+/* India and International as whole desks, for the block under the
+   cities. Built from the agents rather than a separate feed field, so
+   it can never disagree with the rows above it. */
 function teamTotals(){
   var t={};
   (DATA.agents||[]).forEach(function(a){
@@ -1446,92 +1325,45 @@ function teamTotals(){
   var out=[]; for(var k in t) out.push(t[k]);
   return out.sort(function(a,b){ return b.revenue-a.revenue; });
 }
-function canTeams(){ return teamTotals().filter(function(t){return t.revenue>0;}).length >= 2; }
-function buildTeams(){
-  var ts=teamTotals().slice(0,2);
-  return {
-    kicker: 'Desk against desk',
-    title : 'INDIA vs INTERNATIONAL',
-    body  : '<div class="teams">'+ ts.map(function(t){
-      var p=pct(t.revenue,t.target);
-      return '<div class="tm '+teamClass(t.name)+'">'+
-        '<div class="nm">'+esc(t.name)+'</div>'+
-        '<div class="amt">'+money(t.revenue)+'</div>'+
-        '<div class="sub">'+t.units+' units &middot; '+t.agents+' agents'+
-          (t.target? ' &middot; '+p.toFixed(1)+'% of target':'')+'</div>'+
-        (t.target? '<div class="bar">'+barHTML(p,14)+'</div>':'')+
-      '</div>';
-    }).join('') +'</div>'
-  };
+
+function renderDeskRace(){
+  var bd=document.getElementById('deskRaceBd');
+  if(!bd) return;
+  var ts=teamTotals();
+  if(!ts.length){ bd.innerHTML='<div style="font-size:13px;color:var(--dim)">No team set on any agent</div>'; return; }
+  bd.innerHTML = ts.slice(0,3).map(function(t){
+    var p=pct(t.revenue,t.target), has=t.target>0;
+    return '<div class="drow '+teamClass(t.name)+'">'+
+      '<div class="nm">'+esc(t.name)+'</div>'+
+      '<div class="bar">'+(has?barHTML(p,11):'')+'</div>'+
+      '<div class="amt '+(has?paceClass(p):'')+'">'+(has?p.toFixed(1)+'%':money(t.revenue))+'</div>'+
+      '<div class="sub">'+money(t.revenue)+' &middot; '+t.units+'u</div>'+
+    '</div>';
+  }).join('');
 }
 
-/* ---- 4. biggest climber since this morning ---- */
-function topMover(){
-  var best=null;
-  (DATA.agents||[]).forEach(function(a){
-    if(!(a.move>0)) return;
-    if(!best || a.move>best.move) best=a;
-  });
-  return best;
+/* The company's top three sellers, by name, so a row anywhere can wear
+   a medal. Replaces the podium slide. */
+function companyTop3(){
+  var top = (DATA.agents||[]).filter(function(a){ return a.revenue>0; })
+    .sort(function(a,b){ return b.revenue-a.revenue; }).slice(0,3);
+  var m={};
+  top.forEach(function(a,i){ m[a.name]=i+1; });
+  return m;
 }
-function canMover(){ return !!topMover(); }
-function buildMover(){
-  var a=topMover();
-  return {
-    kicker: 'Biggest climb today',
-    title : 'ON THE MOVE',
-    body  : '<div class="solo">'+
-      '<div class="nm">'+esc(a.name)+'</div>'+
-      '<div class="ds">'+esc(joinDot(a.city, a.team, a.manager))+'</div>'+
-      '<div class="big">'+money(a.revenue)+'</div>'+
-      '<div class="note">UP '+a.move+' PLACE'+(a.move===1?'':'S')+
-        ' SINCE THIS MORNING &middot; NOW #'+a.rank+'</div></div>'
-  };
+function medalHTML(name, map){
+  var r=map[name];
+  if(!r) return '';
+  /* Just the number. "#3 COMPANY" was honest but it pushed the name into
+     an ellipsis, and a person's name matters more than the caption. The
+     pill is gold, silver or bronze, which says the rest. */
+  return '<span class="medal m'+r+'">#'+r+'</span>';
 }
 
-/* ---- the running order ---- */
-var SEGMENTS = [
-  { id:'podium',  secs:17, can:canPodium, build:buildPodium },
-  { id:'duel',    secs:15, can:canDuel,   build:buildDuel },
-  { id:'joiners', secs:0,  can:joinersLive, play:playJoiners },
-  { id:'teams',   secs:15, can:canTeams,  build:buildTeams },
-  { id:'mover',   secs:14, can:canMover,  build:buildMover }
-];
-var segIdx = 0, segTimer = null;
-
-function scheduleSegment(){
-  clearTimeout(segTimer);
-  segTimer = setTimeout(playNextSegment, Math.max(20, CONFIG.SEG_EVERY)*1000);
+function renderAll(){
+  renderAgents(); renderCities(); renderDeskRace();
+  renderPace(); renderDay(); renderManagers();
 }
-
-function playNextSegment(){
-  if(!DATA){ scheduleSegment(); return; }
-  var tried = 0;
-  while(tried < SEGMENTS.length){
-    var sgm = SEGMENTS[segIdx % SEGMENTS.length];
-    segIdx++; tried++;
-    if(sgm.can && !sgm.can()) continue;        /* nothing to say - skip it */
-    if(sgm.play){ sgm.play(function(){ scheduleSegment(); }); return; }
-    showSegment(sgm);
-    return;
-  }
-  scheduleSegment();                            /* none of them had anything */
-}
-
-function showSegment(sgm){
-  var el=document.getElementById('seg');
-  var parts;
-  try { parts = sgm.build(); }
-  catch(e){ scheduleSegment(); return; }        /* never let a segment kill the board */
-  document.getElementById('segKicker').textContent = parts.kicker;
-  document.getElementById('segTitle').innerHTML    = parts.title;
-  document.getElementById('segBody').innerHTML     = parts.body;
-  el.className='on';
-  clearTimeout(el._t);
-  el._t=setTimeout(function(){ el.className=''; scheduleSegment(); }, Math.max(6,sgm.secs)*1000);
-}
-
-function renderAll(){ renderAgents(); renderCities(); renderPace(); renderDay(); renderManagers(); }
 
 /* =====================================================================
    LEFT COLUMN - agents, one desk at a time
@@ -1608,13 +1440,14 @@ function renderAgents(){
     '<b>'+money(v.revenue)+'</b><span>'+v.headcount+' agents · '+v.units+' units'+
     (v.pages>1 ? ' · page '+v.page+'/'+v.pages : '')+'</span>';
 
+  var medals = companyTop3();
   renderRows(list, v.rows, function(a){ return a.name; }, function(el, a, i){
     var has=a.target>0, p=has?attain(a):pct(a.revenue,v.top);
     var rk=v.from+i+1;                  /* rank within the desk, not the page */
     el.className='arow '+tc+(rk<=3?' p'+rk:'');
     el.innerHTML=
       '<div class="rk">'+rk+'</div>'+
-      '<div class="who"><b>'+esc(a.name)+moveHTML(a.move)+'</b>'+
+      '<div class="who"><b>'+esc(a.name)+moveHTML(a.move)+medalHTML(a.name, medals)+'</b>'+
         '<span>'+esc(a.manager||'no manager')+' &middot; '+a.units+'u &middot; '+
         chaseHTML(a, i>0 ? v.rows[i-1] : null)+'</span></div>'+
       '<div class="bar">'+barHTML(p)+'</div>'+
@@ -1830,9 +1663,14 @@ function joinersLive(){
   return true;
 }
 
-/* The joiner cards are a segment in the running order now, so they are
-   scheduled by playNextSegment rather than on a timer of their own.
-   Two schedulers meant two things could take the screen at once. */
+/* The one thing that still takes the whole screen, on its own clock. */
+function scheduleJoiners(){
+  if(!joinersLive()) return;
+  clearTimeout(jcTimer);
+  jcTimer=setTimeout(function(){
+    playJoiners(function(){ scheduleJoiners(); });
+  }, Math.max(2,CONFIG.JOINER_EVERY)*60000);
+}
 
 function playJoiners(done){
   if(!JOINERS || !JOINERS.length){ if(done) done(); return; }

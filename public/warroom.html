@@ -641,9 +641,14 @@ var CONFIG = {
   /* Stops playing by itself after this date, so nobody has to remember
      to switch it off. Pass ?joineruntil=2026-12-31 to extend. */
   JOINER_UNTIL:   Q.get('joineruntil') || '2026-11-15',
-  /* Absolute so the photos resolve whether this page is served from
-     Vercel or from Apps Script. */
-  JOINER_BASE:    Q.get('joinerbase') || 'https://outskill-garvit.vercel.app/joiners/'
+  /* Where the joiner photos live. Served from this site's own root
+     normally; only when the page is being served BY Apps Script does it
+     need to reach across to Vercel for them. */
+  JOINER_BASE:    Q.get('joinerbase') || (
+    /script\.google/.test(location.hostname)
+      ? 'https://outskill-garvit.vercel.app/joiners/'
+      : '/joiners/'
+  )
 };
 
 /* The 15 Sales Consultants who joined in Hyderabad. Replaced wholesale

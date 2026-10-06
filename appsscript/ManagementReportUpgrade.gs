@@ -106,14 +106,45 @@ function wr_fillUpgrade_(ss, monthKey, roster) {
   var got = up_collect_(ss, monthKey);
   if (got.error) { Logger.log('wr_fillUpgrade_: ' + got.error); return 0; }
 
-  var total = 0;
+  /* THE BOARD'S KEY, NOT THIS FILE'S.
+
+     roster.byAgent is keyed by wr_key_, which strips spaces AND
+     punctuation and applies WR_ALIASES: "Subham Sahoo" becomes
+     "subhamsahoo". up_key_ only collapses whitespace, giving
+     "subham sahoo". The first version looked up one with the other, found
+     nothing every single time, and reported a cheerful zero - the board
+     read "AIGF upgrade : 0 (included)" with the money sitting right there
+     in src_Roster_Oct.
+
+     So re-key through the board's own function wherever it exists. Two
+     normalisations of the same name in one codebase is a trap, and this
+     is the side that has to give way, because wr_key_ is what every
+     board, the ticker and every diagnostic already agree on. */
+  var keyOf = (typeof wr_key_ === 'function') ? wr_key_ : up_key_;
+
+  var total = 0, filled = 0, missed = [];
   for (var k in got.byAgent) {
-    if (!roster.byAgent[k]) continue;
-    roster.byAgent[k].upgrade = got.byAgent[k];
+    var name = got.names[k] || k;
+    var bk = keyOf(name);
+    if (!roster.byAgent[bk]) { missed.push(name); continue; }
+    roster.byAgent[bk].upgrade = got.byAgent[k];
     total += got.byAgent[k];
+    filled++;
   }
   roster.upgrade = total;
   roster.upCol = true;
+
+  /* Said out loud, both ways. A silent zero here is what made this take a
+     second attempt, and a name that does not reach the board is money the
+     TV will never show. */
+  if (filled) {
+    Logger.log('wr_fillUpgrade_: ' + filled + ' agent(s), ' + total +
+               ' from ' + got.tab);
+  }
+  if (missed.length) {
+    Logger.log('wr_fillUpgrade_: ' + missed.length + ' upgrade row(s) match no agent ' +
+               'on the board: ' + missed.join(', '));
+  }
   return total;
 }
 
@@ -126,7 +157,7 @@ function wr_fillUpgrade_(ss, monthKey, roster) {
  * manager and office mdl_Roster gives that agent.
  */
 function up_collect_(ss, monthKey) {
-  var out = { byAgent: {}, byMgr: {}, byOff: {}, total: 0, rows: 0,
+  var out = { byAgent: {}, names: {}, byMgr: {}, byOff: {}, total: 0, rows: 0,
               unmatched: [], tab: '', error: '' };
   if (!monthKey) { out.error = 'no month given'; return out; }
 
@@ -146,6 +177,9 @@ function up_collect_(ss, monthKey) {
     if (!amt) continue;
 
     var key = up_key_(agent);
+    /* The spelling is kept, not just the key: wr_fillUpgrade_ has to
+       re-key these through wr_key_, which normalises differently. */
+    out.names[key] = agent;
     out.byAgent[key] = (out.byAgent[key] || 0) + amt;
     out.total += amt; out.rows++;
 
@@ -339,10 +373,12 @@ function managementReportUpgradeSelfTest() {
   eq('nobody else does', offices[1].rev, 1333000);
 
   /* the leaderboard side */
-  var roster = { byAgent: { 'subham sahoo': { upgrade: 0 }, 'kshitij': { upgrade: 0 } },
+  /* Keyed the way wr_key_ does it - no spaces - which is the whole point
+     of the bug this now guards against. */
+  var roster = { byAgent: { 'subhamsahoo': { upgrade: 0 }, 'kshitij': { upgrade: 0 } },
                  upgrade: 0, upCol: false };
   var filled = wr_fillUpgrade_(ss, '2026-10', roster);
-  eq('fills the agent the board knows', roster.byAgent['subham sahoo'].upgrade, 161500);
+  eq('fills the agent the board knows', roster.byAgent['subhamsahoo'].upgrade, 161500);
   eq('leaves the others alone', roster.byAgent['kshitij'].upgrade, 0);
   eq('an agent off the roster is not invented', filled, 161500);
   eq('the board now knows it has a column', roster.upCol, true);

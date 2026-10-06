@@ -1,3 +1,6 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
 <title>Sales Dangal</title>
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6,25 +9,42 @@
 
 <style>
 /* =====================================================================
-   SALES DANGAL - a single live screen, built like a news channel.
+   SALES DANGAL - one live screen.
 
-   The old board was eleven slides on a 13 second rotation. On a wall that
-   meant any given number was visible for 13 seconds in every 143, most of
-   the screen was empty most of the time, and nobody could answer "how is
-   Hyderabad doing" without waiting. This replaces it with one screen where
-   everything is present at once and only the EMPHASIS moves.
+   WHAT CHANGED, AND WHY
+
+   The board used to rotate FOUR blocks through four slots, so City Race
+   might be big-left one minute and small-bottom-right the next. Nothing
+   was ever in the same place twice and people could not find the number
+   they were looking for - which is the opposite of what a wall is for.
+
+   Now the three columns NEVER MOVE:
+
+     LEFT    agents, one desk at a time
+     MIDDLE  the organisation - cities, pace, momentum
+     RIGHT   managers
+
+   Only the CONTENT of the left column advances, through one desk at a
+   time, and it says loudly which desk it is showing.
+
+   INDIA IS LIME. INTERNATIONAL IS TEAL. Everywhere, with no exceptions.
+   The two desks sell at different prices, so mixing them up is the one
+   mistake that makes every comparison on the screen meaningless. The
+   colour is on the desk heading, on the chip, and on the left edge of
+   every single row.
    ===================================================================== */
 
 :root{
-  /* Outskill's own tokens, taken from programs.html and
-     accelerator-india.html so the wall matches everything else the team
-     already looks at. Lime is the brand's, and it earns its place here by
-     also being the natural colour for "ahead of pace". */
   --bg:#070905; --ink:#f0f4e8; --dim:#818f6c; --line:#1c2416;
   --lime:#c2ee45; --lime-dim:#a8d930; --teal:#4dd8c0;
   --gold:#ffd76e; --amber:#e8b24b; --rose:#ff6b8a; --violet:#b39bff;
-  --mint:var(--lime); --sky:var(--teal);        /* old names, one source */
+  --mint:var(--lime); --sky:var(--teal);
   --panel:rgba(16,21,12,.84);
+
+  /* the two desks. One token each, used everywhere. */
+  --ind:#c2ee45;        /* India */
+  --intl:#4dd8c0;       /* International */
+  --nodesk:#818f6c;     /* neither - a data fault, never a third desk */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -32,17 +52,8 @@ body{
   margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
   font-family:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
-/* Fixed to the viewport rather than centred by body height. A host page
-   that gives body no height - an Apps Script iframe, for one - would
-   otherwise collapse the centring and strand the stage in the corner. */
-#wrap{
-  position:fixed; inset:0; overflow:hidden;
-  display:flex; align-items:center; justify-content:center;
-}
+#wrap{position:fixed; inset:0; overflow:hidden; display:flex; align-items:center; justify-content:center}
 
-/* The stage is a fixed 1920x1080 canvas scaled to whatever screen it lands
-   on. flex:none is load-bearing - without it the flex parent squeezes the
-   stage to the viewport width and it gets scaled twice. */
 #stage{
   width:1920px; height:1080px; flex:none; position:relative; overflow:hidden;
   transform-origin:center center;
@@ -52,7 +63,6 @@ body{
     radial-gradient(1000px 600px at 88% 110%, rgba(77,216,192,.09), transparent 60%),
     var(--bg);
 }
-/* slow drifting light, GPU only, so it costs nothing over months of uptime */
 #stage::before{
   content:''; position:absolute; inset:-25%; pointer-events:none; z-index:0;
   background:
@@ -83,11 +93,10 @@ body{
 #brand span{font-size:13px; color:var(--dim); letter-spacing:.34em; margin-top:6px; font-weight:700}
 
 .hero{display:flex; align-items:baseline; gap:14px; flex:none}
-.hero .v{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:58px; letter-spacing:.01em; line-height:1}
+.hero .v{font-weight:700; font-size:58px; letter-spacing:.01em; line-height:1}
 .hero .k{font-size:12px; color:var(--dim); letter-spacing:.2em; font-weight:800; text-transform:uppercase}
 .sep{width:2px; height:52px; background:var(--line); flex:none}
 
-/* the company attainment bar, with a marker for where the month should be */
 #coBar{flex:1 1 auto; min-width:260px}
 #coBar .top{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px}
 #coBar .lab{font-size:12px; color:var(--dim); letter-spacing:.2em; font-weight:800}
@@ -98,7 +107,7 @@ body{
   background:linear-gradient(90deg,var(--teal),var(--lime));
   transition:width 1.1s cubic-bezier(.22,1,.36,1);
 }
-.track > u{                       /* the pace marker - where we SHOULD be */
+.track > u{
   position:absolute; top:-5px; bottom:-5px; width:3px; background:var(--gold);
   border-radius:2px; box-shadow:0 0 10px rgba(255,215,110,.85);
 }
@@ -111,171 +120,241 @@ body{
 #live b{color:var(--ink)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
+#fresh{
+  flex:none; display:none; align-items:center; justify-content:center; gap:10px;
+  height:34px; font-size:14px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+}
+#fresh.warn{display:flex; background:var(--rose); color:#1a0509; animation:nudge 2.6s ease-in-out infinite}
+@keyframes nudge{0%,100%{opacity:1}50%{opacity:.62}}
+
 /* ------------------------------- BODY ------------------------------- */
-#body{flex:1 1 auto; display:flex; gap:16px; padding:16px 26px; min-height:0}
+/* Three columns. Fixed widths, fixed order, for the whole life of the
+   page. Nothing here ever swaps place with anything else. */
+#body{flex:1 1 auto; display:flex; gap:16px; padding:14px 24px; min-height:0}
+#colAgents{width:600px; flex:none; display:flex; flex-direction:column; min-height:0}
+#colOrg   {flex:1 1 auto; display:flex; flex-direction:column; gap:14px; min-width:0}
+#colMgr   {width:536px; flex:none; display:flex; flex-direction:column; min-height:0}
 
-/* ---- left rail: a vertical stat ticker that never stops moving ---- */
-#rail{
-  width:352px; flex:none; border:1px solid var(--line); border-radius:16px;
-  background:var(--panel); overflow:hidden; display:flex; flex-direction:column;
+.panel{
+  border:1px solid var(--line); border-radius:16px; background:var(--panel);
+  overflow:hidden; display:flex; flex-direction:column; min-height:0;
 }
-#rail .hd{
-  padding:13px 18px; border-bottom:1px solid var(--line); flex:none;
-  font-size:12px; letter-spacing:.24em; color:var(--dim); font-weight:800;
-  display:flex; justify-content:space-between; align-items:center;
-}
-#rail .hd em{font-style:normal; color:var(--gold)}
-/* The rail is a fixed-height window over a taller list, so whatever tile
-   straddles the bottom edge gets sliced. Fading both edges makes that read
-   as a list continuing rather than as a clipped panel. */
-#railView{
-  flex:1 1 auto; overflow:hidden; position:relative;
-  -webkit-mask-image:linear-gradient(180deg, transparent 0, #000 22px,
-                     #000 calc(100% - 34px), transparent 100%);
-  mask-image:linear-gradient(180deg, transparent 0, #000 22px,
-             #000 calc(100% - 34px), transparent 100%);
-}
-#railTrack{position:absolute; left:0; right:0; top:0; transition:transform .9s cubic-bezier(.22,1,.36,1)}
-.stat{
-  height:104px; padding:0 18px; display:flex; flex-direction:column; justify-content:center;
-  gap:7px; border-bottom:1px solid rgba(28,36,22,.75);
-}
-.stat .k{font-size:12px; letter-spacing:.16em; color:var(--dim); font-weight:800; text-transform:uppercase;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.stat .r{display:flex; align-items:baseline; gap:10px}
-/* the figure never wraps; the label beside it gives way instead */
-.stat .v{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:34px;
-  line-height:1; flex:none; white-space:nowrap}
-.stat .u{font-size:14px; color:var(--dim); font-weight:700; flex:1 1 auto; min-width:0;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.stat .p{margin-left:auto; font-size:17px; font-weight:900; font-variant-numeric:tabular-nums}
-.stat.ahead .p{color:var(--mint)} .stat.behind .p{color:var(--rose)} .stat.flat .p{color:var(--gold)}
-.stat .mini{height:6px; border-radius:4px; background:#141a0e; overflow:hidden; position:relative}
-.stat .mini i{position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:var(--sky)}
-.stat.ahead .mini i{background:var(--mint)} .stat.behind .mini i{background:var(--rose)}
-
-/* ---- the four blocks ---- */
-#arena{flex:1 1 auto; position:relative; min-width:0}
-.blk{
-  position:absolute; border:1px solid var(--line); border-radius:16px;
-  background:var(--panel); overflow:hidden; display:flex; flex-direction:column;
-  transition:left .95s cubic-bezier(.22,1,.36,1), top .95s cubic-bezier(.22,1,.36,1),
-             width .95s cubic-bezier(.22,1,.36,1), height .95s cubic-bezier(.22,1,.36,1),
-             border-color .5s, box-shadow .5s;
-  will-change:left,top,width,height;
-}
-.blk.big{border-color:rgba(194,238,69,.38); box-shadow:0 0 0 1px rgba(194,238,69,.14), 0 26px 70px rgba(0,0,0,.6)}
-.blk .hd{
-  flex:none; padding:14px 18px; border-bottom:1px solid var(--line);
+.panel > .hd{
+  flex:none; padding:14px 20px; border-bottom:1px solid var(--line);
   display:flex; align-items:center; gap:12px;
 }
-.blk .hd h3{
-  margin:0; font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700;
-  font-size:22px; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis;
+.panel > .hd h3{
+  margin:0; font-weight:700; font-size:21px; letter-spacing:.14em; text-transform:uppercase;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.blk.big .hd h3{font-size:31px; color:var(--gold)}
-.blk .hd .sub{margin-left:auto; font-size:12px; color:var(--dim); font-weight:700;
-  letter-spacing:.12em; white-space:nowrap; text-transform:uppercase}
-.blk.sm .hd .sub{display:none}
-.blk .bd{flex:1 1 auto; padding:8px 18px 14px; overflow:hidden; display:flex; flex-direction:column}
+.panel > .hd .sub{
+  margin-left:auto; font-size:12px; color:var(--dim); font-weight:700;
+  letter-spacing:.12em; white-space:nowrap; text-transform:uppercase;
+}
+.panel > .bd{flex:1 1 auto; padding:6px 20px 12px; overflow:hidden; display:flex; flex-direction:column; min-height:0}
 
-/* one comparison row: rank, name, bar, figure */
-.row{
-  display:flex; align-items:center; gap:13px; padding:9px 0;
-  border-bottom:1px solid rgba(28,36,22,.6); flex:1 1 auto; min-height:0;
+/* ---------------------- LEFT: the agent column ---------------------- */
+#colAgents .panel{flex:1 1 auto}
+#deskHead{
+  flex:none; padding:16px 20px 14px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:14px;
 }
-.row:last-child{border-bottom:0}
-.row .rk{
-  width:34px; flex:none; text-align:center; font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700;
-  font-size:22px; color:var(--dim);
+#deskName{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:34px; line-height:1;
+  letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.row.p1 .rk{color:var(--gold)} .row.p2 .rk{color:#dfe6cf} .row.p3 .rk{color:var(--amber)}
-.row .who{flex:1 1 auto; min-width:0}
-.row .who b{display:block; font-size:19px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.row .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
+.teamchip{
+  flex:none; font-size:13px; font-weight:900; letter-spacing:.18em; text-transform:uppercase;
+  padding:6px 13px; border-radius:999px; color:#0c1205; white-space:nowrap;
+}
+.teamchip.ind {background:var(--ind)}
+.teamchip.intl{background:var(--intl)}
+.teamchip.none{background:var(--nodesk); color:#0c1205}
+#deskMeta{margin-left:auto; text-align:right; font-size:12px; color:var(--dim); font-weight:700; letter-spacing:.1em; white-space:nowrap}
+#deskMeta b{display:block; font-size:19px; color:var(--ink); letter-spacing:0; font-variant-numeric:tabular-nums; margin-bottom:2px}
+
+#agentList{flex:1 1 auto; padding:4px 16px 0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-start}
+.arow{
+  display:flex; align-items:center; gap:12px; flex:1 1 0; min-height:0; max-height:104px;
+  padding:0 10px 0 12px; border-left:4px solid var(--nodesk);
+  border-bottom:1px solid rgba(28,36,22,.55); border-radius:3px;
+}
+.arow:last-child{border-bottom:0}
+.arow.ind {border-left-color:var(--ind)}
+.arow.intl{border-left-color:var(--intl)}
+.arow .rk{width:34px; flex:none; text-align:center; font-weight:700; font-size:21px; color:var(--dim)}
+.arow.p1 .rk{color:var(--gold)} .arow.p2 .rk{color:#dfe6cf} .arow.p3 .rk{color:var(--amber)}
+.arow .who{flex:1 1 auto; min-width:0}
+.arow .who b{display:block; font-size:19px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.arow .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.blk.sm .row .who span{display:none}
-.row .bar{width:210px; flex:none}
-.blk.sm .row .bar{width:92px}
-.row .fig{width:126px; flex:none; text-align:right}
-.blk.sm .row .fig{width:88px}
-.row .fig b{display:block; font-size:20px; font-weight:900; font-variant-numeric:tabular-nums}
-.row .fig span{display:block; font-size:12px; color:var(--dim); font-weight:700; margin-top:2px}
-.blk.sm .row .fig span{display:none}
-.blk.big .row{padding:11px 0}
-.blk.big .row .who b{font-size:23px}
-.blk.big .row .rk{font-size:27px; width:40px}
+.arow .bar{width:130px; flex:none}
+.arow .fig{width:96px; flex:none; text-align:right}
+.arow .fig b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums}
+.arow .fig span{display:block; font-size:12px; color:var(--dim); font-weight:700; margin-top:2px}
 
-/* A row with only three cities in it would otherwise be 286px of empty
-   panel - the exact fault this redesign exists to fix. When a block is big
-   its rows carry their own breakdown underneath, so the space is filled
-   with more information rather than more air. */
-.row.deep{flex-direction:column; align-items:stretch; gap:9px; justify-content:center}
-.row.deep .lead{display:flex; align-items:center; gap:13px}
-.row.deep .kids{display:flex; flex-direction:column; gap:5px; padding-left:53px}
-.blk.sm .row.deep .kids{display:none}
-.blk.sm .row.deep{flex-direction:row; align-items:center; gap:13px}
-.kid{display:flex; align-items:center; gap:11px; font-size:15px}
-.kid .kn{width:230px; flex:none; color:#d3dcc2; font-weight:700; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis}
-.kid .kn i{font-style:normal; color:var(--dim); font-weight:600; font-size:13px}
-.kid .kb{flex:1 1 auto; min-width:0}
-.kid .kv{width:66px; flex:none; text-align:right; font-weight:800; font-variant-numeric:tabular-nums}
-.kid .kr{width:76px; flex:none; text-align:right; color:var(--dim); font-weight:700; font-size:13px}
+#deskDots{flex:none; display:flex; gap:7px; justify-content:center; align-items:center; padding:10px 0 12px}
+#deskDots i{width:8px; height:8px; border-radius:50%; background:var(--line); display:block; transition:background .4s, width .4s}
+#deskDots i.kin{background:#44561f}
+#deskDots i.on{width:26px; border-radius:5px; background:var(--gold)}
 
-/* small blocks show fewer rows - the detail belongs to whichever block is big */
-.blk.sm .row:nth-child(n+5){display:none}
+/* --------------------- MIDDLE: the organisation --------------------- */
+/* Heights are fixed rather than proportional so nothing reflows when a
+   number changes width. They must add up: 300 + 252 + 28 of gaps leaves
+   274 for the chart inside the 854 the column has. The pace panel was
+   184 and clipped its bottom two cards - four cards in two rows need
+   252 once the header is counted. */
+#pCity{flex:none; height:300px}
+#pPace{flex:none; height:252px}
+#pDay {flex:1 1 auto; min-height:0}
+
+.crow{display:flex; align-items:center; gap:14px; flex:1 1 0; min-height:0; max-height:112px; padding:4px 0;
+  border-bottom:1px solid rgba(28,36,22,.55)}
+.crow:last-child{border-bottom:0}
+.crow .rk{width:34px; flex:none; text-align:center; font-weight:700; font-size:24px; color:var(--dim)}
+.crow.p1 .rk{color:var(--gold)} .crow.p2 .rk{color:#dfe6cf} .crow.p3 .rk{color:var(--amber)}
+.crow .who{flex:1 1 auto; min-width:0}
+.crow .who b{display:block; font-size:25px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.crow .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.crow .bar{width:190px; flex:none}
+.crow .fig{width:110px; flex:none; text-align:right}
+.crow .fig b{display:block; font-size:24px; font-weight:900; font-variant-numeric:tabular-nums}
+.crow .fig span{display:block; font-size:12px; color:var(--dim); font-weight:700; margin-top:2px}
+
+.pacegrid{display:flex; flex-wrap:wrap; gap:11px; align-content:flex-start; padding-top:4px}
+.pcard{flex:1 1 44%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:11px 14px;
+  background:rgba(9,13,6,.55)}
+.pcard .k{font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:800; text-transform:uppercase}
+.pcard .v{font-weight:700; font-size:30px; margin-top:6px; line-height:1}
+.pcard .n{font-size:12px; color:var(--dim); margin-top:5px; font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
+.spark{display:flex; align-items:flex-end; gap:4px; flex:1 1 auto; min-height:0; padding:6px 0 20px}
+.spark .bar{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; justify-content:flex-end;
+  height:100%; position:relative}
+.spark .bar i{display:block; border-radius:3px 3px 0 0; background:var(--teal); opacity:.75;
+  transition:height .8s cubic-bezier(.22,1,.36,1)}
+.spark .bar.best i{background:var(--lime); opacity:1}
+.spark .bar.today i{background:var(--gold); opacity:1}
+.spark .bar.zero i{background:var(--line); opacity:1; min-height:2px}
+.spark .bar b{position:absolute; bottom:-17px; left:0; right:0; text-align:center;
+  font-size:10px; color:var(--dim); font-weight:700}
+
+/* ---------------------- RIGHT: the manager column ------------------- */
+#colMgr .panel{flex:1 1 auto}
+#mgrList{flex:1 1 auto; padding:4px 18px 0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-start}
+.mrow{display:flex; align-items:center; gap:11px; flex:1 1 0; min-height:0; max-height:94px;
+  padding:0 6px 0 11px; border-left:4px solid var(--nodesk);
+  border-bottom:1px solid rgba(28,36,22,.55); border-radius:3px}
+.mrow:last-child{border-bottom:0}
+.mrow.ind {border-left-color:var(--ind)}
+.mrow.intl{border-left-color:var(--intl)}
+.mrow.both{border-left-color:var(--gold)}
+.mrow .rk{width:30px; flex:none; text-align:center; font-weight:700; font-size:20px; color:var(--dim)}
+.mrow.p1 .rk{color:var(--gold)} .mrow.p2 .rk{color:#dfe6cf} .mrow.p3 .rk{color:var(--amber)}
+.mrow .who{flex:1 1 auto; min-width:0}
+.mrow .who b{display:block; font-size:19px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mrow .who span{display:block; font-size:12px; color:var(--dim); font-weight:600; margin-top:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mrow .bar{width:96px; flex:none}
+.mrow .fig{width:92px; flex:none; text-align:right}
+.mrow .fig b{display:block; font-size:19px; font-weight:900; font-variant-numeric:tabular-nums}
+.mrow .fig span{display:block; font-size:12px; color:var(--dim); font-weight:700; margin-top:2px}
+.mrow.notgt{opacity:.5}
 
 .pcttag{font-variant-numeric:tabular-nums}
 .ahead{color:var(--mint)} .behind{color:var(--rose)} .flat{color:var(--gold)}
-
-/* pace block */
-.pacegrid{display:flex; flex-wrap:wrap; gap:12px; align-content:flex-start; padding-top:6px}
-.pcard{
-  flex:1 1 44%; min-width:0; border:1px solid var(--line); border-radius:12px; padding:13px 15px;
-  background:rgba(9,13,6,.55);
-}
-.pcard .k{font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:800; text-transform:uppercase}
-.pcard .v{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:34px; margin-top:7px; line-height:1}
-.pcard .n{font-size:12px; color:var(--dim); margin-top:6px; font-weight:600}
-.blk.sm .pacegrid{gap:8px}
-.blk.sm .pcard{flex:1 1 46%; padding:8px 10px}
-.blk.sm .pcard .k{font-size:10px; letter-spacing:.1em}
-.blk.sm .pcard .v{font-size:21px; margin-top:4px}
-.blk.sm .pcard .n{display:none}
-.blk.sm .pushlist, .blk.sm .citypace{display:none}
-.citypace{margin-top:8px; border-top:1px solid var(--line); padding-top:8px}
-.pl-h{font-size:11px; letter-spacing:.16em; color:var(--dim); font-weight:800;
-  text-transform:uppercase; margin-bottom:8px}
-.pl-r{display:flex; align-items:baseline; gap:12px; padding:3px 0; font-size:16px}
-.pl-r b{flex:none; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.pl-m{flex:1 1 auto; color:var(--dim); font-size:13px; font-weight:600;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.pl-v{flex:none; color:var(--rose); font-weight:800}
+.mv{font-size:12px; font-weight:800; margin-left:7px}
+.mv.up{color:var(--lime)} .mv.dn{color:var(--rose)} .mv.nu{color:var(--gold)}
 
 /* ------------------------------ TICKER ------------------------------ */
+/* Taller, bigger, and the speed is now a constant NUMBER OF PIXELS PER
+   SECOND rather than a fixed 64s for the whole loop. It used to be the
+   latter, which meant forty closes scrolled four times faster than ten
+   and neither was the speed anyone chose. */
 #tick{
-  height:78px; flex:none; border-top:2px solid var(--line); display:flex; align-items:stretch;
+  height:86px; flex:none; border-top:2px solid var(--line); display:flex; align-items:stretch;
   background:linear-gradient(180deg, rgba(10,14,7,.7), rgba(10,14,7,.96)); overflow:hidden;
 }
 #tickLab{
-  flex:none; width:228px; display:flex; align-items:center; justify-content:center; gap:10px;
+  flex:none; width:244px; display:flex; align-items:center; justify-content:center; gap:11px;
   background:linear-gradient(92deg,var(--lime),var(--teal));
-  font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:20px;
-  letter-spacing:.13em; text-transform:uppercase; color:#0a1004; white-space:nowrap;
+  font-weight:700; font-size:21px; letter-spacing:.13em; text-transform:uppercase;
+  color:#0a1004; white-space:nowrap;
 }
 #tickLab i{width:11px; height:11px; border-radius:50%; background:#0a1004; animation:pulse 1.4s infinite; font-style:normal}
 #tickView{flex:1 1 auto; overflow:hidden; display:flex; align-items:center; position:relative}
-#tickTrack{display:inline-flex; white-space:nowrap; will-change:transform; animation:tick 64s linear infinite}
+#tickTrack{display:inline-flex; white-space:nowrap; will-change:transform;
+  animation:tick 90s linear infinite}
 #tick:hover #tickTrack{animation-play-state:paused}
 @keyframes tick{from{transform:translate3d(0,0,0)} to{transform:translate3d(-50%,0,0)}}
-.ti{display:inline-flex; align-items:center; gap:13px; padding:0 34px; font-size:23px; flex:none}
-.ti em{font-style:normal; color:var(--gold); font-weight:900; font-size:15px; letter-spacing:.14em}
+.ti{display:inline-flex; align-items:center; gap:15px; padding:0 40px; font-size:27px; flex:none}
+.ti em{font-style:normal; color:var(--gold); font-weight:900; font-size:16px; letter-spacing:.14em}
 .ti b{font-weight:800}
 .ti .amt{font-family:Space Mono,monospace; font-weight:700; color:var(--mint)}
-.ti .mt{color:var(--dim); font-size:15px; font-weight:600}
+.ti .mt{color:var(--dim); font-size:17px; font-weight:600}
 .ti .dv{color:var(--line)}
+
+#tick.hot{box-shadow:inset 0 0 0 2px var(--lime), 0 -16px 46px rgba(194,238,69,.16)}
+#tick.hot #tickLab{animation:hotlab .7s ease-in-out infinite alternate}
+@keyframes hotlab{from{filter:brightness(1)} to{filter:brightness(1.35)}}
+#hot{
+  position:absolute; inset:0; display:none; align-items:center; gap:18px; padding-left:38px;
+  background:linear-gradient(90deg, rgba(10,14,7,.98) 78%, rgba(10,14,7,0));
+  font-size:29px; font-weight:800;
+}
+#hot.on{display:flex; animation:hotIn .45s cubic-bezier(.22,1,.36,1)}
+#hot em{font-style:normal; font-size:14px; letter-spacing:.2em; color:var(--lime); font-weight:900}
+#hot .amt{font-family:'Space Mono',monospace; color:var(--lime)}
+#hot .mt{font-size:17px; color:var(--dim); font-weight:600}
+@keyframes hotIn{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
+
+/* --------------------- NEW ON THE FLOOR takeover -------------------- */
+/* A full-screen welcome card for a new joiner, every few minutes. The
+   leaderboard is still there underneath and comes straight back - this
+   is a cutaway, not a mode. */
+#joinCard{
+  position:absolute; inset:0; z-index:60; display:none; align-items:center; gap:72px;
+  padding:0 110px;
+  background:
+    radial-gradient(900px 700px at 22% 50%, rgba(194,238,69,.13), transparent 62%),
+    radial-gradient(800px 600px at 82% 55%, rgba(77,216,192,.12), transparent 62%),
+    #060803;
+}
+#joinCard.on{display:flex; animation:jcIn .55s cubic-bezier(.22,1,.36,1)}
+@keyframes jcIn{from{opacity:0} to{opacity:1}}
+#jcPhotoWrap{
+  flex:none; width:440px; height:560px; border-radius:26px; overflow:hidden; position:relative;
+  background:linear-gradient(150deg,#1a2112,#0d1208);
+  box-shadow:0 36px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(194,238,69,.22);
+}
+#jcPhoto{width:100%; height:100%; object-fit:cover; display:block; animation:jcPan 9s ease-out both}
+@keyframes jcPan{from{transform:scale(1.1)} to{transform:scale(1.005)}}
+#jcInitials{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:150px; color:var(--lime); opacity:.5;
+}
+#jcText{flex:1 1 auto; min-width:0; animation:jcUp .7s cubic-bezier(.22,1,.36,1) both}
+@keyframes jcUp{from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:none}}
+#jcEyebrow{
+  font-size:16px; letter-spacing:.34em; font-weight:900; text-transform:uppercase;
+  background:linear-gradient(92deg,var(--lime),var(--teal));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+#jcName{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:88px; line-height:1.03;
+  margin:16px 0 18px; letter-spacing:-.015em;
+}
+#jcRole{
+  display:inline-block; font-size:17px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+  padding:9px 20px; border-radius:999px; border:1px solid rgba(194,238,69,.4); color:var(--lime);
+}
+#jcQuote{
+  margin-top:30px; font-size:28px; line-height:1.55; color:#d7e0c8; max-width:980px;
+  border-left:4px solid var(--lime); padding-left:26px; font-weight:500;
+}
+#jcCount{margin-top:34px; font-size:15px; letter-spacing:.24em; color:var(--dim); font-weight:800; text-transform:uppercase}
 
 /* ---------------------------- STATE SCREEN -------------------------- */
 #state{
@@ -284,60 +363,11 @@ body{
 }
 #state.on{display:flex}
 #state .kicker{font-size:17px; letter-spacing:.3em; color:var(--rose); font-weight:800; text-transform:uppercase}
-#state .line{font-family:'Space Grotesk',system-ui,sans-serif; font-weight:700; font-size:94px; margin:20px 0 26px; line-height:1}
+#state .line{font-weight:700; font-size:94px; margin:20px 0 26px; line-height:1}
 #state .accent{color:var(--gold)}
 #state .note{font-size:21px; color:var(--dim); line-height:1.6; max-width:1250px; margin:0 auto}
 #state code{font-family:Space Mono,monospace; color:var(--sky); font-size:19px}
-/* The freshness chip. Silent when the sheet is current; loud when it is
-   not, because a board that is confidently a day out is worse than one
-   that is obviously broken. */
-#fresh{
-  flex:none; display:none; align-items:center; justify-content:center; gap:10px;
-  height:34px; font-size:14px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
-}
-/* In the flex flow rather than floating: a warning that covers a panel
-   header is a second bug, not a louder warning. The body gives up 34px. */
-#fresh.warn{display:flex; background:var(--rose); color:#1a0509;
-  animation:nudge 2.6s ease-in-out infinite}
-@keyframes nudge{0%,100%{opacity:1}50%{opacity:.62}}
 
-/* A close that lands while the board is up should be seen landing - but in
-   the bar that already exists for exactly this, not as a panel dropped over
-   the numbers. The whole strip lifts for a few seconds instead. */
-#tick.hot{box-shadow:inset 0 0 0 2px var(--lime), 0 -16px 46px rgba(194,238,69,.16)}
-#tick.hot #tickLab{animation:hotlab .7s ease-in-out infinite alternate}
-@keyframes hotlab{from{filter:brightness(1)} to{filter:brightness(1.35)}}
-#hot{
-  position:absolute; inset:0; display:none; align-items:center; gap:16px; padding-left:34px;
-  background:linear-gradient(90deg, rgba(10,14,7,.98) 78%, rgba(10,14,7,0));
-  font-size:26px; font-weight:800;
-}
-#hot.on{display:flex; animation:hotIn .45s cubic-bezier(.22,1,.36,1)}
-#hot em{font-style:normal; font-size:13px; letter-spacing:.2em; color:var(--lime); font-weight:900}
-#hot .amt{font-family:'Space Mono',monospace; color:var(--lime)}
-#hot .mt{font-size:16px; color:var(--dim); font-weight:600}
-@keyframes hotIn{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
-
-/* rank movement */
-.mv{font-size:12px; font-weight:800; margin-left:7px}
-.mv.up{color:var(--lime)} .mv.dn{color:var(--rose)} .mv.nu{color:var(--gold)}
-
-/* the momentum chart */
-.spark{display:flex; align-items:flex-end; gap:3px; height:104px; padding-top:4px}
-.spark .bar{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;
-  justify-content:flex-end; height:100%; position:relative}
-.spark .bar i{display:block; border-radius:3px 3px 0 0; background:var(--teal); opacity:.75;
-  transition:height .8s cubic-bezier(.22,1,.36,1)}
-.spark .bar.best i{background:var(--lime); opacity:1}
-.spark .bar.today i{background:var(--gold); opacity:1}
-.spark .bar.zero i{background:var(--line); opacity:1; min-height:2px}
-.spark .bar b{position:absolute; bottom:-17px; left:0; right:0; text-align:center;
-  font-size:9px; color:var(--dim); font-weight:700}
-.sparkwrap{margin-top:8px; border-top:1px solid var(--line); padding-top:8px; padding-bottom:18px}
-.blk.sm .sparkwrap{display:none}
-
-/* A quiet signature, not a credit line. Deliberately the dimmest thing on
-   the screen so it never competes with a number. */
 #sig{
   position:absolute; top:7px; right:16px; z-index:20;
   font-size:11px; letter-spacing:.22em; color:var(--ink); opacity:.45;
@@ -350,8 +380,9 @@ body{
 }
 #banner.on{display:block}
 
-/* entrance, once per repaint, cheap */
-.row, .stat, .pcard{animation:liftIn .45s cubic-bezier(.22,1,.36,1) backwards}
+.empty{display:flex; align-items:center; justify-content:center; height:100%; color:var(--dim); font-size:18px; text-align:center; padding:0 20px}
+
+.arow, .mrow, .crow, .pcard{animation:liftIn .45s cubic-bezier(.22,1,.36,1) backwards}
 @keyframes liftIn{from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none}}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important}
@@ -365,39 +396,78 @@ body{
   <div id="top">
     <div id="brand"><b>SALES DANGAL</b><span id="periodSmall">month to date</span></div>
     <div class="sep"></div>
-    <div class="hero"><div><div class="k">Revenue</div><div class="v" id="coRev">—</div></div></div>
-    <div class="hero"><div><div class="k">Units</div><div class="v" id="coUnits">—</div></div></div>
+    <div class="hero"><div><div class="k">Revenue</div><div class="v" id="coRev">&mdash;</div></div></div>
+    <div class="hero"><div><div class="k">Units</div><div class="v" id="coUnits">&mdash;</div></div></div>
     <div class="sep"></div>
     <div id="coBar">
       <div class="top">
         <div class="lab">AGAINST TARGET <span id="coTgt" style="color:var(--dim)"></span></div>
-        <div class="val" id="coPct">—</div>
+        <div class="val" id="coPct">&mdash;</div>
       </div>
       <div class="track" id="coTrack"><i id="coFill" style="width:0%"></i><u id="coMark" style="left:0%"></u></div>
     </div>
     <div class="sep"></div>
-    <div id="live"><span class="dot"></span><span id="livetext">connecting…</span></div>
+    <div id="live"><span class="dot"></span><span id="livetext">connecting&hellip;</span></div>
   </div>
   <div id="sig">Garvit</div>
 
   <div id="fresh"></div>
 
   <div id="body">
-    <div id="rail">
-      <div class="hd"><span>THE NUMBERS</span><em id="railNow">—</em></div>
-      <div id="railView"><div id="railTrack"></div></div>
+
+    <!-- LEFT - agents, one desk at a time -->
+    <div id="colAgents">
+      <div class="panel">
+        <div id="deskHead">
+          <div id="deskName">&mdash;</div>
+          <div class="teamchip none" id="deskTeam">&mdash;</div>
+          <div id="deskMeta"><b>&mdash;</b><span>&nbsp;</span></div>
+        </div>
+        <div id="agentList"></div>
+        <div id="deskDots"></div>
+      </div>
     </div>
-    <div id="arena">
-      <div class="blk" id="b0"><div class="hd"><h3>City Race</h3><div class="sub"></div></div><div class="bd"></div></div>
-      <div class="blk" id="b1"><div class="hd"><h3>Manager Race</h3><div class="sub"></div></div><div class="bd"></div></div>
-      <div class="blk" id="b2"><div class="hd"><h3>Agent Arena</h3><div class="sub"></div></div><div class="bd"></div></div>
-      <div class="blk" id="b3"><div class="hd"><h3>Pace</h3><div class="sub"></div></div><div class="bd"></div></div>
+
+    <!-- MIDDLE - the organisation -->
+    <div id="colOrg">
+      <div class="panel" id="pCity">
+        <div class="hd"><h3>City Race</h3><div class="sub">% of own target &middot; gold = today's pace</div></div>
+        <div class="bd" id="cityBd"></div>
+      </div>
+      <div class="panel" id="pPace">
+        <div class="hd"><h3>Pace</h3><div class="sub">where the month lands</div></div>
+        <div class="bd" id="paceBd"></div>
+      </div>
+      <div class="panel" id="pDay">
+        <div class="hd"><h3>Revenue by day</h3><div class="sub" id="daySub"></div></div>
+        <div class="bd" id="dayBd"></div>
+      </div>
     </div>
+
+    <!-- RIGHT - managers -->
+    <div id="colMgr">
+      <div class="panel">
+        <div class="hd"><h3>Manager Race</h3><div class="sub">% of own target</div></div>
+        <div id="mgrList"></div>
+      </div>
+    </div>
+
   </div>
 
   <div id="tick">
-    <div id="tickLab"><i></i><span>Just Closed</span></div>
+    <div id="tickLab"><i></i><span id="tickLabText">Just Closed</span></div>
     <div id="tickView"><div id="tickTrack"></div><div id="hot"></div></div>
+  </div>
+
+  <div id="joinCard">
+    <div id="jcPhotoWrap"><img id="jcPhoto" alt=""><div id="jcInitials"></div></div>
+    <div id="jcText">
+      <div id="jcEyebrow">New on the floor</div>
+      <div id="jcName"></div>
+      <div id="jcRole"></div>
+      <div id="jcQuote"></div>
+      <div id="jcCount"></div>
+    </div>
   </div>
 
   <div id="state"></div>
@@ -413,27 +483,62 @@ var CONFIG = {
   API_URL: Q.get('api') ||
     'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec?feed=warroom',
   REFRESH_SECONDS: +(Q.get('refresh') || 30),
-  ROTATE_SECONDS:  +(Q.get('rotate')  || 32),   // how long each block stays big
-  RAIL_SECONDS:    +(Q.get('rail')    || 4.5),  // how long each stat tile shows
+
+  /* How long one desk stays on the left column. The column itself never
+     moves; only which desk it is showing. */
+  DESK_SECONDS: +(Q.get('desk') || 18),
+
+  /* Ticker speed in PIXELS PER SECOND, not seconds per loop. The old
+     board used a fixed 64s for the whole track, so the more closes there
+     were the faster it ran - exactly backwards, since a busy day is when
+     you most want to read it. 80 px/s is a comfortable reading pace on a
+     wall; drop it to 55 if the room is far from the screen. */
+  TICKER_PX_PER_SEC: +(Q.get('tickspeed') || 80),
+
   DEMO: Q.get('demo') === '1',
-  /* Stretch to fill a screen that is not 16:9, instead of letterboxing.
-     The stage is a fixed 1920x1080, so on anything wider or taller there
-     are bands. &fill=1 scales the axes independently to remove them, at
-     the cost of distorting everything slightly - on a 16:10 laptop that
-     is about 2% and invisible; on something far from 16:9 it would show.
-     Off by default because a leaderboard should not quietly stretch. */
-  FILL: Q.get('fill') === '1'
+  FILL: Q.get('fill') === '1',
+
+  /* NEW ON THE FLOOR - the welcome cutaway. */
+  JOINERS:        Q.get('joiners') !== '0',
+  JOINER_EVERY:   +(Q.get('joinerevery') || 12),   // minutes between cutaways
+  JOINER_SECS:    +(Q.get('joinersecs')  || 9),    // seconds per card
+  JOINER_PER_RUN: +(Q.get('joinerrun')   || 3),    // cards per cutaway
+  /* Stops playing by itself after this date, so nobody has to remember
+     to switch it off. Pass ?joineruntil=2026-12-31 to extend. */
+  JOINER_UNTIL:   Q.get('joineruntil') || '2026-11-15',
+  /* Absolute so the photos resolve whether this page is served from
+     Vercel or from Apps Script. */
+  JOINER_BASE:    Q.get('joinerbase') || 'https://outskill-garvit.vercel.app/joiners/'
 };
+
+/* The 15 Sales Consultants who joined in Hyderabad. Replaced wholesale
+   when the next intake lands - it is only data. */
+var JOINERS = [
+  {"n": "Josna", "r": "Sales Consultant", "q": "Hi everyone! I'm Josna from Bhupalpalle, and I'm joining Outskill as a Senior Sales Consultant.", "p": "01-josna.jpg"},
+  {"n": "Faisal Junaid", "r": "Senior Sales Consultant", "q": "Faisal Junaid, joining as senior sales consultant - who enjoys life being positive and believes in spreading laughs around, which is what I am ridiculously good at, apart from eating and...", "p": "02-faisal-junaid.jpg"},
+  {"n": "Lionel Taylor", "r": "Senior Sales Consultant", "q": "I am 6'2, so bumping into things is a common occurrence. Cannot play the guitar yet..", "p": "03-lionel-taylor.jpg"},
+  {"n": "Danish", "r": "Sales Professional", "q": "Hey, I'm Danish, joining as a Sales professional. I've spent the last 5 years in sales, so I'm pretty comfortable starting conversations with strangers and somehow turning them into...", "p": "04-danish.jpg"},
+  {"n": "Sowmya", "r": "Senior Sales Consultant", "q": "I am Sowmya, I am from Hyderabad. I am having an experience of 5+ years in Sales.", "p": "05-sowmya.jpg"},
+  {"n": "K. Avinash", "r": "Senior Sales Consultant", "q": "Fun fact: I can turn almost any conversation into a debate, even when nobody asked for one.", "p": "06-k-avinash.jpg"},
+  {"n": "Saikiran", "r": "Senior Sales Associate", "q": "Hey, I'm Saikiran. Joined as a Senior Sales Associate.", "p": "07-saikiran.jpg"},
+  {"n": "Harshitha", "r": "Sales Consultant", "q": "Fun fact: My hair apparently looks like noodles because people keep trying to touch them.", "p": "08-harshitha.jpg"},
+  {"n": "Astitva Chandel", "r": "Sales Consultant", "q": "I'm Astitva, joining the team. A quick fun fact about me: my brain overclocks best when high-BPM tracks are blasting in my headphones.", "p": "09-astitva-chandel.jpg"},
+  {"n": "Mohammed Nihal", "r": "Senior Sales Consultant", "q": "Joining as Senior Sales Consultant. Software Engineer by chance & into Sales by Choice.", "p": "10-mohammed-nihal.jpg"},
+  {"n": "Amarnath", "r": "Sr. Sales Consultant", "q": "I am Amarnath, from Hyderabad. I have 9.7 yrs experience in direct and consultative sales.", "p": "11-amarnath.jpg"},
+  {"n": "Krishna Nandana", "r": "Sales Consultant", "q": "My journey so far has been a mix of tech, sales, and edtech - basically, I like turning conversations into conversions.", "p": "12-krishna-nandana.jpg"},
+  {"n": "Mahender Kulkarni", "r": "Sr. Sales Consultant", "q": "Fun fact: I've worked across three very different industries - US taxation, travel, and education - so I've collected quite a few interesting stories along the way!", "p": "13-mahender-kulkarni.jpg"},
+  {"n": "Raymond Anthony", "r": "Senior Sales Consultant", "q": "Fun fact: I can spend way too much time researching something before finally making a decision.", "p": "14-raymond-anthony.jpg"},
+  {"n": "Ashish Dev D.", "r": "Sales Consultant", "q": "I'm Ashish D, from Hyderabad and Chandigarh..!! I have 5+ years of experience in sales and marketing, with hands-on experience in lead generation, EdTech programs like AI/ML and DSML,...", "p": "15-ashish-dev-d.jpg"}
+];
 
 /* =====================================================================
    STATE
    ===================================================================== */
 var DATA = null, LAST_OK = 0, DATA_AT = 0, FAILS = 0, USING_SAMPLE = false;
 var prevAgentRank = {}, lastSig = '';
-var bigIdx = 0, rotTimer = null;
-var railItems = [], railIdx = 0, railTimer = null;
-var peerIdx = 0;                 // which city/segment group the Agent Arena shows
+var deskIdx = 0, deskTimer = null;
 var running = false;
+var jcTimer = null, jcIdx = 0;
 
 /* =====================================================================
    UTIL
@@ -450,14 +555,11 @@ function moneyShort(v){ v=n(v); var a=Math.abs(v);
   if(a<100000) return Math.round(v).toLocaleString('en-IN');
   return (v/100000).toFixed(1)+'L'; }
 function pct(a,b){ b=n(b); return b>0 ? (n(a)/b)*100 : 0; }
-function esc(x){ return String(x==null?'':x).replace(/[&<>"]/g,function(c){
-  return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+function esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){
+  return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
 function joinDot(){ return Array.prototype.slice.call(arguments)
   .filter(function(v){return v!==''&&v!=null;}).join(' · '); }
 
-/* Count a figure up to its new value. Cheap, cancellable, and it only
-   runs when the number actually changed - a poll returning the same total
-   should not make the wall twitch. */
 function countUp(node, to, fmt, ms){
   if(!node) return;
   var from = node._val==null ? 0 : node._val;
@@ -474,19 +576,16 @@ function countUp(node, to, fmt, ms){
 }
 
 /* THE COMPARISON RULE, IN ONE PLACE.
-
-   Ranking by rupees is the wrong question on this floor. Managers carry
-   targets from 34 L to 1.40 cr, and India and International sell at
-   different prices, so "who billed most" mostly reports who was given the
-   biggest number to chase. Attainment against own target is the only
-   comparison where every row is answering the same question. */
+   Ranking by rupees mostly reports who was given the biggest number to
+   chase - managers here carry targets from 34 L to 1.4 cr. Attainment
+   against own target is the only comparison where every row answers the
+   same question. */
 function attain(x){ return pct(x.revenue, x.target); }
 function byAttain(a,b){
   var pa=attain(a), pb=attain(b);
   if(pa>0||pb>0) return pb-pa || b.revenue-a.revenue;
-  return b.revenue-a.revenue || b.units-a.units;     // no targets set: fall back
+  return b.revenue-a.revenue || b.units-a.units;
 }
-/* where the month SHOULD be by now, as a percentage */
 function expectedPct(){
   var m = (DATA&&DATA.meta)||{}; var d=n(m.day), t=n(m.days);
   return (t>0 && d>0) ? Math.min(100,(d/t)*100) : 0;
@@ -495,31 +594,32 @@ function paceClass(p){
   var e=expectedPct(); if(!e) return 'flat';
   if(p >= e+4) return 'ahead'; if(p <= e-4) return 'behind'; return 'flat';
 }
-
-/* a comparison bar with the pace marker on it */
-function barHTML(p){
+function barHTML(p, h){
   var cl = paceClass(p), e = expectedPct();
-  return '<div class="track '+(cl==='behind'?'behind':'')+'" style="height:11px">'+
+  return '<div class="track '+(cl==='behind'?'behind':'')+'" style="height:'+(h||11)+'px">'+
            '<i style="width:'+Math.max(0,Math.min(100,p)).toFixed(1)+'%"></i>'+
            (e? '<u style="left:'+e.toFixed(1)+'%"></u>':'')+
          '</div>';
 }
 
+/* INDIA IS LIME, INTERNATIONAL IS TEAL, anything else is grey and says
+   so. One function decides it, so nothing on the screen can disagree
+   with anything else about which desk somebody is on. */
+function teamClass(t){
+  var v = s(t).trim().toLowerCase();
+  if(v==='india') return 'ind';
+  if(v==='international') return 'intl';
+  if(v.indexOf('/')>-1) return 'both';
+  return 'none';
+}
+function teamLabel(t){
+  var v = s(t).trim();
+  return v ? v : 'NO TEAM SET';
+}
+
 /* =====================================================================
    STAGE SCALING
    ===================================================================== */
-/* THE STAGE MUST RE-FIT WHENEVER THE WINDOW REALLY CHANGES SIZE.
-
-   Relying on the resize event alone is not enough. Served inside an
-   iframe - which is how Apps Script serves a page - the frame can be laid
-   out small and grown afterwards without the inner window ever hearing a
-   resize. The board then stays scaled for the size it first saw: a
-   postage stamp in the corner with the blocks overlapping, which is
-   exactly what happened.
-
-   So: observe the element, and re-fit on a few delays after boot as a
-   backstop where ResizeObserver is missing. Both are idempotent - fitting
-   twice at the same size costs one style write and changes nothing. */
 function fit(){
   var w = document.documentElement.clientWidth  || window.innerWidth  || 1920;
   var h = document.documentElement.clientHeight || window.innerHeight || 1080;
@@ -533,9 +633,6 @@ function fit(){
       st.style.transform = 'scale(' + k + ')';
     }
   }
-  /* The blocks are positioned as percentages of a box whose size is only
-     known after the fit, so they are placed again here. */
-  if (running) layout();
 }
 window.addEventListener('resize', fit);
 window.addEventListener('load', fit);
@@ -543,17 +640,19 @@ if (typeof ResizeObserver === 'function') {
   try { new ResizeObserver(fit).observe(document.documentElement); } catch (e) {}
 }
 [60, 250, 800, 2000].forEach(function(ms){ setTimeout(fit, ms); });
+
 function goFull(){ var e=document.documentElement;
   if(document.fullscreenElement) document.exitFullscreen();
   else if(e.requestFullscreen) e.requestFullscreen().catch(function(){}); }
 document.addEventListener('keydown', function(e){
   if(e.key==='f'||e.key==='F') goFull();
-  if(e.key==='ArrowRight'){ clearTimeout(rotTimer); bigIdx=(bigIdx+1)%4; layout(); schedule(); }
-  if(e.key==='ArrowLeft'){ clearTimeout(rotTimer); bigIdx=(bigIdx+3)%4; layout(); schedule(); }
+  if(e.key==='ArrowRight'){ clearTimeout(deskTimer); deskIdx++; renderAgents(); scheduleDesk(); }
+  if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); deskIdx=Math.max(0,deskIdx-1); renderAgents(); scheduleDesk(); }
+  if(e.key==='j'||e.key==='J') playJoiners();   // show the welcome cards now
 });
 
 /* =====================================================================
-   DATA LAYER - JSONP, because an Apps Script Web App is not reliably
+   DATA - JSONP, because an Apps Script Web App is not reliably
    CORS-fetchable cross-origin. A <script> tag always works.
    ===================================================================== */
 var jsonpSeq = 0;
@@ -562,8 +661,6 @@ function loadData(){
   var cb='__wr'+(++jsonpSeq), done=false;
   var sc=document.createElement('script');
   var url=CONFIG.API_URL+(CONFIG.API_URL.indexOf('?')>-1?'&':'?')+'callback='+cb+'&t='+Date.now();
-  /* A cold build walks every payment row. Most polls hit the feed cache and
-     return instantly; the one that rebuilds gets as long as it needs. */
   var timer=setTimeout(function(){ if(!done){ cleanup(); fail(); } }, 90000);
   window[cb]=function(p){ done=true; clearTimeout(timer); cleanup();
     if(p&&p.ok) applyData(p); else fail(); };
@@ -573,27 +670,21 @@ function loadData(){
   sc.src=url; document.head.appendChild(sc);
 }
 
-/* A board with no real data must SAY so. It must never fall back to
-   plausible-looking numbers - a wrong figure read confidently off a wall is
-   worse than an obviously broken screen, because nobody checks it. */
+/* A board with no real data must SAY so, never fall back to plausible
+   numbers. A wrong figure read confidently off a wall is worse than an
+   obviously broken screen, because nobody checks it. */
 function fail(){
   FAILS++;
   if(!DATA){ stateScreen('unreachable'); return; }
-  paintLive();                 // real figures stay up, labelled with their age
+  paintLive();
 }
 
 function stateScreen(kind){
-  running=false; clearTimeout(rotTimer); clearInterval(railTimer);
+  running=false; clearTimeout(deskTimer);
   var body = (kind==='not-configured')
     ? { k:'Setup needed', line:'NO <span class="accent">FEED</span> CONNECTED',
         note:'Open this page with the Apps Script web app URL on the end:<br>'+
              '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
-    : /PASTE|YOUR_EXEC|[<>]|example\.com/i.test(CONFIG.API_URL)
-    ? { k:'The placeholder was not replaced', line:'THAT IS NOT A <span class="accent">REAL URL</span>',
-        note:'The address below is example text, not your web app. In Apps Script go to '+
-             '<b>Deploy &rsaquo; Manage deployments</b>, copy the Web app URL ending in <b>/exec</b>, '+
-             'and use that instead.<div style="margin-top:16px;font-family:Space Mono,monospace;'+
-             'font-size:17px;color:var(--rose);word-break:break-all">'+esc(CONFIG.API_URL)+'</div>' }
     : { k:'Cannot reach the feed', line:'NO <span class="accent">DATA</span> YET',
         note:'<b>Click the address below.</b> What it shows names the fault: the Executive '+
              'Command Center means the routing line is missing from doGet; a Google sign-in '+
@@ -620,9 +711,6 @@ function applyData(p){
   USING_SAMPLE = !!p.sample;
   document.getElementById('state').className='';
   LAST_OK=Date.now(); FAILS=0;
-  /* Show the age of the NUMBERS, not of the request. The feed caches, so a
-     fetch that just succeeded can carry figures built minutes ago, and the
-     one thing a leaderboard must not lie about is how current it is. */
   var built=n(DATA.meta&&DATA.meta.generatedAt), skew=Math.abs(Date.now()-built);
   DATA_AT = (built>0 && skew<86400000) ? built : LAST_OK;
 
@@ -630,24 +718,27 @@ function applyData(p){
   b.className = USING_SAMPLE ? 'on' : '';
   b.textContent = USING_SAMPLE ? 'PREVIEW DATA' : '';
 
-  paintTop(); buildRail(); buildTicker();
-  flashNewSale();
+  paintTop(); buildTicker(); flashNewSale();
+
   var sig=signature(DATA);
-  if(!running){ running=true; lastSig=sig; layout(); renderAll(); schedule(); startRail(); return; }
+  if(!running){
+    running=true; lastSig=sig;
+    renderAll(); scheduleDesk(); scheduleJoiners();
+    /* ?joinersnow=1 plays the welcome cards immediately instead of
+       waiting for the first cutaway - for checking they look right
+       without standing in front of the TV for twelve minutes. */
+    if(Q.get('joinersnow')==='1') setTimeout(playJoiners, 400);
+    return;
+  }
   if(sig!==lastSig){ lastSig=sig; renderAll(); }
 }
 
-/* A sale that lands while the board is on the wall should be seen landing.
-   Keyed on name+amount+timestamp of the newest close, so a repaint that
-   carries the same figures never fires it twice. Silent on the very first
-   payload - everything is "new" then, and a toast for a sale from three
-   days ago would be a lie. */
 var lastSaleKey=null;
 function flashNewSale(){
   var r=(DATA.recent||[])[0];
   if(!r){ return; }
   var key=r.name+'|'+r.amt+'|'+r.at;
-  if(lastSaleKey===null){ lastSaleKey=key; return; }   // first load: no toast
+  if(lastSaleKey===null){ lastSaleKey=key; return; }
   if(key===lastSaleKey) return;
   lastSaleKey=key;
   var hot=document.getElementById('hot'), bar=document.getElementById('tick');
@@ -662,13 +753,11 @@ function flashNewSale(){
 
 function signature(d){
   return [d.totals.revenue,d.totals.units,d.totals.target,d.cities.length,d.managers.length]
-    .concat(d.agents.slice(0,60).map(function(a){return a.name+':'+a.revenue+':'+a.units;}))
+    .concat(d.agents.slice(0,80).map(function(a){return a.name+':'+a.revenue+':'+a.units;}))
     .concat((d.recent||[]).slice(0,10).map(function(r){return r.name+':'+r.amt;}))
     .join('|');
 }
 
-/* Tolerate missing sections, nulls, zero targets, bad rows. Everything is
-   forced to a usable type once, here, so nothing below has to guard. */
 function normalise(p){
   p=p||{};
   var out={
@@ -725,14 +814,12 @@ function paintTop(){
   document.getElementById('coTrack').className = 'track '+(paceClass(p)==='behind'?'behind':'');
   paintLive();
 }
-/* THE QUESTION THE BOARD COULD NOT ANSWER.
 
-   "data 4s ago" only says when the FEED last built. The feed can rebuild
-   every seven minutes and still be serving yesterday, because it reads
+/* "data 4s ago" only says when the FEED last built. The feed can rebuild
+   every seven minutes and still serve yesterday, because it reads
    mdl_Payments and nothing had refreshed that. So report the date of the
-   newest payment in the sheet against today's date - that is the only
-   honest answer to "is this up to date", and it names the fix when it is
-   not. */
+   newest payment in the sheet against today - the only honest answer to
+   "is this up to date", and it names the fix when it is not. */
 function paintFresh(){
   var m=(DATA&&DATA.meta)||{}, el=document.getElementById('fresh');
   if(!el) return;
@@ -760,64 +847,240 @@ function fmtAge(x){ if(x==null) return '—';
   if(x<60) return x+'s ago'; if(x<3600) return Math.round(x/60)+'m ago';
   return Math.round(x/3600)+'h ago'; }
 
+function renderAll(){ renderAgents(); renderCities(); renderPace(); renderDay(); renderManagers(); }
+
 /* =====================================================================
-   LEFT RAIL - every headline number, cycling
+   LEFT COLUMN - agents, one desk at a time
+
+   A desk is a CITY and a TEAM together, because that is the only group
+   where everyone is answering the same question: Bangalore International
+   sells at different prices from Bangalore India, so a mixed table ranks
+   the price list rather than the people.
    ===================================================================== */
-function buildRail(){
-  var t=DATA.totals;
-  railItems=[{k:'Company revenue', v:money(t.revenue), u:'', p:pct(t.revenue,t.target), tgt:t.target},
-             {k:'Company units', v:n(t.units).toLocaleString('en-IN'), u:'units', p:-1}];
-  DATA.cities.forEach(function(c){
-    railItems.push({k:c.name+' revenue', v:money(c.revenue), u:'of '+moneyShort(c.target), p:attain(c), tgt:c.target});
-    railItems.push({k:c.name+' units', v:n(c.units).toLocaleString('en-IN'), u:'units', p:-1});
+var AGENT_ROWS = 9;        /* how many fit in the column at a readable size */
+
+/* Every desk, split into pages that fit the column.
+
+   Hyderabad India carries fifteen agents and nine rows fit, so it
+   becomes two pages rather than six people nobody ever sees. "I can see
+   agents individually" has to mean ALL of them, in turn - a leaderboard
+   that silently drops the bottom third is just a top-nine list. */
+function deskViews(){
+  var g={};
+  (DATA.agents||[]).forEach(function(a){
+    var city=a.city||'Unassigned', team=a.team||'';
+    var key=city+'\u0000'+team;
+    if(!g[key]) g[key]={city:city, team:team, list:[], revenue:0, units:0};
+    g[key].list.push(a);
+    g[key].revenue+=a.revenue; g[key].units+=a.units;
   });
-  DATA.managers.forEach(function(mg){
-    railItems.push({k:mg.name, v:money(mg.revenue), u:joinDot(mg.city, mg.agents+' agents'), p:attain(mg), tgt:mg.target});
-  });
-  var tr=document.getElementById('railTrack');
-  tr.innerHTML = railItems.map(statHTML).join('') + railItems.slice(0,8).map(statHTML).join('');
-  if(railIdx >= railItems.length) railIdx = 0;
-  moveRail(true);
-}
-function statHTML(it){
-  var hasT = it.p >= 0 && n(it.tgt) > 0;
-  var cl = hasT ? paceClass(it.p) : '';
-  return '<div class="stat '+cl+'">'+
-    '<div class="k">'+esc(it.k)+'</div>'+
-    '<div class="r"><div class="v">'+esc(it.v)+'</div><div class="u">'+esc(it.u)+'</div>'+
-      (hasT ? '<div class="p">'+it.p.toFixed(0)+'%</div>' : '')+
-    '</div>'+
-    (hasT ? '<div class="mini"><i style="width:'+Math.max(0,Math.min(100,it.p)).toFixed(1)+'%"></i></div>'
-          : '<div style="height:6px"></div>')+
-  '</div>';
-}
-function moveRail(instant){
-  var tr=document.getElementById('railTrack');
-  if(instant) tr.style.transition='none';
-  tr.style.transform='translateY(-'+(railIdx*104)+'px)';
-  if(instant){ void tr.offsetHeight; tr.style.transition=''; }
-  var it=railItems[railIdx];
-  document.getElementById('railNow').textContent = it ? (railIdx+1)+'/'+railItems.length : '';
-}
-function startRail(){
-  clearInterval(railTimer);
-  railTimer=setInterval(function(){
-    if(!railItems.length) return;
-    railIdx++;
-    if(railIdx >= railItems.length){       // silently snap back at the seam
-      moveRail(false);
-      setTimeout(function(){ railIdx=0; moveRail(true); }, 950);
-      return;
+  var ds=[];
+  for(var k in g) ds.push(g[k]);
+  /* Biggest desks first, so the busiest teams come round soonest. */
+  ds.sort(function(x,y){ return y.list.length-x.list.length ||
+                                (x.city<y.city?-1:1) || (x.team<y.team?-1:1); });
+
+  var views=[];
+  ds.forEach(function(d){
+    var rows=d.list.slice().sort(byAttain);
+    var pages=Math.max(1, Math.ceil(rows.length/AGENT_ROWS));
+    for(var p=0;p<pages;p++){
+      views.push({
+        city:d.city, team:d.team, revenue:d.revenue, units:d.units,
+        headcount:d.list.length,
+        rows:rows.slice(p*AGENT_ROWS,(p+1)*AGENT_ROWS),
+        from:p*AGENT_ROWS, page:p+1, pages:pages,
+        anyT:rows.some(function(a){return a.target>0;}),
+        top:rows[0] ? (rows[0].revenue||1) : 1
+      });
     }
-    moveRail(false);
-  }, Math.max(2, CONFIG.RAIL_SECONDS)*1000);
+  });
+  return views;
+}
+
+function renderAgents(){
+  var vs=deskViews();
+  var list=document.getElementById('agentList');
+  var dots=document.getElementById('deskDots');
+  if(!vs.length){
+    document.getElementById('deskName').textContent='Agents';
+    document.getElementById('deskTeam').className='teamchip none';
+    document.getElementById('deskTeam').textContent='—';
+    document.getElementById('deskMeta').innerHTML='<b>—</b><span>&nbsp;</span>';
+    list.innerHTML='<div class="empty">No agents in this month’s roster.</div>';
+    dots.innerHTML='';
+    return;
+  }
+  if(deskIdx>=vs.length) deskIdx=0;
+  var v=vs[deskIdx];
+  var tc=teamClass(v.team);
+
+  document.getElementById('deskName').textContent=v.city;
+  var chip=document.getElementById('deskTeam');
+  chip.className='teamchip '+tc;
+  chip.textContent=teamLabel(v.team);
+
+  document.getElementById('deskMeta').innerHTML=
+    '<b>'+money(v.revenue)+'</b><span>'+v.headcount+' agents · '+v.units+' units'+
+    (v.pages>1 ? ' · page '+v.page+'/'+v.pages : '')+'</span>';
+
+  list.innerHTML = v.rows.map(function(a,i){
+    var has=a.target>0, p=has?attain(a):pct(a.revenue,v.top);
+    var rk=v.from+i+1;                  /* rank within the desk, not the page */
+    return '<div class="arow '+tc+(rk<=3?' p'+rk:'')+'" style="animation-delay:'+((i+1)*35)+'ms">'+
+      '<div class="rk">'+rk+'</div>'+
+      '<div class="who"><b>'+esc(a.name)+moveHTML(a.move)+'</b>'+
+        '<span>'+esc(joinDot(a.manager, a.units+' units'))+'</span></div>'+
+      '<div class="bar">'+barHTML(p)+'</div>'+
+      '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
+        (has?p.toFixed(0)+'%':money(a.revenue))+'</b>'+
+        '<span>'+esc(has?money(a.revenue):(a.units+' units'))+'</span></div>'+
+    '</div>';
+  }).join('');
+
+  if(!v.anyT && v.rows.length){
+    list.innerHTML += '<div style="flex:none;padding:8px 0 0;font-size:12px;color:var(--dim);'+
+      'font-weight:700">no targets set on this desk · shown against the desk leader</div>';
+  }
+
+  /* One dot per page. The dots belonging to the desk currently on screen
+     are lit dimly, so a second page reads as "still Hyderabad" rather
+     than as a desk nobody recognises. */
+  dots.innerHTML = vs.map(function(x,i){
+    var kin = (x.city===v.city && x.team===v.team);
+    return '<i class="'+(i===deskIdx?'on':(kin?'kin':''))+'"></i>';
+  }).join('');
+}
+
+function scheduleDesk(){
+  clearTimeout(deskTimer);
+  deskTimer=setTimeout(function(){
+    var vs=deskViews();
+    deskIdx = vs.length ? (deskIdx+1) % vs.length : 0;
+    renderAgents();
+    scheduleDesk();
+  }, Math.max(6,CONFIG.DESK_SECONDS)*1000);
+}
+
+function moveHTML(mv){
+  if(mv==null) return '';
+  if(mv>0) return '<span class="mv up">▲'+mv+'</span>';
+  if(mv<0) return '<span class="mv dn">▼'+(-mv)+'</span>';
+  return '';
 }
 
 /* =====================================================================
-   TICKER - the reason to glance up
+   MIDDLE COLUMN - the organisation
+   ===================================================================== */
+function renderCities(){
+  var bd=document.getElementById('cityBd');
+  if(!DATA.cities.length){ bd.innerHTML='<div class="empty">No city data</div>'; return; }
+  bd.innerHTML = DATA.cities.map(function(c,i){
+    var p=attain(c), has=c.target>0, rk=i+1;
+    return '<div class="crow'+(rk<=3?' p'+rk:'')+'" style="animation-delay:'+(rk*60)+'ms">'+
+      '<div class="rk">'+rk+'</div>'+
+      '<div class="who"><b>'+esc(c.name)+'</b><span>'+
+        esc(joinDot(money(c.revenue)+' of '+money(c.target), c.units+' units', c.agents+' agents'))+
+      '</span></div>'+
+      '<div class="bar">'+(has?barHTML(p,13):'')+'</div>'+
+      '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
+        (has?p.toFixed(1)+'%':money(c.revenue))+'</b>'+
+        '<span>'+esc(has?money(c.revenue):(c.units+' units'))+'</span></div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderPace(){
+  var t=DATA.totals, m=DATA.meta||{};
+  var day=n(m.day), days=n(m.days)||30, left=Math.max(0,days-day);
+  var run = day>0 ? t.revenue/day : 0;
+  var proj= run*days;
+  var gap = t.target - t.revenue;
+  var need= left>0 ? gap/left : gap;
+  var p=pct(t.revenue,t.target), e=expectedPct();
+
+  document.getElementById('paceBd').innerHTML='<div class="pacegrid">'+[
+    card('Days left', left+' of '+days, day+' done'),
+    card('Run rate', money(run)+'/day', 'need '+money(Math.max(0,need))+'/day'),
+    card('Projected', money(proj), proj>=t.target?'clears target':'short by '+money(Math.max(0,t.target-proj))),
+    card('Against pace', (p-e>=0?'+':'')+(p-e).toFixed(1)+' pts', 'at '+p.toFixed(1)+'%, pace '+e.toFixed(0)+'%',
+         p-e>=0?'ahead':'behind')
+  ].join('')+'</div>';
+}
+
+/* A month-to-date total reads the same whether it arrived steadily or
+   all in one week - which is the difference between a team that is fine
+   and one about to miss. The best day is marked so there is something to
+   beat, and today is marked so it can be seen being beaten. */
+function renderDay(){
+  var days=DATA.byDay||[], bd=document.getElementById('dayBd'), sub=document.getElementById('daySub');
+  if(days.length<2){ bd.innerHTML='<div class="empty">Not enough days yet</div>'; sub.textContent=''; return; }
+  var max=0, best=-1;
+  days.forEach(function(x,i){ if(x.rev>max){ max=x.rev; best=i; } });
+  if(max<=0){ bd.innerHTML='<div class="empty">No revenue recorded yet this month</div>'; sub.textContent=''; return; }
+  var todayNo=n((DATA.meta||{}).day);
+  sub.textContent = best>=0 ? ('best: day '+days[best].d+' at '+money(max)) : '';
+  bd.innerHTML='<div class="spark">'+days.map(function(x,i){
+    var h=Math.max(0,Math.round(x.rev/max*100));
+    var cls = x.rev<=0 ? 'zero' : (i===best ? 'best' : (x.d===todayNo ? 'today' : ''));
+    var lab = (x.d===1||x.d%5===0||x.d===todayNo) ? x.d : '';
+    return '<div class="bar '+cls+'" title="'+x.d+': '+money(x.rev)+'">'+
+             '<i style="height:'+(x.rev<=0?2:h)+'%"></i>'+
+             (lab?'<b>'+lab+'</b>':'')+'</div>';
+  }).join('')+'</div>';
+}
+
+function card(k,v,note,cl){
+  return '<div class="pcard"><div class="k">'+esc(k)+'</div>'+
+    '<div class="v '+(cl||'')+'">'+esc(v)+'</div><div class="n">'+esc(note)+'</div></div>';
+}
+
+/* =====================================================================
+   RIGHT COLUMN - managers
+
+   All of them, every time. The old board hid rows five and up whenever
+   this block happened to be small, so four of your nine managers were
+   invisible for most of the day depending on where the rotation was.
+   ===================================================================== */
+function renderManagers(){
+  var list=document.getElementById('mgrList');
+  if(!DATA.managers.length){ list.innerHTML='<div class="empty">No manager data</div>'; return; }
+  var withT=DATA.managers.filter(function(m){return m.target>0;});
+  var noT  =DATA.managers.filter(function(m){return !(m.target>0);});
+
+  var html=withT.map(function(m,i){
+    var p=attain(m), rk=i+1;
+    return '<div class="mrow '+teamClass(m.team)+(rk<=3?' p'+rk:'')+
+      '" style="animation-delay:'+(rk*35)+'ms">'+
+      '<div class="rk">'+rk+'</div>'+
+      '<div class="who"><b>'+esc(m.name)+'</b><span>'+
+        esc(joinDot(m.city, m.team, m.agents+' agents'))+'</span></div>'+
+      '<div class="bar">'+barHTML(p)+'</div>'+
+      '<div class="fig"><b class="'+paceClass(p)+'">'+p.toFixed(1)+'%</b>'+
+        '<span>'+money(m.revenue)+'</span></div>'+
+    '</div>';
+  }).join('');
+
+  /* Listed, not dropped. A manager who vanishes from the wall is a
+     manager nobody asks about. */
+  html += noT.map(function(m){
+    return '<div class="mrow notgt '+teamClass(m.team)+'">'+
+      '<div class="rk">—</div>'+
+      '<div class="who"><b>'+esc(m.name)+'</b><span>'+
+        esc(joinDot(m.city, m.agents+' agents'))+' · no target set</span></div>'+
+      '<div class="bar"></div>'+
+      '<div class="fig"><b>'+money(m.revenue)+'</b><span>'+m.units+' units</span></div>'+
+    '</div>';
+  }).join('');
+
+  list.innerHTML=html;
+}
+
+/* =====================================================================
+   TICKER
    ===================================================================== */
 function buildTicker(){
-  var r=DATA.recent||[], parts=[];
+  var r=DATA.recent||[], parts=[], lab='Just Closed';
   if(r.length){
     r.forEach(function(x){
       parts.push('<span class="ti"><em>CLOSED</em><b>'+esc(x.name)+'</b>'+
@@ -826,285 +1089,150 @@ function buildTicker(){
         '<span class="dv">|</span></span>');
     });
   } else {
-    /* No recent feed yet - an older deployment. Say what IS known rather
-       than running an empty bar, and never invent a sale. */
-    DATA.agents.slice(0,12).forEach(function(a){
-      parts.push('<span class="ti"><em>MTD</em><b>'+esc(a.name)+'</b>'+
-        '<span class="amt">'+money(a.revenue)+'</span>'+
-        '<span class="mt">'+esc(joinDot(a.city,a.manager))+' · '+a.units+'u</span>'+
-        '<span class="dv">|</span></span>');
-    });
-    document.querySelector('#tickLab span').textContent='Month To Date';
+    /* No closes yet. Say that plainly rather than running a bar of
+       month-to-date zeroes, which is what it used to do - a row of
+       "0u" beside every name reads as a broken feed, not a quiet month. */
+    lab='Month To Date';
+    var live=DATA.agents.filter(function(a){return a.revenue>0;}).slice(0,12);
+    if(live.length){
+      live.forEach(function(a){
+        parts.push('<span class="ti"><em>MTD</em><b>'+esc(a.name)+'</b>'+
+          '<span class="amt">'+money(a.revenue)+'</span>'+
+          '<span class="mt">'+esc(joinDot(a.city,a.manager))+' · '+a.units+'u</span>'+
+          '<span class="dv">|</span></span>');
+      });
+    } else {
+      parts.push('<span class="ti"><span class="mt">'+
+        'No sales recorded yet this month</span></span>');
+    }
   }
-  if(!parts.length) parts.push('<span class="ti"><span class="mt">No sales recorded yet this month</span></span>');
-  /* Doubled so the -50% translate loops seamlessly. */
+  document.querySelector('#tickLabText').textContent=lab;
   var html=parts.join('');
-  document.getElementById('tickTrack').innerHTML = html + html;
+  var tr=document.getElementById('tickTrack');
+  tr.innerHTML = html + html;      /* doubled, so -50% loops seamlessly */
+  sizeTicker();
+}
+
+/* Speed as pixels per second, measured off the real width.
+   The old board ran the whole loop in a fixed 64 seconds, so a busy day
+   with forty closes scrolled several times faster than a quiet one with
+   six - unreadable exactly when it mattered most. */
+function sizeTicker(){
+  var tr=document.getElementById('tickTrack');
+  if(!tr) return;
+  requestAnimationFrame(function(){
+    var half = tr.scrollWidth/2;
+    if(!(half>0)) return;
+    var secs = half / Math.max(20, CONFIG.TICKER_PX_PER_SEC);
+    tr.style.animationDuration = secs.toFixed(1)+'s';
+  });
 }
 
 /* =====================================================================
-   THE FOUR BLOCKS
+   NEW ON THE FLOOR
+
+   A cutaway, not a mode. Every JOINER_EVERY minutes it takes the screen
+   for a few cards, then hands it straight back. It stops by itself after
+   JOINER_UNTIL so nobody has to remember to turn it off, and ?joiners=0
+   kills it immediately.
    ===================================================================== */
-var SLOTS=[ {l:0,   t:0,  w:65.5,h:100},      // big
-            {l:67,  t:0,  w:33,  h:32},
-            {l:67,  t:34, w:33,  h:32},
-            {l:67,  t:68, w:33,  h:32} ];
-function layout(){
-  for(var i=0;i<4;i++){
-    var el=document.getElementById('b'+i);
-    var slot=SLOTS[(i - bigIdx + 4) % 4];
-    el.style.left=slot.l+'%'; el.style.top=slot.t+'%';
-    el.style.width=slot.w+'%'; el.style.height=slot.h+'%';
-    el.className='blk '+(slot.w>50?'big':'sm');
+function joinersLive(){
+  if(!CONFIG.JOINERS) return false;
+  if(!JOINERS || !JOINERS.length) return false;
+  var until = CONFIG.JOINER_UNTIL;
+  if(until){
+    var d=new Date(until+'T23:59:59');
+    if(!isNaN(d.getTime()) && Date.now() > d.getTime()) return false;
   }
-}
-function schedule(){
-  clearTimeout(rotTimer);
-  rotTimer=setTimeout(function(){
-    bigIdx=(bigIdx+1)%4;
-    /* The Agent Arena walks to the next peer group each time it comes
-       round, so every desk gets the big slot over a few rotations. */
-    if(bigIdx===2) peerIdx++;
-    layout(); renderAll(); schedule();
-  }, Math.max(8,CONFIG.ROTATE_SECONDS)*1000);
+  return true;
 }
 
-function renderAll(){ renderCities(); renderManagers(); renderAgents(); renderPace(); }
-
-function moveHTML(mv){
-  if(mv==null) return '';                       // no snapshot yet - say nothing
-  if(mv>0) return '<span class="mv up">\u25b2'+mv+'</span>';
-  if(mv<0) return '<span class="mv dn">\u25bc'+(-mv)+'</span>';
-  return '';
-}
-function rowHTML(rank,name,sub,p,fig,figsub,hasTarget,mv){
-  var cls = rank<=3 ? ' p'+rank : '';
-  return '<div class="row'+cls+'" style="animation-delay:'+Math.min(rank*40,320)+'ms">'+
-    '<div class="rk">'+rank+'</div>'+
-    '<div class="who"><b>'+esc(name)+moveHTML(mv)+'</b><span>'+esc(sub)+'</span></div>'+
-    '<div class="bar">'+(hasTarget?barHTML(p):'')+'</div>'+
-    '<div class="fig"><b class="'+(hasTarget?paceClass(p):'')+'">'+fig+'</b><span>'+esc(figsub)+'</span></div>'+
-  '</div>';
+function scheduleJoiners(){
+  if(!joinersLive()) return;
+  clearTimeout(jcTimer);
+  jcTimer=setTimeout(function(){
+    playJoiners(function(){ scheduleJoiners(); });
+  }, Math.max(2,CONFIG.JOINER_EVERY)*60000);
 }
 
-function renderCities(){
-  var b=document.getElementById('b0');
-  b.querySelector('h3').textContent='City Race';
-  b.querySelector('.sub').textContent='% of own target · gold line = today’s pace';
-  var rows=DATA.cities.map(function(c,i){
-    var p=attain(c), has=c.target>0, rk=i+1;
-    /* The desks inside this city, each against its own target. Three cities
-       across 858px would otherwise be 286px of empty panel per row - the
-       exact fault this redesign exists to fix. A big block earns its space
-       by carrying more information, not more air. */
-    var kids=DATA.managers.filter(function(m){ return m.city===c.name; }).sort(byAttain);
-    var kidHTML=kids.map(function(m){
-      var mp=attain(m), mh=m.target>0;
-      return '<div class="kid"><div class="kn">'+esc(m.name)+
-        (m.team?' <i>'+esc(m.team)+'</i>':'')+'</div>'+
-        '<div class="kb">'+(mh?barHTML(mp):'')+'</div>'+
-        '<div class="kv '+(mh?paceClass(mp):'')+'">'+(mh?mp.toFixed(0)+'%':'-')+'</div>'+
-        '<div class="kr">'+money(m.revenue)+'</div></div>';
-    }).join('');
-    return '<div class="row deep'+(rk<=3?' p'+rk:'')+'" style="animation-delay:'+(rk*60)+'ms">'+
-      '<div class="lead"><div class="rk">'+rk+'</div>'+
-        '<div class="who"><b>'+esc(c.name)+'</b><span>'+
-          esc(joinDot(money(c.revenue)+' of '+money(c.target), c.units+' units', c.agents+' agents'))+
-        '</span></div>'+
-        '<div class="bar">'+(has?barHTML(p):'')+'</div>'+
-        '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
-          (has?p.toFixed(1)+'%':money(c.revenue))+'</b><span>'+
-          esc(has?money(c.revenue):c.units+' units')+'</span></div>'+
-      '</div>'+
-      (kidHTML?'<div class="kids">'+kidHTML+'</div>':'')+
-    '</div>';
-  });
-  b.querySelector('.bd').innerHTML = rows.join('') || empty('No city data');
+function playJoiners(done){
+  if(!JOINERS || !JOINERS.length){ if(done) done(); return; }
+  var shown=0, per=Math.max(1,CONFIG.JOINER_PER_RUN), secs=Math.max(4,CONFIG.JOINER_SECS);
+  var el=document.getElementById('joinCard');
+
+  function next(){
+    if(shown>=per){ el.className=''; if(done) done(); return; }
+    var j=JOINERS[jcIdx % JOINERS.length];
+    jcIdx++; shown++;
+    showJoiner(j, (jcIdx-1) % JOINERS.length);
+    setTimeout(next, secs*1000);
+  }
+  next();
 }
 
-function renderManagers(){
-  var b=document.getElementById('b1');
-  b.querySelector('h3').textContent='Manager Race';
-  b.querySelector('.sub').textContent='% of own target, not rupees';
-  /* Managers with no target cannot be in a target race at all. They are
-     listed after the race rather than dropped, so nobody vanishes from the
-     wall, but they are not ranked against people who have one. */
-  var withT=DATA.managers.filter(function(m){return m.target>0;});
-  var noT  =DATA.managers.filter(function(m){return !(m.target>0);});
-  var rows=withT.map(function(m,i){
-    var p=attain(m);
-    return rowHTML(i+1, m.name, joinDot(m.city, m.team, m.agents+' agents'),
-                   p, p.toFixed(1)+'%', money(m.revenue), true);
-  });
-  noT.forEach(function(m){
-    rows.push('<div class="row" style="opacity:.55"><div class="rk">—</div>'+
-      '<div class="who"><b>'+esc(m.name)+'</b><span>'+esc(joinDot(m.city,m.agents+' agents'))+
-      ' · no target set</span></div><div class="bar"></div>'+
-      '<div class="fig"><b>'+money(m.revenue)+'</b><span>'+m.units+' units</span></div></div>');
-  });
-  b.querySelector('.bd').innerHTML = rows.join('') || empty('No manager data');
-}
+function showJoiner(j, idx){
+  var el=document.getElementById('joinCard');
+  var img=document.getElementById('jcPhoto');
+  var ini=document.getElementById('jcInitials');
 
-/* Peer groups: a Bangalore India agent is compared with Bangalore India
-   agents and nobody else. India and International sell at different prices,
-   so a mixed table ranks the price list, not the people. */
-function peerGroups(){
-  var g={};
-  DATA.agents.forEach(function(a){
-    var city=a.city||'Unassigned', team=a.team||'All';
-    var key=city+' · '+team;
-    if(!g[key]) g[key]={key:key, city:city, team:team, list:[]};
-    g[key].list.push(a);
-  });
-  var out=[];
-  for(var k in g){ if(g[k].list.length>=2) out.push(g[k]); }
-  out.sort(function(x,y){ return x.key<y.key?-1:1; });
-  return out;
-}
+  document.getElementById('jcName').textContent  = j.n || '';
+  document.getElementById('jcRole').textContent  = j.r || 'Sales Consultant';
+  document.getElementById('jcQuote').textContent = j.q || '';
+  document.getElementById('jcCount').textContent =
+    'Joiner ' + (idx+1) + ' of ' + JOINERS.length + '  ·  Hyderabad';
 
-function renderAgents(){
-  var b=document.getElementById('b2');
-  var groups=peerGroups();
-  if(!groups.length){ b.querySelector('h3').textContent='Agent Arena';
-    b.querySelector('.sub').textContent='';
-    b.querySelector('.bd').innerHTML=empty('Not enough agents to compare'); return; }
-  var g=groups[peerIdx % groups.length];
-  b.querySelector('h3').textContent=g.city+' — '+g.team;
-  b.querySelector('.sub').textContent='within this desk only · '+
-    ((peerIdx%groups.length)+1)+' of '+groups.length;
-  var list=g.list.slice().sort(byAttain);
-  var anyT=list.some(function(a){return a.target>0;});
-  var top=list[0] ? (list[0].revenue||1) : 1;
-  var rows=list.slice(0,9).map(function(a,i){
-    var has=a.target>0, p=has?attain(a):pct(a.revenue,top);
-    return rowHTML(i+1, a.name, joinDot(a.manager, a.units+' units'),
-                   p, has?p.toFixed(0)+'%':money(a.revenue),
-                   has?money(a.revenue):(a.units+' units'), true, a.move);
-  });
-  if(!anyT) b.querySelector('.sub').textContent += ' · no targets set, shown against desk leader';
-  b.querySelector('.bd').innerHTML = rows.join('');
-}
+  /* Initials behind the photo, so a file that fails to load leaves a
+     designed card rather than a grey rectangle. */
+  ini.textContent = (j.n||'?').split(/\s+/).map(function(w){return w.charAt(0);})
+                      .join('').slice(0,2).toUpperCase();
+  ini.style.display='none';
+  img.style.display='block';
+  img.onerror=function(){ img.style.display='none'; ini.style.display='flex'; };
+  img.alt = j.n || '';
+  img.src = CONFIG.JOINER_BASE + (j.p||'');
 
-function renderPace(){
-  var bl=document.getElementById('b3');
-  var t=DATA.totals, m=DATA.meta||{};
-  bl.querySelector('h3').textContent='Pace & Momentum';
-  bl.querySelector('.sub').textContent='where the month lands if nothing changes';
-  var day=n(m.day), days=n(m.days)||30, left=Math.max(0,days-day);
-  var run = day>0 ? t.revenue/day : 0;
-  var proj= run*days;
-  var gap = t.target - t.revenue;
-  var need= left>0 ? gap/left : gap;
-  var p=pct(t.revenue,t.target), e=expectedPct();
+  /* restart the slow zoom for each card */
+  img.style.animation='none'; void img.offsetWidth; img.style.animation='';
 
-  var cards=[
-    card('Days left', left+' of '+days, day+' done'),
-    card('Run rate', money(run)+'/day', 'need '+money(Math.max(0,need))+'/day'),
-    card('Projected', money(proj), proj>=t.target?'clears target':'short by '+money(Math.max(0,t.target-proj))),
-    card('Against pace', (p-e>=0?'+':'')+(p-e).toFixed(1)+' pts', 'at '+p.toFixed(1)+'%, pace '+e.toFixed(0)+'%',
-         p-e>=0?'ahead':'behind')
-  ].join('');
-
-  /* Each city projected on its own run rate. The company number hides
-     which desk is actually going to miss, and that is the only part of a
-     pace panel anyone can act on. */
-  var cityRows=DATA.cities.map(function(c){
-    var cp=attain(c), cproj=day>0?(c.revenue/day)*days:0;
-    var ok=cproj>=c.target;
-    return '<div class="kid" style="padding:4px 0">'+
-      '<div class="kn">'+esc(c.name)+'</div>'+
-      '<div class="kb">'+(c.target>0?barHTML(cp):'')+'</div>'+
-      '<div class="kv '+paceClass(cp)+'">'+(c.target>0?cp.toFixed(0)+'%':'-')+'</div>'+
-      '<div class="kr" style="width:112px;color:'+(ok?'var(--mint)':'var(--rose)')+'">'+
-        (c.target>0 ? (ok?'clears':'short '+money(Math.max(0,c.target-cproj))) : '')+'</div></div>';
-  }).join('');
-
-  /* Framed as a number to chase, not a wall of shame. Anyone at the bottom
-     of a leaderboard already knows they are there; what they cannot see is
-     how much would move them. */
-  var behind=DATA.agents.filter(function(a){return a.target>0 && attain(a) < e-10;})
-                        .sort(function(x,y){return attain(x)-attain(y);}).slice(0,4);
-  var push = behind.length
-    ? '<div class="pushlist" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">'+
-      '<div class="pl-h">Biggest gap to close</div>'+
-      behind.map(function(a){
-        return '<div class="pl-r"><b>'+esc(a.name)+'</b>'+
-          '<span class="pl-m">'+esc(joinDot(a.city,a.manager))+'</span>'+
-          '<span class="pl-v">'+money(Math.max(0,a.target-a.revenue))+' to go</span></div>';
-      }).join('')+'</div>'
-    : '';
-
-  bl.querySelector('.bd').innerHTML=
-    '<div class="pacegrid">'+cards+'</div>'+
-    sparkHTML()+
-    '<div class="citypace"><div class="pl-h">Each city on its own run rate</div>'+cityRows+'</div>'+
-    push;
-}
-
-/* DAY BY DAY. A month-to-date total reads the same whether it arrived
-   steadily or all in one week, which is the difference between a team that
-   is fine and one that is about to miss. The best day is marked so there is
-   something to beat, and today is marked so it can be seen being beaten. */
-function sparkHTML(){
-  var days=DATA.byDay||[];
-  if(days.length<2) return '';
-  var max=0, best=-1;
-  days.forEach(function(x,i){ if(x.rev>max){ max=x.rev; best=i; } });
-  if(max<=0) return '';
-  var todayNo=n((DATA.meta||{}).day);
-  var bars=days.map(function(x,i){
-    var h=Math.max(0,Math.round(x.rev/max*100));
-    var cls = x.rev<=0 ? 'zero' : (i===best ? 'best' : (x.d===todayNo ? 'today' : ''));
-    var lab = (x.d===1||x.d%5===0||x.d===todayNo) ? x.d : '';
-    return '<div class="bar '+cls+'" title="'+x.d+': '+money(x.rev)+'">'+
-             '<i style="height:'+(x.rev<=0?2:h)+'%"></i>'+
-             (lab?'<b>'+lab+'</b>':'')+'</div>';
-  }).join('');
-  return '<div class="sparkwrap"><div class="pl-h">Revenue by day'+
-         (best>=0?' &middot; best was day '+days[best].d+' at '+money(max):'')+
-         '</div><div class="spark">'+bars+'</div></div>';
-}
-
-function card(k,v,note,cl){
-  return '<div class="pcard"><div class="k">'+esc(k)+'</div>'+
-    '<div class="v '+(cl||'')+'">'+esc(v)+'</div><div class="n">'+esc(note)+'</div></div>';
-}
-function empty(msg){
-  return '<div style="display:flex;align-items:center;justify-content:center;height:100%;'+
-         'color:var(--dim);font-size:19px">'+esc(msg)+'</div>';
+  el.className='on';
 }
 
 /* =====================================================================
    SAMPLE - only ever behind ?demo=1, never a fallback for a live board
    ===================================================================== */
 var SAMPLE={ ok:true, sample:true,
-  meta:{month:'September 2026', windowLabel:'MTD 1-15', day:15, days:30, generatedAt:Date.now()},
-  totals:{revenue:10211000, units:110, target:52675000},
-  cities:[{name:'Bangalore',revenue:5305000,units:41,target:15800000,agents:20},
-          {name:'Hyderabad',revenue:3280000,units:46,target:19600000,agents:42},
-          {name:'Bhubaneswar',revenue:1625000,units:23,target:17200000,agents:28}],
-  managers:[{name:'Deepika M',city:'Bangalore',team:'International',revenue:3505000,units:14,target:8250000,agents:7},
-            {name:'Saeed',city:'Hyderabad',team:'International',revenue:2395000,units:18,target:14000000,agents:12},
-            {name:'Shahrukh',city:'Bangalore',team:'India',revenue:1107000,units:9,target:3400000,agents:6},
-            {name:'Vaibhav Tiwari',city:'Bhubaneswar',team:'India/Intl',revenue:992000,units:12,target:11300000,agents:15},
-            {name:'Spurthi',city:'Hyderabad',team:'India',revenue:885000,units:15,target:5625000,agents:13},
-            {name:'Ranjeet',city:'Bangalore',team:'India',revenue:692000,units:8,target:4200000,agents:7},
-            {name:'Abhishek Anand',city:'Bhubaneswar',team:'India',revenue:633000,units:11,target:5900000,agents:13}],
-  agents:[{name:'Kshitij',manager:'Deepika M',city:'Bangalore',team:'International',revenue:2003000,units:12,target:900000},
-          {name:'Dhanush Kirthi',manager:'Deepika M',city:'Bangalore',team:'International',revenue:760000,units:2,target:900000},
-          {name:'Sarthak Thakur',manager:'Deepika M',city:'Bangalore',team:'International',revenue:487000,units:6,target:900000},
-          {name:'Gowtham C',manager:'Saeed',city:'Hyderabad',team:'International',revenue:477000,units:4,target:800000},
-          {name:'Arun Kumar Madhavuni',manager:'Saeed',city:'Hyderabad',team:'International',revenue:430000,units:3,target:800000},
-          {name:'Alisha Khan',manager:'Saeed',city:'Hyderabad',team:'International',revenue:356000,units:5,target:800000},
-          {name:'Shahrukh',manager:'Shahrukh',city:'Bangalore',team:'India',revenue:537000,units:3,target:600000},
-          {name:'Swarnim Shahi',manager:'Shahrukh',city:'Bangalore',team:'India',revenue:242000,units:2,target:600000},
-          {name:'Anmol bharadwaj',manager:'Ranjeet',city:'Bangalore',team:'India',revenue:120000,units:1,target:600000},
-          {name:'Subhrajit Mohapatra',manager:'Vaibhav Tiwari',city:'Bhubaneswar',team:'India',revenue:346000,units:1,target:700000},
-          {name:'Satyam Aditya Samant',manager:'Abhishek Anand',city:'Bhubaneswar',team:'India',revenue:47025,units:1,target:700000}],
-  recent:[{name:'Kshitij',amt:150000,city:'Bangalore',team:'International',manager:'Deepika M',at:Date.now()-900000},
-          {name:'Alisha Khan',amt:94999,city:'Hyderabad',team:'International',manager:'Saeed',at:Date.now()-3600000},
-          {name:'Shahrukh',amt:85000,city:'Bangalore',team:'India',manager:'Shahrukh',at:Date.now()-7200000},
-          {name:'Sarthak Thakur',amt:73500,city:'Bangalore',team:'International',manager:'Deepika M',at:Date.now()-10800000}],
+  meta:{month:'October 2026', windowLabel:'MTD 1-6', day:6, days:31,
+        generatedAt:Date.now(), latestPayment:'2026-10-05', today:'2026-10-06'},
+  totals:{revenue:1350000, units:21, target:43800000},
+  cities:[{name:'Bangalore',revenue:580000,units:8,target:12500000,agents:18},
+          {name:'Bhubaneswar',revenue:401000,units:7,target:10300000,agents:23},
+          {name:'Hyderabad',revenue:369000,units:6,target:21000000,agents:45}],
+  managers:[{name:'Deepika M',city:'Bangalore',team:'International',revenue:325000,units:4,target:5000000,agents:7},
+            {name:'Spurthi',city:'Hyderabad',team:'India',revenue:280000,units:5,target:5000000,agents:13},
+            {name:'Vaibhav Tiwari',city:'Bhubaneswar',team:'India/Intl',revenue:265000,units:4,target:5000000,agents:15},
+            {name:'Prashanth',city:'Hyderabad',team:'India',revenue:190000,units:3,target:5000000,agents:11},
+            {name:'Ranjeet',city:'Bangalore',team:'India',revenue:80000,units:2,target:2800000,agents:5},
+            {name:'Abhishek Anand',city:'Bhubaneswar',team:'India',revenue:19000,units:1,target:3000000,agents:9},
+            {name:'Saeed',city:'Hyderabad',team:'International',revenue:18905,units:1,target:6000000,agents:15},
+            {name:'Saboo',city:'Hyderabad',team:'International',revenue:0,units:0,target:4000000,agents:9}],
+  agents:[{name:'G Nithesh',manager:'Spurthi',city:'Hyderabad',team:'India',revenue:90000,units:1,target:400000},
+          {name:'Harsh Singh Ramgadiya',manager:'Prashanth',city:'Hyderabad',team:'India',revenue:85500,units:1,target:400000},
+          {name:'Priyanshu Ojha',manager:'Spurthi',city:'Hyderabad',team:'India',revenue:104000,units:1,target:500000},
+          {name:'J Joel',manager:'Spurthi',city:'Hyderabad',team:'India',revenue:66500,units:1,target:500000},
+          {name:'Surya Jugal',manager:'Prashanth',city:'Hyderabad',team:'India',revenue:1999,units:1,target:400000},
+          {name:'Tarlana Geetha',manager:'Spurthi',city:'Hyderabad',team:'India',revenue:1999,units:1,target:400000},
+          {name:'Akshay D',manager:'Spurthi',city:'Hyderabad',team:'India',revenue:0,units:0,target:400000},
+          {name:'Kshitij',manager:'Deepika M',city:'Bangalore',team:'International',revenue:200000,units:2,target:900000},
+          {name:'Dhanush Kirthi',manager:'Deepika M',city:'Bangalore',team:'International',revenue:76000,units:1,target:900000},
+          {name:'Sarthak Thakur',manager:'Deepika M',city:'Bangalore',team:'International',revenue:49000,units:1,target:900000},
+          {name:'Anmol bharadwaj',manager:'Ranjeet',city:'Bangalore',team:'India',revenue:80000,units:2,target:600000},
+          {name:'Subhrajit Mohapatra',manager:'Vaibhav Tiwari',city:'Bhubaneswar',team:'India',revenue:265000,units:4,target:700000},
+          {name:'Satyam Aditya Samant',manager:'Abhishek Anand',city:'Bhubaneswar',team:'India',revenue:19000,units:1,target:700000}],
+  recent:[{name:'G Nithesh',amt:90000,city:'Hyderabad',team:'India',manager:'Spurthi',at:Date.now()-900000},
+          {name:'Kshitij',amt:150000,city:'Bangalore',team:'International',manager:'Deepika M',at:Date.now()-3600000},
+          {name:'Subhrajit Mohapatra',amt:85000,city:'Bhubaneswar',team:'India',manager:'Vaibhav Tiwari',at:Date.now()-7200000}],
+  byDay:[{d:1,rev:120000,units:2},{d:2,rev:310000,units:5},{d:3,rev:95000,units:2},
+         {d:4,rev:420000,units:6},{d:5,rev:280000,units:4},{d:6,rev:125000,units:2}],
   contest:{active:false} };
 
 /* =====================================================================
@@ -1114,6 +1242,7 @@ fit();
 if(CONFIG.DEMO){ applyData(SAMPLE); }
 else { loadData(); setInterval(loadData, Math.max(10,CONFIG.REFRESH_SECONDS)*1000); }
 setInterval(paintLive, 1000);
+window.addEventListener('resize', sizeTicker);
 
 /* A browser left running for months accumulates cruft. One reload at 4am,
    when nobody is looking, clears it. */
@@ -1122,3 +1251,4 @@ setInterval(function(){
   if(d.getHours()===4 && d.getMinutes()===0) location.reload();
 }, 60000);
 </script>
+</html>

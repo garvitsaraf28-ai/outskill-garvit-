@@ -346,7 +346,24 @@ function wr_build_(monthKey) {
     var r = roster.byAgent[k];
     agents[k] = {
       name: r.name, manager: r.manager, city: r.city, team: r.team,
-      target: r.target, revenue: 0, units: 0,
+      /* AIGF UPGRADE / CATALYST COUNTS AS REVENUE.
+
+         CBC's headline has always included it and this board did not, so
+         the two disagreed by exactly that amount - 1,61,500 in October,
+         all of it on one agent - and the difference looked like a bug for
+         a day. It is a sale the agent made; it earns money and it is in
+         their target. Confirmed as revenue on 6 Oct 2026.
+
+         Seeded here rather than added to the headline, so it flows up
+         through agent, manager, city and team the same way a payment
+         does. Adding it only at the top would leave the parts not summing
+         to the whole, which is the failure this whole exercise was about.
+
+         It is NOT a unit - a unit is a sale closed, and this is an
+         existing learner moving up - so units are untouched. It has no
+         payment date either, so it cannot appear in the day chart, which
+         is why that chart now says it counts dated payments only. */
+      target: r.target, revenue: r.upgrade, units: 0,
       mm: r.mm, upgrade: r.upgrade, counted: (r.mm > 0) ? 1 : 0
     };
   }

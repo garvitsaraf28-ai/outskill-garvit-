@@ -634,7 +634,12 @@ body{
         <div class="bd" id="paceBd"></div>
       </div>
       <div class="panel" id="pDay">
-        <div class="hd"><h3>Revenue by day</h3><div class="sub" id="daySub"></div></div>
+        <!-- "Payments by day", not "Revenue by day". AIGF Upgrade /
+             Catalyst now counts in every revenue figure on this screen
+             but it carries no payment date, so it cannot appear here.
+             Calling this chart Revenue would make it quietly fail to add
+             up to the headline above it. -->
+        <div class="hd"><h3>Payments by day</h3><div class="sub" id="daySub"></div></div>
         <div class="bd" id="dayBd"></div>
       </div>
     </div>

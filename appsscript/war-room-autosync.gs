@@ -1,161 +1,187 @@
 /**
- * AUTO-SYNC - the actual fix.
+ * AUTO-SYNC, with a guard against rebuilding from a broken import.
  *
- * WHAT WENT WRONG, IN ONE PARAGRAPH
+ * WHAT WENT WRONG ON 7 OCT
  *
- *   Nothing was broken in the board, the Management Report, the roster or
- *   the feed. Payments land in the tracker all day - six landed while we
- *   were looking at it - and mdl_Payments only changes when updateAndCheck
- *   runs. Between runs every screen is short, and not one of them says so.
- *   That is how 9.90 L belonging to five agents was missing all morning
- *   while the board reported "no sale recorded today yet".
+ *   A rebuild ran while the CBC roster IMPORTRANGE was returning nothing.
+ *   updateAndCheck said so in its own log - "CBC read ZERO for every
+ *   agent. The roster import did not land this run" - and rebuilt the
+ *   pages anyway. Every figure in this project counts roster agents and
+ *   nobody else, so an empty roster means almost no revenue: the board
+ *   and the Management Report both fell to 1.6 L from 25.03 L.
  *
- *   So the repair is not in any screen. It is to rebuild the model when
- *   the import has moved, and to say loudly when that has not happened.
+ *   The data was never lost. mdl_Payments was untouched. The pages were
+ *   simply built against a roster that was briefly empty.
  *
- * THE FOUR FUNCTIONS
+ *   The first version of this file called updateAndCheck whenever the
+ *   import had more rows than the model, with no opinion about whether
+ *   the roster was sane. Left alone it would have done this again every
+ *   thirty minutes. That is worse than the problem it was written for,
+ *   and it is my fault.
  *
- *   warRoomSyncStatus()   READ ONLY. How far behind is the model right now.
- *   warRoomSyncNow()      Rebuilds, but ONLY if the import has moved ahead.
- *   warRoomInstallSync()  Runs warRoomSyncNow every 30 minutes from now on.
- *   warRoomRemoveSync()   Takes that trigger away again.
+ * THE GUARD
  *
- *   Start with warRoomSyncStatus. It writes nothing and tells you whether
- *   anything needs doing.
+ *   The last healthy roster size is remembered. A rebuild is refused if
+ *   this month's roster has collapsed to under 70% of it - an import
+ *   that half-landed is far more likely than thirty people leaving
+ *   overnight - and the refusal is logged loudly rather than passed over.
  *
- * SAFETY
+ *   Payments are guarded the same way: the model is never rebuilt from an
+ *   import holding fewer rows than the model already has.
  *
- *   Reads this workbook only - never CBC, never the Payment Tracker.
- *   warRoomSyncNow calls the project's own updateAndCheck, the same one
- *   that has been run by hand all along, and only when the import is
- *   genuinely ahead. Nothing here writes a cell itself.
+ * THE FUNCTIONS
+ *
+ *   warRoomSyncStatus   READ ONLY. Roster health and how far behind the
+ *                       model is. Start here.
+ *   warRoomSyncNow      Rebuild, but only if the import moved AND the
+ *                       roster is sane.
+ *   warRoomInstallSync  Run warRoomSyncNow every 30 minutes.
+ *   warRoomRemoveSync   Stop it.
+ *   warRoomForceSync    Rebuild even if the guard says no. For when the
+ *                       roster really has shrunk and you mean it.
  */
 
-/** How often the model gets checked against the import, in minutes. */
 var WRA_EVERY_MINUTES = 30;
-
-/** The trigger's handler name. One per project - a second would double-run. */
 var WRA_HANDLER = 'warRoomSyncNow';
+
+/** Refuse a rebuild below this share of the last healthy roster. */
+var WRA_MIN_ROSTER_FRACTION = 0.70;
+
+/** Where the last healthy roster size is remembered. */
+var WRA_PROP = 'WRA_GOOD_ROSTER';
 
 
 /* ==================================================================
-   1.  IS THE MODEL BEHIND?  - read only
+   1.  STATUS - read only
    ================================================================== */
 
 function warRoomSyncStatus() {
-  var s = wra_compare_();
-  Logger.log('=== IS THE MODEL BEHIND THE IMPORT? ===   ' +
+  var s = wra_look_();
+  Logger.log('=== SYNC STATUS ===   ' +
              Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm'));
   Logger.log('  Read only. Nothing was written.');
   Logger.log('');
 
   if (s.error) { Logger.log('  *** ' + s.error); return false; }
 
-  Logger.log('  import ' + wr_pad_(s.srcName, 16) + wr_pad_(s.srcRows + ' rows this month', 26) +
-             'newest ' + (s.srcNewest || '-'));
-  Logger.log('  model  ' + wr_pad_(s.mdlName, 16) + wr_pad_(s.mdlRows + ' rows this month', 26) +
-             'newest ' + (s.mdlNewest || '-'));
-  Logger.log('');
-
-  if (!s.behind) {
-    Logger.log('  UP TO DATE. The model has every row the import has for this month.');
-    Logger.log('  If a screen still looks wrong it is not the data - rebuild the');
-    Logger.log('  Management Report, and run warRoomRefreshNow() for the TV, which');
-    Logger.log('  caches its answer for several minutes.');
+  Logger.log('  ROSTER');
+  Logger.log('    agents this month  : ' + s.roster);
+  Logger.log('    last healthy size  : ' + (s.good || '(not recorded yet)'));
+  if (s.rosterBroken) {
+    Logger.log('    *** THE ROSTER HAS COLLAPSED. Almost certainly the CBC');
+    Logger.log('        IMPORTRANGE half-landed. DO NOT REBUILD until it');
+    Logger.log('        recovers - every page would fall to near zero.');
+    Logger.log('        Wait a few minutes and run this again.');
   } else {
-    Logger.log('  *** BEHIND BY ' + s.behind + ' ROW(S).');
-    Logger.log('      That money is in the tracker and on no screen. Every page in');
-    Logger.log('      this workbook is short by it, and so is the leaderboard.');
-    Logger.log('      Run warRoomSyncNow() to fix it now, and warRoomInstallSync()');
-    Logger.log('      so it stops happening.');
+    Logger.log('    healthy            OK');
   }
   Logger.log('');
-  return !s.behind;
+
+  Logger.log('  PAYMENTS');
+  Logger.log('    import this month  : ' + s.srcRows + ' rows');
+  Logger.log('    model this month   : ' + s.mdlRows + ' rows');
+  if (s.behind) {
+    Logger.log('    *** BEHIND BY ' + s.behind + ' ROW(S) - run warRoomSyncNow');
+  } else {
+    Logger.log('    up to date         OK');
+  }
+  Logger.log('');
+
+  if (!s.rosterBroken && !s.behind) {
+    Logger.log('  Everything is current. If a screen still looks wrong it is not');
+    Logger.log('  the data - rebuild the Management Report and run');
+    Logger.log('  warRoomRefreshNow for the TV.');
+  }
+  return !s.behind && !s.rosterBroken;
 }
 
 
 /* ==================================================================
-   2.  REBUILD, BUT ONLY IF IT IS NEEDED
+   2.  REBUILD, GUARDED
    ================================================================== */
 
-function warRoomSyncNow() {
-  var s = wra_compare_();
+function warRoomSyncNow() { wra_run_(false); }
+
+/** Rebuild even if the roster looks collapsed. Only when you mean it. */
+function warRoomForceSync() { wra_run_(true); }
+
+
+function wra_run_(force) {
+  var s = wra_look_();
   if (s.error) { Logger.log('AUTO-SYNC: ' + s.error); return; }
 
-  if (!s.behind) {
-    Logger.log('AUTO-SYNC: model is current (' + s.mdlRows + ' rows this month). ' +
-               'Nothing to do.');
+  /* THE GUARD. A roster that has lost a third of its people since the
+     last healthy run is an import that half-landed, not thirty
+     resignations. Rebuilding from it empties every page. */
+  if (s.rosterBroken && !force) {
+    Logger.log('AUTO-SYNC: *** REFUSING TO REBUILD.');
+    Logger.log('  roster is ' + s.roster + ' agents, was ' + s.good +
+               ' when last healthy.');
+    Logger.log('  That is an IMPORTRANGE that has not landed, not people leaving.');
+    Logger.log('  Rebuilding now would take every page to near zero, so nothing');
+    Logger.log('  was touched. It usually recovers within a few minutes.');
+    Logger.log('  If the roster really has shrunk, run warRoomForceSync.');
     return;
   }
 
-  Logger.log('AUTO-SYNC: behind by ' + s.behind + ' row(s) - rebuilding.');
+  if (!s.behind && !force) {
+    Logger.log('AUTO-SYNC: model is current (' + s.mdlRows + ' rows this month).');
+    return;
+  }
 
-  /* The project's own command, the same one run by hand all along. If it
-     is ever renamed this says so rather than failing silently, which is
-     the exact failure mode being fixed here. */
+  /* And never rebuild from an import that holds LESS than the model. */
+  if (s.srcRows < s.mdlRows && !force) {
+    Logger.log('AUTO-SYNC: *** REFUSING - the import holds fewer rows (' + s.srcRows +
+               ') than the model (' + s.mdlRows + '). That is the import,');
+    Logger.log('  not a real drop. Nothing was touched.');
+    return;
+  }
+
+  Logger.log('AUTO-SYNC: rebuilding (' + s.behind + ' row(s) behind, roster ' +
+             s.roster + ').');
   if (typeof updateAndCheck !== 'function') {
-    Logger.log('AUTO-SYNC: *** updateAndCheck not found in this project. Nothing ran.');
+    Logger.log('AUTO-SYNC: *** no updateAndCheck in this project. Nothing ran.');
     return;
   }
   updateAndCheck();
 
-  /* The feed holds its answer for several minutes, so a rebuilt model
-     still reaches the TV late unless the cache is dropped too. */
   if (typeof warRoomRefreshNow === 'function') {
     try { warRoomRefreshNow(); } catch (e) {
-      Logger.log('AUTO-SYNC: rebuilt, but could not clear the feed cache: ' + e.message);
+      Logger.log('AUTO-SYNC: rebuilt, but the cache would not clear: ' + e.message);
     }
   }
 
-  var after = wra_compare_();
-  if (after.error) { Logger.log('AUTO-SYNC: rebuilt. ' + after.error); return; }
-  if (after.behind) {
-    Logger.log('AUTO-SYNC: *** STILL BEHIND BY ' + after.behind + ' AFTER REBUILDING.');
-    Logger.log('           updateAndCheck is not picking these rows up. Run');
-    Logger.log('           warRoomLostRows() to see which ones.');
-  } else {
-    Logger.log('AUTO-SYNC: done. Model now holds all ' + after.srcRows +
-               ' of this month\'s rows.');
-  }
+  /* Remember this roster only if it stayed healthy through the run. */
+  var after = wra_look_();
+  if (!after.error && !after.rosterBroken) wra_remember_(after.roster);
+  Logger.log('AUTO-SYNC: done. roster ' + after.roster + ', ' +
+             after.srcRows + ' rows this month in the import, ' +
+             after.mdlRows + ' in the model.');
 }
 
 
 /* ==================================================================
-   3.  MAKE IT HAPPEN ON ITS OWN
+   3.  THE TRIGGER
    ================================================================== */
 
 function warRoomInstallSync() {
-  var all = ScriptApp.getProjectTriggers();
-
-  var already = 0;
+  var all = ScriptApp.getProjectTriggers(), already = 0;
   for (var i = 0; i < all.length; i++) {
     if (all[i].getHandlerFunction() === WRA_HANDLER) already++;
   }
   if (already) {
-    Logger.log('Already installed (' + already + ' trigger). Nothing added.');
-    Logger.log('Use warRoomRemoveSync() first if you want to change the interval.');
+    Logger.log('Already installed. Use warRoomRemoveSync first to change it.');
     return;
   }
-
-  /* A project is capped at 20 triggers and this one has a lot already.
-     Hitting the cap throws halfway through, so check before adding. */
   if (all.length >= 19) {
-    Logger.log('*** ' + all.length + ' triggers already exist and the limit is 20.');
-    Logger.log('    Not adding one. Remove something first - Triggers in the left');
-    Logger.log('    sidebar (the clock icon) lists them.');
+    Logger.log('*** ' + all.length + ' triggers already, limit is 20. Not adding one.');
     return;
   }
-
   ScriptApp.newTrigger(WRA_HANDLER).timeBased()
     .everyMinutes(WRA_EVERY_MINUTES).create();
-
-  Logger.log('Installed. ' + WRA_HANDLER + ' now runs every ' + WRA_EVERY_MINUTES +
-             ' minutes.');
-  Logger.log('It rebuilds ONLY when the import has moved ahead, so a quiet hour');
-  Logger.log('costs nothing. Triggers were ' + all.length + ', now ' + (all.length + 1) +
-             ' of 20.');
+  Logger.log('Installed. ' + WRA_HANDLER + ' runs every ' + WRA_EVERY_MINUTES +
+             ' minutes, and refuses to rebuild from a collapsed roster.');
 }
-
 
 function warRoomRemoveSync() {
   var all = ScriptApp.getProjectTriggers(), gone = 0;
@@ -164,67 +190,87 @@ function warRoomRemoveSync() {
       ScriptApp.deleteTrigger(all[i]); gone++;
     }
   }
-  Logger.log(gone ? ('Removed ' + gone + ' auto-sync trigger(s). The model will now')
+  Logger.log(gone ? ('Removed ' + gone + ' auto-sync trigger(s). The model now only')
                   : 'There was no auto-sync trigger to remove.');
-  if (gone) Logger.log('only update when updateAndCheck is run by hand.');
+  if (gone) Logger.log('updates when updateAndCheck is run by hand.');
 }
 
 
 /* ==================================================================
-   4.  THE COMPARISON ITSELF
+   4.  LOOKING
    ================================================================== */
 
-/**
- * Count this month's rows in the import and in the model.
- *
- * Reads the DATE COLUMN ALONE from each - one narrow read rather than
- * 15,000 rows of everything, so this is cheap enough to run every half
- * hour without the trigger becoming the slow thing in the project.
- */
-function wra_compare_() {
+function wra_look_() {
   var ss = SpreadsheetApp.getActive();
   var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
 
   var src = wra_find_(ss, true), mdl = wra_find_(ss, false);
-  if (!src) return { error: 'No raw payments import tab found (expected src_Payments).' };
-  if (!mdl) return { error: 'No model tab found (expected mdl_Payments).' };
+  if (!src) return { error: 'no raw payments import tab found' };
+  if (!mdl) return { error: 'no model tab found' };
 
   var a = wra_count_(src, monthKey), b = wra_count_(mdl, monthKey);
+  var roster = wra_roster_(ss, monthKey);
+  var good = wra_good_();
+
   return {
-    srcName: src.name, mdlName: mdl.name,
-    srcRows: a.rows, mdlRows: b.rows,
-    srcNewest: a.newest, mdlNewest: b.newest,
-    behind: Math.max(0, a.rows - b.rows)
+    srcRows: a, mdlRows: b, behind: Math.max(0, a - b),
+    roster: roster, good: good,
+    rosterBroken: (good > 0 && roster < good * WRA_MIN_ROSTER_FRACTION)
   };
 }
 
+/** How many agents mdl_Roster holds for this month. */
+function wra_roster_(ss, monthKey) {
+  var sh = ss.getSheetByName(WR_ROSTER_TAB);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  var grid = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  var H = wr_headers_(grid[0]);
+  var cAgent = wr_col_(H, ['agent', 'agent name', 'name']);
+  var cMonth = wr_monthCol_(grid);
+  if (cAgent < 0) return 0;
+  var seen = {}, n = 0;
+  for (var r = 1; r < grid.length; r++) {
+    var nm = wr_str_(grid[r][cAgent]);
+    if (!nm) continue;
+    if (cMonth >= 0 && wr_monthKey_(grid[r][cMonth]) !== monthKey) continue;
+    var k = wr_key_(nm);
+    if (seen[k]) continue;
+    seen[k] = 1; n++;
+  }
+  return n;
+}
+
+function wra_good_() {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty(WRA_PROP);
+    return v ? Number(v) : 0;
+  } catch (e) { return 0; }
+}
+
+function wra_remember_(n) {
+  if (!(n > 0)) return;
+  try {
+    var was = wra_good_();
+    if (n >= was) PropertiesService.getScriptProperties().setProperty(WRA_PROP, String(n));
+  } catch (e) {}
+}
 
 function wra_count_(t, monthKey) {
   var vals = t.sheet.getRange(t.headerRow + 2, t.dateCol + 1, t.n, 1).getValues();
-  var rows = 0, newest = null;
+  var rows = 0;
   for (var i = 0; i < vals.length; i++) {
     var d = vals[i][0];
     if (!(d instanceof Date) || isNaN(d.getTime())) continue;
-    if (!newest || d.getTime() > newest.getTime()) newest = d;
     if (wr_monthKey_(d) === monthKey) rows++;
   }
-  return { rows: rows, newest: newest ? Utilities.formatDate(newest, WR_TZ, 'dd MMM') : '' };
+  return rows;
 }
 
-
-/**
- * Find the import tab or the model tab by their columns, not their names.
- * The import carries a customer and the model does not - the one
- * structural difference that survives a rename - and the import's header
- * sits below a preamble rather than on row 1.
- */
 function wra_find_(ss, wantCustomer) {
   var tabs = ss.getSheets(), best = null;
-
   for (var t = 0; t < tabs.length; t++) {
     var sh = tabs[t], lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-    if (lastRow < 3 || lastCol < 3) continue;
-
+    if (lastRow < 2 || lastCol < 3) continue;
     var look = sh.getRange(1, 1, Math.min(25, lastRow), lastCol).getValues();
     for (var hr = 0; hr < look.length; hr++) {
       var H = wr_headers_(look[hr]);
@@ -232,19 +278,14 @@ function wra_find_(ss, wantCustomer) {
       var cAgent = wr_col_(H, ['lead owner', 'agent', 'owner']);
       var cAmt   = wr_col_(H, ['amount paid', 'amount', 'amount inr']);
       if (cDate < 0 || cAgent < 0 || cAmt < 0) continue;
-
-      /* Exact only - wr_col_ falls back to substrings and 'name' is a
-         substring of Agent Name, Batch Name, First Name. */
       var hasCust = (H['payment email id'] !== undefined) ||
                     (H['payment email'] !== undefined) ||
                     (H['name'] !== undefined);
       if (hasCust !== !!wantCustomer) continue;
-
       var n = lastRow - (hr + 1);
       if (n < 1) continue;
       if (best && best.n >= n) continue;
-
-      best = { name: sh.getName(), sheet: sh, headerRow: hr, dateCol: cDate, n: n };
+      best = { sheet: sh, headerRow: hr, dateCol: cDate, n: n };
       break;
     }
   }

@@ -9,17 +9,23 @@
  *   2. The Management Report sits centred, every block carries an outer
  *      border, and the four lines at the top are bold.
  *
- * WHY THE SCHEDULE IS SIX SEPARATE TRIGGERS
+ * WHY IT IS ONE TRIGGER AND NOT SIX
  *
  *   Apps Script only offers everyHours with a whole number, so two and a
- *   half hours cannot be expressed as an interval at all. Six triggers at
- *   fixed times give exactly the asked-for cadence and, unlike an
- *   interval, they do not drift every time the project is redeployed.
+ *   half hours cannot be expressed as an interval, and the obvious answer
+ *   is six triggers at fixed times. This project cannot afford six: it
+ *   already holds 21 against a ceiling of 20.
+ *
+ *   So one trigger wakes every half hour and the FUNCTION decides whether
+ *   this is a slot. One trigger, the same six times, and 20 lines of
+ *   arithmetic instead of five more of a scarce resource.
  *
  *     10:30   13:00   15:30   18:00   20:30   23:00
  *
- *   Google fires a time trigger within about fifteen minutes of the hour
- *   asked for, so treat these as "around then" rather than to the minute.
+ *   Google fires a time trigger within about fifteen minutes of the time
+ *   asked for, so a slot is counted as open for 25 minutes after it and
+ *   the date-and-slot of the last run is remembered. A late wake still
+ *   runs its slot; a slot never runs twice.
  *
  * WHAT A RUN DOES
  *
@@ -32,6 +38,13 @@
 
 var SF_TIMES = [[10, 30], [13, 0], [15, 30], [18, 0], [20, 30], [23, 0]];
 var SF_HANDLER = 'scheduledRefresh';
+
+/** How long after a slot it may still run, in minutes. Google's firing
+    window is about fifteen; 25 leaves room without reaching the next. */
+var SF_GRACE = 25;
+
+/** Where the last slot actually run is remembered. */
+var SF_PROP = 'SF_LAST_SLOT';
 
 
 /* ==================================================================
@@ -46,36 +59,33 @@ function installSchedule() {
     if (all[i].getHandlerFunction() === SF_HANDLER) mine++;
   }
   if (mine) {
-    Logger.log('Already installed - ' + mine + ' trigger(s) for ' + SF_HANDLER + '.');
-    Logger.log('Run removeSchedule() first if you want to change the times.');
+    Logger.log('Already installed. Run removeSchedule() first to change it.');
     return;
   }
 
-  /* A project is capped at 20 triggers. Hitting the cap throws part way
-     through, which would leave half a schedule installed and no sign of
-     it, so check before adding any. */
-  var room = 20 - all.length;
-  if (room < SF_TIMES.length) {
-    Logger.log('*** ' + all.length + ' triggers already exist and the limit is 20.');
-    Logger.log('    This needs ' + SF_TIMES.length + ' and there is room for ' + room + '.');
-    Logger.log('    Nothing was added. Clear some out first - the clock icon in');
-    Logger.log('    the left sidebar lists them.');
+  if (all.length >= 20) {
+    Logger.log('*** ' + all.length + ' triggers already exist and the ceiling is 20.');
+    Logger.log('    This needs ONE and there is no room for it.');
+    Logger.log('');
+    Logger.log('    retireOldSchedule() frees six by removing the old');
+    Logger.log('    warRoomScheduledUpdate slots, which this replaces - it rebuilds');
+    Logger.log('    the same model at 10:00, 13:30, 17:00, 20:30, 00:00 and 03:30,');
+    Logger.log('    and running both would only mean rebuilding twice.');
+    Logger.log('');
+    Logger.log('    showSchedule() lists everything that is installed.');
     return;
   }
 
-  for (var t = 0; t < SF_TIMES.length; t++) {
-    ScriptApp.newTrigger(SF_HANDLER).timeBased()
-      .atHour(SF_TIMES[t][0]).nearMinute(SF_TIMES[t][1]).everyDays(1).create();
-  }
+  ScriptApp.newTrigger(SF_HANDLER).timeBased().everyMinutes(30).create();
 
-  Logger.log('Installed ' + SF_TIMES.length + ' daily triggers for ' + SF_HANDLER + ':');
+  Logger.log('Installed. One trigger wakes every 30 minutes; the function runs');
+  Logger.log('only on these slots:');
   Logger.log('  ' + SF_TIMES.map(function (x) {
     return sf_pad2_(x[0]) + ':' + sf_pad2_(x[1]);
   }).join('   '));
   Logger.log('');
-  Logger.log('Google fires these within about fifteen minutes of the time asked');
-  Logger.log('for, so treat them as "around then".');
-  Logger.log('Triggers were ' + all.length + ', now ' + (all.length + SF_TIMES.length) + ' of 20.');
+  Logger.log('A wake that is not a slot costs one property read and stops.');
+  Logger.log('Triggers were ' + all.length + ', now ' + (all.length + 1) + ' of 20.');
 }
 
 
@@ -112,8 +122,16 @@ function showSchedule() {
 
 function scheduledRefresh() {
   var t0 = new Date();
+
+  /* Most wakes are not a slot. Decide first and cheaply, so twenty-four
+     hours of half-hourly wakes cost almost nothing. */
+  var slot = sf_dueSlot_(t0);
+  if (!slot) return;
+
   Logger.log('=== SCHEDULED REFRESH ===   ' +
-             Utilities.formatDate(t0, WR_TZ, 'dd MMM HH:mm'));
+             Utilities.formatDate(t0, WR_TZ, 'dd MMM HH:mm') +
+             '   (slot ' + slot.label + ')');
+  sf_markRun_(slot.key);
 
   /* THE GUARD. On 7 Oct a rebuild ran while the CBC roster import was
      returning nothing, and every page fell to 1.6 L from 25 L. A timer
@@ -284,6 +302,91 @@ function sf_headRows_(vals) {
 
 
 function sf_pad2_(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+
+
+/**
+ * Which slot, if any, this wake belongs to.
+ *
+ * A slot is open from its own time until SF_GRACE minutes after it, so a
+ * trigger Google fires late still does its job. The date and the slot of
+ * the last run are stored together, so a slot cannot run twice and
+ * yesterday's record cannot suppress today's.
+ */
+function sf_dueSlot_(now) {
+  var day  = Utilities.formatDate(now, WR_TZ, 'yyyy-MM-dd');
+  var mins = Number(Utilities.formatDate(now, WR_TZ, 'H')) * 60 +
+             Number(Utilities.formatDate(now, WR_TZ, 'm'));
+
+  var best = null;
+  for (var i = 0; i < SF_TIMES.length; i++) {
+    var at = SF_TIMES[i][0] * 60 + SF_TIMES[i][1];
+    var since = mins - at;
+    if (since < 0 || since > SF_GRACE) continue;
+    /* If two somehow overlap, the later one wins - it is the more
+       current of the two. */
+    if (!best || at > best.at) {
+      best = { at: at, label: sf_pad2_(SF_TIMES[i][0]) + ':' + sf_pad2_(SF_TIMES[i][1]) };
+    }
+  }
+  if (!best) return null;
+
+  best.key = day + ' ' + best.label;
+  if (sf_lastRun_() === best.key) return null;      // this slot already ran
+  return best;
+}
+
+function sf_lastRun_() {
+  try { return PropertiesService.getScriptProperties().getProperty(SF_PROP) || ''; }
+  catch (e) { return ''; }
+}
+
+function sf_markRun_(key) {
+  try { PropertiesService.getScriptProperties().setProperty(SF_PROP, key); }
+  catch (e) {}
+}
+
+
+/**
+ * Free six trigger slots by retiring the old schedule this replaces.
+ *
+ * warRoomScheduledUpdate rebuilds the same model at 10:00, 13:30, 17:00,
+ * 20:30, 00:00 and 03:30. Running both would rebuild twice for no gain,
+ * and this project is at 21 triggers against a ceiling of 20.
+ *
+ * Reversible: warRoomAddUpdateTriggers() puts them back.
+ */
+function retireOldSchedule() {
+  var all = ScriptApp.getProjectTriggers();
+  Logger.log('=== RETIRE THE OLD SCHEDULE ===   ' + all.length + ' trigger(s) now');
+  Logger.log('');
+
+  var gone = 0, kept = {};
+  for (var i = 0; i < all.length; i++) {
+    var h = all[i].getHandlerFunction();
+    if (h === 'warRoomScheduledUpdate') {
+      ScriptApp.deleteTrigger(all[i]); gone++;
+    } else {
+      kept[h] = (kept[h] || 0) + 1;
+    }
+  }
+
+  if (!gone) {
+    Logger.log('  No warRoomScheduledUpdate triggers found - nothing removed.');
+  } else {
+    Logger.log('  Removed ' + gone + ' warRoomScheduledUpdate trigger(s).');
+    Logger.log('  warRoomAddUpdateTriggers() puts them back if ever needed.');
+  }
+  Logger.log('');
+  Logger.log('  STILL INSTALLED');
+  var k, names = [];
+  for (k in kept) names.push(k);
+  names.sort();
+  for (var j = 0; j < names.length; j++) {
+    Logger.log('    ' + sf_pad2_(kept[names[j]]) + ' x  ' + names[j]);
+  }
+  Logger.log('');
+  Logger.log('  ' + (all.length - gone) + ' of 20 used. Now run installSchedule().');
+}
 
 
 /* ==================================================================

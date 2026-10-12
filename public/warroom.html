@@ -339,56 +339,183 @@ body{
 #hot .mt{font-size:17px; color:var(--dim); font-weight:600}
 @keyframes hotIn{from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none}}
 
-/* --------------------- NEW ON THE FLOOR -----------------------------
-   Five faces at a time rather than one. Fifteen cards at nine seconds
-   each was nearly two minutes of wall per round; three screens of five
-   says the same thing in thirty seconds, and you can see a whole intake
-   together rather than a slideshow of strangers.
-   ------------------------------------------------------------------ */
-#joinCard{
-  position:absolute; inset:0; z-index:60; display:none;
-  flex-direction:column; align-items:center; justify-content:center; gap:40px;
-  padding:0 64px;
+/* --------------------- THE CITY SCREENS -----------------------------
+
+   Three of them, one per office, each split down the middle: DOMESTIC
+   on the left, INTERNATIONAL on the right. The split is by the AGENT's
+   team, not the manager's, so a manager running both desks appears on
+   both halves with the right people under each - which is the only way
+   Vaibhav's two desks can be read apart.
+
+   They cover the body and leave the top bar and the ticker alone, so a
+   close still announces itself whatever screen is up. */
+#cityScreen{
+  position:absolute; left:0; right:0; z-index:12; display:none;
+  flex-direction:column; padding:14px 24px; gap:12px;
   background:
-    radial-gradient(1000px 760px at 26% 40%, rgba(194,238,69,.12), transparent 64%),
-    radial-gradient(900px 680px at 76% 62%, rgba(77,216,192,.11), transparent 64%),
-    #060803;
+    radial-gradient(1100px 600px at 20% -10%, rgba(194,238,69,.07), transparent 60%),
+    radial-gradient(1100px 600px at 80% 110%, rgba(77,216,192,.07), transparent 60%),
+    var(--bg);
 }
-#joinCard.on{display:flex}
-#jcHead{text-align:center; animation:jcUp .6s cubic-bezier(.22,1,.36,1) both}
-#jcEyebrow{
-  font-size:19px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
-  background:linear-gradient(92deg,var(--lime),var(--teal));
+#cityScreen.on{display:flex; animation:cityIn .45s cubic-bezier(.22,1,.36,1)}
+@keyframes cityIn{from{opacity:0; transform:translateY(18px)} to{opacity:1; transform:none}}
+
+.cityTop{
+  flex:none; display:flex; align-items:center; gap:22px; padding:2px 6px 10px;
+  border-bottom:2px solid var(--line);
+}
+.cityTop h2{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:46px; line-height:1;
+  letter-spacing:-.01em; margin:0;
+  background:linear-gradient(92deg,var(--lime),var(--teal) 75%);
   -webkit-background-clip:text; background-clip:text; color:transparent;
 }
-#jcSub{font-size:17px; color:var(--dim); font-weight:700; letter-spacing:.16em;
-  text-transform:uppercase; margin-top:14px}
-@keyframes jcUp{from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:none}}
+.cityTop .kv{display:flex; flex-direction:column; gap:4px}
+.cityTop .kv b{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1}
+.cityTop .kv span{font-size:11px; letter-spacing:.2em; color:var(--dim); font-weight:800}
+.cityTop .grow{flex:1 1 auto}
+.cityTop .att{font-size:40px; font-weight:900; font-variant-numeric:tabular-nums}
 
-#jcGrid{display:flex; gap:22px; justify-content:center; align-items:stretch; width:100%}
-.jc{
-  flex:1 1 0; max-width:336px; min-width:0; text-align:center;
-  animation:jcUp .6s cubic-bezier(.22,1,.36,1) backwards;
+.cityHalves{flex:1 1 auto; display:flex; gap:16px; min-height:0}
+.half{
+  flex:1 1 0; min-width:0; display:flex; flex-direction:column;
+  border:1px solid var(--line); border-radius:18px; overflow:hidden;
+  background:linear-gradient(180deg, rgba(22,28,16,.72), rgba(13,17,9,.72));
 }
-.jc .ph{
-  width:100%; height:326px; border-radius:18px; overflow:hidden; position:relative;
-  background:linear-gradient(150deg,#1a2112,#0d1208);
-  box-shadow:0 22px 56px rgba(0,0,0,.6), 0 0 0 1px rgba(194,238,69,.18);
+.half.ind {border-color:rgba(194,238,69,.30)}
+.half.intl{border-color:rgba(77,216,192,.30)}
+
+.halfHead{
+  flex:none; display:flex; align-items:center; gap:14px; padding:12px 18px;
+  border-bottom:1px solid var(--line);
 }
-/* Absolute, so DOM order decides what is on top. The initials sit
-   first and the photo covers them; left static, the absolutely
-   positioned initials painted over every face. */
-.jc .ph img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block}
-.jc .ini{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:86px; color:var(--lime); opacity:.5;
+.halfHead h3{
+  margin:0; font-size:19px; font-weight:900; letter-spacing:.2em; text-transform:uppercase;
 }
-.jc .nm{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:27px; line-height:1.15;
-  margin-top:18px}
-.jc .ro{font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--lime); margin-top:9px}
-.jc .q{font-size:14px; line-height:1.5; color:#b9c4a8; margin-top:13px; font-weight:500;
-  display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden}
+.half.ind  .halfHead h3{color:var(--ind)}
+.half.intl .halfHead h3{color:var(--intl)}
+.halfHead .tot{margin-left:auto; text-align:right; line-height:1.15}
+.halfHead .tot b{display:block; font-size:25px; font-weight:800; font-variant-numeric:tabular-nums}
+.halfHead .tot span{font-size:11px; color:var(--dim); letter-spacing:.12em; font-weight:700}
+
+.halfBody{flex:1 1 auto; overflow:hidden; padding:10px 14px 14px; display:flex;
+  flex-direction:column; gap:10px}
+
+/* one manager, on one desk */
+.mb{
+  border-radius:14px; padding:10px 13px 11px;
+  background:rgba(255,255,255,.028);
+  border:1px solid rgba(255,255,255,.05);
+  animation:mbIn .5s cubic-bezier(.22,1,.36,1) backwards;
+}
+@keyframes mbIn{from{opacity:0; transform:translateY(16px)} to{opacity:1; transform:none}}
+.mbTop{display:flex; align-items:baseline; gap:10px}
+.mbTop .nm{font-weight:800; font-size:21px; letter-spacing:-.01em}
+.mbTop .ct{font-size:11px; color:var(--dim); font-weight:700; letter-spacing:.12em}
+.mbTop .rv{margin-left:auto; font-size:21px; font-weight:900; font-variant-numeric:tabular-nums}
+.mbTop .un{font-size:12px; color:var(--dim); font-weight:800; letter-spacing:.1em; min-width:42px;
+  text-align:right}
+.mb .track{height:7px; margin:7px 0 8px; border-radius:5px; background:#131a0d}
+.half.ind  .mb .track > i{background:linear-gradient(90deg,#7f9c2a,var(--ind))}
+.half.intl .mb .track > i{background:linear-gradient(90deg,#2d8e7f,var(--intl))}
+
+.ar{display:flex; align-items:center; gap:9px; padding:3px 2px; font-size:15px}
+.ar .rk{width:17px; text-align:right; color:var(--dim); font-weight:800; font-size:12px}
+.ar .an{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-weight:600}
+.ar .av{font-weight:800; font-variant-numeric:tabular-nums}
+.ar .au{width:34px; text-align:right; font-size:11px; color:var(--dim); font-weight:800}
+.ar.top .an{color:var(--ink)}
+.half.ind  .ar.top .av{color:var(--ind)}
+.half.intl .ar.top .av{color:var(--intl)}
+.ar.zero{opacity:.42}
+.mb .more{font-size:11.5px; color:var(--dim); font-weight:700; letter-spacing:.1em; padding:3px 2px}
+.half .empty{
+  flex:1 1 auto; display:flex; align-items:center; justify-content:center;
+  color:var(--dim); font-size:16px; font-weight:700; letter-spacing:.1em; text-align:center;
+}
+
+/* which screen is up */
+#screenDots{
+  /* Above the ticker, not on it - the ticker is 86px of live closes and
+     covering its first line to show four dots is a poor trade. */
+  position:absolute; bottom:94px; left:50%; transform:translateX(-50%); z-index:22;
+  display:flex; gap:7px; pointer-events:none;
+}
+#screenDots i{width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.16)}
+#screenDots i.on{background:var(--lime); box-shadow:0 0 10px var(--lime); width:20px; border-radius:4px}
+
+/* --------------------- THE CLOSE CELEBRATION ------------------------
+
+   A close takes the whole screen. The board is never more than a few
+   seconds from coming back, and a sale that only nudges a ticker is a
+   sale the floor does not look up for.
+
+   Flashes keep running behind the name the whole time it is up, rather
+   than one burst that is over before anybody turns round. */
+#cel{
+  position:absolute; inset:0; z-index:60; display:none;
+  flex-direction:column; align-items:center; justify-content:center;
+  background:#07090a; overflow:hidden; text-align:center;
+}
+#cel.on{display:flex}
+#celFx{position:absolute; inset:0; pointer-events:none}
+#celFx i{
+  position:absolute; inset:-30%; display:block; opacity:0;
+  background:radial-gradient(closest-side, rgba(194,238,69,.5), transparent 70%);
+  animation:celFlash 1.15s ease-in-out infinite;
+}
+#celFx i:nth-child(2){
+  background:radial-gradient(closest-side, rgba(77,216,192,.45), transparent 70%);
+  animation-delay:.38s;
+}
+#celFx i:nth-child(3){
+  background:radial-gradient(closest-side, rgba(255,215,110,.42), transparent 70%);
+  animation-delay:.76s;
+}
+@keyframes celFlash{
+  0%,100%{opacity:0; transform:scale(.72)}
+  45%    {opacity:1; transform:scale(1.12)}
+}
+/* the hard white blink, on the beat */
+#celBlink{
+  position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none;
+  animation:celBlink 1.15s steps(1,end) infinite;
+}
+@keyframes celBlink{0%{opacity:.30} 6%{opacity:0} 100%{opacity:0}}
+
+#cel .inner{position:relative; z-index:2; padding:0 60px}
+#celEyebrow{
+  font-size:23px; font-weight:900; letter-spacing:.42em; text-transform:uppercase;
+  color:var(--gold); animation:celPop .5s cubic-bezier(.22,1,.36,1) both;
+}
+#celName{
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:138px; line-height:1.02;
+  margin:14px 0 6px; letter-spacing:-.02em;
+  animation:celPop .62s cubic-bezier(.22,1,.36,1) .07s both;
+}
+#celAmt{
+  font-size:152px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums;
+  background:linear-gradient(92deg,var(--lime),var(--gold) 55%,var(--teal));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  animation:celPop .62s cubic-bezier(.22,1,.36,1) .14s both;
+}
+#celMeta{
+  margin-top:20px; font-size:27px; font-weight:700; color:#cdd8bd; letter-spacing:.06em;
+  animation:celPop .6s cubic-bezier(.22,1,.36,1) .22s both;
+}
+@keyframes celPop{from{opacity:0; transform:translateY(26px) scale(.94)} to{opacity:1; transform:none}}
+
+/* Browsers will not play a sound until somebody has touched the page.
+   On a wall-mounted TV nobody ever does, so say so once rather than
+   letting the bell silently never ring. */
+#sound{
+  position:absolute; bottom:98px; right:16px; z-index:70; display:none;
+  background:var(--gold); color:#1a1205; font-weight:900; font-size:12px;
+  letter-spacing:.16em; padding:7px 15px; border-radius:9px; text-transform:uppercase;
+  animation:nudge 2.4s ease-in-out infinite;
+}
+#sound.on{display:block}
 
 /* ---------------------------- STATE SCREEN -------------------------- */
 #state{
@@ -659,17 +786,52 @@ body{
     <div id="tickView"><div id="tickTrack"></div><div id="hot"></div></div>
   </div>
 
-  <div id="joinCard">
-    <div id="jcHead">
-      <div id="jcEyebrow">New on the floor</div>
-      <div id="jcSub"></div>
+  <!-- THE CITY SCREENS. Built fresh each time one comes up, from the
+       agents the feed already sends - no extra call, no extra field. -->
+  <div id="cityScreen">
+    <div class="cityTop">
+      <h2 id="cityName">&mdash;</h2>
+      <div class="kv"><b id="cityRev">&mdash;</b><span>Revenue</span></div>
+      <div class="kv"><b id="cityUnits">&mdash;</b><span>Units</span></div>
+      <div class="kv"><b id="cityAgents">&mdash;</b><span>Agents</span></div>
+      <div class="grow"></div>
+      <div class="att" id="cityAtt">&mdash;</div>
+      <div class="kv"><b id="cityTgt">&mdash;</b><span>Target</span></div>
     </div>
-    <div id="jcGrid"></div>
+    <div class="cityHalves">
+      <div class="half ind">
+        <div class="halfHead"><h3>Domestic</h3>
+          <div class="tot"><b id="indRev">&mdash;</b><span id="indSub">&nbsp;</span></div></div>
+        <div class="halfBody" id="indBody"></div>
+      </div>
+      <div class="half intl">
+        <div class="halfHead"><h3>International</h3>
+          <div class="tot"><b id="intlRev">&mdash;</b><span id="intlSub">&nbsp;</span></div></div>
+        <div class="halfBody" id="intlBody"></div>
+      </div>
+    </div>
   </div>
+
+  <div id="screenDots"></div>
 
   <!-- Confetti sits over the board, not instead of it: a close is
        celebrated WHILE you watch the row climb. -->
   <canvas id="celCanvas" width="1920" height="1080"></canvas>
+
+
+  <!-- A close takes the whole screen. -->
+  <div id="cel">
+    <div id="celFx"><i></i><i></i><i></i></div>
+    <div id="celBlink"></div>
+    <div class="inner">
+      <div id="celEyebrow">Sale Closed</div>
+      <div id="celName">&mdash;</div>
+      <div id="celAmt">&mdash;</div>
+      <div id="celMeta">&nbsp;</div>
+    </div>
+  </div>
+
+  <div id="sound">Click for sound</div>
 
   <div id="state"></div>
 </div>
@@ -717,46 +879,19 @@ var CONFIG = {
   DEMO: Q.get('demo') === '1',
   FILL: Q.get('fill') === '1',
 
-  /* NEW ON THE FLOOR - the only thing that ever takes the whole screen.
-     Five faces a screen, three screens, ten seconds each, with twenty
-     seconds of leaderboard between them. A whole intake comes round in
-     about a minute and a half instead of two minutes per round. */
-  JOINERS:           Q.get('joiners') !== '0',
-  JOINER_EVERY:      +(Q.get('joinerevery') || 20),   // SECONDS of board between screens
-  JOINER_SECS:       +(Q.get('joinersecs')  || 10),   // seconds a screen stays up
-  JOINER_PER_SCREEN: +(Q.get('joinerper')   || 5),    // faces per screen
-  /* Stops playing by itself after this date, so nobody has to remember
-     to switch it off. Pass ?joineruntil=2026-12-31 to extend. */
-  JOINER_UNTIL:   Q.get('joineruntil') || '2026-11-15',
-  /* Where the joiner photos live. Served from this site's own root
-     normally; only when the page is being served BY Apps Script does it
-     need to reach across to Vercel for them. */
-  JOINER_BASE:    Q.get('joinerbase') || (
-    /script\.google/.test(location.hostname)
-      ? 'https://outskill-garvit.vercel.app/joiners/'
-      : '/joiners/'
-  )
+  /* THE RUNNING ORDER. The overall board, then one screen per office.
+     The board carries more to read, so it holds longer; a city screen is
+     two columns you take in at a glance. */
+  OVERALL_SECONDS: +(Q.get('overallsecs') || 26),
+  CITY_SECONDS:    +(Q.get('citysecs')    || 18),
+
+  /* The bell on a close. ?sound=0 for a quiet floor. */
+  SOUND: Q.get('sound') !== '0',
+
+
 };
 
-/* The 15 Sales Consultants who joined in Hyderabad. Replaced wholesale
-   when the next intake lands - it is only data. */
-var JOINERS = [
-  {"n": "Josna", "r": "Sales Consultant", "q": "Hi everyone! I'm Josna from Bhupalpalle, and I'm joining Outskill as a Senior Sales Consultant.", "p": "01-josna.jpg"},
-  {"n": "Faisal Junaid", "r": "Senior Sales Consultant", "q": "Faisal Junaid, joining as senior sales consultant - who enjoys life being positive and believes in spreading laughs around, which is what I am ridiculously good at, apart from eating and...", "p": "02-faisal-junaid.jpg"},
-  {"n": "Lionel Taylor", "r": "Senior Sales Consultant", "q": "I am 6'2, so bumping into things is a common occurrence. Cannot play the guitar yet..", "p": "03-lionel-taylor.jpg"},
-  {"n": "Danish", "r": "Sales Professional", "q": "Hey, I'm Danish, joining as a Sales professional. I've spent the last 5 years in sales, so I'm pretty comfortable starting conversations with strangers and somehow turning them into...", "p": "04-danish.jpg"},
-  {"n": "Sowmya", "r": "Senior Sales Consultant", "q": "I am Sowmya, I am from Hyderabad. I am having an experience of 5+ years in Sales.", "p": "05-sowmya.jpg"},
-  {"n": "K. Avinash", "r": "Senior Sales Consultant", "q": "Fun fact: I can turn almost any conversation into a debate, even when nobody asked for one.", "p": "06-k-avinash.jpg"},
-  {"n": "Saikiran", "r": "Senior Sales Associate", "q": "Hey, I'm Saikiran. Joined as a Senior Sales Associate.", "p": "07-saikiran.jpg"},
-  {"n": "Harshitha", "r": "Sales Consultant", "q": "Fun fact: My hair apparently looks like noodles because people keep trying to touch them.", "p": "08-harshitha.jpg"},
-  {"n": "Astitva Chandel", "r": "Sales Consultant", "q": "I'm Astitva, joining the team. A quick fun fact about me: my brain overclocks best when high-BPM tracks are blasting in my headphones.", "p": "09-astitva-chandel.jpg"},
-  {"n": "Mohammed Nihal", "r": "Senior Sales Consultant", "q": "Joining as Senior Sales Consultant. Software Engineer by chance & into Sales by Choice.", "p": "10-mohammed-nihal.jpg"},
-  {"n": "Amarnath", "r": "Sr. Sales Consultant", "q": "I am Amarnath, from Hyderabad. I have 9.7 yrs experience in direct and consultative sales.", "p": "11-amarnath.jpg"},
-  {"n": "Krishna Nandana", "r": "Sales Consultant", "q": "My journey so far has been a mix of tech, sales, and edtech - basically, I like turning conversations into conversions.", "p": "12-krishna-nandana.jpg"},
-  {"n": "Mahender Kulkarni", "r": "Sr. Sales Consultant", "q": "Fun fact: I've worked across three very different industries - US taxation, travel, and education - so I've collected quite a few interesting stories along the way!", "p": "13-mahender-kulkarni.jpg"},
-  {"n": "Raymond Anthony", "r": "Senior Sales Consultant", "q": "Fun fact: I can spend way too much time researching something before finally making a decision.", "p": "14-raymond-anthony.jpg"},
-  {"n": "Ashish Dev D.", "r": "Sales Consultant", "q": "I'm Ashish D, from Hyderabad and Chandigarh..!! I have 5+ years of experience in sales and marketing, with hands-on experience in lead generation, EdTech programs like AI/ML and DSML,...", "p": "15-ashish-dev-d.jpg"}
-];
+
 
 /* =====================================================================
    STATE
@@ -895,7 +1030,6 @@ document.addEventListener('keydown', function(e){
   if(e.key==='f'||e.key==='F') goFull();
   if(e.key==='ArrowRight'){ clearTimeout(deskTimer); swapDesk(function(){ deskIdx++; renderAgents(); }); scheduleDesk(); }
   if(e.key==='ArrowLeft'){ clearTimeout(deskTimer); swapDesk(function(){ deskIdx=Math.max(0,deskIdx-1); renderAgents(); }); scheduleDesk(); }
-  if(e.key==='j'||e.key==='J') playJoiners();                 /* welcome cards now */
   if(e.key==='c'||e.key==='C'){                               /* replay the last close */
     var r=(DATA&&DATA.recent||[])[0]; if(r) celebrate(r);
   }
@@ -980,9 +1114,8 @@ function applyData(p){
        news. Without this every morning's first poll would announce a
        milestone that was passed last week. */
     mileReady=true;
-    renderAll(); scheduleDesk(); scheduleJoiners();
+    renderAll(); scheduleDesk(); scheduleScreens();
     spotlightTick(); setInterval(spotlightTick, Math.max(4,CONFIG.SPOT_SECONDS)*1000);
-    if(Q.get('joinersnow')==='1') setTimeout(playJoiners, 400);
     if(Q.get('celnow')==='1') setTimeout(function(){
       var r=(DATA.recent||[])[0]; if(r) celebrate(r);
     }, 400);
@@ -1301,6 +1434,11 @@ function celebrate(sale){
   /* 3. Light the seller's own row, if the desk they are on happens to be
         the one showing. If it is not, the left column will reach it. */
   lightRow(sale.name);
+
+  /* 4. And take the whole screen with it. The ticker and confetti above
+        are what the board looks like for the rest of the minute; this is
+        what makes the floor look up. */
+  bigCelebrate(sale);
 }
 
 /* Find the row for a name in either column and flash it gold. */
@@ -1493,6 +1631,15 @@ function medalHTML(name, map){
 function renderAll(){
   renderAgents(); renderCities(); renderDeskRace();
   renderPace(); renderDay(); renderManagers();
+  /* A city screen on the wall when fresh figures land must move with
+     them, or it sits on numbers the top bar has already left behind. */
+  var cs = document.getElementById('cityScreen');
+  if(cs && cs.className === 'on'){
+    var list = screenList(), cur = list[screenIdx % list.length];
+    if(cur && cur !== 'overall') renderCity(cur);
+  }
+  paintScreenDots();
+  sizeCityScreen();
 }
 
 /* =====================================================================
@@ -1794,80 +1941,260 @@ function sizeTicker(){
 }
 
 /* =====================================================================
-   NEW ON THE FLOOR
+   THE RUNNING ORDER
 
-   A cutaway, not a mode. It takes its turn in the running order, shows
-   a few cards and hands the screen straight back. It stops playing by itself after
-   JOINER_UNTIL so nobody has to remember to turn it off, and ?joiners=0
-   kills it immediately.
+   Four screens. The overall board, then each office in turn. The city
+   screens are built from the agents the feed already sends, so adding
+   them cost no extra call and no extra field - every agent already
+   carries its city, its team and its manager.
+
+   A city with nobody on it is skipped rather than shown empty, so the
+   order adapts if an office closes or a new one opens.
    ===================================================================== */
-function joinersLive(){
-  if(!CONFIG.JOINERS) return false;
-  if(!JOINERS || !JOINERS.length) return false;
-  var until = CONFIG.JOINER_UNTIL;
-  if(until){
-    var d=new Date(until+'T23:59:59');
-    if(!isNaN(d.getTime()) && Date.now() > d.getTime()) return false;
-  }
-  return true;
-}
+var CITY_ORDER = ['Hyderabad', 'Bangalore', 'Bhubaneswar'];
+var screenIdx = 0;
 
-/* The one thing that still takes the whole screen, on its own clock.
-   JOINER_EVERY is SECONDS of leaderboard between screens, not minutes. */
-function scheduleJoiners(){
-  if(!joinersLive()) return;
-  clearTimeout(jcTimer);
-  jcTimer=setTimeout(function(){
-    playJoiners(function(){ scheduleJoiners(); });
-  }, Math.max(8,CONFIG.JOINER_EVERY)*1000);
-}
-
-/* Fifteen people across three screens of five, one screen per turn.
-   Each run shows the NEXT screen, so a full intake comes round in three
-   turns rather than fifteen. */
-function joinerScreens(){
-  var per = Math.max(1, CONFIG.JOINER_PER_SCREEN);
-  var out = [];
-  for(var i=0;i<JOINERS.length;i+=per) out.push(JOINERS.slice(i,i+per));
+function screenList(){
+  var out = ['overall'];
+  if(!DATA || !DATA.agents) return out;
+  var seen = {};
+  (DATA.agents||[]).forEach(function(a){ if(a.city) seen[a.city]=1; });
+  CITY_ORDER.forEach(function(c){ if(seen[c]) out.push(c); delete seen[c]; });
+  /* an office the list has never heard of still gets its turn */
+  Object.keys(seen).sort().forEach(function(c){ out.push(c); });
   return out;
 }
 
-var jcScreen = 0;
-function playJoiners(done){
-  var el = document.getElementById('joinCard');
-  if(!el || !JOINERS || !JOINERS.length){ if(done) done(); return; }
+function showScreen(which){
+  var cs = document.getElementById('cityScreen');
+  var bd = document.getElementById('body');
+  if(which === 'overall'){
+    if(cs) cs.className = '';
+    if(bd) bd.style.visibility = '';
+  } else {
+    renderCity(which);
+    if(cs) cs.className = 'on';
+    if(bd) bd.style.visibility = 'hidden';
+  }
+  paintScreenDots();
+}
 
-  var screens = joinerScreens();
-  var idx = jcScreen % screens.length;
-  var group = screens[idx];
-  var from = idx * Math.max(1, CONFIG.JOINER_PER_SCREEN);
-  jcScreen++;
+/* The city screen sits over the body, so it has to be told how tall the
+   body is rather than guessing - the two bands above it come and go. */
+function sizeCityScreen(){
+  var cs = document.getElementById('cityScreen');
+  var bd = document.getElementById('body');
+  if(!cs || !bd) return;
+  var r = bd.getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect();
+  var scale = st.height ? (1080 / st.height) : 1;
+  cs.style.top    = ((r.top - st.top) * scale) + 'px';
+  cs.style.height = (r.height * scale) + 'px';
+}
 
-  document.getElementById('jcSub').textContent =
-    'Hyderabad  \u00b7  ' + (from+1) + '-' + (from+group.length) + ' of ' + JOINERS.length;
-
-  document.getElementById('jcGrid').innerHTML = group.map(function(j, i){
-    var initials = (j.n||'?').split(/\s+/).map(function(w){return w.charAt(0);})
-                     .join('').slice(0,2).toUpperCase();
-    /* Initials sit behind the photo, so a file that fails to load leaves
-       a designed card rather than a grey rectangle. */
-    return '<div class="jc" style="animation-delay:'+(i*90)+'ms">'+
-      '<div class="ph"><div class="ini">'+esc(initials)+'</div>'+
-        '<img src="'+esc(CONFIG.JOINER_BASE + (j.p||''))+'" alt="'+esc(j.n||'')+'" '+
-          'onerror="this.style.display=\'none\'">'+
-      '</div>'+
-      '<div class="nm">'+esc(j.n||'')+'</div>'+
-      '<div class="ro">'+esc(j.r||'Sales Consultant')+'</div>'+
-      '<div class="q">'+esc(j.q||'')+'</div>'+
-    '</div>';
+function paintScreenDots(){
+  var el = document.getElementById('screenDots');
+  if(!el) return;
+  var list = screenList();
+  el.innerHTML = list.map(function(_, i){
+    return '<i class="' + (i === screenIdx % list.length ? 'on' : '') + '"></i>';
   }).join('');
+}
+
+function scheduleScreens(){
+  clearTimeout(scheduleScreens._t);
+  var list = screenList();
+  if(list.length < 2) return;                 /* nothing to rotate to */
+  var cur  = list[screenIdx % list.length];
+  var secs = (cur === 'overall') ? CONFIG.OVERALL_SECONDS : CONFIG.CITY_SECONDS;
+  scheduleScreens._t = setTimeout(function(){
+    screenIdx = (screenIdx + 1) % list.length;
+    showScreen(list[screenIdx]);
+    scheduleScreens();
+  }, Math.max(6, secs) * 1000);
+}
+
+
+/* =====================================================================
+   ONE CITY, SPLIT BY DESK
+
+   Split on the AGENT's team, not the manager's. A manager running both
+   desks appears on both halves with the right people under each, which
+   is the only way two desks under one name can be read apart.
+   ===================================================================== */
+function renderCity(city){
+  var all = (DATA.agents||[]).filter(function(a){ return s(a.city) === city; });
+  var mgs = (DATA.managers||[]).filter(function(m){ return s(m.city) === city; });
+
+  var rev = 0, units = 0, tgt = 0;
+  all.forEach(function(a){ rev += n(a.revenue); units += n(a.units); });
+  mgs.forEach(function(m){ tgt += n(m.target); });
+  /* No manager targets - fall back to the city row the feed sends. */
+  if(!tgt){
+    var row = (DATA.cities||[]).filter(function(c){ return s(c.name) === city; })[0];
+    if(row) tgt = n(row.target);
+  }
+
+  document.getElementById('cityName').textContent   = city;
+  document.getElementById('cityRev').textContent    = money(rev);
+  document.getElementById('cityUnits').textContent  = Math.round(units).toLocaleString('en-IN');
+  document.getElementById('cityAgents').textContent = all.length;
+  document.getElementById('cityTgt').textContent    = tgt ? money(tgt) : '—';
+  var pc = document.getElementById('cityAtt');
+  var p  = pct(rev, tgt);
+  pc.textContent = tgt ? p.toFixed(1) + '%' : '—';
+  pc.className   = 'att ' + paceClass(p);
+
+  renderHalf('ind',  all.filter(function(a){ return teamClass(a.team) === 'ind';  }));
+  renderHalf('intl', all.filter(function(a){ return teamClass(a.team) === 'intl'; }));
+}
+
+function renderHalf(key, agents){
+  var body = document.getElementById(key + 'Body');
+  var tot  = document.getElementById(key + 'Rev');
+  var sub  = document.getElementById(key + 'Sub');
+  if(!body) return;
+
+  var rev = 0, units = 0;
+  agents.forEach(function(a){ rev += n(a.revenue); units += n(a.units); });
+  if(tot) tot.textContent = money(rev);
+  if(sub) sub.textContent = Math.round(units) + ' units · ' + agents.length + ' agents';
+
+  if(!agents.length){
+    body.innerHTML = '<div class="empty">No desk here this month</div>';
+    return;
+  }
+
+  /* group by manager, biggest desk first */
+  var by = {}, order = [];
+  agents.forEach(function(a){
+    var m = s(a.manager) || 'No manager';
+    if(!by[m]){ by[m] = { name:m, rev:0, units:0, list:[] }; order.push(m); }
+    by[m].rev += n(a.revenue); by[m].units += n(a.units); by[m].list.push(a);
+  });
+  var blocks = order.map(function(m){ return by[m]; })
+                    .sort(function(x,y){ return y.rev - x.rev; });
+  var top = blocks.length ? Math.max(1, blocks[0].rev) : 1;
+
+  /* How many agent rows fit depends on how many desks share the half.
+     Two managers can each show six; five managers get two apiece. */
+  var room    = Math.max(1, Math.floor((26 - blocks.length * 3) / blocks.length));
+  var perDesk = Math.min(7, Math.max(2, room));
+
+  body.innerHTML = blocks.map(function(b, bi){
+    var earners = b.list.filter(function(a){ return n(a.revenue) > 0; })
+                        .sort(function(x,y){ return n(y.revenue) - n(x.revenue); });
+    var show = earners.slice(0, perDesk);
+    var rest = b.list.length - show.length;
+
+    var rows = show.map(function(a, i){
+      return '<div class="ar' + (i === 0 ? ' top' : '') + '">' +
+             '<span class="rk">' + (i + 1) + '</span>' +
+             '<span class="an">' + esc(a.name) + '</span>' +
+             '<span class="av">' + money(n(a.revenue)) + '</span>' +
+             '<span class="au">' + (n(a.units) ? n(a.units) + 'u' : '') + '</span>' +
+             '</div>';
+    }).join('');
+
+    if(!show.length){
+      rows = '<div class="ar zero"><span class="rk"></span>' +
+             '<span class="an">nothing banked yet</span></div>';
+    }
+
+    return '<div class="mb" style="animation-delay:' + (bi * 70) + 'ms">' +
+           '<div class="mbTop">' +
+             '<span class="nm">' + esc(b.name) + '</span>' +
+             '<span class="ct">' + b.list.length + ' agents</span>' +
+             '<span class="rv">' + money(b.rev) + '</span>' +
+             '<span class="un">' + Math.round(b.units) + 'u</span>' +
+           '</div>' +
+           '<div class="track"><i style="width:' +
+             Math.max(2, Math.min(100, b.rev / top * 100)).toFixed(1) + '%"></i></div>' +
+           rows +
+           (rest > 0 ? '<div class="more">+ ' + rest + ' more on this desk</div>' : '') +
+           '</div>';
+  }).join('');
+}
+
+
+/* =====================================================================
+   THE BELL
+
+   Synthesised rather than a file: nothing to host, nothing to fail to
+   load, and it cannot go missing when the page is served from somewhere
+   else. Three partials and a quick decay reads as a bell; one sine does
+   not.
+
+   Browsers refuse to make a sound until somebody has touched the page,
+   and nobody ever touches a wall-mounted TV. So the chip in the corner
+   asks once, and any click or key anywhere unlocks it for good.
+   ===================================================================== */
+var AC = null;
+function audioReady(){
+  try{
+    if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+    if(AC.state === 'suspended') AC.resume();
+    return AC.state === 'running';
+  }catch(e){ return false; }
+}
+function paintSoundChip(){
+  var el = document.getElementById('sound');
+  if(!el) return;
+  el.className = (AC && AC.state === 'running') ? '' : 'on';
+}
+function bell(times){
+  if(!CONFIG.SOUND) return;
+  if(!audioReady()){ paintSoundChip(); return; }
+  var reps = Math.max(1, times || 3);
+  for(var r = 0; r < reps; r++) ring(AC.currentTime + r * 0.62);
+}
+function ring(t){
+  /* A struck bell is a fundamental plus inharmonic partials that die
+     faster than it does. Even multiples alone sound like an organ. */
+  var parts = [[1, 0.34], [2.76, 0.16], [5.4, 0.08], [8.9, 0.04]];
+  var base  = 784;                                  /* G5 - carries over a room */
+  for(var i = 0; i < parts.length; i++){
+    var o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine';
+    o.frequency.value = base * parts[i][0];
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(parts[i][1], t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.7 / (1 + i * 0.7));
+    o.connect(g); g.connect(AC.destination);
+    o.start(t); o.stop(t + 2);
+  }
+}
+['click','keydown','touchstart'].forEach(function(ev){
+  window.addEventListener(ev, function(){
+    if(audioReady()) paintSoundChip();
+  }, { passive:true });
+});
+
+
+/* =====================================================================
+   THE CLOSE, FULL SCREEN
+   ===================================================================== */
+function bigCelebrate(sale){
+  var el = document.getElementById('cel');
+  if(!el) return;
+  var secs = Math.max(4, CONFIG.CELEBRATE_SECONDS);
+
+  document.getElementById('celName').textContent = s(sale.name) || 'A sale';
+  var amtEl = document.getElementById('celAmt');
+  amtEl.textContent = money(0);
+  document.getElementById('celMeta').textContent =
+    joinDot(sale.city, sale.team, sale.manager) || ' ';
 
   el.className = 'on';
-  clearTimeout(el._t);
-  el._t = setTimeout(function(){
+  countUp(amtEl, n(sale.amt), money, 1400);
+  bell(3);
+
+  clearTimeout(bigCelebrate._t);
+  bigCelebrate._t = setTimeout(function(){
     el.className = '';
-    if(done) done();
-  }, Math.max(4, CONFIG.JOINER_SECS) * 1000);
+    /* Hand the running order back cleanly rather than leaving whatever
+       was mid-rotation underneath it. */
+    scheduleScreens();
+  }, secs * 1000);
 }
 
 
@@ -1918,6 +2245,15 @@ if(CONFIG.DEMO){ applyData(SAMPLE); }
 else { loadData(); setInterval(loadData, Math.max(10,CONFIG.REFRESH_SECONDS)*1000); }
 setInterval(paintLive, 1000);
 window.addEventListener('resize', sizeTicker);
+window.addEventListener('resize', sizeCityScreen);
+setTimeout(function(){ sizeCityScreen(); paintSoundChip(); }, 600);
+
+/* ?citynow=Hyderabad jumps straight to one office, for checking a wall
+   without waiting for the rotation to come round. */
+if(Q.get('citynow')) setTimeout(function(){
+  var list = screenList(), want = Q.get('citynow'), at = list.indexOf(want);
+  if(at > 0){ screenIdx = at; showScreen(want); }
+}, 800);
 
 /* A browser left running for months accumulates cruft. One reload at 4am,
    when nobody is looking, clears it. */

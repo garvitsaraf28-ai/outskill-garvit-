@@ -51,7 +51,14 @@ var INTERVAL_MINUTES = 150;
  * buildExecSnapshot is therefore called after it, explicitly, rather than
  * trusting any one entry point to cover both.
  */
-var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot'];
+/* The Management Report was never in here. refreshAndVerify rebuilds the
+   model and most pages, but the board pack is built later by
+   updateEverythingNow - so a scheduled run left the one page management
+   actually reads on the previous run's figures, and the formatting is
+   cleared and rewritten on every build, so it has to be re-applied after
+   it. Both added, in that order. */
+var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot',
+                        'buildManagementReport', 'formatManagementReport'];
 
 /** Kept for the older trigger-cleanup helpers. */
 var REFRESH_FUNCTION = 'refreshAndVerify';
@@ -80,7 +87,11 @@ var SCHEDULES = {
     handler: 'runDaySchedule',
     builder: 'buildReport_',
     refresh: true,
-    first: { hour: 11, minute: 30 },
+    /* 10:30, not 11:30. The spacing was already the 2.5 hours asked for
+       on 12 Oct - 11:30, 14:00, 16:30, 19:00, 21:30 - it simply started
+       an hour late, so the floor had nothing fresh for its first hour.
+       Moving the start moves all five: 10:30, 13:00, 15:30, 18:00, 20:30. */
+    first: { hour: 10, minute: 30 },
     runs: 5
   },
   NIGHT: {

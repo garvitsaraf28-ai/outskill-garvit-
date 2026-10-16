@@ -114,7 +114,19 @@ function insideSales(monthKey) {
       ins_r2_(cbc.mmTotal) + ' man-months' : 'no ramp column, every agent counts as 1'));
   if (cbc.orphanRev) {
     L('          *** ' + cbc.orphanRows + ' row(s) carry ' + ins_money_(cbc.orphanRev) +
-      ' of revenue with no agent name. In neither total. Worth a look in CBC.');
+      ' of revenue with no agent name, in neither total:');
+    for (var o = 0; o < cbc.orphans.length && o < 12; o++) {
+      L('              row ' + ins_pad_(String(cbc.orphans[o].row), 5) +
+        ins_pad_(ins_money_(cbc.orphans[o].rev), 11) + cbc.orphans[o].label);
+    }
+    L('              A total row is right to skip. Anything else is revenue');
+    L('              nobody is credited with, and belongs to an agent.');
+  }
+  if (cbc.cUp < 0) {
+    L('          *** no AIGF Upgrade / Catalyst column found on "' + cbc.tab + '".');
+    L('              Headers on row ' + (cbc.hr + 1) + ':');
+    L('              ' + cbc.headers.join('  |  '));
+    L('              Tell me which column holds it and it gets counted.');
   }
   L('');
 
@@ -220,9 +232,9 @@ function ins_window_(monthKey) {
 
 function ins_cbc_(monthKey) {
   var out = { agents: [], byKey: {}, total: 0, targetTotal: 0, upgradeTotal: 0,
-              mmTotal: 0, orphanRows: 0, orphanRev: 0, error: '',
+              mmTotal: 0, orphanRows: 0, orphanRev: 0, orphans: [], error: '',
               tab: '', hr: -1, cRev: -1, cTarget: -1, cUp: -1, cMM: -1,
-              headRev: '', upHow: '' };
+              cMgr: -1, cCity: -1, headRev: '', upHow: '', headers: [] };
 
   var book;
   try { book = SpreadsheetApp.openById(INS_CBC_ID); }
@@ -292,6 +304,10 @@ function ins_cbc_(monthKey) {
     return out;
   }
   out.headRev = String(grid[out.hr][out.cRev]).trim();
+  for (c = 0; c < grid[out.hr].length; c++) {
+    var hh = String(grid[out.hr][c]).trim();
+    if (hh) out.headers.push(ins_a1_(c) + ' ' + hh);
+  }
 
   /* The upgrade column. On the header if it is named there; otherwise its
      label sits in a cell ABOVE the header, which is where CBC puts it. */
@@ -328,7 +344,17 @@ function ins_cbc_(monthKey) {
     /* A row with revenue and no agent name is in neither total. The old
        buildRoster_ dropped these silently; they get reported instead. */
     if (!name || /^(total|grand total|sum|agent)\b/i.test(name) || /^[0-9.,%\s-]+$/.test(name)) {
-      if (rev) { out.orphanRows++; out.orphanRev += rev; }
+      if (rev) {
+        out.orphanRows++; out.orphanRev += rev;
+        /* Named, not just counted. 3.23 cr sitting on rows with no agent
+           is either a total row this is right to skip, or real revenue
+           nobody is being credited with - and a count cannot tell those
+           apart. The row number and whatever text is on the row can. */
+        var label = name;
+        if (!label && out.cMgr >= 0) label = String(row[out.cMgr] || '').trim();
+        if (!label && out.cCity >= 0) label = String(row[out.cCity] || '').trim();
+        out.orphans.push({ row: r + 1, rev: rev, label: label || '(entirely blank)' });
+      }
       continue;
     }
 
@@ -381,6 +407,10 @@ function ins_tracker_(win) {
               now: { rev: 0, rows: 0, units: 0, total: 0 },
               prior: { rev: 0, rows: 0, units: 0, total: 0 } };
 
+  var t0 = new Date();
+  var since = function () { return Math.round((new Date() - t0) / 1000) + 's'; };
+  var L = function (s) { Logger.log(s); };
+
   var sh;
   try {
     sh = SpreadsheetApp.openById(INS_TRACKER_ID).getSheetByName(INS_TRACKER_TAB);
@@ -391,6 +421,7 @@ function ins_tracker_(win) {
 
   var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
   if (lastRow < 2) { out.error = 'it has ' + lastRow + ' row(s)'; return out; }
+  L('  TRACKER: opened, ' + lastRow + ' rows x ' + lastCol + ' columns, ' + since());
 
   var head = sh.getRange(1, 1, Math.min(10, lastRow), lastCol).getValues();
   var c = null;
@@ -418,36 +449,56 @@ function ins_tracker_(win) {
   var n = lastRow - (out.hr + 1);
   if (n < 1) { out.error = 'a header row and nothing under it'; return out; }
   out.allRows = n;
-  var rows = sh.getRange(out.hr + 2, 1, n, lastCol).getValues();
+
+  /* FIVE NARROW READS, NOT ONE WIDE ONE.
+   *
+   * The first version asked for all 22 columns at once - about 350,000
+   * cells across the network - and sat there for twelve minutes without
+   * printing anything. Only five columns are ever used, so only five are
+   * fetched: roughly 80,000 cells, and each one logs as it lands, so a
+   * slow read is visible instead of looking like a hang. */
+  var grab = function (idx, what) {
+    if (idx < 0) return null;
+    var v = sh.getRange(out.hr + 2, idx + 1, n, 1).getValues();
+    L('           read ' + ins_pad_(what, 12) + ins_pad_(ins_a1_(idx), 4) + since());
+    return v;
+  };
+  var cDate = grab(c.date,  'date');
+  var cAgent = grab(c.agent, 'lead owner');
+  var cAmt  = grab(c.amt,   'amount');
+  var cStat = grab(c.stat,  'status');
+  var cCust = grab(c.cust,  'customer');
+  var at = function (col, r) { return col ? col[r][0] : ''; };
 
   /* FIRST PASS - the earliest payment per customer, across the WHOLE
      tracker. A unit is a deal closed, and a deal is closed on its first
      payment, not on every instalment. This is the only thing that needs
      history rather than the window. */
   var firstOf = {};
-  for (var r = 0; r < rows.length; r++) {
-    var d0 = rows[r][c.date];
+  for (var r = 0; r < n; r++) {
+    var d0 = at(cDate, r);
     if (!(d0 instanceof Date) || isNaN(d0.getTime())) continue;
-    if (ins_cancelled_(rows[r], c)) continue;
-    var ck = (c.cust >= 0) ? String(rows[r][c.cust] || '').trim().toLowerCase() : '';
+    if (ins_isDead_(at(cStat, r))) continue;
+    var ck = String(at(cCust, r) || '').trim().toLowerCase();
     if (!ck) continue;
     if (!firstOf[ck] || d0 < firstOf[ck].when) {
-      firstOf[ck] = { when: d0, agent: String(rows[r][c.agent] || '').trim() };
+      firstOf[ck] = { when: d0, agent: String(at(cAgent, r) || '').trim() };
     }
   }
+  L('           first-payment index built, ' + since());
 
   /* SECOND PASS - the money, by agent, for each window. */
   var statMap = {};
-  for (r = 0; r < rows.length; r++) {
-    var row = rows[r], d = row[c.date];
+  for (r = 0; r < n; r++) {
+    var d = at(cDate, r);
     if (!(d instanceof Date) || isNaN(d.getTime())) continue;
 
     var inNow   = (d >= win.start && d <= win.end);
     var inPrior = (d >= win.priorStart && d <= win.priorEnd);
     if (!inNow && !inPrior) continue;
 
-    var amt = ins_num_(row[c.amt]);
-    var st = (c.stat >= 0) ? String(row[c.stat] || '').trim() : '';
+    var amt = ins_num_(at(cAmt, r));
+    var st = String(at(cStat, r) || '').trim();
 
     if (inNow) {
       var sk = st.toLowerCase();
@@ -455,9 +506,9 @@ function ins_tracker_(win) {
       statMap[sk].rows++; statMap[sk].rev += amt;
     }
 
-    if (ins_cancelled_(row, c)) { if (inNow) out.skipped++; continue; }
+    if (ins_isDead_(st)) { if (inNow) out.skipped++; continue; }
 
-    var name = String(row[c.agent] || '').trim();
+    var name = String(at(cAgent, r) || '').trim();
     if (!name || /^(total|grand total|sum)\b/i.test(name)) continue;
     var key = ins_key_(name);
 
@@ -486,16 +537,22 @@ function ins_tracker_(win) {
 
   for (var s in statMap) out.statuses.push(statMap[s]);
   out.statuses.sort(function (a, b) { return b.rev - a.rev; });
+  L('           tallied, ' + since());
   return out;
 }
 
 
-/** Cancelled and refunded rows are not revenue. Named in one place. */
-function ins_cancelled_(row, c) {
-  if (c.stat < 0) return false;
-  var s = String(row[c.stat] || '').toLowerCase();
+/** Cancelled, refunded, failed and reversed are not revenue. One place. */
+function ins_isDead_(status) {
+  var s = String(status == null ? '' : status).toLowerCase();
   return s.indexOf('cancel') > -1 || s.indexOf('refund') > -1 ||
          s.indexOf('fail') > -1 || s.indexOf('reverse') > -1;
+}
+
+/** Same rule, reached through a row and its column map. */
+function ins_cancelled_(row, c) {
+  if (c.stat < 0) return false;
+  return ins_isDead_(row[c.stat]);
 }
 
 

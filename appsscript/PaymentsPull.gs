@@ -1,163 +1,207 @@
 /**
- * PaymentsPull.gs - stop src_Payments breaking.
+ * PaymentsPull.gs - src_Payments by hand, and it stays by hand.
  *
- * THE PROBLEM
+ * WHY NOTHING STUCK
  *
- *   src_Payments is an IMPORTRANGE, and it keeps falling over to #REF!.
- *   When it does, mdl_Payments is rebuilt from nothing and every page in
- *   the workbook goes with it - which is what put the board at 1.6 L on
- *   7 Oct, and what fixPaymentsRange has been patching since.
+ *   src_Payments is an IMPORTRANGE and it is #REF!. Pasting real rows
+ *   over it looks like it works, and then the next updateAndCheck throws
+ *   them away - because refreshAndVerify calls fixPaymentsRange, and
+ *   fixPaymentsRange REWRITES the IMPORTRANGE formula every single run.
  *
- *   IMPORTRANGE is a live formula. It re-fetches whenever Sheets feels
- *   like it, it counts against the workbook's cell budget the whole time
- *   it exists, and it can fail for reasons that have nothing to do with
- *   this file - the source growing, a permission lapsing, a quota. A
- *   number the whole floor reads should not depend on something that can
- *   quietly become #REF! at 3am.
+ *   That is why running it ten times changed nothing. Each run put the
+ *   broken formula back.
  *
- * THE CURE
+ * WHAT THIS FILE DOES
  *
- *   Fetch the rows with a script and write them as VALUES. There is no
- *   formula left to break, nothing recalculates, and the workbook gets
- *   lighter rather than heavier. It either works and says so, or fails
- *   and says why - which is the whole difference.
+ *   It redefines fixPaymentsRange to do nothing.
  *
- * THE THREE FUNCTIONS
+ *   Apps Script concatenates every .gs in the project into one scope, and
+ *   a later definition of a name wins. A file added now loads after the
+ *   original, so this one wins and the formula is never rewritten again.
+ *   paymentsCheck() proves it is winning rather than leaving you to hope.
  *
- *   paymentsDiagnose()      READ ONLY. Why is it broken, and how heavy is
- *                           this workbook really. Start here.
- *   paymentsPullNow()       Replace the import with values. Guarded.
- *   paymentsRestoreImport() Put the IMPORTRANGE back, if ever wanted.
+ *   That is a blunt thing to do to somebody else's function, so: it is
+ *   loud, it is in one place, and deleting this file undoes it
+ *   completely. Nothing else in the project is touched.
  *
- * BEFORE YOU SWITCH - ONE THING TO KNOW
+ *   With the rewrite off, src_Payments is an ordinary tab. Paste into it
+ *   and the paste stays.
  *
- *   refreshAndVerify calls fixPaymentsRange, which REWRITES the
- *   IMPORTRANGE formula. So after pulling values, the next full refresh
- *   would put the formula straight back. paymentsDiagnose says whether
- *   that function exists in this project, and the note it prints tells
- *   you the one line to change. Read that before relying on the switch.
+ * HOW TO USE IT
+ *
+ *   paymentsCheck()      READ ONLY. Is the override winning, and does
+ *                        what is in src_Payments look right? Run this
+ *                        after every paste, before updateAndCheck.
+ *   paymentsPullNow()    Fetch the rows from the Payment Tracker and
+ *                        write them for you, instead of pasting.
+ *   paymentsDiagnose()   READ ONLY. Why the import broke, and how close
+ *                        this workbook is to Google's cell ceiling.
+ *   paymentsRestoreImport()  Put the IMPORTRANGE back and go back to how
+ *                        it was. Delete this file as well, or the rewrite
+ *                        stays off.
+ *
+ * WHERE TO PASTE
+ *
+ *   Row 4 is the header - Date, Lead Owner, Name, ... exactly as the
+ *   Payment Tracker has it. Row 5 down is the data. Column A onward.
+ *   Paste the whole block including the header row and paymentsCheck
+ *   will tell you if anything is out of place.
  */
 
-/** The Payment Tracker, and the tab inside it. */
 var PP_SOURCE_ID  = '1a-34agNIYY0ZcBIJKHpOsYb-ppM6FQZhietpWtBfreE';
 var PP_SOURCE_TAB = 'All Payments';
 
-/** This workbook's copy. */
 var PP_TARGET_TAB = 'src_Payments';
-var PP_HEADER_ROW = 4;              // the header sits here; data from the next row
+var PP_HEADER_ROW = 4;
 
-/** Keep in step with the import's own window. */
 var PP_FROM_YEAR  = 2026;
-var PP_FROM_MONTH = 4;              // April
+var PP_FROM_MONTH = 4;
 
 /** Refuse a pull that would leave fewer than this share of what is there. */
 var PP_MIN_FRACTION = 0.75;
 
 
 /* ==================================================================
-   1.  WHY IS IT BROKEN  - read only
+   THE OVERRIDE - the thing that makes a paste stick
    ================================================================== */
 
-function paymentsDiagnose() {
-  var ss = SpreadsheetApp.getActive();
-  var L = function (s) { Logger.log(s); };
-  L('=== src_Payments DIAGNOSIS ===   ' +
-    Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm'));
-  L('  Read only. Nothing was written.');
-  L('');
-
-  /* ---- what is actually in the cell ---- */
-  var sh = ss.getSheetByName(PP_TARGET_TAB);
-  if (!sh) { L('  *** no "' + PP_TARGET_TAB + '" tab.'); return; }
-
-  var f = '';
-  try { f = sh.getRange(PP_HEADER_ROW, 1).getFormula(); } catch (e) {}
-  var v = '';
-  try { v = String(sh.getRange(PP_HEADER_ROW, 1).getValue()); } catch (e2) {}
-
-  L('  THE CELL');
-  L('    ' + PP_TARGET_TAB + '!A' + PP_HEADER_ROW + ' holds : ' + (v || '(blank)'));
-  L('    formula : ' + (f || '(none - it is a plain value)'));
-  L('    rows now : ' + sh.getLastRow() + '   cols : ' + sh.getLastColumn());
-  L('');
-
-  /* ---- can this account still reach the source? ----
-     A lapsed permission and a range that is too big both show as #REF!,
-     and they need completely different fixes. Opening it settles which. */
-  L('  THE SOURCE');
-  var src = null;
-  try { src = SpreadsheetApp.openById(PP_SOURCE_ID); }
-  catch (e3) {
-    L('    *** CANNOT OPEN IT: ' + (e3 && e3.message ? e3.message : e3));
-    L('        That is a permission problem, not a size one. Open the');
-    L('        Payment Tracker in this account once, then try again.');
-    return;
-  }
-  L('    name : ' + src.getName());
-  var tab = src.getSheetByName(PP_SOURCE_TAB);
-  if (!tab) {
-    L('    *** no "' + PP_SOURCE_TAB + '" tab in it. The import points at a');
-    L('        tab that no longer exists - that alone is the #REF!.');
-    L('        Tabs it does have: ' +
-      src.getSheets().slice(0, 12).map(function (x) { return x.getName(); }).join(', '));
-    return;
-  }
-  L('    tab  : ' + PP_SOURCE_TAB + '   ' + tab.getLastRow() + ' rows, ' +
-    tab.getLastColumn() + ' cols');
-  L('    grid : ' + tab.getMaxRows() + ' x ' + tab.getMaxColumns() + ' = ' +
-    pp_commas_(tab.getMaxRows() * tab.getMaxColumns()) + ' cells allocated');
-  L('    THE ACCOUNT CAN REACH IT. So this is not permission.');
-  L('');
-
-  /* ---- how heavy is this workbook, really ---- */
-  L('  THIS WORKBOOK');
-  var tabs = ss.getSheets(), total = 0, rows = [];
-  for (var i = 0; i < tabs.length; i++) {
-    var c = tabs[i].getMaxRows() * tabs[i].getMaxColumns();
-    total += c;
-    rows.push({ name: tabs[i].getName(), cells: c });
-  }
-  rows.sort(function (a, b) { return b.cells - a.cells; });
-  L('    ' + tabs.length + ' tabs, ' + pp_commas_(total) + ' cells allocated');
-  L('    Google stops a spreadsheet at 10,000,000. You are at ' +
-    (total / 10000000 * 100).toFixed(1) + '%.');
-  L('');
-  L('    THE TEN BIGGEST');
-  for (var j = 0; j < rows.length && j < 10; j++) {
-    L('      ' + pp_pad_(rows[j].name, 26) + pp_commas_(rows[j].cells));
-  }
-  L('');
-  if (total > 7000000) {
-    L('    *** THAT IS THE PROBLEM. Near the ceiling, IMPORTRANGE is the');
-    L('        first thing to fail, because it is the biggest single ask.');
-    L('        Trim the grids above - a tab with 1000 unused rows still');
-    L('        counts every one of them - and the import stops breaking.');
-  } else {
-    L('    Comfortable. So the failure is not the workbook being full.');
-  }
-  L('');
-
-  /* ---- the thing that would undo the fix ---- */
-  L('  ONE THING TO KNOW BEFORE SWITCHING');
-  if (typeof fixPaymentsRange === 'function') {
-    L('    fixPaymentsRange EXISTS in this project, and refreshAndVerify');
-    L('    calls it. It rewrites the IMPORTRANGE formula, so after');
-    L('    paymentsPullNow the next full refresh would put the formula');
-    L('    straight back and this would start breaking again.');
-    L('');
-    L('    To make the switch stick, that call has to go. Send me the file');
-    L('    holding fixPaymentsRange and I will give you the one line.');
-  } else {
-    L('    fixPaymentsRange is not in this project, so nothing will rewrite');
-    L('    the formula behind you. paymentsPullNow is safe to rely on.');
-  }
-  L('');
-  L('  Nothing was written. This only reports.');
+/**
+ * Deliberately replaces the project's own fixPaymentsRange.
+ *
+ * The original rebuilds the IMPORTRANGE formula in src_Payments on every
+ * refresh. That is the right thing to do when the tab is an import and
+ * the wrong thing when it is maintained by hand, because it silently
+ * discards the rows somebody just pasted.
+ *
+ * It is not deleted, only shadowed - delete this file and the original
+ * is back, unchanged, the next time the project loads.
+ */
+function fixPaymentsRange() {
+  Logger.log('fixPaymentsRange: OFF. src_Payments is maintained by hand now,');
+  Logger.log('  so the IMPORTRANGE is not being rewritten. Delete PaymentsPull.gs');
+  Logger.log('  to put the original behaviour back.');
+  return { skipped: true, reason: 'src_Payments is maintained by hand' };
 }
 
 
 /* ==================================================================
-   2.  PULL THE ROWS AS VALUES
+   AFTER EVERY PASTE, BEFORE updateAndCheck
+   ================================================================== */
+
+function paymentsCheck() {
+  var ss = SpreadsheetApp.getActive();
+  var L = function (s) { Logger.log(s); };
+  L('=== src_Payments CHECK ===   ' +
+    Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm'));
+  L('  Read only. Nothing was written.');
+  L('');
+
+  /* ---- is the override actually winning? ---- */
+  var off = false;
+  try { off = !!(fixPaymentsRange() || {}).skipped; } catch (e) {}
+  L('  THE FORMULA REWRITE');
+  if (off) {
+    L('    OFF. A paste into src_Payments will survive updateAndCheck.');
+  } else {
+    L('    *** STILL ON. The original fixPaymentsRange is winning, so the');
+    L('        next updateAndCheck will throw your paste away and put the');
+    L('        IMPORTRANGE back.');
+    L('        Apps Script loads files in the order of the sidebar and the');
+    L('        last definition wins, so this file has to sit BELOW the one');
+    L('        holding the original. Delete this file and add it again -');
+    L('        a new file goes to the bottom.');
+  }
+  L('');
+
+  var sh = ss.getSheetByName(PP_TARGET_TAB);
+  if (!sh) { L('  *** no "' + PP_TARGET_TAB + '" tab.'); return false; }
+
+  /* ---- is it a formula or real rows? ---- */
+  var f = '';
+  try { f = sh.getRange(PP_HEADER_ROW, 1).getFormula(); } catch (e2) {}
+  if (f) {
+    L('  *** ROW ' + PP_HEADER_ROW + ' IS STILL A FORMULA:');
+    L('      ' + f);
+    L('      Nothing has been pasted yet, or it was overwritten. Clear from');
+    L('      row ' + PP_HEADER_ROW + ' down and paste the real rows, or run paymentsPullNow.');
+    return false;
+  }
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (lastRow <= PP_HEADER_ROW) { L('  *** empty below the header. Nothing to read.'); return false; }
+
+  /* ---- the columns the rest of the project needs ---- */
+  var head = sh.getRange(PP_HEADER_ROW, 1, 1, lastCol).getValues()[0];
+  var H = {};
+  for (var c = 0; c < head.length; c++) {
+    var k = String(head[c]).trim().toLowerCase();
+    if (k && H[k] === undefined) H[k] = c;
+  }
+  var need = ['date', 'lead owner', 'amount paid'];
+  var nice = ['name', 'payment email id', 'payment type', 'status', 'program', 'sale price'];
+  L('  THE HEADER  (row ' + PP_HEADER_ROW + ', ' + lastCol + ' columns)');
+  var missing = [];
+  for (var i = 0; i < need.length; i++) {
+    var at = H[need[i]];
+    L('    ' + pp_pad_(need[i], 16) + (at === undefined ? '*** MISSING' : 'column ' + pp_col_(at)));
+    if (at === undefined) missing.push(need[i]);
+  }
+  for (var j = 0; j < nice.length; j++) {
+    if (H[nice[j]] !== undefined) L('    ' + pp_pad_(nice[j], 16) + 'column ' + pp_col_(H[nice[j]]));
+  }
+  if (missing.length) {
+    L('');
+    L('  *** STOP. Without ' + missing.join(', ') + ' nothing downstream can read');
+    L('      this. Paste the header row too - it is row ' + PP_HEADER_ROW + '.');
+    return false;
+  }
+  L('');
+
+  /* ---- do the rows look like rows? ---- */
+  var n = lastRow - PP_HEADER_ROW;
+  var grid = sh.getRange(PP_HEADER_ROW + 1, 1, n, lastCol).getValues();
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var good = 0, bad = 0, thisMonth = 0, rev = 0, newest = null;
+
+  for (var r = 0; r < grid.length; r++) {
+    var d = grid[r][H['date']];
+    if (!(d instanceof Date) || isNaN(d.getTime())) {
+      if (String(grid[r][H['lead owner']]).trim()) bad++;
+      continue;
+    }
+    good++;
+    if (!newest || d.getTime() > newest.getTime()) newest = d;
+    if (wr_monthKey_(d) === monthKey) {
+      thisMonth++; rev += wr_num_(grid[r][H['amount paid']]);
+    }
+  }
+
+  L('  THE ROWS');
+  L('    total below the header : ' + pp_commas_(n));
+  L('    with a readable date   : ' + pp_commas_(good));
+  if (bad) {
+    L('    *** ' + bad + ' row(s) have a name but no readable date. Every reader in');
+    L('        this project skips those silently, so that money lands nowhere.');
+    L('        Usually it means the Date column pasted as text - select it and');
+    L('        Format > Number > Date.');
+  }
+  L('    newest payment         : ' +
+    (newest ? Utilities.formatDate(newest, WR_TZ, 'dd MMM yyyy') : 'none'));
+  L('    this month             : ' + thisMonth + ' rows, ' + wr_money_(rev));
+  L('');
+
+  var ok = off && good > 0 && !missing.length;
+  if (ok) {
+    L('  READY. Run updateAndCheck - and this time the paste will survive it.');
+  } else {
+    L('  NOT READY. Fix the lines marked *** above first.');
+  }
+  return ok;
+}
+
+
+/* ==================================================================
+   OR LET IT FETCH THE ROWS FOR YOU
    ================================================================== */
 
 function paymentsPullNow() {
@@ -177,7 +221,6 @@ function paymentsPullNow() {
   var sRows = src.getLastRow(), sCols = src.getLastColumn();
   if (sRows < 2) { L('*** the source is empty. Nothing pulled.'); return; }
 
-  /* ---- the header, and which column holds the date ---- */
   var head = src.getRange(1, 1, 1, sCols).getValues()[0];
   var cDate = -1;
   for (var c = 0; c < head.length; c++) {
@@ -185,48 +228,41 @@ function paymentsPullNow() {
   }
   if (cDate < 0) { L('*** the source has no "Date" column.'); return; }
 
-  /* ---- read the date column alone to find where the window starts ----
-     One narrow read instead of pulling 28,000 rows of everything to
-     discover that most of them are out of scope. */
+  /* The date column alone first, to find the window - one narrow read
+     instead of dragging 28,000 rows across to discover most are out of
+     scope. */
   var dates = src.getRange(2, cDate + 1, sRows - 1, 1).getValues();
   var want = PP_FROM_YEAR * 100 + PP_FROM_MONTH;
   var first = -1, last = -1;
   for (var r = 0; r < dates.length; r++) {
     var d = dates[r][0];
     if (!(d instanceof Date) || isNaN(d.getTime())) continue;
-    var key = d.getFullYear() * 100 + (d.getMonth() + 1);
-    if (key < want) continue;
+    if (d.getFullYear() * 100 + (d.getMonth() + 1) < want) continue;
     if (first < 0) first = r;
     last = r;
   }
   if (first < 0) { L('*** nothing dated ' + want + ' or later. Nothing pulled.'); return; }
-
   var nRows = last - first + 1;
 
-  /* THE GUARD. A pull that would shrink the tab to a fraction of what it
-     holds is the source half-read, not a real drop - and writing it would
-     empty every page the way 7 Oct did. */
+  /* A pull that would shrink the tab to a fraction of what it holds is
+     the source half-read, and writing it would empty every page the way
+     7 Oct did. */
   var have = Math.max(0, dst.getLastRow() - PP_HEADER_ROW);
   if (have > 50 && nRows < have * PP_MIN_FRACTION) {
-    L('*** REFUSING. The source offers ' + nRows + ' rows against ' + have +
-      ' already here.');
-    L('    That is the Payment Tracker half-read, not a real drop. Nothing');
-    L('    was touched. Try again in a few minutes.');
+    L('*** REFUSING. The source offers ' + nRows + ' rows against ' + have + ' already here.');
+    L('    That is the tracker half-read, not a real drop. Nothing was touched.');
     return;
   }
 
-  /* ---- read the block, in chunks ---- */
-  var block = [], CH = 5000;
-  for (var at = 0; at < nRows; at += CH) {
-    var take = Math.min(CH, nRows - at);
-    block = block.concat(src.getRange(2 + first + at, 1, take, sCols).getValues());
+  var block = [], CH = 5000, at, w;
+  for (at = 0; at < nRows; at += CH) {
+    block = block.concat(src.getRange(2 + first + at, 1,
+                                      Math.min(CH, nRows - at), sCols).getValues());
   }
 
-  /* ---- write it ---- */
-  var lastRow = dst.getMaxRows();
-  if (lastRow >= PP_HEADER_ROW) {
-    dst.getRange(PP_HEADER_ROW, 1, lastRow - PP_HEADER_ROW + 1,
-                 dst.getMaxColumns()).clearContent();
+  var maxR = dst.getMaxRows();
+  if (maxR >= PP_HEADER_ROW) {
+    dst.getRange(PP_HEADER_ROW, 1, maxR - PP_HEADER_ROW + 1, dst.getMaxColumns()).clearContent();
   }
   var need = PP_HEADER_ROW + 1 + block.length;
   if (dst.getMaxRows() < need) dst.insertRowsAfter(dst.getMaxRows(), need - dst.getMaxRows());
@@ -235,48 +271,101 @@ function paymentsPullNow() {
   }
 
   dst.getRange(PP_HEADER_ROW, 1, 1, sCols).setValues([head]);
-  for (var w = 0; w < block.length; w += CH) {
+  for (w = 0; w < block.length; w += CH) {
     var slice = block.slice(w, w + CH);
     dst.getRange(PP_HEADER_ROW + 1 + w, 1, slice.length, sCols).setValues(slice);
   }
   SpreadsheetApp.flush();
 
-  L('  pulled  : ' + pp_commas_(block.length) + ' rows x ' + sCols + ' cols');
-  L('  window  : ' + PP_FROM_YEAR + '-' + pp_pad2_(PP_FROM_MONTH) + ' onward');
-  L('  written : ' + PP_TARGET_TAB + ' row ' + PP_HEADER_ROW + ' (header) and below,');
-  L('            as VALUES - there is no formula left to break.');
-  L('  took    : ' + Math.round((new Date() - t0) / 1000) + 's');
-  L('');
-  if (typeof fixPaymentsRange === 'function') {
-    L('  !! fixPaymentsRange is in this project and refreshAndVerify calls');
-    L('     it. It will rewrite the IMPORTRANGE on the next full refresh and');
-    L('     undo this. Run paymentsDiagnose for what to do about it.');
-  }
+  L('  pulled ' + pp_commas_(block.length) + ' rows x ' + sCols + ' cols as VALUES');
+  L('  took   ' + Math.round((new Date() - t0) / 1000) + 's');
+  L('  Now run paymentsCheck, then updateAndCheck.');
 }
 
 
 /* ==================================================================
-   3.  PUT THE IMPORT BACK
+   WHY IT BROKE, AND HOW HEAVY THIS WORKBOOK IS
    ================================================================== */
+
+function paymentsDiagnose() {
+  var ss = SpreadsheetApp.getActive();
+  var L = function (s) { Logger.log(s); };
+  L('=== src_Payments DIAGNOSIS ===   ' +
+    Utilities.formatDate(new Date(), WR_TZ, 'dd MMM HH:mm'));
+  L('  Read only. Nothing was written.');
+  L('');
+
+  var sh = ss.getSheetByName(PP_TARGET_TAB);
+  if (!sh) { L('  *** no "' + PP_TARGET_TAB + '" tab.'); return; }
+  var f = '';
+  try { f = sh.getRange(PP_HEADER_ROW, 1).getFormula(); } catch (e) {}
+  L('  THE CELL');
+  L('    A' + PP_HEADER_ROW + ' : ' + (String(sh.getRange(PP_HEADER_ROW, 1).getValue()) || '(blank)'));
+  L('    formula : ' + (f || '(none - plain values, which is what we want)'));
+  L('    rows : ' + sh.getLastRow() + '   cols : ' + sh.getLastColumn());
+  L('');
+
+  /* A lapsed permission and an oversized range both read as #REF! and
+     need opposite fixes. Opening the source settles which. */
+  L('  THE SOURCE');
+  var src = null;
+  try { src = SpreadsheetApp.openById(PP_SOURCE_ID); }
+  catch (e3) {
+    L('    *** CANNOT OPEN IT: ' + (e3 && e3.message ? e3.message : e3));
+    L('        That is permission, not size. Open the Payment Tracker in this');
+    L('        account once, then try again.');
+    return;
+  }
+  var tab = src.getSheetByName(PP_SOURCE_TAB);
+  L('    ' + src.getName() + (tab ? ('  >  ' + PP_SOURCE_TAB + '  ' +
+      tab.getLastRow() + ' rows') : '  *** no "' + PP_SOURCE_TAB + '" tab'));
+  L('    This account CAN reach it, so the #REF! was not permission.');
+  L('');
+
+  L('  THIS WORKBOOK');
+  var tabs = ss.getSheets(), total = 0, rows = [];
+  for (var i = 0; i < tabs.length; i++) {
+    var cells = tabs[i].getMaxRows() * tabs[i].getMaxColumns();
+    total += cells;
+    rows.push({ name: tabs[i].getName(), cells: cells });
+  }
+  rows.sort(function (a, b) { return b.cells - a.cells; });
+  L('    ' + tabs.length + ' tabs, ' + pp_commas_(total) + ' cells allocated');
+  L('    Google stops a spreadsheet at 10,000,000 - you are at ' +
+    (total / 10000000 * 100).toFixed(1) + '%.');
+  L('');
+  L('    THE TEN BIGGEST');
+  for (var j = 0; j < rows.length && j < 10; j++) {
+    L('      ' + pp_pad_(rows[j].name, 26) + pp_commas_(rows[j].cells));
+  }
+  L('');
+  if (total > 7000000) {
+    L('    *** THAT is why the import keeps failing. Near the ceiling,');
+    L('        IMPORTRANGE is the first thing to go. A tab with a thousand');
+    L('        unused rows still charges for every one - trim the grids above.');
+  } else {
+    L('    Comfortable, so the failure was not the workbook being full.');
+  }
+  L('');
+  L('  Nothing was written. This only reports.');
+}
+
 
 function paymentsRestoreImport() {
   var ss = SpreadsheetApp.getActive();
   var dst = ss.getSheetByName(PP_TARGET_TAB);
   if (!dst) { Logger.log('no "' + PP_TARGET_TAB + '" tab.'); return; }
-
   var url = 'https://docs.google.com/spreadsheets/d/' + PP_SOURCE_ID;
-  var f = '=IMPORTRANGE("' + url + '","' + PP_SOURCE_TAB + '!A1:AZ")';
-
-  var lastRow = dst.getMaxRows();
-  if (lastRow >= PP_HEADER_ROW) {
-    dst.getRange(PP_HEADER_ROW, 1, lastRow - PP_HEADER_ROW + 1,
-                 dst.getMaxColumns()).clearContent();
+  var maxR = dst.getMaxRows();
+  if (maxR >= PP_HEADER_ROW) {
+    dst.getRange(PP_HEADER_ROW, 1, maxR - PP_HEADER_ROW + 1, dst.getMaxColumns()).clearContent();
   }
-  dst.getRange(PP_HEADER_ROW, 1).setFormula(f);
+  dst.getRange(PP_HEADER_ROW, 1)
+     .setFormula('=IMPORTRANGE("' + url + '","' + PP_SOURCE_TAB + '!A1:AZ")');
   SpreadsheetApp.flush();
-  Logger.log('Restored the IMPORTRANGE at ' + PP_TARGET_TAB + '!A' + PP_HEADER_ROW + '.');
-  Logger.log('It may show #REF! until the connection is approved once -');
-  Logger.log('click the cell and allow access if it asks.');
+  Logger.log('IMPORTRANGE restored at ' + PP_TARGET_TAB + '!A' + PP_HEADER_ROW + '.');
+  Logger.log('DELETE PaymentsPull.gs as well, or fixPaymentsRange stays switched');
+  Logger.log('off and the old bounding behaviour will not come back.');
 }
 
 
@@ -299,4 +388,9 @@ function pp_pad_(s, n) {
   return s;
 }
 
-function pp_pad2_(n) { n = String(n); return n.length < 2 ? '0' + n : n; }
+/** 0-based column index to a letter, so it can be found by eye. */
+function pp_col_(idx) {
+  var s = '', n = idx + 1;
+  while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - m) / 26 | 0; }
+  return s;
+}

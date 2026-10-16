@@ -6,6 +6,12 @@ lines), the 27 in this repository (14,322 lines), and `ManagementReport.gs`
 recovered the same way. About 50 distinct scripts once duplicates between the
 two sets are collapsed.
 
+**The recovered 33 are a snapshot of 18 September.** Files have been deleted
+and changed since. The three faults in section 2 are architectural and do not
+depend on which files exist today, so they stand. **The file-by-file verdicts
+in sections 4 and 5 do not** - they are rewritten against `whatsHere()` output
+before a single line is deleted.
+
 You asked for this on **18 September**: *"I have given you my all 63 files...
 I want to make a new Google Sheet and want to run a new script, a very simple
 script. I think there are so many things which is not necessary."* It did not
@@ -147,6 +153,22 @@ written to - the standing constraint from 6 October holds.
 
 ## 4. Script by script
 
+> **THIS SECTION IS A SNAPSHOT OF 18 SEPTEMBER, NOT OF TODAY.**
+>
+> Files have been deleted and changed since that paste. So the verdicts
+> below say what each file *was for*, which is still true and still useful -
+> but **not** which files are in the project now. A delete list built from a
+> stale inventory is how a function somebody still needs gets removed.
+>
+> `whatsHere()` settles it from the project itself: it probes all 151
+> function names that have ever appeared here and reports which are live,
+> which are gone, which tabs exist and how many triggers are installed.
+> Sections 4 and 5 get rewritten against that output before anything is
+> deleted.
+>
+> Sections 1 to 3 do not depend on the file list - they are about
+> architecture - and stand as written.
+
 ### Keep - the TV board (works, leave alone)
 
 | file | lines | note |
@@ -239,6 +261,13 @@ touched.
 ---
 
 ## 6. Order of work
+
+0. **Run `whatsHere()`.** One read-only pass that asks the project which of
+   the 151 known functions are live, which tabs exist, how many triggers are
+   installed, and - by calling `mr_metrics_` and counting what comes back -
+   **which of the two competing definitions actually won**. That last one is
+   fault 3 measured rather than argued, and nothing else can measure it.
+   Sections 4 and 5 are rewritten from its output.
 
 1. **Build `insideSales()`** and have it write to a tab named
    `Management Report NEW`, beside the existing one. Nothing is replaced and

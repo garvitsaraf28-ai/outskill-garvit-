@@ -153,21 +153,10 @@ written to - the standing constraint from 6 October holds.
 
 ## 4. Script by script
 
-> **THIS SECTION IS A SNAPSHOT OF 18 SEPTEMBER, NOT OF TODAY.**
->
-> Files have been deleted and changed since that paste. So the verdicts
-> below say what each file *was for*, which is still true and still useful -
-> but **not** which files are in the project now. A delete list built from a
-> stale inventory is how a function somebody still needs gets removed.
->
-> `whatsHere()` settles it from the project itself: it probes all 151
-> function names that have ever appeared here and reports which are live,
-> which are gone, which tabs exist and how many triggers are installed.
-> Sections 4 and 5 get rewritten against that output before anything is
-> deleted.
->
-> Sections 1 to 3 do not depend on the file list - they are about
-> architecture - and stand as written.
+> **SNAPSHOT OF 18 SEPTEMBER. Checked against the live project on 17
+> October - see section 7 for what that changed.** The verdicts below say
+> what each file was for, which is still accurate. Section 7 is what is
+> actually there.
 
 ### Keep - the TV board (works, leave alone)
 
@@ -282,3 +271,138 @@ touched.
 
 Step 1 is non-destructive and is the next thing I write. Nothing gets deleted
 until a page you can see agrees with CBC.
+
+---
+
+## 7. Verified against the live project, 17 October 00:53
+
+`whatsHere()` probed all 151 function names. **143 are live.** Two things I
+wrote above were wrong, and one guess was right.
+
+### Correction 1 - the model builder is not lost
+
+I wrote that `refreshAndVerify`, `buildPayments_`, `buildRoster_` and
+`fixPaymentsRange` "cannot be read or repaired". **All four are live**, along
+with `addUpgradeRevenue` and `syncRosterSources`. They are not gone from the
+project - I simply do not have their source, which is a different thing and a
+weaker claim. They could be pasted and fixed.
+
+The architecture decision still stands, for a reason that does not depend on
+readability: the design stores derived facts in cells (fault 2). Repairing the
+code that writes a stamp leaves a stamp to go stale. Reading CBC and the
+tracker directly removes the stamp entirely. **Bypass, not because it cannot
+be fixed, but because fixing it preserves the fault.**
+
+### Correction 2 - fault 3 is dormant, not active
+
+```
+MR_COLS has 9 columns
+mr_metrics_ returns 9 values.
+Consistent with MR_COLS, so the two files agree.
+```
+
+The `ScheduleAndFormat` override **did** win. Booked / To Come really is
+removed, and the two files are in step. So the override race is not currently
+producing wrong figures.
+
+The mechanism is still there - two files still define the same four names, and
+the order that resolves it is still not controllable. It is a fault waiting
+rather than a fault acting, and it stops mattering when the page has one
+author.
+
+### Confirmed - what is genuinely absent
+
+Only 8 of 151 names are not live:
+
+| missing | why it matters |
+|---|---|
+| `warRoomSyncStatus` `warRoomSyncNow` `warRoomInstallSync` `warRoomRemoveSync` `warRoomForceSync` | **`war-room-autosync.gs` was never added.** `WRA_MIN_ROSTER_FRACTION` is undefined, so **there is no roster guard.** |
+| `showReportNow` | deleted, and it was only a printer |
+| `insideSales` `insideSalesSelfTest` | not pasted yet |
+
+**The missing roster guard is a live risk, not housekeeping.** Ten scheduled
+rebuilds a day run unattended with nothing stopping a rebuild that reads a
+collapsed roster import. That is precisely what produced the 1.6 L board on
+7 October, and it can happen again tonight.
+
+### Triggers - at the ceiling, exactly
+
+```
+20 of a maximum 20.
+  onOpen                x1
+  runAgentLeadSchedule  x4
+  runDaySchedule        x5
+  runLeadIndiaSchedule  x2
+  runLeadIntlSchedule   x2
+  runNightSchedule      x5
+  slpAutoRefresh        x1
+```
+
+**Full.** Installing one more throws part way through - which is how a
+schedule ends up half applied, and why `installAllSchedules` refused earlier.
+
+The 8 slots held by `runAgentLeadSchedule`, `runLeadIndiaSchedule` and
+`runLeadIntlSchedule` are three Slack lead reports on fixed hours. One trigger
+on a short interval with a slot gate does the same work, the way
+`runDaySchedule` already does. **That frees 6 slots** without losing a single
+report.
+
+Note `warRoomAutoUpdate` and `warRoomScheduledUpdate` are live but have **no
+trigger**. The board is not on its own clock; it reads the model, so it moves
+when the model moves.
+
+### The workbook - 56 tabs, and why it is slow
+
+The heaviest, in rows:
+
+| tab | rows |
+|---|---|
+| `DN Batch Map` | 65,196 |
+| `src_Payments` | 15,558 |
+| `mdl_Payments` | 11,001 |
+| `src_MM_Dom` | 8,426 |
+| `src_MM_Eng` | 4,264 |
+| `src_MM_Intl` | 3,171 |
+| `src_BC_Ind` | 1,577 |
+| `_SlpMonthData` | 1,304 |
+| `mdl_Roster` | 427 |
+
+Roughly 112,000 rows, most of it in hidden source and model tabs. This is the
+answer to *"sheet is so heavy thats why every time this happens"* - and it is
+why `IMPORTRANGE` keeps dropping to `#REF!`. Recalculation cost rises with
+every tab, and `IMPORTRANGE` is evaluated with everything else.
+
+`insideSales()` adds nothing to that load: it reads the two sources over the
+API, not through a formula, so no new cell depends on anything.
+
+### Still open - the upgrade may be counted twice
+
+`addUpgradeRevenue` is live and, per `KillDuplicateUpgrades.gs`, it *writes
+rows into `mdl_Payments`* - one per agent per CBC month. `killDuplicateUpgrades`
+exists only because repeated runs stacked them.
+
+But `addUpgradeRevenue` is **not in `REFRESH_SEQUENCE`**:
+
+```
+refreshAndVerify, buildExecSnapshot, buildManagementReport,
+addCbcLine, formatManagementReport
+```
+
+So on the scheduled path those rows are never refreshed, while
+`mr_addUpgrade_` and `wr_fillUpgrade_` add the upgrade *again* from
+`src_Roster`. Either the upgrade is double counted on the report, or the
+written rows are stale - and which one depends on what last ran by hand.
+
+`insideSales()` has one source for it: CBC's column, read once, added at the
+agent. There is no second path to disagree with.
+
+### Revised order of work
+
+1. **`insideSales()`** - the correct number, independent of all 143 functions.
+2. **Free 6 trigger slots** by collapsing the three lead-report schedules into
+   one gated trigger.
+3. **Restore a roster guard** - or let step 1 make it moot, since
+   `insideSales` reads CBC directly and a roster of 0 agents makes it stop
+   rather than write a zero.
+4. **Delete**, per-function, against this verified list rather than the
+   September one.

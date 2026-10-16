@@ -248,7 +248,12 @@ function insideSales(monthKey) {
 
   /* ---------- 4. the page ---------- */
   ins_write_(ss, win, m, t0);
-  L('  WROTE "' + INS_OUT_TAB + '". The existing Management Report was not touched.');
+  /* This said "the existing Management Report was not touched", which
+     was true while it wrote to a separate tab and became false the
+     moment it took over the real one. A log that reassures you about
+     something it no longer does is worse than no log. */
+  L('  WROTE "' + INS_OUT_TAB + '". The page it replaced is kept as "' +
+    INS_BACKUP_TAB + '".');
   L('');
 
   /* ---------- 5. does it agree with CBC ---------- */

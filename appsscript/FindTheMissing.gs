@@ -51,10 +51,35 @@ function findTheMissing() {
     return;
   }
 
+  /* Named one at a time. "Could not find CBC, the import and the model"
+     says which of three things is wrong only by not saying, and a
+     message that needs another run to interpret is not a message. */
   var cbc = w3_roster_(ss, monthKey);
+  L('  CBC   (src_Roster_' + monthKey + ') : ' +
+    (cbc ? (cbc.name + ', ' + cbc.n + ' agents') : '*** NOT FOUND'));
+
   var src = w3_pay_(ss, true);
+  L('  import (a payments tab WITH a customer column) : ' +
+    (src ? (src.name + ', ' + src.rows.length + ' rows') : '*** NOT FOUND'));
+
   var mdl = w3_pay_(ss, false);
-  if (!cbc || !src || !mdl) { L('  Could not find CBC, the import and the model.'); return; }
+  L('  model  (a payments tab WITHOUT one)            : ' +
+    (mdl ? (mdl.name + ', ' + mdl.rows.length + ' rows') : '*** NOT FOUND'));
+  L('');
+
+  if (!cbc) {
+    L('  *** No src_Roster tab for ' + monthKey + ' carrying both an Agent column');
+    L('      and a Realised Revenue column. Without CBC there is nothing to');
+    L('      compare the model against.');
+  }
+  if (!src || !mdl) {
+    L('  *** The two payments tabs are told apart by one thing: the raw import');
+    L('      carries a customer (a Name or Payment Email Id column) and the');
+    L('      model does not. If src_Payments has just been replaced by hand and');
+    L('      those columns were left out, both look like the model and neither');
+    L('      can be found. Paste the header row as the tracker has it.');
+  }
+  if (!cbc || !src || !mdl) return;
 
   var M = w3_tally_(mdl, monthKey);
 

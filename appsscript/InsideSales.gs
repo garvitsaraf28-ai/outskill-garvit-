@@ -130,17 +130,32 @@ function insideSales(monthKey) {
   }
   if (cbc.cUp < 0) {
     L('          *** no AIGF Upgrade / Catalyst column found on "' + cbc.tab + '".');
-    L('              Headers on row ' + (cbc.hr + 1) + ':');
-    L('              ' + cbc.headers.join('  |  '));
-    L('              Tell me which column holds it and it gets counted.');
+    L('              The tab is ' + cbc.width + ' columns wide (to ' +
+      ins_a1_(cbc.width - 1) + ') and names them only to AD.');
+    L('              Columns holding numbers under NO header:');
+    for (var hl = 0; hl < cbc.headless.length; hl++) {
+      L('                ' + ins_pad_(ins_a1_(cbc.headless[hl].col), 5) +
+        ins_pad_(ins_money_(cbc.headless[hl].sum), 12) +
+        cbc.headless[hl].n + ' value(s)');
+    }
+    L('              The upgrade is one of these. Capacity is the one summing');
+    L('              to about 55. Tell me the letter and it gets counted, or');
+    L('              set INS_CBC_UPGRADE_COL at the top of this file.');
   }
   L('');
 
   /* ---------- 2. the Payment Tracker ---------- */
   var pay = ins_tracker_(win);
   if (pay.error) { L('  *** tracker: ' + pay.error); return; }
-  L('  TRACKER: "' + INS_TRACKER_TAB + '", header row ' + (pay.hr + 1) + ', ' +
+  L('  PAYMENTS: ' + pay.source + ', header row ' + (pay.hr + 1) + ', ' +
     pay.allRows + ' rows in all');
+  if (pay.newest) {
+    var ageH = Math.round((new Date() - pay.newest) / 3600000);
+    L('          newest payment in it: ' +
+      Utilities.formatDate(pay.newest, INS_TZ, 'dd MMM HH:mm') +
+      '  (' + ageH + ' hours ago)' +
+      (ageH > 36 ? '   *** STALE. A payment taken since then is not on this page.' : ''));
+  }
   L('          this window  ' + ins_pad_(String(pay.now.rows), 7) + ins_money_(pay.now.total));
   L('          last month   ' + ins_pad_(String(pay.prior.rows), 7) + ins_money_(pay.prior.total));
   if (pay.skipped) {
@@ -422,6 +437,23 @@ function ins_cbc_(monthKey) {
     out.mmTotal += a.mm;
   }
 
+  /* Columns carrying numbers under no header at all. CBC names nothing
+     past AD, yet Z, AB and AE hold figures - the capacity factors and
+     the upgrade among them. When the label cannot be found, printing
+     these with their totals identifies the right one by its size
+     instead of by a guess at a column letter. */
+  out.headless = [];
+  out.width = lastCol;
+  for (c = 0; c < lastCol; c++) {
+    if (String(grid[out.hr][c]).trim()) continue;
+    var sum = 0, cnt = 0;
+    for (r = out.hr + 1; r < grid.length; r++) {
+      var vv = grid[r][c];
+      if (typeof vv === 'number' && vv) { sum += vv; cnt++; }
+    }
+    if (cnt >= 3) out.headless.push({ col: c, n: cnt, sum: sum });
+  }
+
   if (!out.agents.length) out.error = 'no agent rows under row ' + (out.hr + 1);
   return out;
 }
@@ -434,7 +466,8 @@ function ins_cbc_(monthKey) {
 
 function ins_tracker_(win) {
   var out = { byKey: {}, priorByKey: {}, statuses: [], skipped: 0,
-              allRows: 0, hr: -1, error: '',
+              allRows: 0, hr: -1, error: '', source: '', usedLocal: false,
+              newest: null, partial: 0,
               now: { rev: 0, rows: 0, units: 0, total: 0 },
               prior: { rev: 0, rows: 0, units: 0, total: 0 } };
 
@@ -442,17 +475,48 @@ function ins_tracker_(win) {
   var since = function () { return Math.round((new Date() - t0) / 1000) + 's'; };
   var L = function (s) { Logger.log(s); };
 
-  var sh;
-  try {
-    sh = SpreadsheetApp.openById(INS_TRACKER_ID).getSheetByName(INS_TRACKER_TAB);
-  } catch (e) {
-    out.error = 'cannot open it: ' + ((e && e.message) ? e.message : e); return out;
+  /* LOCAL FIRST, THE TRACKER ONLY IF IT HAS TO.
+   *
+   * The 01:37 run reached CBC in 42 seconds and then printed nothing at
+   * all - no row count, no error - because it never got past
+   * openById(tracker).getSheetByName(). The Payment Tracker is too large
+   * to open from Apps Script in any useful time, and that call happens
+   * before any read, so it cannot be chunked or budgeted around.
+   *
+   * src_Payments is the same data, already in this workbook, and a local
+   * read is an order of magnitude cheaper. It is used first. The tracker
+   * stays as the fallback for when the import is in #REF! - which is the
+   * right way round, because the import is usually fine and the tracker
+   * is the safety net, not the default.
+   *
+   * The cost of the local copy is that it can be stale, so how fresh it
+   * is gets measured and printed rather than assumed. */
+  var sh = null, usedLocal = false;
+  var local = SpreadsheetApp.getActive().getSheetByName('src_Payments');
+  if (local && local.getLastRow() > 100) {
+    sh = local; usedLocal = true;
+    out.source = 'src_Payments (the local copy)';
+    L('  PAYMENTS: ' + out.source + ', ' + since());
+  } else {
+    L('  PAYMENTS: src_Payments is ' +
+      (local ? 'only ' + local.getLastRow() + ' rows' : 'missing') +
+      ', so opening the Payment Tracker itself. This is slow.');
+    try {
+      sh = SpreadsheetApp.openById(INS_TRACKER_ID).getSheetByName(INS_TRACKER_TAB);
+    } catch (e) {
+      out.error = 'src_Payments is unusable and the tracker will not open: ' +
+                  ((e && e.message) ? e.message : e);
+      return out;
+    }
+    if (!sh) { out.error = 'no "' + INS_TRACKER_TAB + '" tab in the tracker'; return out; }
+    out.source = 'the Payment Tracker';
+    L('  PAYMENTS: ' + out.source + ' opened, ' + since());
   }
-  if (!sh) { out.error = 'no "' + INS_TRACKER_TAB + '" tab'; return out; }
 
   var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-  if (lastRow < 2) { out.error = 'it has ' + lastRow + ' row(s)'; return out; }
-  L('  TRACKER: opened, ' + lastRow + ' rows x ' + lastCol + ' columns, ' + since());
+  if (lastRow < 2) { out.error = out.source + ' has ' + lastRow + ' row(s)'; return out; }
+  L('            ' + lastRow + ' rows x ' + lastCol + ' columns, ' + since());
+  out.usedLocal = usedLocal;
 
   var head = sh.getRange(1, 1, Math.min(10, lastRow), lastCol).getValues();
   var c = null;
@@ -520,6 +584,10 @@ function ins_tracker_(win) {
       var d = D[r][0];
       if (!(d instanceof Date) || isNaN(d.getTime())) continue;
       live++;
+      /* The newest payment anywhere in the source. A local copy that
+         stopped updating yesterday produces a page that looks complete
+         and is not, so this is measured rather than trusted. */
+      if (!out.newest || d > out.newest) out.newest = d;
 
       var st   = S ? String(S[r][0] || '').trim() : '';
       var dead = ins_isDead_(st);

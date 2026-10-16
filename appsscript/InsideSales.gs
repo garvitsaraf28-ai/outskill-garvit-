@@ -598,8 +598,16 @@ function ins_tracker_(win) {
       break;
     }
 
-    var h = Math.min(CH, n - done);
-    var blk = get5(done, h);
+    var h = Math.min(CH, n - done), blk;
+    /* One failed block should not lose the whole run. Stop, say where,
+       and let what was read be reported as partial. */
+    try { blk = get5(done, h); }
+    catch (eRead) {
+      out.partial = done;
+      L('           *** read failed at row ' + done + ': ' +
+        ((eRead && eRead.message) ? eRead.message : eRead));
+      break;
+    }
     var D = blk.D, A = blk.A, M = blk.M, S = blk.S, CU = blk.C;
 
     var live = 0;
@@ -762,41 +770,55 @@ function ins_restSource_(L, since) {
     ranges.push(tab + '!' + a1 + first + ':' + a1);
   }
 
-  var vr;
-  try { vr = api.batch(ranges); }
-  catch (e2) { return { error: api.how + ': ' + ((e2 && e2.message) ? e2.message : e2) }; }
-
-  var got = [], k = 0;
-  for (i = 0; i < want.length; i++) {
-    got.push(want[i] < 0 ? null : ((vr[k++] || {}).values || []));
-  }
-  var n = 0;
-  for (i = 0; i < got.length; i++) if (got[i] && got[i].length > n) n = got[i].length;
-  if (n < 1) return { error: 'no rows came back' };
-
-  var flat = function (col, isDate) {
-    if (!col) return null;
-    var o = new Array(n);
-    for (var r = 0; r < n; r++) {
-      var cell = col[r];
-      var v = (cell && cell.length) ? cell[0] : '';
-      o[r] = isDate ? ins_fromSerial_(v) : v;
-    }
-    return o;
-  };
-  var D = flat(got[0], true), A = flat(got[1]), M = flat(got[2]),
-      S = flat(got[3]), C = flat(got[4]);
+  /* FETCH PER CHUNK, NOT FIVE WHOLE COLUMNS.
+   *
+   * The 02:33 run asked for A4:A, B4:B and three more in one batchGet
+   * and got "The service is currently unavailable" after 223 seconds -
+   * a timeout wearing a vague message. The tracker is far too tall for
+   * five open-ended columns in one request.
+   *
+   * So the row count is read from the grid metadata first, and each
+   * 5,000-row block is fetched when the loop asks for it. Every request
+   * is small and bounded, a slow one cannot hold the whole run hostage,
+   * and the loop that already stops at trailing blanks now stops the
+   * fetching too. */
+  var total;
+  try { total = api.rows(INS_TRACKER_TAB); }
+  catch (e3) { return { error: api.how + ' (row count): ' + ((e3 && e3.message) ? e3.message : e3) }; }
+  var n = total - (found.hr + 1);
+  if (n < 1) return { error: 'the tab has a header row and nothing under it' };
 
   L('  PAYMENTS: the Payment Tracker, live via ' + api.how + ', ' +
     n + ' rows, ' + since());
+
+  var colA1 = [];
+  for (i = 0; i < want.length; i++) colA1.push(want[i] < 0 ? null : ins_a1_(want[i]));
+
   return {
     source: 'the Payment Tracker (live)', isLocal: false,
     hr: found.hr, c: found.c, n: n,
     get5: function (from, count) {
-      return { D: D.slice(from, from + count), A: A.slice(from, from + count),
-               M: M.slice(from, from + count),
-               S: S ? S.slice(from, from + count) : null,
-               C: C ? C.slice(from, from + count) : null };
+      var top = first + from, bot = top + count - 1, rs = [], j;
+      for (j = 0; j < colA1.length; j++) {
+        if (colA1[j] === null) continue;
+        rs.push(tab + '!' + colA1[j] + top + ':' + colA1[j] + bot);
+      }
+      var vr = api.batch(rs), k2 = 0, part = [];
+      for (j = 0; j < colA1.length; j++) {
+        part.push(colA1[j] === null ? null : ((vr[k2++] || {}).values || []));
+      }
+      var flat = function (col, isDate) {
+        if (!col) return null;
+        var o = new Array(count);
+        for (var r = 0; r < count; r++) {
+          var cell = col[r];
+          var v = (cell && cell.length) ? cell[0] : '';
+          o[r] = isDate ? ins_fromSerial_(v) : v;
+        }
+        return o;
+      };
+      return { D: flat(part[0], true), A: flat(part[1]), M: flat(part[2]),
+               S: flat(part[3]), C: flat(part[4]) };
     }
   };
 }
@@ -832,6 +854,11 @@ function ins_sheetsApi_() {
       batch: function (ranges) {
         return Sheets.Spreadsheets.Values.batchGet(INS_TRACKER_ID,
                  { ranges: ranges, valueRenderOption: 'UNFORMATTED_VALUE' }).valueRanges || [];
+      },
+      rows: function (title) {
+        var meta = Sheets.Spreadsheets.get(INS_TRACKER_ID,
+          { fields: 'sheets(properties(title,gridProperties(rowCount)))' });
+        return ins_rowsFromMeta_(meta, title);
       }
     };
   }
@@ -862,8 +889,25 @@ function ins_sheetsApi_() {
       for (var i = 0; i < ranges.length; i++) q.push('ranges=' + encodeURIComponent(ranges[i]));
       return call(base + '/values:batchGet?' + q.join('&') +
                   '&valueRenderOption=UNFORMATTED_VALUE').valueRanges || [];
+    },
+    rows: function (title) {
+      return ins_rowsFromMeta_(call(base + '?fields=' +
+        encodeURIComponent('sheets(properties(title,gridProperties(rowCount)))')), title);
     }
   };
+}
+
+
+/** How many rows the named tab has, from the grid metadata. */
+function ins_rowsFromMeta_(meta, title) {
+  var list = (meta && meta.sheets) || [];
+  for (var i = 0; i < list.length; i++) {
+    var p = list[i].properties || {};
+    if (String(p.title) === String(title)) {
+      return (p.gridProperties && p.gridProperties.rowCount) || 0;
+    }
+  }
+  throw new Error('no tab named "' + title + '"');
 }
 
 

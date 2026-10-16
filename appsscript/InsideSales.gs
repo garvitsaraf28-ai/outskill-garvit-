@@ -74,6 +74,12 @@ var INS_TRACKER_TAB = 'All Payments';
 /* A new tab. The existing report is never opened. */
 var INS_OUT_TAB = 'Management Report NEW';
 
+/* CBC carries the AIGF Upgrade / Catalyst figures in a column with no
+   header. Where the label can be found this is ignored; where it cannot,
+   this column is used and the log says it was assumed. Set it to '' to
+   refuse to guess at all. */
+var INS_CBC_UPGRADE_COL = 'AE';
+
 /* Column positions on the page, matching the existing report exactly:
    labels in C, this month in D, last month in E. */
 var INS_C = { LABEL: 3, V1: 4, V2: 5 };
@@ -139,6 +145,11 @@ function insideSales(monthKey) {
   L('          last month   ' + ins_pad_(String(pay.prior.rows), 7) + ins_money_(pay.prior.total));
   if (pay.skipped) {
     L('          ' + pay.skipped + ' row(s) in the window skipped as cancelled.');
+  }
+  if (pay.partial) {
+    L('          *** PARTIAL. Only the first ' + pay.partial + ' rows were read');
+    L('              before the time budget. Every figure below is a floor,');
+    L('              not a total. Say so rather than trusting the page.');
   }
   if (pay.statuses.length) {
     L('          statuses in the window, so nothing is excluded unseen:');
@@ -331,6 +342,26 @@ function ins_cbc_(monthKey) {
     }
   }
 
+  /* Still nothing. CBC's own "Oct 2026" names its columns on row 3 and
+     stops at AD - Z, AB and AE carry numbers under no header at all. AB
+     is the ramp factors. AE totalled 3.12 L in the imported copy, which
+     is the upgrade, and the letters line up between the two because AC
+     and AD read "Sales Incentive" and "Sales + SPOT Incentive" in both.
+     So AE is used, but only as a fallback, only if it is headerless and
+     actually holds numbers, and the log always says it was assumed
+     rather than found. A column letter hard-coded silently is how next
+     month's layout change becomes a wrong total nobody questions. */
+  if (out.cUp < 0 && INS_CBC_UPGRADE_COL) {
+    var guess = ins_colFromA1_(INS_CBC_UPGRADE_COL);
+    if (guess >= 0 && guess < grid[out.hr].length &&
+        !String(grid[out.hr][guess]).trim() &&
+        ins_numericColNear_(grid, out.hr, guess) === guess) {
+      out.cUp = guess;
+      out.upHow = 'ASSUMED to be ' + INS_CBC_UPGRADE_COL + ' - headerless and ' +
+                  'numeric, matching the imported copy. CONFIRM THIS.';
+    }
+  }
+
   /* Capacity: a headerless column of ramp factors. Found by its values,
      because CBC gives it no name and moves it between months. */
   out.cMM = ins_rampCol_(grid, out.hr, cAgent);
@@ -450,74 +481,93 @@ function ins_tracker_(win) {
   if (n < 1) { out.error = 'a header row and nothing under it'; return out; }
   out.allRows = n;
 
-  /* FIVE NARROW READS, NOT ONE WIDE ONE.
+  /* CHUNKED, AND ONE PASS, AND ONLY THE FIVE COLUMNS THAT ARE USED.
    *
-   * The first version asked for all 22 columns at once - about 350,000
-   * cells across the network - and sat there for twelve minutes without
-   * printing anything. Only five columns are ever used, so only five are
-   * fetched: roughly 80,000 cells, and each one logs as it lands, so a
-   * slow read is visible instead of looking like a hang. */
-  var grab = function (idx, what) {
-    if (idx < 0) return null;
-    var v = sh.getRange(out.hr + 2, idx + 1, n, 1).getValues();
-    L('           read ' + ins_pad_(what, 12) + ins_pad_(ins_a1_(idx), 4) + since());
-    return v;
-  };
-  var cDate = grab(c.date,  'date');
-  var cAgent = grab(c.agent, 'lead owner');
-  var cAmt  = grab(c.amt,   'amount');
-  var cStat = grab(c.stat,  'status');
-  var cCust = grab(c.cust,  'customer');
-  var at = function (col, r) { return col ? col[r][0] : ''; };
+   * Version one asked for all 22 columns of every row in a single
+   * getValues - about 350,000 cells - and printed nothing for twelve
+   * minutes. Version two asked for five full-height columns and was
+   * still slow, which says this tab is far taller than src_Payments'
+   * 15,558 rows suggested: a sheet keeps its last row wherever anything
+   * has ever been typed or formatted, so a tracker can carry a hundred
+   * thousand empty rows behind the data.
+   *
+   * So: five columns, 5,000 rows at a time, each chunk logged as it
+   * lands, and one traversal instead of two. Progress is visible,
+   * memory stays flat, two consecutive chunks with no dates in them
+   * means the data has ended, and a time budget stops the run cleanly
+   * with partial figures rather than letting Apps Script kill it with
+   * nothing to show. */
+  var statMap = {}, firstOf = {};
+  var CH = 5000, done = 0, blankRuns = 0, BUDGET = 260;
 
-  /* FIRST PASS - the earliest payment per customer, across the WHOLE
-     tracker. A unit is a deal closed, and a deal is closed on its first
-     payment, not on every instalment. This is the only thing that needs
-     history rather than the window. */
-  var firstOf = {};
-  for (var r = 0; r < n; r++) {
-    var d0 = at(cDate, r);
-    if (!(d0 instanceof Date) || isNaN(d0.getTime())) continue;
-    if (ins_isDead_(at(cStat, r))) continue;
-    var ck = String(at(cCust, r) || '').trim().toLowerCase();
-    if (!ck) continue;
-    if (!firstOf[ck] || d0 < firstOf[ck].when) {
-      firstOf[ck] = { when: d0, agent: String(at(cAgent, r) || '').trim() };
-    }
-  }
-  L('           first-payment index built, ' + since());
-
-  /* SECOND PASS - the money, by agent, for each window. */
-  var statMap = {};
-  for (r = 0; r < n; r++) {
-    var d = at(cDate, r);
-    if (!(d instanceof Date) || isNaN(d.getTime())) continue;
-
-    var inNow   = (d >= win.start && d <= win.end);
-    var inPrior = (d >= win.priorStart && d <= win.priorEnd);
-    if (!inNow && !inPrior) continue;
-
-    var amt = ins_num_(at(cAmt, r));
-    var st = String(at(cStat, r) || '').trim();
-
-    if (inNow) {
-      var sk = st.toLowerCase();
-      if (!statMap[sk]) { statMap[sk] = { name: st, rows: 0, rev: 0 }; }
-      statMap[sk].rows++; statMap[sk].rev += amt;
+  while (done < n) {
+    if (Math.round((new Date() - t0) / 1000) > BUDGET) {
+      out.partial = done;
+      L('           *** STOPPED at ' + done + ' of ' + n + ' rows, ' + since() + '.');
+      L('               Apps Script would end the run before this finished.');
+      break;
     }
 
-    if (ins_isDead_(st)) { if (inNow) out.skipped++; continue; }
+    var h = Math.min(CH, n - done), top = out.hr + 2 + done;
+    var D  = sh.getRange(top, c.date  + 1, h, 1).getValues();
+    var A  = sh.getRange(top, c.agent + 1, h, 1).getValues();
+    var M  = sh.getRange(top, c.amt   + 1, h, 1).getValues();
+    var S  = c.stat >= 0 ? sh.getRange(top, c.stat + 1, h, 1).getValues() : null;
+    var CU = c.cust >= 0 ? sh.getRange(top, c.cust + 1, h, 1).getValues() : null;
 
-    var name = String(at(cAgent, r) || '').trim();
-    if (!name || /^(total|grand total|sum)\b/i.test(name)) continue;
-    var key = ins_key_(name);
+    var live = 0;
+    for (var r = 0; r < h; r++) {
+      var d = D[r][0];
+      if (!(d instanceof Date) || isNaN(d.getTime())) continue;
+      live++;
 
-    var bag = inNow ? out.byKey : out.priorByKey;
-    if (!bag[key]) bag[key] = { name: name, rev: 0, rows: 0, units: 0 };
-    bag[key].rev += amt; bag[key].rows++;
+      var st   = S ? String(S[r][0] || '').trim() : '';
+      var dead = ins_isDead_(st);
+      var name = String(A[r][0] || '').trim();
+      var amt  = ins_num_(M[r][0]);
 
-    var side = inNow ? out.now : out.prior;
-    side.rev += amt; side.rows++; side.total += amt;
+      /* The earliest payment per customer, over all history. A unit is a
+         deal closed, and a deal closes on its first payment, not on every
+         instalment - so this is the one thing that needs the whole tab. */
+      if (!dead && CU) {
+        var ck = String(CU[r][0] || '').trim().toLowerCase();
+        if (ck && (!firstOf[ck] || d < firstOf[ck].when)) {
+          firstOf[ck] = { when: d, agent: name };
+        }
+      }
+
+      var inNow   = (d >= win.start && d <= win.end);
+      var inPrior = (d >= win.priorStart && d <= win.priorEnd);
+      if (!inNow && !inPrior) continue;
+
+      if (inNow) {
+        var sk = st.toLowerCase();
+        if (!statMap[sk]) statMap[sk] = { name: st, rows: 0, rev: 0 };
+        statMap[sk].rows++; statMap[sk].rev += amt;
+      }
+      if (dead) { if (inNow) out.skipped++; continue; }
+      if (!name || /^(total|grand total|sum)\b/i.test(name)) continue;
+
+      var key = ins_key_(name);
+      var bag = inNow ? out.byKey : out.priorByKey;
+      if (!bag[key]) bag[key] = { name: name, rev: 0, rows: 0, units: 0 };
+      bag[key].rev += amt; bag[key].rows++;
+
+      var side = inNow ? out.now : out.prior;
+      side.rev += amt; side.rows++; side.total += amt;
+    }
+
+    done += h;
+    L('           rows ' + ins_pad_(String(done), 8) + 'of ' + ins_pad_(String(n), 8) +
+      ins_pad_(live + ' dated', 13) + since());
+
+    if (!live) {
+      blankRuns++;
+      if (blankRuns >= 2) {
+        L('           no dates in the last ' + (CH * 2) + ' rows - the data ends here.');
+        break;
+      }
+    } else { blankRuns = 0; }
   }
 
   /* Units, from the first-payment index, credited to the agent on that
@@ -916,6 +966,14 @@ function ins_pad_(s, n) {
   return s;
 }
 
+/** "AE" -> 30. The inverse of ins_a1_. */
+function ins_colFromA1_(s) {
+  var t = String(s || '').trim().toUpperCase(), n = 0;
+  if (!/^[A-Z]+$/.test(t)) return -1;
+  for (var i = 0; i < t.length; i++) n = n * 26 + (t.charCodeAt(i) - 64);
+  return n - 1;
+}
+
 function ins_a1_(idx) {
   var s = '', n = idx + 1;
   while (n > 0) { var k = (n - 1) % 26; s = String.fromCharCode(65 + k) + s; n = (n - k) / 26 | 0; }
@@ -948,6 +1006,10 @@ function insideSalesSelfTest() {
 
   eq('a1 col 6', ins_a1_(6), 'G');
   eq('a1 col 30', ins_a1_(30), 'AE');
+  eq('a1 inverse AE', ins_colFromA1_('AE'), 30);
+  eq('a1 inverse G', ins_colFromA1_('G'), 6);
+  eq('a1 inverse rejects junk', ins_colFromA1_('A1'), -1);
+  eq('a1 round trip', ins_a1_(ins_colFromA1_('AB')), 'AB');
 
   eq('num from text', ins_num_('1,416,000'), 1416000);
   eq('num from blank', ins_num_(''), 0);

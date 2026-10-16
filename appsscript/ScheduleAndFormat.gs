@@ -40,6 +40,126 @@
 
 
 /* ==================================================================
+   BOOKED AND TO COME - REMOVED
+   ==================================================================
+
+   Both read wrong and were taken off on 16 Oct.
+
+   They were never comparable with Revenue. Revenue is cash that ARRIVED
+   this month, including instalments on deals sold earlier. Booked is the
+   full value of deals CLOSED this month, collected or not. Two different
+   bases on one row invites the subtraction nobody should do, and the
+   figures themselves could not be trusted either: Sale Price repeats on
+   every instalment of a deal, so a three-part sale counts its own value
+   three times unless exactly one row is picked, and which row that is
+   depends on a unit flag that is not always set.
+
+   WHY THIS IS AN OVERRIDE AND NOT AN EDIT
+
+   ManagementReport.gs is six hundred lines and correct. Re-typing it to
+   drop two columns is how a transcription error gets into a board pack.
+   Apps Script runs every .gs into one scope and the last definition
+   wins, so these four replace theirs and that file is not touched.
+
+   All four must move together. MR_COLS names the columns, mr_metrics_
+   produces one value per name, mr_display_ formats them and mr_formats_
+   aligns them by position - a column removed from one and not the others
+   shifts every figure one cell sideways, silently. The self test checks
+   the four agree. */
+
+var MR_COLS = ['Agents', 'Revenue', 'Target', 'Attain %', 'Gap', 'Units',
+               'Avg Ticket', 'Rev / MM', 'Rev / Target Commitment'];
+
+/** One value per entry in MR_COLS, in the same order. */
+function mr_metrics_(x) {
+  var mm = Number(x.mm || 0);
+  return [x.n, x.rev, x.target,
+          x.target ? x.rev / x.target : 0,
+          x.rev - x.target,
+          x.units,
+          x.units ? x.rev / x.units : 0,
+          mm > 0 ? x.rev / mm : 0,
+          x.n ? x.target / x.n : 0];
+}
+
+/** The same row with the money shown in lakh / crore. */
+function mr_display_(m) {
+  return [m[0], mr_amt_(m[1]), mr_amt_(m[2]), m[3], mr_amt_(m[4]),
+          m[5], mr_amt_(m[6]), mr_amt_(m[7]), mr_amt_(m[8])];
+}
+
+function mr_formats_(sh, row, col, n) {
+  if (!n) return;
+  sh.getRange(row, col,     n, 1).setNumberFormat('#,##0');       // agents
+  sh.getRange(row, col + 3, n, 1).setNumberFormat('0.00%');       // attain
+  sh.getRange(row, col + 5, n, 1).setNumberFormat('#,##0');       // units
+  sh.getRange(row, col + 1, n, 2).setHorizontalAlignment('right');  // revenue, target
+  sh.getRange(row, col + 4, n, 1).setHorizontalAlignment('right');  // gap
+  /* avg ticket, rev / MM, target per agent - three now, not five */
+  sh.getRange(row, col + 6, n, 3).setHorizontalAlignment('right');
+}
+
+
+/* ==================================================================
+   CBC vs THIS SHEET, ON THE PAGE
+   ==================================================================
+
+   "The sheet is not updating" has cost more time than every real bug put
+   together, and every time it has turned out to be the same thing: CBC
+   counts deals managers have marked realised, this sheet counts money
+   the Payment Tracker actually received. They are not the same number
+   and never will be while a deal can be marked before it is collected.
+
+   Comparing two screens by hand to rediscover that is the actual
+   problem. So the comparison goes on the page, under the headline, and
+   answers itself on every run. */
+function addCbcLine() {
+  var ss = SpreadsheetApp.getActive();
+  var tab = (typeof MR_TAB === 'string') ? MR_TAB : 'Management Report';
+  var sh = ss.getSheetByName(tab);
+  if (!sh) return;
+  if (typeof w3_roster_ !== 'function' || typeof w3_pay_ !== 'function') return;
+
+  var monthKey = Utilities.formatDate(new Date(), WR_TZ, 'yyyy-MM');
+  var cbc = w3_roster_(ss, monthKey);
+  var mdl = w3_pay_(ss, false);
+  if (!cbc || !mdl) return;
+
+  var B = w3_tally_(mdl, monthKey);
+  var tc = 0, tb = 0, names = [], k;
+  for (k in cbc.by) {
+    var c = cbc.by[k].rev, b = (B[k] || { rev: 0 }).rev;
+    tc += c; tb += b;
+    if (c - b >= 1) names.push({ name: cbc.by[k].name, gap: c - b });
+  }
+  /* CBC importing as zero is a failed IMPORTRANGE, not a real gap -
+     writing "CBC says 0" on a board pack would be worse than writing
+     nothing at all. */
+  if (!tc) return;
+
+  names.sort(function (x, y) { return y.gap - x.gap; });
+  var top = names.slice(0, 3).map(function (x) {
+    return x.name + ' ' + mr_amt_(x.gap);
+  }).join(',  ');
+
+  var at = sh.getLastRow() + 2;
+  var L = (typeof MR_C === 'object' && MR_C.LABEL) ? MR_C.LABEL : 3;
+  sh.getRange(at,     L).setValue('CBC vs this sheet');
+  sh.getRange(at,     L + 1).setValue(mr_amt_(tc - tb) + ' apart');
+  sh.getRange(at + 1, L).setValue('CBC says');
+  sh.getRange(at + 1, L + 1).setValue(mr_amt_(tc));
+  sh.getRange(at + 2, L).setValue('Payments received');
+  sh.getRange(at + 2, L + 1).setValue(mr_amt_(tb));
+  sh.getRange(at + 3, L).setValue(names.length + ' agent(s) marked in CBC with no payment logged');
+  if (top) sh.getRange(at + 4, L).setValue('Largest: ' + top);
+  sh.getRange(at, L, 1, 2).setFontWeight('bold');
+
+  Logger.log('  CBC line: ' + mr_amt_(tc) + ' vs ' + mr_amt_(tb) + ', ' +
+             names.length + ' agent(s), ' + mr_amt_(tc - tb) + ' apart.');
+}
+
+
+/* ==================================================================
    THE HOUSE STYLE
    ================================================================== */
 
@@ -227,6 +347,20 @@ function scheduleAndFormatSelfTest() {
   if (typeof INTERVAL_MINUTES !== 'undefined') {
     eq('spaced 2.5 hours apart', INTERVAL_MINUTES, 150);
   }
+
+  /* MR_COLS, mr_metrics_, mr_display_ and mr_formats_ are positional.
+     One column dropped from some and not the others shifts every figure
+     a cell sideways without anything throwing. */
+  eq('Booked is gone', MR_COLS.indexOf('Booked'), -1);
+  eq('To Come is gone', MR_COLS.indexOf('To Come'), -1);
+  eq('nine columns left', MR_COLS.length, 9);
+  var probe = mr_metrics_({ n: 7, rev: 5367310, target: 11400000, units: 30, mm: 5.5 });
+  eq('one metric per column', probe.length, MR_COLS.length);
+  eq('one displayed cell per column', mr_display_(probe).length, MR_COLS.length);
+  eq('Rev / MM still sits eighth', MR_COLS.indexOf('Rev / MM'), 7);
+  eq('rev per man-month', probe[7].toFixed(2), (5367310 / 5.5).toFixed(2));
+  eq('no divide by zero without capacity',
+     mr_metrics_({ n: 0, rev: 0, target: 0, units: 0, mm: 0 })[7], 0);
 
   if (fails.length) {
     Logger.log('SELF TEST FAILED');

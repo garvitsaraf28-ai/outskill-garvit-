@@ -58,7 +58,8 @@ var INTERVAL_MINUTES = 150;
    cleared and rewritten on every build, so it has to be re-applied after
    it. Both added, in that order. */
 var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot',
-                        'buildManagementReport', 'formatManagementReport'];
+                        'buildManagementReport', 'addCbcLine',
+                        'formatManagementReport'];
 
 /** Kept for the older trigger-cleanup helpers. */
 var REFRESH_FUNCTION = 'refreshAndVerify';

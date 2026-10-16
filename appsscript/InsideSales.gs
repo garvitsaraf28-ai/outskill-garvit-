@@ -71,8 +71,31 @@ var INS_CBC_ID      = '1-r5VMZ2u9w7WrcyAgCdgzp4scJiJQONuPiUV6JbRu0s';
 var INS_TRACKER_ID  = '1a-34agNIYY0ZcBIJKHpOsYb-ppM6FQZhietpWtBfreE';
 var INS_TRACKER_TAB = 'All Payments';
 
-/* A new tab. The existing report is never opened. */
-var INS_OUT_TAB = 'Management Report NEW';
+/* THE REAL PAGE, as of 17 October. Before the first write to it the
+   existing page is copied once to "Management Report OLD" and kept, so
+   the thing being replaced is still there to compare against. */
+var INS_OUT_TAB    = 'Management Report';
+var INS_BACKUP_TAB = 'Management Report OLD';
+
+/* THE SCHEDULE.
+ *
+ * refreshAndVerify still runs: the Command Centre, Agent, Manager and
+ * Office pages and the TV board all read mdl_Payments, and none of that
+ * is being replaced tonight. What is dropped is buildManagementReport
+ * and addCbcLine, because they write the same tab this does and the
+ * scheduled run would otherwise overwrite this page with the old,
+ * low figure a few hours later.
+ *
+ * formatManagementReport is kept - it is the house style asked for on
+ * 12 October and it finds its blocks by reading the page rather than by
+ * fixed rows.
+ *
+ * This redefines the array in refresh-schedule.gs. Apps Script runs
+ * files in creation order and this is the newest, so this definition
+ * wins - the same way ScheduleAndFormat.gs's MR_COLS already beats
+ * ManagementReport.gs's, which whatsHere confirmed by returning 9. */
+var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot',
+                        'insideSales', 'formatManagementReport'];
 
 /* CBC carries the AIGF Upgrade / Catalyst figures in a column with no
    header. Where the label can be found this is ignored; where it cannot,
@@ -514,59 +537,34 @@ function ins_tracker_(win) {
    *
    * The cost of the local copy is that it can be stale, so how fresh it
    * is gets measured and printed rather than assumed. */
-  var sh = null, usedLocal = false;
-  var local = SpreadsheetApp.getActive().getSheetByName('src_Payments');
-  if (local && local.getLastRow() > 100) {
-    sh = local; usedLocal = true;
-    out.source = 'src_Payments (the local copy)';
-    L('  PAYMENTS: ' + out.source + ', ' + since());
-  } else {
-    L('  PAYMENTS: src_Payments is ' +
-      (local ? 'only ' + local.getLastRow() + ' rows' : 'missing') +
-      ', so opening the Payment Tracker itself. This is slow.');
-    try {
-      sh = SpreadsheetApp.openById(INS_TRACKER_ID).getSheetByName(INS_TRACKER_TAB);
-    } catch (e) {
-      out.error = 'src_Payments is unusable and the tracker will not open: ' +
-                  ((e && e.message) ? e.message : e);
-      return out;
-    }
-    if (!sh) { out.error = 'no "' + INS_TRACKER_TAB + '" tab in the tracker'; return out; }
-    out.source = 'the Payment Tracker';
-    L('  PAYMENTS: ' + out.source + ' opened, ' + since());
+  /* LIVE FIRST, THE LOCAL COPY AS THE FALLBACK.
+   *
+   * src_Payments was 26 hours behind at 01:47. CBC is read live, so the
+   * page compared a live roster against day-old payments and came out
+   * 3 L under - which is not a bug in the arithmetic, it is one source
+   * being older than the other.
+   *
+   * openById on the tracker never returns: it is too large for Apps
+   * Script to load. The Sheets REST API does not load it, it fetches a
+   * range, so five columns come back in one call. That is how the live
+   * figure is reached without the import.
+   *
+   * If the REST call fails for any reason - scope, quota, network - it
+   * falls back to the local copy and says so. A stale page that says it
+   * is stale beats no page. */
+  var src = ins_restSource_(L, since);
+  if (src.error) {
+    L('  PAYMENTS: live read unavailable (' + src.error + '), using the local copy.');
+    src = ins_localSource_(L, since);
   }
+  if (src.error) { out.error = src.error; return out; }
 
-  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
-  if (lastRow < 2) { out.error = out.source + ' has ' + lastRow + ' row(s)'; return out; }
-  L('            ' + lastRow + ' rows x ' + lastCol + ' columns, ' + since());
-  out.usedLocal = usedLocal;
-
-  var head = sh.getRange(1, 1, Math.min(10, lastRow), lastCol).getValues();
-  var c = null;
-  for (var i = 0; i < head.length && out.hr < 0; i++) {
-    var H = {};
-    for (var j = 0; j < head[i].length; j++) {
-      var h = String(head[i][j]).trim().toLowerCase();
-      if (h && H[h] === undefined) H[h] = j;
-    }
-    var cand = {
-      date:  ins_col_(H, ['date', 'payment date', 'paid on']),
-      agent: ins_col_(H, ['lead owner', 'agent', 'owner']),
-      amt:   ins_col_(H, ['amount paid', 'amount', 'amount inr']),
-      stat:  ins_col_(H, ['status']),
-      cust:  ins_col_(H, ['payment email id', 'payment email', 'email', 'name'])
-    };
-    if (cand.date < 0 || cand.agent < 0 || cand.amt < 0) continue;
-    out.hr = i; c = cand;
-  }
-  if (out.hr < 0) {
-    out.error = 'no row in the first 10 names Date, Lead Owner and Amount Paid';
-    return out;
-  }
-
-  var n = lastRow - (out.hr + 1);
-  if (n < 1) { out.error = 'a header row and nothing under it'; return out; }
-  out.allRows = n;
+  out.source   = src.source;
+  out.usedLocal = !!src.isLocal;
+  out.hr       = src.hr;
+  out.allRows  = src.n;
+  var c = src.c, n = src.n, get5 = src.get5;
+  L('            ' + n + ' data rows, header row ' + (src.hr + 1) + ', ' + since());
 
   /* CHUNKED, AND ONE PASS, AND ONLY THE FIVE COLUMNS THAT ARE USED.
    *
@@ -595,16 +593,13 @@ function ins_tracker_(win) {
       break;
     }
 
-    var h = Math.min(CH, n - done), top = out.hr + 2 + done;
-    var D  = sh.getRange(top, c.date  + 1, h, 1).getValues();
-    var A  = sh.getRange(top, c.agent + 1, h, 1).getValues();
-    var M  = sh.getRange(top, c.amt   + 1, h, 1).getValues();
-    var S  = c.stat >= 0 ? sh.getRange(top, c.stat + 1, h, 1).getValues() : null;
-    var CU = c.cust >= 0 ? sh.getRange(top, c.cust + 1, h, 1).getValues() : null;
+    var h = Math.min(CH, n - done);
+    var blk = get5(done, h);
+    var D = blk.D, A = blk.A, M = blk.M, S = blk.S, CU = blk.C;
 
     var live = 0;
     for (var r = 0; r < h; r++) {
-      var d = D[r][0];
+      var d = D[r];
       if (!(d instanceof Date) || isNaN(d.getTime())) continue;
       live++;
       /* The newest payment anywhere in the source. A local copy that
@@ -612,16 +607,16 @@ function ins_tracker_(win) {
          and is not, so this is measured rather than trusted. */
       if (!out.newest || d > out.newest) out.newest = d;
 
-      var st   = S ? String(S[r][0] || '').trim() : '';
+      var st   = S ? String(S[r] == null ? '' : S[r]).trim() : '';
       var dead = ins_isDead_(st);
-      var name = String(A[r][0] || '').trim();
-      var amt  = ins_num_(M[r][0]);
+      var name = String(A[r] == null ? '' : A[r]).trim();
+      var amt  = ins_num_(M[r]);
 
       /* The earliest payment per customer, over all history. A unit is a
          deal closed, and a deal closes on its first payment, not on every
          instalment - so this is the one thing that needs the whole tab. */
       if (!dead && CU) {
-        var ck = String(CU[r][0] || '').trim().toLowerCase();
+        var ck = String(CU[r] == null ? '' : CU[r]).trim().toLowerCase();
         if (ck && (!firstOf[ck] || d < firstOf[ck].when)) {
           firstOf[ck] = { when: d, agent: name };
         }
@@ -703,6 +698,161 @@ function ins_tracker_(win) {
   out.statuses.sort(function (a, b) { return b.rev - a.rev; });
   L('           tallied, ' + since());
   return out;
+}
+
+
+/* =====================================================================
+   WHERE THE PAYMENTS COME FROM. Two sources, one shape, so the loop
+   above does not care which it got.
+   ===================================================================== */
+
+/** The column map, from whichever of the first rows is the header. */
+function ins_headerFrom_(rows) {
+  for (var i = 0; i < rows.length; i++) {
+    var H = {}, row = rows[i] || [];
+    for (var j = 0; j < row.length; j++) {
+      var h = String(row[j] == null ? '' : row[j]).trim().toLowerCase();
+      if (h && H[h] === undefined) H[h] = j;
+    }
+    var c = {
+      date:  ins_col_(H, ['date', 'payment date', 'paid on']),
+      agent: ins_col_(H, ['lead owner', 'agent', 'owner']),
+      amt:   ins_col_(H, ['amount paid', 'amount', 'amount inr']),
+      stat:  ins_col_(H, ['status']),
+      cust:  ins_col_(H, ['payment email id', 'payment email', 'email', 'name'])
+    };
+    if (c.date < 0 || c.agent < 0 || c.amt < 0) continue;
+    return { hr: i, c: c };
+  }
+  return null;
+}
+
+
+/**
+ * The tracker over the Sheets REST API.
+ *
+ * openById loads a whole spreadsheet into the script's container and
+ * never returns for this one. The REST API fetches a range instead, so
+ * five columns arrive in a single call however large the file is. This
+ * is what makes the page live rather than a day behind.
+ */
+function ins_restSource_(L, since) {
+  var base = 'https://sheets.googleapis.com/v4/spreadsheets/' + INS_TRACKER_ID;
+  var tok;
+  try { tok = ScriptApp.getOAuthToken(); }
+  catch (e) { return { error: 'no OAuth token' }; }
+  var opt = { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true };
+  var tab = "'" + String(INS_TRACKER_TAB).replace(/'/g, "''") + "'";
+  var res, i;
+
+  try {
+    res = UrlFetchApp.fetch(base + '/values/' + encodeURIComponent(tab + '!A1:BZ10') +
+                            '?valueRenderOption=UNFORMATTED_VALUE', opt);
+  } catch (e) { return { error: 'fetch failed: ' + ((e && e.message) ? e.message : e) }; }
+  if (res.getResponseCode() !== 200) return { error: 'header HTTP ' + res.getResponseCode() };
+
+  var found = ins_headerFrom_(JSON.parse(res.getContentText()).values || []);
+  if (!found) return { error: 'no Date / Lead Owner / Amount Paid row in the first 10' };
+
+  var first = found.hr + 2;
+  var want = [found.c.date, found.c.agent, found.c.amt, found.c.stat, found.c.cust];
+  var q = [];
+  for (i = 0; i < want.length; i++) {
+    if (want[i] < 0) continue;
+    var a1 = ins_a1_(want[i]);
+    q.push('ranges=' + encodeURIComponent(tab + '!' + a1 + first + ':' + a1));
+  }
+  try {
+    res = UrlFetchApp.fetch(base + '/values:batchGet?' + q.join('&') +
+                            '&valueRenderOption=UNFORMATTED_VALUE', opt);
+  } catch (e2) { return { error: 'column fetch failed: ' + ((e2 && e2.message) ? e2.message : e2) }; }
+  if (res.getResponseCode() !== 200) return { error: 'columns HTTP ' + res.getResponseCode() };
+
+  var vr = JSON.parse(res.getContentText()).valueRanges || [];
+  var got = [], k = 0;
+  for (i = 0; i < want.length; i++) {
+    got.push(want[i] < 0 ? null : ((vr[k++] || {}).values || []));
+  }
+  var n = 0;
+  for (i = 0; i < got.length; i++) if (got[i] && got[i].length > n) n = got[i].length;
+  if (n < 1) return { error: 'no rows came back' };
+
+  var flat = function (col, isDate) {
+    if (!col) return null;
+    var o = new Array(n);
+    for (var r = 0; r < n; r++) {
+      var cell = col[r];
+      var v = (cell && cell.length) ? cell[0] : '';
+      o[r] = isDate ? ins_fromSerial_(v) : v;
+    }
+    return o;
+  };
+  var D = flat(got[0], true), A = flat(got[1]), M = flat(got[2]),
+      S = flat(got[3]), C = flat(got[4]);
+
+  L('  PAYMENTS: the Payment Tracker, live over the Sheets API, ' +
+    n + ' rows, ' + since());
+  return {
+    source: 'the Payment Tracker (live)', isLocal: false,
+    hr: found.hr, c: found.c, n: n,
+    get5: function (from, count) {
+      return { D: D.slice(from, from + count), A: A.slice(from, from + count),
+               M: M.slice(from, from + count),
+               S: S ? S.slice(from, from + count) : null,
+               C: C ? C.slice(from, from + count) : null };
+    }
+  };
+}
+
+
+/** The copy already in this workbook. Fast, and as fresh as its import. */
+function ins_localSource_(L, since) {
+  var sh = SpreadsheetApp.getActive().getSheetByName('src_Payments');
+  if (!sh || sh.getLastRow() < 2) return { error: 'src_Payments is missing or empty' };
+
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  var found = ins_headerFrom_(sh.getRange(1, 1, Math.min(10, lastRow), lastCol).getValues());
+  if (!found) return { error: 'src_Payments has no Date / Lead Owner / Amount Paid row' };
+
+  var n = lastRow - (found.hr + 1);
+  if (n < 1) return { error: 'src_Payments has a header row and nothing under it' };
+  var c = found.c;
+
+  L('  PAYMENTS: src_Payments (the local copy), ' + lastRow + ' rows, ' + since());
+  var one = function (idx, top, h) {
+    if (idx < 0) return null;
+    var v = sh.getRange(top, idx + 1, h, 1).getValues(), o = new Array(h);
+    for (var r = 0; r < h; r++) o[r] = v[r][0];
+    return o;
+  };
+  return {
+    source: 'src_Payments (the local copy)', isLocal: true,
+    hr: found.hr, c: c, n: n,
+    get5: function (from, count) {
+      var top = found.hr + 2 + from;
+      return { D: one(c.date, top, count), A: one(c.agent, top, count),
+               M: one(c.amt, top, count), S: one(c.stat, top, count),
+               C: one(c.cust, top, count) };
+    }
+  };
+}
+
+
+/**
+ * A Sheets serial to a Date.
+ *
+ * The REST API returns 46307.5, not a Date. A serial is a wall-clock
+ * reading in the spreadsheet's own timezone, so it is rebuilt as a
+ * local Date rather than as an instant - treat it as UTC and every
+ * payment shifts by the offset, which in IST puts anything before
+ * 05:30 into the previous day and anything on the 1st into last month.
+ */
+function ins_fromSerial_(v) {
+  if (v instanceof Date) return v;
+  if (typeof v !== 'number' || !isFinite(v) || v <= 0) return '';
+  var u = new Date(Math.round((v - 25569) * 86400000));
+  return new Date(u.getUTCFullYear(), u.getUTCMonth(), u.getUTCDate(),
+                  u.getUTCHours(), u.getUTCMinutes(), u.getUTCSeconds());
 }
 
 
@@ -798,6 +948,20 @@ function ins_rollup_(cbc, pay) {
 
 function ins_write_(ss, win, m, t0) {
   var sh = ss.getSheetByName(INS_OUT_TAB);
+
+  /* Keep what is being replaced, once. If the old page is ever wanted
+     back it is a tab away, and the comparison that justified the switch
+     stays visible instead of being a claim in a chat log. */
+  if (sh && !ss.getSheetByName(INS_BACKUP_TAB)) {
+    try {
+      sh.copyTo(ss).setName(INS_BACKUP_TAB);
+      Logger.log('  kept the previous page as "' + INS_BACKUP_TAB + '".');
+    } catch (e) {
+      Logger.log('  could not back up the old page: ' +
+                 ((e && e.message) ? e.message : e));
+    }
+  }
+
   if (!sh) sh = ss.insertSheet(INS_OUT_TAB);
   else {
     try { sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).breakApart(); } catch (e) {}

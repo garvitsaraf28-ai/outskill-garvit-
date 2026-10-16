@@ -171,6 +171,17 @@ function insideSales(monthKey) {
     for (var s = 0; s < pay.statuses.length && s < 12; s++) {
       L('            ' + ins_pad_(pay.statuses[s].name || '(blank)', 22) +
         ins_pad_(String(pay.statuses[s].rows), 7) + ins_money_(pay.statuses[s].rev));
+      /* Few enough to name, so name them. Who a rare-status payment is
+         logged against is the whole question when an agent is short by
+         exactly that status's total. */
+      if (pay.statuses[s].rows <= 5) {
+        for (var sv = 0; sv < pay.statuses[s].sample.length; sv++) {
+          var smp = pay.statuses[s].sample[sv];
+          L('              ' + Utilities.formatDate(smp.d, INS_TZ, 'dd MMM') + '  ' +
+            ins_pad_(ins_money_(smp.amt), 11) + 'logged to: ' +
+            (smp.who || '(nobody)'));
+        }
+      }
     }
   }
   L('          units are first-ever payments: ' + pay.now.units + ' this window, ' +
@@ -622,8 +633,15 @@ function ins_tracker_(win) {
 
       if (inNow) {
         var sk = st.toLowerCase();
-        if (!statMap[sk]) statMap[sk] = { name: st, rows: 0, rev: 0 };
+        if (!statMap[sk]) statMap[sk] = { name: st, rows: 0, rev: 0, sample: [] };
         statMap[sk].rows++; statMap[sk].rev += amt;
+        /* A status carried by only a handful of rows is the interesting
+           kind - UPGRADED TO is two rows and 95,000, which is exactly
+           what one agent is short. Keeping a few lets a rare status be
+           itemised without listing the hundreds under a common one. */
+        if (statMap[sk].sample.length < 6) {
+          statMap[sk].sample.push({ d: d, amt: amt, who: name });
+        }
       }
       if (dead) { if (inNow) out.skipped++; continue; }
 
@@ -769,6 +787,7 @@ function ins_rollup_(cbc, pay) {
   m.offices.sort(function (a, b) { return b.rev - a.rev; });
   m.agents.sort(function (a, b) { return b.rev - a.rev; });
   m.hasMM = cbc.cMM >= 0;
+  m.cbcTotal = cbc.total;
   return m;
 }
 
@@ -846,7 +865,20 @@ function ins_write_(ss, win, m, t0) {
   /* Where the number came from, on the page rather than only in a log.
      A figure nobody can trace is the thing this whole exercise was
      about. */
-  var note = mrow + 1;
+  /* The comparison belongs ON the page, not only in a log nobody reads.
+     A reader's first question about any revenue figure is whether it
+     matches CBC, and leaving them to ask it is how a page gets quietly
+     distrusted. */
+  var cbcRow = mrow + 1;
+  put(cbcRow, LB, 'CBC vs this page'); bold(cbcRow, LB);
+  put(cbcRow + 1, LB, 'CBC says'); put(cbcRow + 1, V1, ins_money_(m.cbcTotal));
+  put(cbcRow + 2, LB, 'this page'); put(cbcRow + 2, V1, ins_money_(m.now.rev));
+  var gap = m.now.rev - m.cbcTotal;
+  put(cbcRow + 3, LB, 'difference');
+  put(cbcRow + 3, V1, (gap >= 0 ? '+' : '-') + ins_money_(Math.abs(gap)));
+  sh.getRange(cbcRow + 1, V1, 3, 1).setHorizontalAlignment('right');
+
+  var note = cbcRow + 5;
   put(note, LB, 'HOW THIS PAGE WAS BUILT'); bold(note, LB);
   var lines = [
     'Read straight from CBC and the Payment Tracker, read only, in one pass. ' +

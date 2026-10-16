@@ -246,7 +246,30 @@ function insideSales(monthKey) {
     ins_money_(m.now.rev - m.now.upgrade) + ' + upgrade ' + ins_money_(m.now.upgrade) + ')');
   L('');
 
-  /* ---------- 4. the page ---------- */
+  /* ---------- 4. refuse to publish a number we do not have ----------
+   *
+   * At 02:41 the live read failed on its first block, the run carried on
+   * with nothing, and a Management Report reading ZERO REVENUE was
+   * written over a correct one. That is the worst thing this script has
+   * done, and it was not the API's fault - the API said it failed. The
+   * code ignored it.
+   *
+   * A page is only written when there is a complete read behind it. No
+   * rows, or a read that stopped early, and the previous page stays
+   * exactly as it was. A day-old page is a known quantity; a page of
+   * zeros is a lie on a screen the floor is watching. */
+  if (pay.partial || !pay.now.rows || !m.now.rev) {
+    L('  *** NOT WRITING THE PAGE.');
+    if (pay.partial)       L('      The payment read stopped early at row ' + pay.partial + '.');
+    if (!pay.now.rows)     L('      No payment rows were read for this window at all.');
+    else if (!m.now.rev)   L('      No revenue reached a roster agent.');
+    L('      "' + INS_OUT_TAB + '" is untouched and still shows the last good run.');
+    L('      Run it again. If it keeps failing, say so and the local copy');
+    L('      will be used instead of the live read.');
+    return;
+  }
+
+  /* ---------- 5. the page ---------- */
   ins_write_(ss, win, m, t0);
   /* This said "the existing Management Report was not touched", which
      was true while it wrote to a separate tab and became false the
@@ -542,25 +565,41 @@ function ins_tracker_(win) {
    *
    * The cost of the local copy is that it can be stale, so how fresh it
    * is gets measured and printed rather than assumed. */
-  /* LIVE FIRST, THE LOCAL COPY AS THE FALLBACK.
+  /* LOCAL FIRST. THE LIVE READ IS THE FALLBACK, NOT THE DEFAULT.
    *
-   * src_Payments was 26 hours behind at 01:47. CBC is read live, so the
-   * page compared a live roster against day-old payments and came out
-   * 3 L under - which is not a bug in the arithmetic, it is one source
-   * being older than the other.
+   * Reading the tracker over the API was tried and does not work on
+   * this file. At 02:41 the metadata call alone took 116 seconds, the
+   * first 5,000-row batchGet then failed with "The service is currently
+   * unavailable", and the whole run took 303 seconds to produce
+   * nothing. 47,105 rows should not do that; this particular file is
+   * simply too heavy for the API to serve reliably.
    *
-   * openById on the tracker never returns: it is too large for Apps
-   * Script to load. The Sheets REST API does not load it, it fetches a
-   * range, so five columns come back in one call. That is how the live
-   * figure is reached without the import.
+   * src_Payments reads in eleven seconds and has never failed. It is
+   * the default again. Its cost is freshness, so the import is poked
+   * first and its age is always printed.
    *
-   * If the REST call fails for any reason - scope, quota, network - it
-   * falls back to the local copy and says so. A stale page that says it
-   * is stale beats no page. */
-  var src = ins_restSource_(L, since);
+   * The live path stays, behind it, for the case where the import is
+   * in #REF! - a slow source beats no source. But it is no longer in
+   * the way of a run that would otherwise have worked. */
+
+  /* Their own fixPaymentsRange rewrites the IMPORTRANGE formula, which
+     is what forces it to re-pull. It already exists and already runs on
+     every refreshAndVerify, so this is reusing a working thing rather
+     than inventing a second way to do it. */
+  if (typeof fixPaymentsRange === 'function') {
+    try {
+      fixPaymentsRange();
+      SpreadsheetApp.flush();
+      L('  PAYMENTS: poked the import to re-pull, ' + since());
+    } catch (eFix) {
+      L('  PAYMENTS: could not poke the import: ' +
+        ((eFix && eFix.message) ? eFix.message : eFix));
+    }
+  }
+  var src = ins_localSource_(L, since);
   if (src.error) {
-    L('  PAYMENTS: live read unavailable (' + src.error + '), using the local copy.');
-    src = ins_localSource_(L, since);
+    L('  PAYMENTS: the local copy is unusable (' + src.error + '), trying the tracker live.');
+    src = ins_restSource_(L, since);
   }
   if (src.error) { out.error = src.error; return out; }
 

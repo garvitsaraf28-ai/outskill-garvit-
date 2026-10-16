@@ -68,20 +68,33 @@ function traceGap() {
   L('  model        : mdl_Payments, ' + mdl.rows + ' rows for ' + monthKey +
     ', ' + tg_money_(mdl.total));
 
-  /* ---------- the import ---------- */
+  /* ---------- the payments, from whichever source can be read ---------- */
   var src = tg_srcPay_(ss, monthKey);
-  if (src.error) { L('  *** ' + src.error); return; }
-  L('  src_Payments : header row ' + (src.hr + 1) + ', ' + src.allRows +
-    ' rows in all, ' + src.rows + ' for ' + monthKey + ', ' + tg_money_(src.total));
+  if (src.error) {
+    L('  *** ' + src.error);
+    if (src.peek && src.peek.length) {
+      L('');
+      L('  WHAT IS ACTUALLY IN THE FIRST ROWS OF src_Payments RIGHT NOW:');
+      for (var pk = 0; pk < src.peek.length; pk++) L('    ' + src.peek[pk]);
+      L('');
+      L('  A row of #REF! or Loading means the IMPORTRANGE had not resolved.');
+      L('  Wait a minute and run this again.');
+    }
+    return;
+  }
+  L('  payments     : ' + src.label + ', header row ' + (src.hr + 1) + ', ' +
+    src.allRows + ' rows in all, ' + src.rows + ' for ' + monthKey + ', ' +
+    tg_money_(src.total));
+  if (src.note) L('                 ' + src.note);
   L('');
 
-  /* The single most useful line in this log. If the import holds more
+  /* The single most useful line in this log. If the source holds more
      October rows than the model, rows are being lost on the way in and
      every per-agent result below is a symptom of that one thing. */
-  L('  October rows : src_Payments ' + src.rows + '   ->   mdl_Payments ' + mdl.rows +
+  L('  October rows : ' + src.label + ' ' + src.rows + '   ->   mdl_Payments ' + mdl.rows +
     '   (' + (src.rows - mdl.rows >= 0 ? '+' : '') + (src.rows - mdl.rows) + ')');
-  L('  October money: src_Payments ' + tg_money_(src.total) + '   ->   mdl_Payments ' +
-    tg_money_(mdl.total));
+  L('  October money: ' + src.label + ' ' + tg_money_(src.total) +
+    '   ->   mdl_Payments ' + tg_money_(mdl.total));
   L('');
 
   /* ---------- who is short ---------- */
@@ -114,8 +127,8 @@ function traceGap() {
     L('  ' + s.name);
     L('    CBC ' + tg_pad_(tg_money_(s.cbc), 11) + 'model ' + tg_pad_(tg_money_(s.mdl), 11) +
       'short ' + tg_money_(s.gap));
-    L('    src_Payments, same spelling : ' + tg_pad_(tg_money_(inSrc.rev), 11) +
-      inSrc.n + ' row(s)');
+    L('    ' + tg_pad_(src.label + ', same spelling', 28) + ': ' +
+      tg_pad_(tg_money_(inSrc.rev), 11) + inSrc.n + ' row(s)');
 
     /* other spellings in the import carrying a word of this name */
     var toks = tg_toks_(s.name), hits = [], kk;
@@ -132,13 +145,13 @@ function traceGap() {
          Nothing about naming is wrong here. */
       var lost = inSrc.rev - s.mdl;
       bucket.hop.rev += Math.min(lost, s.gap); bucket.hop.n++;
-      L('    => ' + tg_money_(lost) + ' IS IN THE IMPORT AND NOT IN THE MODEL.');
-      L('       A src_Payments -> mdl_Payments loss. No alias fixes this.');
+      L('    => ' + tg_money_(lost) + ' IS LOGGED AND NOT IN THE MODEL.');
+      L('       Lost between ' + src.label + ' and mdl_Payments. No alias fixes this.');
     } else if (hits.length) {
       var best = 0;
       for (var h = 0; h < hits.length && h < 6; h++) {
         var close = Math.abs(hits[h].rev - s.gap) < Math.max(1000, s.gap * 0.05);
-        L('    other spelling in the import: "' + hits[h].name + '"  ' +
+        L('    other spelling logged: "' + hits[h].name + '"  ' +
           tg_money_(hits[h].rev) + (close ? '   <-- matches the shortfall' : ''));
         best += hits[h].rev;
         aliasLines.push("      '" + String(hits[h].name).toLowerCase() +
@@ -148,7 +161,7 @@ function traceGap() {
       L('    => an ALIAS. The money is logged to a different spelling of this name.');
     } else {
       bucket.absent.rev += s.gap; bucket.absent.n++;
-      L('    => NOT IN THE IMPORT FOR ' + monthKey + ' under any spelling that shares');
+      L('    => NOT LOGGED FOR ' + monthKey + ' under any spelling that shares');
       L('       a word with this name. Either logged to another month, or not');
       L('       logged yet. Nothing in this workbook can supply it.');
     }
@@ -157,16 +170,16 @@ function traceGap() {
 
   /* ---------- the split ---------- */
   L('  WHERE THE ' + tg_money_(tg_sum_(short, 'gap')) + ' IS');
-  L('    in the import, lost before the model : ' +
+  L('    logged, but lost before the model  : ' +
     tg_pad_(tg_money_(bucket.hop.rev), 12) + bucket.hop.n + ' agent(s)');
-  L('    under another spelling in the import : ' +
+  L('    logged under another spelling      : ' +
     tg_pad_(tg_money_(bucket.alias.rev), 12) + bucket.alias.n + ' agent(s)');
-  L('    not in the import for this month     : ' +
+  L('    not logged for this month at all   : ' +
     tg_pad_(tg_money_(bucket.absent.rev), 12) + bucket.absent.n + ' agent(s)');
   L('');
 
   if (bucket.hop.rev > 0) {
-    L('  THE FIRST LINE IS THE ONE THAT MATTERS. Money sitting in src_Payments');
+    L('  THE FIRST LINE IS THE ONE THAT MATTERS. Money sitting in ' + src.label);
     L('  that never reaches mdl_Payments is a fault in the hop between them,');
     L('  which is the same failure that lost the 12 October rows. Whatever');
     L('  builds mdl_Payments is dropping rows it was handed, and that is a');
@@ -278,14 +291,65 @@ function tg_mdl_(ss, monthKey) {
    carries a title and a warning above it.
    ===================================================================== */
 
-function tg_srcPay_(ss, monthKey) {
-  var out = { byKey: {}, rows: 0, allRows: 0, total: 0, hr: -1, error: '' };
-  var sh = ss.getSheetByName('src_Payments');
-  if (!sh || sh.getLastRow() < 3) { out.error = 'src_Payments is empty'; return out; }
+/* The Payment Tracker itself. Opened READ ONLY and never written to -
+   the same open showSrcPayments already does. It exists here because the
+   IMPORTRANGE into src_Payments has failed twice today on its own, and a
+   trace that dies when the import is mid-refresh is a trace that only
+   works when nothing is wrong. */
+var TG_TRACKER_ID  = '1a-34agNIYY0ZcBIJKHpOsYb-ppM6FQZhietpWtBfreE';
+var TG_TRACKER_TAB = 'All Payments';
 
-  var lastCol = sh.getLastColumn();
-  var head = sh.getRange(1, 1, Math.min(10, sh.getLastRow()), lastCol).getValues();
-  var hr = -1, c = null;
+
+function tg_srcPay_(ss, monthKey) {
+  /* 1. the import in this workbook. Cheapest, and the thing the model is
+        actually built from, so it is the honest first answer. */
+  var imp = tg_scan_(ss.getSheetByName('src_Payments'), monthKey, 30);
+  if (!imp.error) {
+    imp.label = 'src_Payments';
+    return imp;
+  }
+
+  /* 2. the tracker itself. The import being unreadable says nothing about
+        whether the money is logged, and that is the question. */
+  var sh = null, openErr = '';
+  try {
+    sh = SpreadsheetApp.openById(TG_TRACKER_ID).getSheetByName(TG_TRACKER_TAB);
+  } catch (e) {
+    openErr = (e && e.message) ? e.message : String(e);
+  }
+  if (sh) {
+    var trk = tg_scan_(sh, monthKey, 30);
+    if (!trk.error) {
+      trk.label = 'the Payment Tracker';
+      trk.note = 'read straight from the tracker, read only, because ' +
+                 'src_Payments was unreadable: ' + imp.error;
+      return trk;
+    }
+    openErr = trk.error;
+  }
+
+  /* 3. neither. Say what is in the import rather than only that it failed. */
+  return { byKey: {}, rows: 0, allRows: 0, total: 0, hr: -1, label: '',
+           error: 'cannot read the payments. src_Payments: ' + imp.error +
+                  '. the tracker: ' + (openErr || 'no "' + TG_TRACKER_TAB + '" tab'),
+           peek: tg_peek_(ss.getSheetByName('src_Payments')) };
+}
+
+
+/** One payments tab, wherever it lives, tallied by Lead Owner for a month. */
+function tg_scan_(sh, monthKey, maxHeaderRows) {
+  var out = { byKey: {}, rows: 0, allRows: 0, total: 0, hr: -1,
+              label: '', note: '', error: '' };
+  if (!sh) { out.error = 'no such tab'; return out; }
+  var lastRow = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 3) {
+    out.error = 'only ' + lastRow + ' row(s) by ' + lastCol + ' column(s)';
+    return out;
+  }
+
+  var look = Math.min(maxHeaderRows, lastRow);
+  var head = sh.getRange(1, 1, look, lastCol).getValues();
+  var c = null;
   for (var i = 0; i < head.length; i++) {
     var H = wr_headers_(head[i]);
     var cand = {
@@ -295,22 +359,21 @@ function tg_srcPay_(ss, monthKey) {
       stat:  wr_col_(H, ['status'])
     };
     if (cand.date < 0 || cand.agent < 0 || cand.amt < 0) continue;
-    hr = i; c = cand; break;
+    out.hr = i; c = cand; break;
   }
-  if (hr < 0) {
-    out.error = 'no row in the first 10 of src_Payments names Date, Lead Owner and Amount Paid';
+  if (out.hr < 0) {
+    out.error = 'no row in the first ' + look +
+                ' names Date, Lead Owner and Amount Paid';
     return out;
   }
-  out.hr = hr;
 
-  var n = sh.getLastRow() - (hr + 1);
-  if (n < 1) { out.error = 'src_Payments has a header and no rows'; return out; }
+  var n = lastRow - (out.hr + 1);
+  if (n < 1) { out.error = 'a header row and no data under it'; return out; }
   out.allRows = n;
 
-  var rows = sh.getRange(hr + 2, 1, n, lastCol).getValues();
+  var rows = sh.getRange(out.hr + 2, 1, n, lastCol).getValues();
   for (var r = 0; r < rows.length; r++) {
-    var d = rows[r][c.date];
-    if (wr_monthKey_(d) !== monthKey) continue;
+    if (wr_monthKey_(rows[r][c.date]) !== monthKey) continue;
     var name = wr_str_(rows[r][c.agent]);
     if (!name || wr_isSummary_(name)) continue;
     if (c.stat >= 0 &&
@@ -320,6 +383,32 @@ function tg_srcPay_(ss, monthKey) {
     if (!out.byKey[key]) out.byKey[key] = { name: name, rev: 0, n: 0 };
     out.byKey[key].rev += amt; out.byKey[key].n++;
     out.rows++; out.total += amt;
+  }
+  return out;
+}
+
+
+/** The first rows as a person would see them, for when nothing parses. */
+function tg_peek_(sh) {
+  if (!sh) return ['src_Payments does not exist'];
+  var out = [];
+  try {
+    var n = Math.min(6, Math.max(1, sh.getLastRow()));
+    var w = Math.min(8, Math.max(1, sh.getLastColumn()));
+    var v = sh.getRange(1, 1, n, w).getDisplayValues();
+    for (var r = 0; r < v.length; r++) {
+      var cells = [];
+      for (var c = 0; c < v[r].length; c++) {
+        var t = String(v[r][c]).trim();
+        cells.push(t ? t.substring(0, 16) : '-');
+      }
+      out.push('row ' + (r + 1) + '  ' + cells.join(' | '));
+    }
+    var f = sh.getRange(1, 1).getFormula();
+    out.push(f ? 'A1 holds a formula: ' + f.substring(0, 120)
+               : 'A1 holds a plain value, so this tab is not an import');
+  } catch (e) {
+    out.push('could not even read it: ' + ((e && e.message) ? e.message : e));
   }
   return out;
 }

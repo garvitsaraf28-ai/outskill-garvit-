@@ -196,6 +196,17 @@ function insideSales(monthKey) {
   }
   L('          upgrade    ' + ins_pad_(ins_money_(m.now.upgrade), 12) +
     'added to agent revenue, no units');
+  if (pay.noOwner.rows) {
+    L('          NO OWNER   ' + ins_pad_(ins_money_(pay.noOwner.rev), 12) +
+      pay.noOwner.rows + ' row(s) with a blank Lead Owner:');
+    for (var q = 0; q < pay.noOwner.sample.length; q++) {
+      L('            ' + Utilities.formatDate(pay.noOwner.sample[q].d, INS_TZ, 'dd MMM') +
+        '  ' + ins_pad_(ins_money_(pay.noOwner.sample[q].amt), 11) +
+        (pay.noOwner.sample[q].st || '(no status)'));
+    }
+    L('            Real money that reaches no agent, manager or office.');
+    L('            Filling the Lead Owner in the tracker is the only fix.');
+  }
   L('');
   L('  TOTAL REVENUE ' + ins_money_(m.now.rev) + '   (payments ' +
     ins_money_(m.now.rev - m.now.upgrade) + ' + upgrade ' + ins_money_(m.now.upgrade) + ')');
@@ -468,6 +479,7 @@ function ins_tracker_(win) {
   var out = { byKey: {}, priorByKey: {}, statuses: [], skipped: 0,
               allRows: 0, hr: -1, error: '', source: '', usedLocal: false,
               newest: null, partial: 0,
+              noOwner: { rows: 0, rev: 0, sample: [] },
               now: { rev: 0, rows: 0, units: 0, total: 0 },
               prior: { rev: 0, rows: 0, units: 0, total: 0 } };
 
@@ -614,12 +626,28 @@ function ins_tracker_(win) {
         statMap[sk].rows++; statMap[sk].rev += amt;
       }
       if (dead) { if (inNow) out.skipped++; continue; }
-      if (!name || /^(total|grand total|sum)\b/i.test(name)) continue;
+
+      /* A payment with no Lead Owner is money nobody is credited with.
+         It cannot reach any agent, manager or office, so it would vanish
+         from the page without a trace unless it is counted here. */
+      if (!name) {
+        if (inNow) {
+          out.noOwner.rows++; out.noOwner.rev += amt;
+          if (out.noOwner.sample.length < 10) {
+            out.noOwner.sample.push({ d: d, amt: amt, st: st });
+          }
+        }
+        continue;
+      }
+      if (/^(total|grand total|sum)\b/i.test(name)) continue;
 
       var key = ins_key_(name);
       var bag = inNow ? out.byKey : out.priorByKey;
-      if (!bag[key]) bag[key] = { name: name, rev: 0, rows: 0, units: 0 };
+      if (!bag[key]) bag[key] = { name: name, rev: 0, rows: 0, units: 0, list: [] };
       bag[key].rev += amt; bag[key].rows++;
+      /* Kept so a disagreement with CBC can be itemised in the same run
+         rather than needing another script to go and look. */
+      if (bag[key].list.length < 60) bag[key].list.push({ d: d, amt: amt, st: st });
 
       var side = inNow ? out.now : out.prior;
       side.rev += amt; side.rows++; side.total += amt;
@@ -701,7 +729,8 @@ function ins_rollup_(cbc, pay) {
     var node = { name: a.name, manager: a.manager, team: a.team, city: a.city,
                  rev: rev, units: units, target: a.target, mm: a.mm,
                  upgrade: a.upgrade, cbcRev: a.cbcRev,
-                 priorRev: pp ? pp.rev : 0 };
+                 priorRev: pp ? pp.rev : 0,
+                 list: (p && p.list) ? p.list : [] };
     m.agents.push(node);
 
     m.now.rev += rev; m.now.units += units; m.now.target += a.target;
@@ -907,6 +936,17 @@ function ins_reconcile_(cbc, m, L) {
       'CBC ' + ins_pad_(ins_money_(x.cbcRev), 11) +
       'here ' + ins_pad_(ins_money_(x.rev), 11) +
       (gap < 0 ? '-' : '+') + ins_money_(Math.abs(gap)));
+    /* Itemised for the few that disagree, so the next question - WHICH
+       payment - is answered in this run instead of the next one. */
+    if (i < 6 && x.list && x.list.length) {
+      for (var q = 0; q < x.list.length && q < 20; q++) {
+        L('          ' +
+          Utilities.formatDate(x.list[q].d, INS_TZ, 'dd MMM') + '  ' +
+          ins_pad_(ins_money_(x.list[q].amt), 11) +
+          (x.list[q].st || '(no status)'));
+      }
+      if (x.list.length > 20) L('          ... and ' + (x.list.length - 20) + ' more rows');
+    }
   }
   if (diff.length > 40) L('      ... and ' + (diff.length - 40) + ' more');
   L('');

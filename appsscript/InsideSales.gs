@@ -737,38 +737,30 @@ function ins_headerFrom_(rows) {
  * is what makes the page live rather than a day behind.
  */
 function ins_restSource_(L, since) {
-  var base = 'https://sheets.googleapis.com/v4/spreadsheets/' + INS_TRACKER_ID;
-  var tok;
-  try { tok = ScriptApp.getOAuthToken(); }
-  catch (e) { return { error: 'no OAuth token' }; }
-  var opt = { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true };
+  var api = ins_sheetsApi_();
+  if (api.error) return { error: api.error };
   var tab = "'" + String(INS_TRACKER_TAB).replace(/'/g, "''") + "'";
-  var res, i;
+  var head, i;
 
-  try {
-    res = UrlFetchApp.fetch(base + '/values/' + encodeURIComponent(tab + '!A1:BZ10') +
-                            '?valueRenderOption=UNFORMATTED_VALUE', opt);
-  } catch (e) { return { error: 'fetch failed: ' + ((e && e.message) ? e.message : e) }; }
-  if (res.getResponseCode() !== 200) return { error: 'header HTTP ' + res.getResponseCode() };
+  try { head = api.get(tab + '!A1:BZ10'); }
+  catch (e) { return { error: api.how + ': ' + ((e && e.message) ? e.message : e) }; }
 
-  var found = ins_headerFrom_(JSON.parse(res.getContentText()).values || []);
+  var found = ins_headerFrom_(head || []);
   if (!found) return { error: 'no Date / Lead Owner / Amount Paid row in the first 10' };
 
   var first = found.hr + 2;
   var want = [found.c.date, found.c.agent, found.c.amt, found.c.stat, found.c.cust];
-  var q = [];
+  var ranges = [];
   for (i = 0; i < want.length; i++) {
     if (want[i] < 0) continue;
     var a1 = ins_a1_(want[i]);
-    q.push('ranges=' + encodeURIComponent(tab + '!' + a1 + first + ':' + a1));
+    ranges.push(tab + '!' + a1 + first + ':' + a1);
   }
-  try {
-    res = UrlFetchApp.fetch(base + '/values:batchGet?' + q.join('&') +
-                            '&valueRenderOption=UNFORMATTED_VALUE', opt);
-  } catch (e2) { return { error: 'column fetch failed: ' + ((e2 && e2.message) ? e2.message : e2) }; }
-  if (res.getResponseCode() !== 200) return { error: 'columns HTTP ' + res.getResponseCode() };
 
-  var vr = JSON.parse(res.getContentText()).valueRanges || [];
+  var vr;
+  try { vr = api.batch(ranges); }
+  catch (e2) { return { error: api.how + ': ' + ((e2 && e2.message) ? e2.message : e2) }; }
+
   var got = [], k = 0;
   for (i = 0; i < want.length; i++) {
     got.push(want[i] < 0 ? null : ((vr[k++] || {}).values || []));
@@ -790,7 +782,7 @@ function ins_restSource_(L, since) {
   var D = flat(got[0], true), A = flat(got[1]), M = flat(got[2]),
       S = flat(got[3]), C = flat(got[4]);
 
-  L('  PAYMENTS: the Payment Tracker, live over the Sheets API, ' +
+  L('  PAYMENTS: the Payment Tracker, live via ' + api.how + ', ' +
     n + ' rows, ' + since());
   return {
     source: 'the Payment Tracker (live)', isLocal: false,
@@ -800,6 +792,71 @@ function ins_restSource_(L, since) {
                M: M.slice(from, from + count),
                S: S ? S.slice(from, from + count) : null,
                C: C ? C.slice(from, from + count) : null };
+    }
+  };
+}
+
+
+/**
+ * Two ways to reach the Sheets API, preferring the one that works.
+ *
+ * The 02:20 run came back "header HTTP 403" from UrlFetchApp. Calling
+ * sheets.googleapis.com with the script's own token needs the Sheets
+ * API switched on for the Cloud project behind this script, and for a
+ * default Apps Script project it is not - hence 403, not 401.
+ *
+ * Adding the Sheets ADVANCED SERVICE both switches that API on and
+ * gives a direct call that needs no token handling:
+ *
+ *     Editor, left sidebar, Services, +, Google Sheets API, Add.
+ *     Leave the identifier as "Sheets".
+ *
+ * One click, and nothing else in the project changes. The UrlFetch
+ * route is kept behind it in case the service is unavailable, and the
+ * local copy is behind that, so each step down is a loss of freshness
+ * and never a loss of the page.
+ */
+function ins_sheetsApi_() {
+  if (typeof Sheets !== 'undefined' && Sheets && Sheets.Spreadsheets) {
+    return {
+      how: 'the Sheets advanced service',
+      get: function (range) {
+        return Sheets.Spreadsheets.Values.get(INS_TRACKER_ID, range,
+                 { valueRenderOption: 'UNFORMATTED_VALUE' }).values || [];
+      },
+      batch: function (ranges) {
+        return Sheets.Spreadsheets.Values.batchGet(INS_TRACKER_ID,
+                 { ranges: ranges, valueRenderOption: 'UNFORMATTED_VALUE' }).valueRanges || [];
+      }
+    };
+  }
+
+  var tok;
+  try { tok = ScriptApp.getOAuthToken(); }
+  catch (e) { return { error: 'no Sheets service and no OAuth token' }; }
+  var base = 'https://sheets.googleapis.com/v4/spreadsheets/' + INS_TRACKER_ID;
+  var opt = { headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true };
+  var call = function (url) {
+    var res = UrlFetchApp.fetch(url, opt);
+    if (res.getResponseCode() !== 200) {
+      throw new Error('HTTP ' + res.getResponseCode() +
+        (res.getResponseCode() === 403
+          ? ' - add the Sheets advanced service: Services, +, Google Sheets API'
+          : ''));
+    }
+    return JSON.parse(res.getContentText());
+  };
+  return {
+    how: 'UrlFetch',
+    get: function (range) {
+      return call(base + '/values/' + encodeURIComponent(range) +
+                  '?valueRenderOption=UNFORMATTED_VALUE').values || [];
+    },
+    batch: function (ranges) {
+      var q = [];
+      for (var i = 0; i < ranges.length; i++) q.push('ranges=' + encodeURIComponent(ranges[i]));
+      return call(base + '/values:batchGet?' + q.join('&') +
+                  '&valueRenderOption=UNFORMATTED_VALUE').valueRanges || [];
     }
   };
 }

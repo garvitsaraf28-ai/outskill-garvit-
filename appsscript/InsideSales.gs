@@ -582,20 +582,16 @@ function ins_tracker_(win) {
    * in #REF! - a slow source beats no source. But it is no longer in
    * the way of a run that would otherwise have worked. */
 
-  /* Their own fixPaymentsRange rewrites the IMPORTRANGE formula, which
-     is what forces it to re-pull. It already exists and already runs on
-     every refreshAndVerify, so this is reusing a working thing rather
-     than inventing a second way to do it. */
-  if (typeof fixPaymentsRange === 'function') {
-    try {
-      fixPaymentsRange();
-      SpreadsheetApp.flush();
-      L('  PAYMENTS: poked the import to re-pull, ' + since());
-    } catch (eFix) {
-      L('  PAYMENTS: could not poke the import: ' +
-        ((eFix && eFix.message) ? eFix.message : eFix));
-    }
-  }
+  /* NOT POKING THE IMPORT. I tried calling their fixPaymentsRange here
+     to force a re-pull. It rewrites the IMPORTRANGE formula and the
+     flush that follows blocks while a 56-tab, 112,000-row workbook
+     recalculates - the 02:50 run sat on it for over ten minutes and
+     produced nothing.
+     Freshness is not worth putting an unbounded recalculation in the
+     path of every run. src_Payments is read exactly as it stands and
+     its age is printed, so a stale figure is visible rather than
+     chased. Refreshing the import is a separate job with its own
+     timing, not a step inside this one. */
   var src = ins_localSource_(L, since);
   if (src.error) {
     L('  PAYMENTS: the local copy is unusable (' + src.error + '), trying the tracker live.');

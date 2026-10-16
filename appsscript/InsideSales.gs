@@ -94,8 +94,14 @@ var INS_BACKUP_TAB = 'Management Report OLD';
  * files in creation order and this is the newest, so this definition
  * wins - the same way ScheduleAndFormat.gs's MR_COLS already beats
  * ManagementReport.gs's, which whatsHere confirmed by returning 9. */
-var REFRESH_SEQUENCE = ['refreshAndVerify', 'buildExecSnapshot',
-                        'insideSales', 'formatManagementReport'];
+/* rebuildModelLive runs straight after refreshAndVerify and rewrites
+   mdl_Payments and mdl_Roster correctly, which is what makes every other
+   page and the TV agree with this one. It refuses to do anything until
+   somebody has read buildModel's comparison and run buildModelSwap, so
+   it is safe here from the moment it exists. */
+var REFRESH_SEQUENCE = ['refreshAndVerify', 'rebuildModelLive',
+                        'buildExecSnapshot', 'insideSales',
+                        'formatManagementReport'];
 
 /* CBC carries the AIGF Upgrade / Catalyst figures in a column with no
    header. Where the label can be found this is ignored; where it cannot,

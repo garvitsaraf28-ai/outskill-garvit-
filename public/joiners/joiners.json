@@ -1,92 +1,156 @@
 [
  {
-  "n": "Josna",
+  "c": "Hyderabad",
+  "n": "Ardel D'Lima",
+  "r": "Senior Sales Consultant",
+  "q": "My friends call me the grammar police.",
+  "p": "hyd-01-ardel-d-lima.jpg"
+ },
+ {
+  "c": "Hyderabad",
+  "n": "Nelson John Patrick",
+  "r": "Senior Sales Consultant",
+  "q": "I've been a professional cricketer.",
+  "p": "hyd-02-nelson-john-patrick.jpg"
+ },
+ {
+  "c": "Hyderabad",
+  "n": "Anshuman Lionel Singh",
   "r": "Sales Consultant",
-  "q": "Hi everyone! I'm Josna from Bhupalpalle, and I'm joining Outskill as a Senior Sales Consultant.",
-  "p": "01-josna.jpg"
+  "q": "Ridiculously good at anything and everything cricket.",
+  "p": "hyd-03-anshuman-lionel-singh.jpg"
  },
  {
-  "n": "Faisal Junaid",
+  "c": "Hyderabad",
+  "n": "Pawan Kumar Chigurupati",
   "r": "Senior Sales Consultant",
-  "q": "Faisal Junaid, joining as senior sales consultant - who enjoys life being positive and believes in spreading laughs around, which is what I am ridiculously good at, apart from eating and...",
-  "p": "02-faisal-junaid.jpg"
+  "q": "I'm a pro snooker player.",
+  "p": "hyd-04-pawan-kumar-chigurupati.jpg"
  },
  {
-  "n": "Lionel Taylor",
+  "c": "Hyderabad",
+  "n": "Likith Velagala",
   "r": "Senior Sales Consultant",
-  "q": "I am 6'2, so bumping into things is a common occurrence. Cannot play the guitar yet..",
-  "p": "03-lionel-taylor.jpg"
+  "q": "Ridiculously good at knowledge application.",
+  "p": "hyd-05-likith-velagala.jpg"
  },
  {
-  "n": "Danish",
-  "r": "Sales Professional",
-  "q": "Hey, I'm Danish, joining as a Sales professional. I've spent the last 5 years in sales, so I'm pretty comfortable starting conversations with strangers and somehow turning them into...",
-  "p": "04-danish.jpg"
- },
- {
-  "n": "Sowmya",
+  "c": "Hyderabad",
+  "n": "Shivamshu Rudrabatla",
   "r": "Senior Sales Consultant",
-  "q": "I am Sowmya, I am from Hyderabad. I am having an experience of 5+ years in Sales.",
-  "p": "05-sowmya.jpg"
+  "q": "I'm a writer for films and screenplay developer.",
+  "p": "hyd-06-shivamshu-rudrabatla.jpg"
  },
  {
-  "n": "K. Avinash",
+  "c": "Hyderabad",
+  "n": "Balaji Vankudoth",
   "r": "Senior Sales Consultant",
-  "q": "Fun fact: I can turn almost any conversation into a debate, even when nobody asked for one.",
-  "p": "06-k-avinash.jpg"
+  "q": "I build trust through conversation.",
+  "p": "hyd-07-balaji-vankudoth.jpg"
  },
  {
-  "n": "Saikiran",
-  "r": "Senior Sales Associate",
-  "q": "Hey, I'm Saikiran. Joined as a Senior Sales Associate.",
-  "p": "07-saikiran.jpg"
+  "c": "Hyderabad",
+  "n": "Sai Dinesh Pendela",
+  "r": "Senior Sales Consultant",
+  "q": "I can turn almost any conversation into an interesting one.",
+  "p": "hyd-08-sai-dinesh-pendela.jpg"
  },
  {
-  "n": "Harshitha",
+  "c": "Hyderabad",
+  "n": "G Pragna Yashaswi",
+  "r": "Senior Consultant, Sales",
+  "q": "Currently obsessed with aesthetics, self-cooking, and solo travelling.",
+  "p": "hyd-09-g-pragna-yashaswi.jpg"
+ },
+ {
+  "c": "Hyderabad",
+  "n": "Konka Lokesh",
   "r": "Sales Consultant",
-  "q": "Fun fact: My hair apparently looks like noodles because people keep trying to touch them.",
-  "p": "08-harshitha.jpg"
+  "q": "I play chess a lot \u2014 though I lose half the time.",
+  "p": "hyd-10-konka-lokesh.jpg"
  },
  {
-  "n": "Astitva Chandel",
+  "c": "Hyderabad",
+  "n": "Zameer Afroz Khan",
   "r": "Sales Consultant",
-  "q": "I'm Astitva, joining the team. A quick fun fact about me: my brain overclocks best when high-BPM tracks are blasting in my headphones.",
-  "p": "09-astitva-chandel.jpg"
+  "q": "I can turn random conversations into sales opportunities.",
+  "p": "hyd-11-zameer-afroz-khan.jpg"
  },
  {
-  "n": "Mohammed Nihal",
+  "c": "Bangalore",
+  "n": "Ashwini Balasundaram",
+  "r": "Sales Consultant",
+  "q": "A really good dancer, a really average singer.",
+  "p": "blr-01-ashwini-balasundaram.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Shreyas M R",
   "r": "Senior Sales Consultant",
-  "q": "Joining as Senior Sales Consultant. Software Engineer by chance & into Sales by Choice.",
-  "p": "10-mohammed-nihal.jpg"
+  "q": "Confidently average at swimming.",
+  "p": "blr-02-shreyas-m-r.jpg"
  },
  {
-  "n": "Amarnath",
-  "r": "Sr. Sales Consultant",
-  "q": "I am Amarnath, from Hyderabad. I have 9.7 yrs experience in direct and consultative sales.",
-  "p": "11-amarnath.jpg"
- },
- {
-  "n": "Krishna Nandana",
-  "r": "Sales Consultant",
-  "q": "My journey so far has been a mix of tech, sales, and edtech - basically, I like turning conversations into conversions.",
-  "p": "12-krishna-nandana.jpg"
- },
- {
-  "n": "Mahender Kulkarni",
-  "r": "Sr. Sales Consultant",
-  "q": "Fun fact: I've worked across three very different industries - US taxation, travel, and education - so I've collected quite a few interesting stories along the way!",
-  "p": "13-mahender-kulkarni.jpg"
- },
- {
-  "n": "Raymond Anthony",
+  "c": "Bangalore",
+  "n": "Vikash Kumar",
   "r": "Senior Sales Consultant",
-  "q": "Fun fact: I can spend way too much time researching something before finally making a decision.",
-  "p": "14-raymond-anthony.jpg"
+  "q": "Joining the Bangalore team as a Senior Sales Consultant.",
+  "p": "blr-03-vikash-kumar.jpg"
  },
  {
-  "n": "Ashish Dev D.",
+  "c": "Bangalore",
+  "n": "Sreyash Kumar",
+  "r": "Senior Sales Consultant",
+  "q": "Engineer by education, multi-dimensional sales enthusiast by experience.",
+  "p": "blr-04-sreyash-kumar.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Siddhant Agnihotri",
+  "r": "Senior Sales Consultant",
+  "q": "Connecting the dots, turning random thoughts into deep conversations.",
+  "p": "blr-05-siddhant-agnihotri.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Siva Prasad K",
   "r": "Sales Consultant",
-  "q": "I'm Ashish D, from Hyderabad and Chandigarh..!! I have 5+ years of experience in sales and marketing, with hands-on experience in lead generation, EdTech programs like AI/ML and DSML,...",
-  "p": "15-ashish-dev-d.jpg"
+  "q": "Sales Consultant, settling into Bangalore.",
+  "p": "blr-06-siva-prasad-k.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Hans Rajput",
+  "r": "Senior Sales Consultant",
+  "q": "I sell ideas by profession.",
+  "p": "blr-07-hans-rajput.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Syed Kaif Ulla Hussaini",
+  "r": "Senior Sales Consultant",
+  "q": "Confidently average at deciding what to eat when I'm hungry.",
+  "p": "blr-08-syed-kaif-ulla-hussaini.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Pruthvi S",
+  "r": "Inside Sales Agent",
+  "q": "There ain't no fun fact about me \u2014 I'm boring.",
+  "p": "blr-09-pruthvi-s.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Syed Uzair Altaf",
+  "r": "Sales Consultant",
+  "q": "Football, reading, and chess.",
+  "p": "blr-10-syed-uzair-altaf.jpg"
+ },
+ {
+  "c": "Bangalore",
+  "n": "Syed Abdul Basheer Ahmed",
+  "r": "Senior Sales Consultant",
+  "q": "Turning a two-minute conversation into a twenty-minute one.",
+  "p": "blr-11-syed-abdul-basheer-ahmed.jpg"
  }
 ]

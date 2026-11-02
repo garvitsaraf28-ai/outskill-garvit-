@@ -445,6 +445,59 @@ body{
 #screenDots i{width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.16)}
 #screenDots i.on{background:var(--lime); box-shadow:0 0 10px var(--lime); width:20px; border-radius:4px}
 
+/* --------------------- NEW ON THE FLOOR -----------------------------
+   The November intake - eleven in Hyderabad, eleven in Bangalore. The
+   same cards as the October intake: face, name, role and one line in
+   their own words. Six to a screen, so each office fits on two.
+   It sits UNDER the close celebration (60): a sale always wins the wall.
+   ------------------------------------------------------------------ */
+#joinCard{
+  position:absolute; inset:0; z-index:59; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:40px;
+  padding:0 64px;
+  background:
+    radial-gradient(1000px 760px at 26% 40%, rgba(194,238,69,.12), transparent 64%),
+    radial-gradient(900px 680px at 76% 62%, rgba(77,216,192,.11), transparent 64%),
+    #060803;
+}
+#joinCard.on{display:flex}
+#jcHead{text-align:center; animation:jcUp .6s cubic-bezier(.22,1,.36,1) both}
+#jcEyebrow{
+  font-size:19px; letter-spacing:.42em; font-weight:900; text-transform:uppercase;
+  background:linear-gradient(92deg,var(--lime),var(--teal));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+#jcSub{font-size:17px; color:var(--dim); font-weight:700; letter-spacing:.16em;
+  text-transform:uppercase; margin-top:14px}
+@keyframes jcUp{from{opacity:0; transform:translateY(22px)} to{opacity:1; transform:none}}
+
+#jcGrid{display:flex; gap:22px; justify-content:center; align-items:stretch; width:100%}
+.jc{
+  flex:1 1 0; max-width:336px; min-width:0; text-align:center;
+  animation:jcUp .6s cubic-bezier(.22,1,.36,1) backwards;
+}
+.jc .ph{
+  width:100%; height:326px; border-radius:18px; overflow:hidden; position:relative;
+  background:linear-gradient(150deg,#1a2112,#0d1208);
+  box-shadow:0 22px 56px rgba(0,0,0,.6), 0 0 0 1px rgba(194,238,69,.18);
+}
+/* Absolute, so DOM order decides what is on top. The initials sit
+   first and the photo covers them; left static, the absolutely
+   positioned initials painted over every face. */
+.jc .ph img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block}
+.jc .ini{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-family:Fraunces,Georgia,serif; font-weight:700; font-size:86px; color:var(--lime); opacity:.5;
+}
+/* Every name gets two lines, text at the bottom, so a long name that
+   wraps does not push its role and line out of step with the others. */
+.jc .nm{font-family:Fraunces,Georgia,serif; font-weight:700; font-size:27px; line-height:1.15;
+  margin-top:18px; min-height:2.3em; display:flex; align-items:flex-end; justify-content:center}
+.jc .ro{font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--lime); margin-top:9px}
+.jc .q{font-size:14px; line-height:1.5; color:#b9c4a8; margin-top:13px; font-weight:500;
+  display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden}
+
 /* --------------------- THE CLOSE CELEBRATION ------------------------
 
    A close takes the whole screen. The board is never more than a few
@@ -814,6 +867,14 @@ body{
 
   <div id="screenDots"></div>
 
+  <div id="joinCard">
+    <div id="jcHead">
+      <div id="jcEyebrow">New on the floor</div>
+      <div id="jcSub"></div>
+    </div>
+    <div id="jcGrid"></div>
+  </div>
+
   <!-- Confetti sits over the board, not instead of it: a close is
        celebrated WHILE you watch the row climb. -->
   <canvas id="celCanvas" width="1920" height="1080"></canvas>
@@ -888,8 +949,53 @@ var CONFIG = {
   /* The bell on a close. ?sound=0 for a quiet floor. */
   SOUND: Q.get('sound') !== '0',
 
-
+  /* NEW ON THE FLOOR - one screen of new faces after every board
+     screen, ten seconds each, so the floor gets 18-26 seconds of board,
+     then the next new faces, then the next screen. Hyderabad's two
+     screens, then Bangalore's two; the whole intake comes round once a
+     rotation, about every two minutes. ?joiners=0 turns it off now. */
+  JOINERS:           Q.get('joiners') !== '0',
+  JOINER_SECS:       +(Q.get('joinersecs') || 10),    // seconds a screen of faces stays up
+  JOINER_PER_SCREEN: +(Q.get('joinerper')  || 6),     // most faces on one screen
+  /* Stops by itself after this date (two weeks, as with the last
+     intake), so nobody has to remember. ?joineruntil=2026-11-30 extends. */
+  JOINER_UNTIL:      Q.get('joineruntil') || '2026-11-16',
+  /* Where the photos live. This site's own root normally; only when the
+     page is served BY Apps Script does it reach across to Vercel. */
+  JOINER_BASE:       Q.get('joinerbase') || (
+    /script\.google/.test(location.hostname)
+      ? 'https://outskill-garvit.vercel.app/joiners/'
+      : '/joiners/'
+  )
 };
+
+/* The November intake, from the two office decks: Hyderabad first, the
+   board's own city order, then Bangalore, each in deck order. Replaced
+   wholesale when the next intake lands - it is only data. */
+var JOINERS = [
+  {"c": "Hyderabad", "n": "Ardel D'Lima", "r": "Senior Sales Consultant", "q": "My friends call me the grammar police.", "p": "hyd-01-ardel-d-lima.jpg"},
+  {"c": "Hyderabad", "n": "Nelson John Patrick", "r": "Senior Sales Consultant", "q": "I've been a professional cricketer.", "p": "hyd-02-nelson-john-patrick.jpg"},
+  {"c": "Hyderabad", "n": "Anshuman Lionel Singh", "r": "Sales Consultant", "q": "Ridiculously good at anything and everything cricket.", "p": "hyd-03-anshuman-lionel-singh.jpg"},
+  {"c": "Hyderabad", "n": "Pawan Kumar Chigurupati", "r": "Senior Sales Consultant", "q": "I'm a pro snooker player.", "p": "hyd-04-pawan-kumar-chigurupati.jpg"},
+  {"c": "Hyderabad", "n": "Likith Velagala", "r": "Senior Sales Consultant", "q": "Ridiculously good at knowledge application.", "p": "hyd-05-likith-velagala.jpg"},
+  {"c": "Hyderabad", "n": "Shivamshu Rudrabatla", "r": "Senior Sales Consultant", "q": "I'm a writer for films and screenplay developer.", "p": "hyd-06-shivamshu-rudrabatla.jpg"},
+  {"c": "Hyderabad", "n": "Balaji Vankudoth", "r": "Senior Sales Consultant", "q": "I build trust through conversation.", "p": "hyd-07-balaji-vankudoth.jpg"},
+  {"c": "Hyderabad", "n": "Sai Dinesh Pendela", "r": "Senior Sales Consultant", "q": "I can turn almost any conversation into an interesting one.", "p": "hyd-08-sai-dinesh-pendela.jpg"},
+  {"c": "Hyderabad", "n": "G Pragna Yashaswi", "r": "Senior Consultant, Sales", "q": "Currently obsessed with aesthetics, self-cooking, and solo travelling.", "p": "hyd-09-g-pragna-yashaswi.jpg"},
+  {"c": "Hyderabad", "n": "Konka Lokesh", "r": "Sales Consultant", "q": "I play chess a lot \u2014 though I lose half the time.", "p": "hyd-10-konka-lokesh.jpg"},
+  {"c": "Hyderabad", "n": "Zameer Afroz Khan", "r": "Sales Consultant", "q": "I can turn random conversations into sales opportunities.", "p": "hyd-11-zameer-afroz-khan.jpg"},
+  {"c": "Bangalore", "n": "Ashwini Balasundaram", "r": "Sales Consultant", "q": "A really good dancer, a really average singer.", "p": "blr-01-ashwini-balasundaram.jpg"},
+  {"c": "Bangalore", "n": "Shreyas M R", "r": "Senior Sales Consultant", "q": "Confidently average at swimming.", "p": "blr-02-shreyas-m-r.jpg"},
+  {"c": "Bangalore", "n": "Vikash Kumar", "r": "Senior Sales Consultant", "q": "Joining the Bangalore team as a Senior Sales Consultant.", "p": "blr-03-vikash-kumar.jpg"},
+  {"c": "Bangalore", "n": "Sreyash Kumar", "r": "Senior Sales Consultant", "q": "Engineer by education, multi-dimensional sales enthusiast by experience.", "p": "blr-04-sreyash-kumar.jpg"},
+  {"c": "Bangalore", "n": "Siddhant Agnihotri", "r": "Senior Sales Consultant", "q": "Connecting the dots, turning random thoughts into deep conversations.", "p": "blr-05-siddhant-agnihotri.jpg"},
+  {"c": "Bangalore", "n": "Siva Prasad K", "r": "Sales Consultant", "q": "Sales Consultant, settling into Bangalore.", "p": "blr-06-siva-prasad-k.jpg"},
+  {"c": "Bangalore", "n": "Hans Rajput", "r": "Senior Sales Consultant", "q": "I sell ideas by profession.", "p": "blr-07-hans-rajput.jpg"},
+  {"c": "Bangalore", "n": "Syed Kaif Ulla Hussaini", "r": "Senior Sales Consultant", "q": "Confidently average at deciding what to eat when I'm hungry.", "p": "blr-08-syed-kaif-ulla-hussaini.jpg"},
+  {"c": "Bangalore", "n": "Pruthvi S", "r": "Inside Sales Agent", "q": "There ain't no fun fact about me \u2014 I'm boring.", "p": "blr-09-pruthvi-s.jpg"},
+  {"c": "Bangalore", "n": "Syed Uzair Altaf", "r": "Sales Consultant", "q": "Football, reading, and chess.", "p": "blr-10-syed-uzair-altaf.jpg"},
+  {"c": "Bangalore", "n": "Syed Abdul Basheer Ahmed", "r": "Senior Sales Consultant", "q": "Turning a two-minute conversation into a twenty-minute one.", "p": "blr-11-syed-abdul-basheer-ahmed.jpg"}
+];
 
 
 
@@ -1034,6 +1140,7 @@ document.addEventListener('keydown', function(e){
     var r=(DATA&&DATA.recent||[])[0]; if(r) celebrate(r);
   }
   if(e.key==='m'||e.key==='M') showMile(50);                  /* preview a milestone */
+  if(e.key==='j'||e.key==='J') playJoiners();                 /* next new faces now */
 });
 
 /* =====================================================================
@@ -1122,6 +1229,7 @@ function applyData(p){
     if(Q.get('milenow')) setTimeout(function(){
       showMile(+Q.get('milenow')||50);
     }, 400);
+    if(Q.get('joinersnow')==='1') setTimeout(function(){ playJoiners(); }, 400);
     return;
   }
   if(sig!==lastSig){ lastSig=sig; renderAll(); }
@@ -2003,14 +2111,107 @@ function paintScreenDots(){
 function scheduleScreens(){
   clearTimeout(scheduleScreens._t);
   var list = screenList();
-  if(list.length < 2) return;                 /* nothing to rotate to */
+  /* one screen and no new faces to show: nothing to rotate to */
+  if(list.length < 2 && !joinersLive()) return;
   var cur  = list[screenIdx % list.length];
   var secs = (cur === 'overall') ? CONFIG.OVERALL_SECONDS : CONFIG.CITY_SECONDS;
   scheduleScreens._t = setTimeout(function(){
-    screenIdx = (screenIdx + 1) % list.length;
-    showScreen(list[screenIdx]);
-    scheduleScreens();
+    function next(){
+      var l = screenList();
+      screenIdx = (screenIdx + 1) % l.length;
+      showScreen(l[screenIdx]);
+      scheduleScreens();
+    }
+    /* The new faces take their turn BETWEEN screens, never on top of
+       one, so no office loses part of its time to them. */
+    if(joinersLive()) playJoiners(next); else next();
   }, Math.max(6, secs) * 1000);
+}
+
+
+/* =====================================================================
+   NEW ON THE FLOOR
+
+   A cutaway, not a mode. It takes its turn between board screens, shows
+   one screen of faces and hands the wall straight back. It stops by
+   itself after JOINER_UNTIL, and ?joiners=0 kills it immediately.
+   ===================================================================== */
+function joinersLive(){
+  if(!CONFIG.JOINERS) return false;
+  if(!JOINERS || !JOINERS.length) return false;
+  var until = CONFIG.JOINER_UNTIL;
+  if(until){
+    var d = new Date(until + 'T23:59:59');
+    if(!isNaN(d.getTime()) && Date.now() > d.getTime()) return false;
+  }
+  return true;
+}
+
+/* One office per screen, never two mixed, in the board's city order.
+   An office is split into as few screens as JOINER_PER_SCREEN allows,
+   evened out - eleven at six a screen is six and five, not six and
+   five-with-a-gap, and at five a screen it is four, four and three. */
+function joinerScreens(){
+  var per = Math.max(1, CONFIG.JOINER_PER_SCREEN), out = [], byCity = {}, order = [];
+  (JOINERS || []).forEach(function(j){
+    var c = s(j.c);
+    if(!byCity[c]){ byCity[c] = []; order.push(c); }
+    byCity[c].push(j);
+  });
+  order.sort(function(a, b){
+    var ia = CITY_ORDER.indexOf(a), ib = CITY_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  order.forEach(function(c){
+    var all = byCity[c], k = Math.ceil(all.length / per), size = Math.ceil(all.length / k);
+    for(var i = 0; i < all.length; i += size)
+      out.push({ city: c, from: i, total: all.length, people: all.slice(i, i + size) });
+  });
+  return out;
+}
+
+/* Each call shows the NEXT screen of faces. A key press while one is
+   already up carries the rotation's callback over instead of dropping
+   it - dropped, the board would stop turning. */
+var jcScreen = 0;
+function playJoiners(done){
+  var el = document.getElementById('joinCard');
+  var screens = joinerScreens();
+  if(!el || !screens.length){ if(done) done(); return; }
+
+  var before = el._done; el._done = null;
+  clearTimeout(el._t);
+
+  var sc = screens[jcScreen % screens.length];
+  jcScreen++;
+
+  document.getElementById('jcSub').textContent =
+    (sc.city ? sc.city + '  \u00b7  ' : '') +
+    (sc.from + 1) + '-' + (sc.from + sc.people.length) + ' of ' + sc.total;
+
+  document.getElementById('jcGrid').innerHTML = sc.people.map(function(j, i){
+    var initials = (j.n||'?').split(/\s+/).map(function(w){ return w.charAt(0); })
+                     .join('').slice(0,2).toUpperCase();
+    /* Initials sit behind the photo, so a file that fails to load leaves
+       a designed card rather than a grey rectangle. */
+    return '<div class="jc" style="animation-delay:'+(i*90)+'ms">'+
+      '<div class="ph"><div class="ini">'+esc(initials)+'</div>'+
+        '<img src="'+esc(CONFIG.JOINER_BASE + (j.p||''))+'" alt="'+esc(j.n||'')+'" '+
+          'onerror="this.style.display=\'none\'">'+
+      '</div>'+
+      '<div class="nm">'+esc(j.n||'')+'</div>'+
+      '<div class="ro">'+esc(j.r||'Sales Consultant')+'</div>'+
+      '<div class="q">'+esc(j.q||'')+'</div>'+
+    '</div>';
+  }).join('');
+
+  el._done = function(){ if(before) before(); if(done) done(); };
+  el.className = 'on';
+  el._t = setTimeout(function(){
+    el.className = '';
+    var f = el._done; el._done = null;
+    if(f) f();
+  }, Math.max(4, CONFIG.JOINER_SECS) * 1000);
 }
 
 

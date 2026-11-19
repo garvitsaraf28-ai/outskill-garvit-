@@ -28,6 +28,7 @@ Use the Google account that can open CBC.
    **Anyone**. → **Deploy** → copy the **Web app URL** (ends in `/exec`).
 5. Send that URL. The board page's `API_URL` is switched to it (one line in
    `public/warroom.html`), and the TVs show CBC within a minute.
+   *Done 19 Nov 2026 — the board now calls the Sales Dangal CBC web app.*
 
 If you already added a `CbcDangal` file to the Inside Sales project from the
 earlier version of these steps, delete it there (⋮ next to the file →

@@ -868,8 +868,12 @@ var Q = new URLSearchParams(location.search);
    never feels stuck.
    ===================================================================== */
 var CONFIG = {
+  /* The "Sales Dangal CBC" Apps Script project (appsscript/cbc-dangal.gs),
+     deployed on its own since 19 Nov 2026. It reads the CBC month tab and
+     nothing else. The Inside Sales workbook's web app is no longer used
+     by this board. */
   API_URL: Q.get('api') ||
-    'https://script.google.com/macros/s/AKfycbzKIf-nwL4RLwhwfhSQTMo-pyjEeonxxdTexUecEYdKOUnkBNIrlhqPJTPbII1iZcxe6g/exec?feed=warroom',
+    'https://script.google.com/macros/s/AKfycbxN9_V_BippH7vxG5_13yLoti9ccTSgt-EGv4mCxc2UDgeOFT3_1kef6ynvne3EF3qz/exec?feed=warroom',
 
   /* How often the feed is polled. */
   REFRESH_SECONDS: +(Q.get('refresh') || 30),
@@ -1094,10 +1098,11 @@ function stateScreen(kind, msg){
         note:esc(msg||'')+'<div style="margin-top:12px;font-size:18px">Retrying every '+
              Math.max(10,CONFIG.REFRESH_SECONDS)+' seconds.</div>' }
     : { k:'Cannot reach the feed', line:'NO <span class="accent">DATA</span> YET',
-        note:'<b>Click the address below.</b> What it shows names the fault: the Executive '+
-             'Command Center means the routing line is missing from doGet; a Google sign-in '+
-             'means access is not set to <b>Anyone</b>; "Script function not found" means the '+
-             'deployment is pinned to an old version.'+
+        note:'<b>Click the address below.</b> What it shows names the fault: a Google sign-in '+
+             'means the web app\'s access is not set to <b>Anyone</b>; "Script function not '+
+             'found" means the code was not saved before deploying (save, then Deploy &rsaquo; '+
+             'Manage deployments &rsaquo; New version); a permission error means the account '+
+             'that deployed it cannot open CBC.'+
              '<div style="margin-top:16px"><a href="'+esc(CONFIG.API_URL)+'" target="_blank" '+
              'rel="noopener" style="font-family:Space Mono,monospace;font-size:17px;color:var(--gold);'+
              'word-break:break-all;text-decoration:underline">'+esc(CONFIG.API_URL)+'</a></div>'+

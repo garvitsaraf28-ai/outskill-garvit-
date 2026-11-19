@@ -51,12 +51,7 @@
 function doGet(e) {
   var p = (e && e.parameter) || {};
 
-  /* --- the Sales Dangal TV asks for its feed here. From 19 Nov 2026 the
-         numbers come from CBC only (file CbcDangal, dg_serve_). If that
-         file is ever removed, the old war room feed answers instead. --- */
-  if (p.feed === 'warroom' && typeof dg_serve_ === 'function') {
-    return dg_serve_(p);
-  }
+  /* --- the Sales War Room TV asks for its feed here --- */
   if (p.feed === 'warroom' && typeof wr_serve_ === 'function') {
     return wr_serve_(p);
   }

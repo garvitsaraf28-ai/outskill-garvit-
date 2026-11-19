@@ -7,45 +7,38 @@ International, the six desks, the nine managers). Nothing from the Inside
 Sales Master Tracker. No units. It re-reads CBC by itself about once a
 minute. Nothing is ever written to CBC or any other sheet.
 
-Open the Inside Sales Master Tracker → **Extensions → Apps Script**, then:
+It runs as **its own small Apps Script project**. The Inside Sales
+workbook and its script are not touched, and no existing code is edited.
+Use the Google account that can open CBC.
 
-1. **Add the new file.** Click **+** next to *Files* → **Script** → name it
-   `CbcDangal` → delete what is in it → paste all of
-   [`appsscript/cbc-dangal.gs`](cbc-dangal.gs) → **Save**.
-2. **Point the feed at it.** Open the file that has `function doGet(`
-   (Ctrl+F in the editor). Find these lines:
+1. Open **https://script.google.com** → click **New project** (top left).
+2. You see a file `Code.gs` with a few lines in it. Click inside it, press
+   **Ctrl+A**, then **Delete**. Paste the whole of
+   [`cbc-dangal.gs`](cbc-dangal.gs) (**Ctrl+V**). Click the **Save** icon.
+   Click *Untitled project* at the top and name it `Sales Dangal CBC`.
+3. In the box next to **Run** at the top, choose **`dangalCheck`** → click
+   **Run**. Google asks for permission once: **Review permissions** → your
+   account → if it says *Google hasn't verified this app*: **Advanced** →
+   **Go to Sales Dangal CBC (unsafe)** → **Allow**. (Google's wording says
+   "see, edit ... spreadsheets" for any script that opens a sheet; this one
+   only reads.) The log at the bottom must end with
+   `ALL CHECKS PASS - the board matches CBC`.
+4. **Deploy** (top right) → **New deployment** → click the **gear** next to
+   *Select type* → **Web app**. *Execute as*: **Me**. *Who has access*:
+   **Anyone**. → **Deploy** → copy the **Web app URL** (ends in `/exec`).
+5. Send that URL. The board page's `API_URL` is switched to it (one line in
+   `public/warroom.html`), and the TVs show CBC within a minute.
 
-   ```js
-     if (p.feed === 'warroom' && typeof wr_serve_ === 'function') {
-       return wr_serve_(p);
-     }
-   ```
+If you already added a `CbcDangal` file to the Inside Sales project from the
+earlier version of these steps, delete it there (⋮ next to the file →
+Delete). It did nothing on its own.
 
-   and put these three lines **directly above** them:
+**Next month:** in this project change `var DG_TAB = 'Nov 2026';` to the new
+tab name, Save, then **Deploy → Manage deployments → pencil → Version: New
+version → Deploy**. Same URL, nothing else changes.
 
-   ```js
-     if (p.feed === 'warroom' && typeof dg_serve_ === 'function') {
-       return dg_serve_(p);
-     }
-   ```
-
-   **Save.** (The full file is [`exec-webapp.gs`](exec-webapp.gs) if you
-   would rather paste the whole thing.)
-3. **Check it.** In the function box at the top choose `dangalCheck` →
-   **Run**. The execution log must end with
-   `ALL CHECKS PASS - the board matches CBC`, and show revenue, India,
-   International, the six desks and the nine managers as CBC has them.
-4. **Publish.** **Deploy → Manage deployments → pencil** on the live
-   deployment → *Version*: **New version** → **Deploy**. Same URL, so the
-   TVs need nothing.
-5. **Look at the TV.** Within a minute it reads *November 2026 · live from
-   CBC*, with India and International beside the revenue.
-
-**Next month:** in `CbcDangal`, change `var DG_TAB = 'Nov 2026';` to the new
-tab name, Save, and do step 4 again.
-
-**To undo:** delete the `CbcDangal` file and do step 4. The old feed
-answers again.
+**To undo:** point `API_URL` in `public/warroom.html` back to the Inside
+Sales web app (`.../exec?feed=warroom`).
 
 ---
 

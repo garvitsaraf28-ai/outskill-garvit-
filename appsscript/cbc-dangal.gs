@@ -1,6 +1,14 @@
 /* =====================================================================
-   SALES DANGAL - LIVE FROM CBC ONLY                 (Apps Script file:
-                                                     name it CbcDangal)
+   SALES DANGAL - LIVE FROM CBC ONLY
+
+   THIS IS ITS OWN APPS SCRIPT PROJECT ("Sales Dangal CBC"), separate
+   from the Inside Sales workbook. Paste this whole file into a NEW
+   project at script.google.com and deploy it as a web app (Execute as:
+   Me, Who has access: Anyone). The TV board calls that web app's URL.
+   It has its own doGet(), so it does not belong in the Inside Sales
+   project. (If it is ever pasted there by mistake, its doGet() still
+   serves the Executive page exactly as before - see doGet() at the
+   bottom - so nothing there breaks.)
 
    From 19 Nov 2026 the Sales Dangal TV board shows exactly what CBC
    shows, and nothing else.
@@ -45,9 +53,10 @@
    prints the same checks in the execution log.
 
    HOW THE BOARD GETS IT
-   The Exec file's doGet() hands feed=warroom to dg_serve_() below when
-   this file exists (three lines added there). Delete this file and the
-   old feed answers again, so it is safe to add and safe to remove.
+   The board page (public/warroom.html) has this project's web app URL
+   as its API_URL and asks it for the numbers every 30 seconds.
+   doGet() at the bottom answers. The Inside Sales workbook and its
+   script are not involved at all.
 
    AUTOMATIC
    The tab is re-read at most once a minute (DG_CACHE_SECS). The board
@@ -91,8 +100,33 @@ var DG_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'J
 
 
 /* =====================================================================
-   WEB ENTRY - called by doGet() for feed=warroom
+   WEB ENTRY
    ===================================================================== */
+
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+
+  /* SAFETY NET. In its own project (the normal case) this line never
+     applies. If this file is ever pasted into the Inside Sales project,
+     whose Exec file also defines doGet, Apps Script keeps only one of
+     the two. Should it keep this one, the Executive Command Center must
+     still open exactly as before - so every request that is not for the
+     board's numbers is served the way the Exec file serves it. */
+  if (p.feed !== 'warroom' && typeof exec_inject_ === 'function' &&
+      typeof execSnapshotJson_ === 'function') {
+    var json = execSnapshotJson_();
+    if (!json) {
+      try { buildExecSnapshot(); json = execSnapshotJson_(); } catch (err) { json = null; }
+    }
+    var html = exec_inject_(HtmlService.createHtmlOutputFromFile('ExecPage').getContent(), json);
+    return HtmlService.createHtmlOutput(html)
+      .setTitle('Executive Command Center')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  return dg_serve_(p);
+}
 
 function dg_serve_(p) {
   p = p || {};

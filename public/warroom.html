@@ -1231,8 +1231,12 @@ function paintTop(){
   /* India / International: the CBC summary block's own two lines. An
      older feed without them leaves a dash rather than a guess. */
   var hasGeo = t.india!=null && t.international!=null;
-  countUp(document.getElementById('coInd'),  n(t.india),         hasGeo?money:function(){return '—';});
-  countUp(document.getElementById('coIntl'), n(t.international), hasGeo?money:function(){return '—';});
+  var geoEl = document.querySelector('#top .hero.geo');
+  if(geoEl) geoEl.style.display = hasGeo ? '' : 'none';
+  if(hasGeo){
+    countUp(document.getElementById('coInd'),  n(t.india),         money);
+    countUp(document.getElementById('coIntl'), n(t.international), money);
+  }
   paintFresh();
   paintOffRoster();
   var p = pct(t.revenue, t.target), e = expectedPct();

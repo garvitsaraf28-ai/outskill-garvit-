@@ -1,3 +1,54 @@
+# Sales Dangal reads CBC only — 19 Nov 2026
+
+From now on the TV board (https://outskill-garvit.vercel.app/warroom) shows
+exactly what the **CBC "Nov 2026" tab** shows: the Total row (G2, K2), the
+agent rows (4–114) and the summary block **F117:G136** (India,
+International, the six desks, the nine managers). Nothing from the Inside
+Sales Master Tracker. No units. It re-reads CBC by itself about once a
+minute. Nothing is ever written to CBC or any other sheet.
+
+Open the Inside Sales Master Tracker → **Extensions → Apps Script**, then:
+
+1. **Add the new file.** Click **+** next to *Files* → **Script** → name it
+   `CbcDangal` → delete what is in it → paste all of
+   [`appsscript/cbc-dangal.gs`](cbc-dangal.gs) → **Save**.
+2. **Point the feed at it.** Open the file that has `function doGet(`
+   (Ctrl+F in the editor). Find these lines:
+
+   ```js
+     if (p.feed === 'warroom' && typeof wr_serve_ === 'function') {
+       return wr_serve_(p);
+     }
+   ```
+
+   and put these three lines **directly above** them:
+
+   ```js
+     if (p.feed === 'warroom' && typeof dg_serve_ === 'function') {
+       return dg_serve_(p);
+     }
+   ```
+
+   **Save.** (The full file is [`exec-webapp.gs`](exec-webapp.gs) if you
+   would rather paste the whole thing.)
+3. **Check it.** In the function box at the top choose `dangalCheck` →
+   **Run**. The execution log must end with
+   `ALL CHECKS PASS - the board matches CBC`, and show revenue, India,
+   International, the six desks and the nine managers as CBC has them.
+4. **Publish.** **Deploy → Manage deployments → pencil** on the live
+   deployment → *Version*: **New version** → **Deploy**. Same URL, so the
+   TVs need nothing.
+5. **Look at the TV.** Within a minute it reads *November 2026 · live from
+   CBC*, with India and International beside the revenue.
+
+**Next month:** in `CbcDangal`, change `var DG_TAB = 'Nov 2026';` to the new
+tab name, Save, and do step 4 again.
+
+**To undo:** delete the `CbcDangal` file and do step 4. The old feed
+answers again.
+
+---
+
 # What to do — 6 Oct 2026
 
 Everything below takes about five minutes. After it, the sheet and the TV

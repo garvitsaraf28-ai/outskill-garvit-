@@ -95,6 +95,18 @@ body{
 .hero{display:flex; align-items:baseline; gap:14px; flex:none}
 .hero .v{font-weight:700; font-size:58px; letter-spacing:.01em; line-height:1}
 .hero .k{font-size:12px; color:var(--dim); letter-spacing:.2em; font-weight:800; text-transform:uppercase}
+.hero.geo{flex-direction:column; align-items:stretch; justify-content:center; gap:7px}
+.hero.geo .gl{display:flex; align-items:baseline; justify-content:space-between; gap:16px}
+.hero.geo .gl b{font-size:27px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1}
+.hero.geo .gl.ind b{color:var(--ind)}
+.hero.geo .gl.intl b{color:var(--intl)}
+/* the six CBC desk lines, in the panel that used to hold the day chart */
+.krow{display:flex; align-items:center; gap:12px; flex:1 1 0; min-height:0; max-height:34px; line-height:1.2}
+.krow .nm{width:190px; flex:none; font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.krow.ind .nm{color:var(--ind)} .krow.intl .nm{color:var(--intl)}
+.krow .bar{flex:1 1 auto; min-width:0}
+.krow .amt{width:74px; flex:none; text-align:right; font-weight:900; font-variant-numeric:tabular-nums; font-size:17px}
+.krow .sub{width:96px; flex:none; text-align:right; font-size:15px; font-weight:800; font-variant-numeric:tabular-nums}
 .sep{width:2px; height:52px; background:var(--line); flex:none}
 
 #coBar{flex:1 1 auto; min-width:260px}
@@ -712,7 +724,12 @@ body{
     <div id="brand"><b>SALES DANGAL</b><span id="periodSmall">month to date</span></div>
     <div class="sep"></div>
     <div class="hero"><div><div class="k">Revenue</div><div class="v" id="coRev">&mdash;</div></div></div>
-    <div class="hero"><div><div class="k">Units</div><div class="v" id="coUnits">&mdash;</div></div></div>
+    <!-- India and International, exactly as the CBC summary block shows
+         them (F117:G118 on the Nov 2026 tab). Units are not shown. -->
+    <div class="hero geo">
+      <div class="gl ind"><span class="k">India</span><b id="coInd">&mdash;</b></div>
+      <div class="gl intl"><span class="k">International</span><b id="coIntl">&mdash;</b></div>
+    </div>
     <div class="sep"></div>
     <div id="coBar">
       <div class="top">
@@ -761,12 +778,13 @@ body{
         <div class="bd" id="paceBd"></div>
       </div>
       <div class="panel" id="pDay">
-        <!-- "Payments by day", not "Revenue by day". AIGF Upgrade /
-             Catalyst now counts in every revenue figure on this screen
-             but it carries no payment date, so it cannot appear here.
-             Calling this chart Revenue would make it quietly fail to add
-             up to the headline above it. -->
-        <div class="hd"><h3>Payments by day</h3><div class="sub" id="daySub"></div></div>
+        <!-- THE SIX DESKS, line for line from the CBC summary block
+             (India Team-Bangalore ... India Team-Hyd). This panel used to
+             be "Payments by day"; the CBC month tab has no daily figure
+             that adds up to its own Realised Revenue, so a day chart
+             would have been the one panel on the wall not from CBC.
+             (The ids stay pDay/dayBd so the spotlight keeps working.) -->
+        <div class="hd"><h3>Desk totals</h3><div class="sub" id="daySub">as in CBC</div></div>
         <div class="bd" id="dayBd"></div>
       </div>
     </div>
@@ -782,7 +800,7 @@ body{
   </div>
 
   <div id="tick">
-    <div id="tickLab"><i></i><span id="tickLabText">Just Closed</span></div>
+    <div id="tickLab"><i></i><span id="tickLabText">Just Added</span></div>
     <div id="tickView"><div id="tickTrack"></div><div id="hot"></div></div>
   </div>
 
@@ -792,7 +810,6 @@ body{
     <div class="cityTop">
       <h2 id="cityName">&mdash;</h2>
       <div class="kv"><b id="cityRev">&mdash;</b><span>Revenue</span></div>
-      <div class="kv"><b id="cityUnits">&mdash;</b><span>Units</span></div>
       <div class="kv"><b id="cityAgents">&mdash;</b><span>Agents</span></div>
       <div class="grow"></div>
       <div class="att" id="cityAtt">&mdash;</div>
@@ -800,7 +817,7 @@ body{
     </div>
     <div class="cityHalves">
       <div class="half ind">
-        <div class="halfHead"><h3>Domestic</h3>
+        <div class="halfHead"><h3>India</h3>
           <div class="tot"><b id="indRev">&mdash;</b><span id="indSub">&nbsp;</span></div></div>
         <div class="halfBody" id="indBody"></div>
       </div>
@@ -824,7 +841,7 @@ body{
     <div id="celFx"><i></i><i></i><i></i></div>
     <div id="celBlink"></div>
     <div class="inner">
-      <div id="celEyebrow">Sale Closed</div>
+      <div id="celEyebrow">Revenue Added</div>
       <div id="celName">&mdash;</div>
       <div id="celAmt">&mdash;</div>
       <div id="celMeta">&nbsp;</div>
@@ -1048,7 +1065,7 @@ function loadData(){
   var url=CONFIG.API_URL+(CONFIG.API_URL.indexOf('?')>-1?'&':'?')+'callback='+cb+'&t='+Date.now();
   var timer=setTimeout(function(){ if(!done){ cleanup(); fail(); } }, 90000);
   window[cb]=function(p){ done=true; clearTimeout(timer); cleanup();
-    if(p&&p.ok) applyData(p); else fail(); };
+    if(p&&p.ok) applyData(p); else fail(p); };
   function cleanup(){ try{delete window[cb];}catch(e){window[cb]=undefined;}
     if(sc.parentNode) sc.parentNode.removeChild(sc); }
   sc.onerror=function(){ if(!done){ clearTimeout(timer); cleanup(); fail(); } };
@@ -1058,18 +1075,24 @@ function loadData(){
 /* A board with no real data must SAY so, never fall back to plausible
    numbers. A wrong figure read confidently off a wall is worse than an
    obviously broken screen, because nobody checks it. */
-function fail(){
+function fail(p){
   FAILS++;
-  if(!DATA){ stateScreen('unreachable'); return; }
+  /* The feed answered but could not read CBC (tab renamed, access lost).
+     Say exactly what it said rather than "cannot reach". */
+  if(!DATA){ stateScreen((p&&p.error)?'feed-error':'unreachable', p&&p.error); return; }
   paintLive();
 }
 
-function stateScreen(kind){
+function stateScreen(kind, msg){
   running=false; clearTimeout(deskTimer);
   var body = (kind==='not-configured')
     ? { k:'Setup needed', line:'NO <span class="accent">FEED</span> CONNECTED',
         note:'Open this page with the Apps Script web app URL on the end:<br>'+
              '<code>?api=&lt;your /exec URL&gt;?feed=warroom</code>' }
+    : (kind==='feed-error')
+    ? { k:'CBC could not be read', line:'NO <span class="accent">DATA</span> YET',
+        note:esc(msg||'')+'<div style="margin-top:12px;font-size:18px">Retrying every '+
+             Math.max(10,CONFIG.REFRESH_SECONDS)+' seconds.</div>' }
     : { k:'Cannot reach the feed', line:'NO <span class="accent">DATA</span> YET',
         note:'<b>Click the address below.</b> What it shows names the fault: the Executive '+
              'Command Center means the routing line is missing from doGet; a Google sign-in '+
@@ -1127,21 +1150,26 @@ function applyData(p){
   if(sig!==lastSig){ lastSig=sig; renderAll(); }
 }
 
+/* The FIRST payload only records what is already there - those closes
+   happened before this screen was switched on. An empty list counts as
+   seen too: the CBC feed starts every morning with no "just added", and
+   the first one of the day must still ring. */
 var lastSaleKey=null;
 function flashNewSale(){
   var r=(DATA.recent||[])[0];
-  if(!r){ return; }
-  var key=r.name+'|'+r.amt+'|'+r.at;
+  var key=r ? (r.name+'|'+r.amt+'|'+r.at) : '';
   if(lastSaleKey===null){ lastSaleKey=key; return; }
-  if(key===lastSaleKey) return;
+  if(!r || key===lastSaleKey) return;
   lastSaleKey=key;
   celebrate(r);
 }
 
 function signature(d){
-  return [d.totals.revenue,d.totals.units,d.totals.target,d.totals.offRoster,
+  return [d.totals.revenue,d.totals.target,d.totals.india,d.totals.international,
           d.cities.length,d.managers.length]
-    .concat(d.agents.slice(0,80).map(function(a){return a.name+':'+a.revenue+':'+a.units;}))
+    .concat(d.agents.map(function(a){return a.name+':'+a.revenue+':'+a.target;}))
+    .concat(d.managers.map(function(m){return m.name+':'+m.revenue;}))
+    .concat(d.desks.map(function(k){return k.label+':'+k.revenue;}))
     .concat((d.recent||[]).slice(0,10).map(function(r){return r.name+':'+r.amt;}))
     .join('|');
 }
@@ -1155,6 +1183,11 @@ function normalise(p){
     agents:(p.agents||[]).filter(function(a){return a&&a.name;}),
     recent:(p.recent||[]).filter(function(r){return r&&r.name;}),
     byDay:(p.byDay||[]).filter(function(d){return d&&d.d;}),
+    /* From the CBC feed: India / International and the six desk lines of
+       the CBC summary block, and the feed's own check that CBC adds up. */
+    geo:(p.geo||[]).filter(function(g){return g&&g.name;}),
+    desks:(p.desks||[]).filter(function(k){return k&&k.label;}),
+    checks:(p.checks||[]).filter(function(c){return c&&c.label;}),
     contest:p.contest||{active:false}
   };
   function clean(x){
@@ -1163,6 +1196,7 @@ function normalise(p){
     return x;
   }
   out.cities.forEach(clean); out.managers.forEach(clean); out.agents.forEach(clean);
+  out.geo.forEach(clean); out.desks.forEach(function(k){ clean(k); k.label=s(k.label); });
   out.recent.forEach(function(r){ r.name=s(r.name); r.city=s(r.city); r.team=s(r.team);
     r.manager=s(r.manager); r.amt=n(r.amt); r.at=n(r.at); });
   out.byDay.forEach(function(d){ d.d=n(d.d); d.rev=n(d.rev); d.units=n(d.units); });
@@ -1194,8 +1228,11 @@ function paintTop(){
   document.getElementById('periodSmall').textContent =
     joinDot(m.month||'', m.windowLabel||'') || 'month to date';
   countUp(document.getElementById('coRev'), n(t.revenue), money);
-  countUp(document.getElementById('coUnits'), n(t.units), function(v){
-    return Math.round(v).toLocaleString('en-IN'); });
+  /* India / International: the CBC summary block's own two lines. An
+     older feed without them leaves a dash rather than a guess. */
+  var hasGeo = t.india!=null && t.international!=null;
+  countUp(document.getElementById('coInd'),  n(t.india),         hasGeo?money:function(){return '—';});
+  countUp(document.getElementById('coIntl'), n(t.international), hasGeo?money:function(){return '—';});
   paintFresh();
   paintOffRoster();
   var p = pct(t.revenue, t.target), e = expectedPct();
@@ -1234,9 +1271,23 @@ function paintTop(){
    quiet day is real. What it must never do again is ASSERT that it is.
    So this now says what it actually knows - the newest payment IN THE
    MODEL - and names the one command that would prove it either way. */
+/* FROM 19 NOV 2026 THE BOARD READS CBC ONLY, and the CBC feed checks on
+   every read that CBC adds up: agent rows = Total row = India +
+   International = the six desk lines = the manager lines. If any check
+   fails, the wall says so in one muted line naming what disagrees,
+   instead of quietly picking a number. Nothing shows when CBC adds up.
+   (The older "newest sale in the model" note below only applies to the
+   old feed, which sends latestPayment; the CBC feed does not.) */
 function paintFresh(){
   var m=(DATA&&DATA.meta)||{}, el=document.getElementById('fresh');
   if(!el) return;
+  var bad=(DATA&&DATA.checks||[]).filter(function(c){ return !c.ok && c.level!=='info'; });
+  if(bad.length){
+    el.className='note';
+    el.textContent='CBC check: '+bad[0].label+(bad[0].detail?' - '+bad[0].detail:'')+
+                   (bad.length>1?' (+'+(bad.length-1)+' more)':'');
+    return;
+  }
   var latest=s(m.latestPayment), today=s(m.today);
   if(!latest||!today){ el.className=''; el.textContent=''; return; }
   if(latest>=today){ el.className=''; el.textContent=''; return; }
@@ -1415,7 +1466,7 @@ function celebrate(sale){
         width of the screen and already where closes live. */
   var hot=document.getElementById('hot'), bar=document.getElementById('tick');
   if(hot && bar){
-    hot.innerHTML='<em>JUST CLOSED</em><b>'+esc(sale.name)+'</b>'+
+    hot.innerHTML='<em>JUST ADDED</em><b>'+esc(sale.name)+'</b>'+
       '<span class="amt" id="hotAmt">'+money(0)+'</span>'+
       '<span class="mt">'+esc(joinDot(sale.city, sale.team, sale.manager))+
       (where ? ' &middot; now #'+where.rank+' on this desk' : '')+'</span>';
@@ -1597,7 +1648,11 @@ function teamTotals(){
 function renderDeskRace(){
   var bd=document.getElementById('deskRaceBd');
   if(!bd) return;
-  var ts=teamTotals();
+  /* India and International as CBC's summary block states them; the
+     target is the agents' own targets added up. Built from the agent
+     rows only when an older feed sends no geo. */
+  var ts=(DATA.geo&&DATA.geo.length) ? DATA.geo.slice().sort(function(a,b){ return b.revenue-a.revenue; })
+                                     : teamTotals();
   if(!ts.length){ bd.innerHTML='<div style="font-size:13px;color:var(--dim)">No team set on any agent</div>'; return; }
   bd.innerHTML = ts.slice(0,3).map(function(t){
     var p=pct(t.revenue,t.target), has=t.target>0;
@@ -1605,7 +1660,7 @@ function renderDeskRace(){
       '<div class="nm">'+esc(t.name)+'</div>'+
       '<div class="bar">'+(has?barHTML(p,11):'')+'</div>'+
       '<div class="amt '+(has?paceClass(p):'')+'">'+(has?p.toFixed(1)+'%':money(t.revenue))+'</div>'+
-      '<div class="sub">'+money(t.revenue)+' &middot; '+t.units+'u</div>'+
+      '<div class="sub">'+money(t.revenue)+' &middot; '+t.agents+' agents</div>'+
     '</div>';
   }).join('');
 }
@@ -1630,7 +1685,7 @@ function medalHTML(name, map){
 
 function renderAll(){
   renderAgents(); renderCities(); renderDeskRace();
-  renderPace(); renderDay(); renderManagers();
+  renderPace(); renderDesks(); renderManagers();
   /* A city screen on the wall when fresh figures land must move with
      them, or it sits on numbers the top bar has already left behind. */
   var cs = document.getElementById('cityScreen');
@@ -1719,7 +1774,7 @@ function renderAgents(){
   chip.textContent=teamLabel(v.team);
 
   document.getElementById('deskMeta').innerHTML=
-    '<b>'+money(v.revenue)+'</b><span>'+v.headcount+' agents · '+v.units+' units'+
+    '<b>'+money(v.revenue)+'</b><span>'+v.headcount+' agents'+
     (v.pages>1 ? ' · page '+v.page+'/'+v.pages : '')+'</span>';
 
   var medals = companyTop3();
@@ -1730,12 +1785,12 @@ function renderAgents(){
     el.innerHTML=
       '<div class="rk">'+rk+'</div>'+
       '<div class="who"><b>'+esc(a.name)+moveHTML(a.move)+medalHTML(a.name, medals)+'</b>'+
-        '<span>'+esc(a.manager||'no manager')+' &middot; '+a.units+'u &middot; '+
+        '<span>'+esc(a.manager||'no manager')+' &middot; '+
         chaseHTML(a, i>0 ? v.rows[i-1] : null)+'</span></div>'+
       '<div class="bar">'+barHTML(p)+'</div>'+
       '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
         (has?p.toFixed(0)+'%':money(a.revenue))+'</b>'+
-        '<span>'+esc(has?money(a.revenue):(a.units+' units'))+'</span></div>';
+        '<span>'+esc(has?money(a.revenue):'no target')+'</span></div>';
   });
 
   if(!v.anyT && v.rows.length){
@@ -1794,12 +1849,12 @@ function renderCities(){
     return '<div class="crow'+(rk<=3?' p'+rk:'')+'" style="animation-delay:'+(rk*60)+'ms">'+
       '<div class="rk">'+rk+'</div>'+
       '<div class="who"><b>'+esc(c.name)+'</b><span>'+
-        esc(joinDot(money(c.revenue)+' of '+money(c.target), c.units+' units', c.agents+' agents'))+
+        esc(joinDot(money(c.revenue)+' of '+money(c.target), c.agents+' agents'))+
       '</span></div>'+
       '<div class="bar">'+(has?barHTML(p,13):'')+'</div>'+
       '<div class="fig"><b class="'+(has?paceClass(p):'')+'">'+
         (has?p.toFixed(1)+'%':money(c.revenue))+'</b>'+
-        '<span>'+esc(has?money(c.revenue):(c.units+' units'))+'</span></div>'+
+        '<span>'+esc(has?money(c.revenue):'no target')+'</span></div>'+
     '</div>';
   }).join('');
 }
@@ -1826,6 +1881,27 @@ function renderPace(){
    all in one week - which is the difference between a team that is fine
    and one about to miss. The best day is marked so there is something to
    beat, and today is marked so it can be seen being beaten. */
+/* THE SIX DESKS, as the CBC summary block lists them, ranked like every
+   other panel by attainment against the desk's own target (its agents'
+   targets added up - CBC's block carries revenue only). An older feed
+   without desk lines falls back to the day chart it used to show. */
+function renderDesks(){
+  var ks=DATA.desks||[], bd=document.getElementById('dayBd'), sub=document.getElementById('daySub');
+  var h=document.querySelector('#pDay h3');
+  if(!ks.length){ if(h) h.textContent='Payments by day'; renderDay(); return; }
+  if(h) h.textContent='Desk totals';
+  sub.textContent='as in CBC';
+  bd.innerHTML=ks.slice().sort(byAttain).map(function(k){
+    var p=attain(k), has=k.target>0;
+    return '<div class="krow '+teamClass(k.team)+'">'+
+      '<div class="nm">'+esc(k.label)+'</div>'+
+      '<div class="bar">'+(has?barHTML(p,10):'')+'</div>'+
+      '<div class="amt '+(has?paceClass(p):'')+'">'+(has?p.toFixed(1)+'%':'—')+'</div>'+
+      '<div class="sub">'+money(k.revenue)+'</div>'+
+    '</div>';
+  }).join('');
+}
+
 function renderDay(){
   var days=DATA.byDay||[], bd=document.getElementById('dayBd'), sub=document.getElementById('daySub');
   if(days.length<2){ bd.innerHTML='<div class="empty">Not enough days yet</div>'; sub.textContent=''; return; }
@@ -1883,7 +1959,7 @@ function renderManagers(){
         '<div class="who"><b>'+esc(m.name)+'</b><span>'+
           esc(joinDot(m.city, teamShort(m.team), m.agents+' agents'))+' &middot; no target set</span></div>'+
         '<div class="bar"></div>'+
-        '<div class="fig"><b>'+money(m.revenue)+'</b><span>'+m.units+' units</span></div>';
+        '<div class="fig"><b>'+money(m.revenue)+'</b><span>no target</span></div>';
     }
   });
 }
@@ -1891,11 +1967,14 @@ function renderManagers(){
 /* =====================================================================
    TICKER
    ===================================================================== */
+/* "JUST ADDED", not "Just Closed": the CBC feed sees an agent's Realised
+   Revenue go up between two reads of CBC, not individual sales, so the
+   honest word is that this much was ADDED for them. */
 function buildTicker(){
-  var r=DATA.recent||[], parts=[], lab='Just Closed';
+  var r=DATA.recent||[], parts=[], lab='Just Added';
   if(r.length){
     r.forEach(function(x){
-      parts.push('<span class="ti"><em>CLOSED</em><b>'+esc(x.name)+'</b>'+
+      parts.push('<span class="ti"><em>ADDED</em><b>'+esc(x.name)+'</b>'+
         '<span class="amt">'+money(x.amt)+'</span>'+
         '<span class="mt">'+esc(joinDot(x.city,x.team,x.manager))+'</span>'+
         '<span class="dv">|</span></span>');
@@ -1910,7 +1989,7 @@ function buildTicker(){
       live.forEach(function(a){
         parts.push('<span class="ti"><em>MTD</em><b>'+esc(a.name)+'</b>'+
           '<span class="amt">'+money(a.revenue)+'</span>'+
-          '<span class="mt">'+esc(joinDot(a.city,a.manager))+' · '+a.units+'u</span>'+
+          '<span class="mt">'+esc(joinDot(a.city,a.manager))+'</span>'+
           '<span class="dv">|</span></span>');
       });
     } else {
@@ -2024,19 +2103,23 @@ function scheduleScreens(){
 function renderCity(city){
   var all = (DATA.agents||[]).filter(function(a){ return s(a.city) === city; });
   var mgs = (DATA.managers||[]).filter(function(m){ return s(m.city) === city; });
+  var row = (DATA.cities||[]).filter(function(c){ return s(c.name) === city; })[0];
+  var ks  = (DATA.desks||[]).filter(function(k){ return s(k.city) === city; });
 
-  var rev = 0, units = 0, tgt = 0;
-  all.forEach(function(a){ rev += n(a.revenue); units += n(a.units); });
-  mgs.forEach(function(m){ tgt += n(m.target); });
-  /* No manager targets - fall back to the city row the feed sends. */
-  if(!tgt){
-    var row = (DATA.cities||[]).filter(function(c){ return s(c.name) === city; })[0];
-    if(row) tgt = n(row.target);
+  /* With the CBC feed the city's figure is its own row: the city's desk
+     lines from the CBC summary block added together, against its agents'
+     targets added up. An older feed without desk lines is summed from
+     the agents as before. */
+  var rev = 0, tgt = 0;
+  if(row && (DATA.desks||[]).length){ rev = n(row.revenue); tgt = n(row.target); }
+  else {
+    all.forEach(function(a){ rev += n(a.revenue); });
+    mgs.forEach(function(m){ tgt += n(m.target); });
+    if(!tgt && row) tgt = n(row.target);
   }
 
   document.getElementById('cityName').textContent   = city;
   document.getElementById('cityRev').textContent    = money(rev);
-  document.getElementById('cityUnits').textContent  = Math.round(units).toLocaleString('en-IN');
   document.getElementById('cityAgents').textContent = all.length;
   document.getElementById('cityTgt').textContent    = tgt ? money(tgt) : '—';
   var pc = document.getElementById('cityAtt');
@@ -2044,20 +2127,25 @@ function renderCity(city){
   pc.textContent = tgt ? p.toFixed(1) + '%' : '—';
   pc.className   = 'att ' + paceClass(p);
 
-  renderHalf('ind',  all.filter(function(a){ return teamClass(a.team) === 'ind';  }));
-  renderHalf('intl', all.filter(function(a){ return teamClass(a.team) === 'intl'; }));
+  function deskOf(tc){ return ks.filter(function(k){ return teamClass(k.team) === tc; })[0]; }
+  renderHalf('ind',  all.filter(function(a){ return teamClass(a.team) === 'ind';  }), deskOf('ind'));
+  renderHalf('intl', all.filter(function(a){ return teamClass(a.team) === 'intl'; }), deskOf('intl'));
 }
 
-function renderHalf(key, agents){
+/* `desk` is the CBC summary line for this half (e.g. "Intl Team-Hyd").
+   When it is there, the half's total IS that line; the manager blocks
+   below are the agent rows grouped by manager. */
+function renderHalf(key, agents, desk){
   var body = document.getElementById(key + 'Body');
   var tot  = document.getElementById(key + 'Rev');
   var sub  = document.getElementById(key + 'Sub');
   if(!body) return;
 
-  var rev = 0, units = 0;
-  agents.forEach(function(a){ rev += n(a.revenue); units += n(a.units); });
+  var rev = 0;
+  agents.forEach(function(a){ rev += n(a.revenue); });
+  if(desk) rev = n(desk.revenue);
   if(tot) tot.textContent = money(rev);
-  if(sub) sub.textContent = Math.round(units) + ' units · ' + agents.length + ' agents';
+  if(sub) sub.textContent = agents.length + ' agents' + (desk ? ' · ' + desk.label : '');
 
   if(!agents.length){
     body.innerHTML = '<div class="empty">No desk here this month</div>';
@@ -2068,8 +2156,8 @@ function renderHalf(key, agents){
   var by = {}, order = [];
   agents.forEach(function(a){
     var m = s(a.manager) || 'No manager';
-    if(!by[m]){ by[m] = { name:m, rev:0, units:0, list:[] }; order.push(m); }
-    by[m].rev += n(a.revenue); by[m].units += n(a.units); by[m].list.push(a);
+    if(!by[m]){ by[m] = { name:m, rev:0, list:[] }; order.push(m); }
+    by[m].rev += n(a.revenue); by[m].list.push(a);
   });
   var blocks = order.map(function(m){ return by[m]; })
                     .sort(function(x,y){ return y.rev - x.rev; });
@@ -2091,7 +2179,6 @@ function renderHalf(key, agents){
              '<span class="rk">' + (i + 1) + '</span>' +
              '<span class="an">' + esc(a.name) + '</span>' +
              '<span class="av">' + money(n(a.revenue)) + '</span>' +
-             '<span class="au">' + (n(a.units) ? n(a.units) + 'u' : '') + '</span>' +
              '</div>';
     }).join('');
 
@@ -2105,7 +2192,6 @@ function renderHalf(key, agents){
              '<span class="nm">' + esc(b.name) + '</span>' +
              '<span class="ct">' + b.list.length + ' agents</span>' +
              '<span class="rv">' + money(b.rev) + '</span>' +
-             '<span class="un">' + Math.round(b.units) + 'u</span>' +
            '</div>' +
            '<div class="track"><i style="width:' +
              Math.max(2, Math.min(100, b.rev / top * 100)).toFixed(1) + '%"></i></div>' +
@@ -2204,8 +2290,16 @@ function bigCelebrate(sale){
 var SAMPLE={ ok:true, sample:true,
   meta:{month:'October 2026', windowLabel:'MTD 1-6', day:6, days:31,
         generatedAt:Date.now(), latestPayment:'2026-10-05', today:'2026-10-06'},
-  totals:{revenue:1350000, units:21, target:43800000,
-          offRoster:749000, offRosterUnits:11},
+  totals:{revenue:1350000, target:43800000, india:695000, international:655000},
+  geo:[{name:'India',revenue:695000,target:23400000,agents:52},
+       {name:'International',revenue:655000,target:20400000,agents:34}],
+  desks:[{label:'India Team-Hyd',city:'Hyderabad',team:'India',revenue:369000,target:10000000,agents:24},
+         {label:'Intl Team-Hyd',city:'Hyderabad',team:'International',revenue:0,target:11000000,agents:21},
+         {label:'India Team-Bangalore',city:'Bangalore',team:'India',revenue:80000,target:2800000,agents:5},
+         {label:'Intl Team-Bangalore',city:'Bangalore',team:'International',revenue:500000,target:9700000,agents:13},
+         {label:'India Team-Bbsr',city:'Bhubaneswar',team:'India',revenue:246000,target:10600000,agents:23},
+         {label:'Intl Team-Bbsr',city:'Bhubaneswar',team:'International',revenue:155000,target:0,agents:0}],
+  checks:[],
   cities:[{name:'Bangalore',revenue:580000,units:8,target:12500000,agents:18},
           {name:'Bhubaneswar',revenue:401000,units:7,target:10300000,agents:23},
           {name:'Hyderabad',revenue:369000,units:6,target:21000000,agents:45}],
